@@ -15,30 +15,17 @@ use DBI;
 
 binmode STDERR, ":utf8"; 
 
-#my $dbname = 'Gob';
-#my $user = 'smartsea';
-#my $pass = 'SGnwsLmA9yoHg';
-#my $db = "PG:dbname='$dbname' host='localhost' port='5432' user='$user' password='$pass'";
-#my $data_path = '/home/cloud-user/data';
-
-my $dbname = 'SmartSea';
-my $user = 'ajolma';
-my $pass = 'ajolma';
-my $db = "PG:dbname='$dbname' host='localhost' port='5432' user='$user' password='$pass'";
-my $data_path = '/home/ajolma/data/SmartSea';
-
 sub new {
-    my ($class, $parameters) = @_;
-    my $self = {};
+    my ($class, $self) = @_;
     $self->{plan} = Geo::GDAL::Open(
-        Name => $db,
+        Name => $self->{db},
         Type => 'Vector');
     #my @l = $self->{plan}->GetLayerNames;
     #print STDERR "layers = @l\n";
-    $self->{depth} = Geo::GDAL::Open("$data_path/depth-classes.tiff");
-    $self->{natura} = Geo::GDAL::Open("$data_path/natura.tiff");
-    $self->{VelmuSyvyys} = Geo::GDAL::Open("$data_path/VelmuSyvyys/VelmuSyvyysEez.tif");
-    $self->{surf_sal} = Geo::GDAL::Open("$data_path/surf_sal/surf_sal_final.tif");
+    $self->{depth} = Geo::GDAL::Open("$self->{data_path}/depth-classes.tiff");
+    $self->{natura} = Geo::GDAL::Open("$self->{data_path}/natura.tiff");
+    $self->{VelmuSyvyys} = Geo::GDAL::Open("$self->{data_path}/VelmuSyvyys/VelmuSyvyysEez.tif");
+    $self->{surf_sal} = Geo::GDAL::Open("$self->{data_path}/surf_sal/surf_sal_final.tif");
     return bless $self, $class;
 }
 
@@ -47,7 +34,7 @@ sub config {
 
     my @tilesets = ();
 
-    my $dbh = DBI->connect("dbi:Pg:dbname=$dbname", $user, $pass, {AutoCommit => 0});
+    my $dbh = DBI->connect("dbi:Pg:dbname=$self->{dbname}", $self->{user}, $self->{pass}, {AutoCommit => 0});
     my $uses = $dbh->selectall_arrayref("select use_id,layer_id from tool.uses_list");
     my $plans = $dbh->selectall_arrayref("select id from tool.plans");
 
