@@ -1,0 +1,10 @@
+package SmartSea::Schema::Result::Use;
+use base qw/DBIx::Class::Core/;
+
+__PACKAGE__->table('tool.uses');
+__PACKAGE__->add_columns(qw/ id title /);
+__PACKAGE__->set_primary_key('id');
+__PACKAGE__->has_many(use2layer => 'SmartSea::Schema::Result::Use2Layer', 'use');
+__PACKAGE__->many_to_many(layers => 'use2layer', 'layer');
+
+1;
