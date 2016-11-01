@@ -99,12 +99,20 @@ function boot_map(options) {
             planlist.append(element('option',{value:plan.my_id},plan.title));
         });
         planlist.change(function () {
-            plan = {my_id:$("#plans").val(), title:$("#plans :selected").text()};
+            plan = {my_id:$("#plans").val()};
+            $.each(plans, function(i, p) {
+                if (p.my_id == plan.my_id) {
+                    plan.rules = p.rules;
+                    plan.title = p.title;
+                    return false;
+                }
+            });
             if (uses) {
                 map.removeLayer(analysisSite);
                 addLayers(map, proj, uses, plan, false);
                 map.addLayer(analysisSite);
             }
+            fill_rules_panel();
         }).change();
         
         plan = plans[0];
@@ -113,12 +121,32 @@ function boot_map(options) {
         }).done(function(ret) {
             uses = ret;
             addLayers(map, proj, uses, plan, true);
+            var rule_use_menu = $("#rule_use_menu");
+            $.each(uses, function(i, use) {
+                rule_use_menu.append(element('option',{value:use.my_id},use.title));
+            });
+            rule_use_menu.change(fill_rules_panel).change();
             addExplainTool(uses);
         });
     });
     
 }
 
+function fill_rules_panel() {
+    var use = $("#rule_use_menu").val();
+    // clear rule list, fill it with new
+    var r = $("#rules");
+    r.empty();
+    $.each(plan.rules, function(i, u) {
+        if (u.id == use) {
+            $.each(u.rules, function(i, rule) {
+                r.append(element('input', {type:"checkbox",value:rule.id}, rule.text));
+                r.append(element('br'));
+            });
+            return false;
+        }
+    });
+}
 
 function addExplainTool(uses) {
 

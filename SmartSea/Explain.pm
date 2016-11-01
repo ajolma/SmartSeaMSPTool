@@ -8,19 +8,18 @@ use Plack::App::File;
 use Geo::GDAL;
 use PDL;
 
-use parent qw/Plack::Component/;
+use SmartSea::Core;
 
-#my $data_path = '/home/cloud-user/data';
-my $data_path = '/home/ajolma/data/SmartSea';
+use parent qw/Plack::Component/;
 
 binmode STDERR, ":utf8"; 
 
 sub new {
-    my ($class, $parameters) = @_;
-    my $self = Plack::Component->new($parameters);
-    $self->{sea} = Geo::GDAL::Open("$data_path/sum.tiff");
-    $self->{depth} = Geo::GDAL::Open("$data_path/depth-classes.tiff");
-    $self->{natura} = Geo::GDAL::Open("$data_path/natura.tiff");
+    my ($class, $self) = @_;
+    $self = Plack::Component->new($self);
+    $self->{sea} = Geo::GDAL::Open("$self->{config}{data_path}/sum.tiff");
+    $self->{depth} = Geo::GDAL::Open("$self->{config}{data_path}/depth-classes.tiff");
+    $self->{natura} = Geo::GDAL::Open("$self->{config}{data_path}/natura.tiff");
     return bless $self, $class;
 }
 
@@ -152,45 +151,6 @@ sub canvas {
     $wkt_ds->Rasterize($canvas, { l => 'wkt', burn => 1 });
 
     return ($canvas, $e, $d > 1, $cell_area, $l_col, $u_row, $w, $h, $W, $H);
-}
-
-sub json200 {
-    my $data = shift;
-    my $json = JSON->new;
-    $json->utf8;
-    return [
-        200, 
-        [ 'Content-Type' => 'application/json; charset=utf-8',
-          'Access-Control-Allow-Origin' => '*' ],
-        [$json->encode($data)]];
-}
-
-sub return_400 {
-    my $self = shift;
-    return [400, ['Content-Type' => 'text/plain', 'Content-Length' => 11], ['Bad Request']];
-}
-
-sub return_403 {
-    my $self = shift;
-    return [403, ['Content-Type' => 'text/plain', 'Content-Length' => 9], ['forbidden']];
-}
-
-sub common_responses {
-    my $env = shift;
-    if (!$env->{'psgi.streaming'}) {
-        return [ 500, ["Content-Type" => "text/plain"], ["Internal Server Error (Server Implementation Mismatch)"] ];
-    }
-    if ($env->{REQUEST_METHOD} eq 'OPTIONS') {
-        return [ 200, 
-                 [
-                  "Access-Control-Allow-Origin" => "*",
-                  "Access-Control-Allow-Methods" => "GET,POST",
-                  "Access-Control-Allow-Headers" => "origin,x-requested-with,content-type",
-                  "Access-Control-Max-Age" => 60*60*24
-                 ], 
-                 [] ];
-    }
-    return undef;
 }
 
 1;

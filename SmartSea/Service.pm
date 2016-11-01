@@ -7,55 +7,41 @@ use Encode qw(decode encode);
 use Plack::App::File;
 use Geo::GDAL;
 use PDL;
+use SmartSea::Core;
+use SmartSea::HTML;
+use SmartSea::Schema;
 
 use parent qw/Plack::Component/;
-
-#my $data_path = '/home/cloud-user/data';
-my $data_path = '/home/ajolma/data/SmartSea';
 
 binmode STDERR, ":utf8"; 
 
 sub new {
-    my ($class, $params) = @_;
-    my $self = Plack::Component->new($params);
+    my ($class, $self) = @_;
+    $self = Plack::Component->new($self);
+    my $dsn = "dbi:Pg:dbname=$self->{dbname}";
+    $self->{schema} = SmartSea::Schema->connect($dsn, $self->{user}, $self->{pass}, {});
     return bless $self, $class;
 }
 
 sub call {
     my ($self, $env) = @_;
     my $ret = common_responses($env);
-
-    if ($env->{REQUEST_URI} =~ /uses$/) {
-        return $self->uses();
-    }
-    if ($env->{REQUEST_URI} =~ /plans$/) {
-        return $self->plans();
-    }
-    if ($env->{REQUEST_URI} =~ /impact_network$/) {
-        return $self->impact_network();
-    }
-    if ($env->{REQUEST_URI} =~ /datasets([\/\w]*)$/) {
-        return $self->dataset($1);
-    }
-
     return $ret if $ret;
-    my $request = Plack::Request->new($env);
-    my $parameters = $request->parameters;
-    for my $key (sort keys %$env) {
-        my $val = $env->{$key} // '';
-        say STDERR "env: $key => $val";
+    my $uri = $env->{REQUEST_URI};
+    for ($uri) {
+        return $self->uses() if /uses$/;
+        return $self->plans() if /plans$/;
+        return $self->impact_network() if /impact_network$/;
+        return $self->dataset($1) if /datasets([\/\w]*)$/;
+        last;
     }
-    for my $key (sort keys %$parameters) {
-        my $val = $parameters->{$key} // '';
-        say STDERR "params: $key => $val";
-    }
-    my $report = "foo bar";
-    return json200({report => $report});
-}
-
-sub a {
-    my ($link, $url) = @_;
-    return [a => $link, {href=>$url}];
+    my @l;
+    push @l, [li => a(uses => $uri.'/uses')];
+    push @l, [li => a(plans => $uri.'/plans')];
+    push @l, [li => a(impact_network => $uri.'/impact_network')];
+    push @l, [li => a(datasets => $uri.'/datasets')];
+    my $html = SmartSea::HTML->new(html => [body => [ul => \@l]]);
+    return html200($html->html);
 }
 
 sub add_dataset_description {
@@ -117,9 +103,7 @@ sub dataset {
 
         $dbh->disconnect;
 
-        my $html = HTML->new;
-        $html->element(html => [body => $body]);
-        return html200($html->html);
+        return html200(SmartSea::HTML->new(html => [body => $body])->html);
     }
 
     my $sets = $dbh->selectall_arrayref("select id,name from data.datasets where not path isnull");
@@ -128,47 +112,66 @@ sub dataset {
         push @l, [li => [a => $row->[1], {href=>"datasets/$row->[0]"}]];
     }
 
-    my $html = HTML->new;
-    $html->element(html => [body => [ul => \@l]]);
-    return html200($html->html);
+    return html200(SmartSea::HTML->new(html => [body => [ul => \@l]])->html);
 }
 
 sub uses {
     my $self = shift;
-    my $dbh = DBI->connect("dbi:Pg:dbname=$self->{dbname}", $self->{user}, $self->{pass}, {AutoCommit => 0});
-    my $uses = $dbh->selectall_arrayref("select use,layer,use_id,layer_id from tool.uses_list");
     my @uses;
-    my $title;
-    my $id;
-    my @layers;
-    for my $row (@$uses) {
-        my $l = lc($row->[0] .'_'. $row->[1]);
-        if ($title and $title ne $row->[0]) {
-            push @uses, {
-                title => $title,
-                my_id => $id,
-                layers => [@layers]
-            };
-            @layers = ();
+    for my $use ($self->{schema}->resultset('Use')->search(undef, {order_by => ['me.id']})) {
+        my @layers;
+        my $rels = $use->use2layer->search(undef, {order_by => { -desc => 'me.layer'}});
+        while (my $rel = $rels->next) {
+            push @layers, {title => $rel->layer->data, my_id => $rel->layer->id};
         }
-        $title = $row->[0];
-        $id = $row->[2];
-        push @layers, {title => $row->[1], my_id => $row->[3]};
+        push @uses, {
+            title => $use->title,
+            my_id => $use->id,
+            layers => \@layers
+        };
     }
-    push @uses, {
-        title => $title,
-        layers => [@layers]
-    };
     return json200(\@uses);
 }
 
 sub plans {
     my $self = shift;
-    my $dbh = DBI->connect("dbi:Pg:dbname=$self->{dbname}", $self->{user}, $self->{pass}, {AutoCommit => 0});
-    my $plans = $dbh->selectall_arrayref("select title,id from tool.plans order by title");
+    my $plans_rs = $self->{schema}->resultset('Plan');
+    my $rules_rs = $self->{schema}->resultset('Rule');
+    my $uses_rs = $self->{schema}->resultset('Use');
     my @plans;
-    for my $row (@$plans) {
-        push @plans, {title => $row->[0], my_id => $row->[1]};
+    for my $plan ($plans_rs->search(undef, {order_by => ['me.title']})) {
+        my @rules;
+        for my $use ($uses_rs->search(undef, {order_by => ['me.id']})) {
+            my @rules_for_use;
+            for my $rule ($rules_rs->search({ 'me.plan' => $plan->id,
+                                              'me.use' => $use->id },
+                                            { order_by => ['me.id'] })) {
+                
+                my $text;
+                $text = $rule->reduce ? "- " : "+ ";
+                if ($rule->r_layer->data eq 'Value') {
+                    $text .= $rule->r_layer->data." for ".$rule->r_use->title;
+                } elsif ($rule->r_layer->data eq 'Allocation') {
+                    $text .= $rule->r_layer->data." of ".$rule->r_use->title;
+                    $text .= $rule->r_plan ? " in plan".$rule->r_plan->title : " of this plan";
+                } # else?
+                $text .= " is ".$rule->r_op->op." ".$rule->r_value;
+
+                push @rules_for_use, {
+                    id => $rule->id,
+                    text => $text
+                };
+                
+            }
+                
+            push @rules, {
+                use => $use->title,
+                id => $use->id,
+                rules => \@rules_for_use
+            }
+            
+        }
+        push @plans, {title => $plan->title, my_id => $plan->id, rules => \@rules};
     }
     return json200(\@plans);
 }
@@ -213,73 +216,6 @@ sub impact_network {
     }
 
     return json200(\%elements);
-}
-
-sub json200 {
-    my $data = shift;
-    my $json = JSON->new;
-    $json->utf8;
-    return [
-        200, 
-        [ 'Content-Type' => 'application/json; charset=utf-8',
-          'Access-Control-Allow-Origin' => '*' ],
-        [$json->encode($data)]];
-}
-
-sub return_400 {
-    my $self = shift;
-    return [400, ['Content-Type' => 'text/plain', 'Content-Length' => 11], ['Bad Request']];
-}
-
-sub return_403 {
-    my $self = shift;
-    return [403, ['Content-Type' => 'text/plain', 'Content-Length' => 9], ['forbidden']];
-}
-
-sub common_responses {
-    my $env = shift;
-    if (!$env->{'psgi.streaming'}) {
-        return [ 500, ["Content-Type" => "text/plain"], ["Internal Server Error (Server Implementation Mismatch)"] ];
-    }
-    if ($env->{REQUEST_METHOD} eq 'OPTIONS') {
-        return [ 200, 
-                 [
-                  "Access-Control-Allow-Origin" => "*",
-                  "Access-Control-Allow-Methods" => "GET,POST",
-                  "Access-Control-Allow-Headers" => "origin,x-requested-with,content-type",
-                  "Access-Control-Max-Age" => 60*60*24
-                 ], 
-                 [] ];
-    }
-    return undef;
-}
-
-sub html200 {
-    my $html = shift;
-    return [ 200, 
-             [ 'Content-Type' => 'text/html; charset=utf-8',
-               'Access-Control-Allow-Origin' => '*' ], 
-             [encode utf8 => $html]
-        ];
-}
-
-{
-    package HTML;
-    use strict;
-    use warnings;
-    our @ISA = qw(Geo::OGC::Service::XMLWriter);
-    sub new {
-        return bless {}, 'HTML';
-    }
-    sub write {
-        my $self = shift;
-        my $line = shift;
-        push @{$self->{cache}}, $line;
-    }
-    sub html {
-        my $self = shift;
-        return join '', @{$self->{cache}};
-    }
 }
 
 1;
