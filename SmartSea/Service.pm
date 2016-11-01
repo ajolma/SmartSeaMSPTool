@@ -147,23 +147,14 @@ sub plans {
                                               'me.use' => $use->id },
                                             { order_by => ['me.id'] })) {
                 
-                my $text;
-                $text = $rule->reduce ? "- " : "+ ";
-                if ($rule->r_layer->data eq 'Value') {
-                    $text .= $rule->r_layer->data." for ".$rule->r_use->title;
-                } elsif ($rule->r_layer->data eq 'Allocation') {
-                    $text .= $rule->r_layer->data." of ".$rule->r_use->title;
-                    $text .= $rule->r_plan ? " in plan".$rule->r_plan->title : " of this plan";
-                } # else?
-                $text .= " is ".$rule->r_op->op." ".$rule->r_value;
-
                 push @rules_for_use, {
                     id => $rule->id,
-                    text => $text
+                    text => rule_text($rule, $use->title),
+                    active => JSON::true
                 };
                 
             }
-                
+            
             push @rules, {
                 use => $use->title,
                 id => $use->id,
@@ -174,6 +165,23 @@ sub plans {
         push @plans, {title => $plan->title, my_id => $plan->id, rules => \@rules};
     }
     return json200(\@plans);
+}
+
+sub rule_text {
+    my ($rule, $use_title) = @_;
+    my $text;
+    $text = $rule->reduce ? "- " : "+ ";
+    my $u = '';
+    $u = $rule->r_use->title if $rule->r_use->title ne $use_title;
+    if ($rule->r_layer->data eq 'Value') {
+        $u = " for ".$u if $u;
+        $text .= $rule->r_layer->data.$u;
+    } elsif ($rule->r_layer->data eq 'Allocation') {
+        $u = " of ".$u if $u;
+        $text .= $rule->r_layer->data.$u;
+        $text .= $rule->r_plan ? " in plan".$rule->r_plan->title : " of this plan";
+    } # else?
+    $text .= " is ".$rule->r_op->op." ".$rule->r_value;
 }
 
 sub impact_network {

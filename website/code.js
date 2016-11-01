@@ -26,6 +26,8 @@ USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 DAMAGE.
 */
 
+var right_width = 220; // from layout.css
+
 var map = null;
 var proj = null;
 var uses = null;
@@ -63,7 +65,7 @@ var analysisSite = null;
 
 function window_resize() {
     var h = $(window).height() -  $('.header').height() - $('.plot').height();
-    var w = $(window).width() - 200 - 15;
+    var w = $(window).width() - right_width - 15;
     $('#map')
         .height(h)
         .width(w);
@@ -107,12 +109,8 @@ function boot_map(options) {
                     return false;
                 }
             });
-            if (uses) {
-                map.removeLayer(analysisSite);
-                addLayers(map, proj, uses, plan, false);
-                map.addLayer(analysisSite);
-            }
             fill_rules_panel();
+            if (uses) new_plan();
         }).change();
         
         plan = plans[0];
@@ -132,6 +130,12 @@ function boot_map(options) {
     
 }
 
+function new_plan() {
+    map.removeLayer(analysisSite);
+    addLayers(map, proj, uses, plan, false);
+    map.addLayer(analysisSite);
+}
+
 function fill_rules_panel() {
     var use = $("#rule_use_menu").val();
     // clear rule list, fill it with new
@@ -140,8 +144,34 @@ function fill_rules_panel() {
     $.each(plan.rules, function(i, u) {
         if (u.id == use) {
             $.each(u.rules, function(i, rule) {
-                r.append(element('input', {type:"checkbox",value:rule.id}, rule.text));
+                r.append(element('input', {
+                    type:"checkbox",
+                    plan: plan.my_id,
+                    use: use, 
+                    rule:rule.id,
+                    checked:"checked"
+                }, rule.text));
+                rule.active = true;
                 r.append(element('br'));
+                // if r changed, call new_plan()
+            });
+            $("#rules :checkbox").change(function() {
+                var plan_id = $(this).attr('plan');
+                var use_id = $(this).attr('use');
+                var rule_id = $(this).attr('rule');
+                var active = this.checked;
+                $.each(plan.rules, function(i, u) {
+                    if (u.id == use) {
+                        $.each(u.rules, function(i, rule) {
+                            if (rule.id = rule_id) {
+                                rule.active = active;
+                            }
+                            return false;
+                        });
+                        return false;
+                    }
+                });
+                new_plan();
             });
             return false;
         }

@@ -8,7 +8,7 @@ use JSON;
 
 require Exporter;
 our @ISA = qw(Exporter);
-our @EXPORT    = qw(common_responses html200 json200 return_400 return_403 a);
+our @EXPORT    = qw(common_responses html200 json200 return_400 return_403 a parse_integer);
 
 sub common_responses {
     my $env = shift;
@@ -64,3 +64,15 @@ sub a {
     my ($link, $url) = @_;
     return [a => $link, {href=>$url}];
 }
+
+sub parse_integer {
+    my $s = shift;
+    my $i;
+    if ($s =~ /^(\d+)/a) {
+        $i = $1;
+        $s =~ s/^\d+\D*//a;
+    }
+    return ($s, $i);
+}
+
+1;

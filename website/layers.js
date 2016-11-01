@@ -43,6 +43,17 @@ function addLayers(map, proj, uses, plan, boot) {
                 var name = use.my_id + '_' + layer.my_id;
                 if (layer.title === 'Allocation') {
                     name += '_'+plan.my_id;
+
+                    // add rules
+                    $.each(plan.rules, function(i, u) {
+                        if (u.id == use.my_id) {
+                            $.each(u.rules, function(i, rule) {
+                                if (rule.active) name += '_'+rule.id;
+                            });
+                            return false;
+                        }
+                    });
+
                     if (layer.object) layer.object = null;
                 }
                 //name = name.replace(new RegExp(' ', 'g'), '_');
