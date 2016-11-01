@@ -40,13 +40,13 @@ function addLayers(map, proj, uses, plan, boot) {
 
             if (plan) {
                 // initial boot or new plan
-                var name = use.title + '_' + layer.title;
+                var name = use.my_id + '_' + layer.my_id;
                 if (layer.title === 'Allocation') {
-                    name += '_'+plan;
+                    name += '_'+plan.my_id;
                     if (layer.object) layer.object = null;
                 }
-                name = name.replace(new RegExp(' ', 'g'), '_');
-                name = name.toLowerCase();
+                //name = name.replace(new RegExp(' ', 'g'), '_');
+                //name = name.toLowerCase();
                 layer.name = name;
             }
 

@@ -27,6 +27,7 @@
             <br/>
             <label><b>Explain site</b></label><br/>
             <select id="ia_type">
+              <option value=""></option>
               <option value="Point">Point</option>
               <option value="Polygon">Polygon</option>
             </select>
@@ -46,21 +47,42 @@
             </div>
             
             <div>
-              <br/>
-              <b>Displaying </b>
-              <select name="plan" id="plans">
-              </select>
               <br />
               <b>Allocation</b>
               <table border=1>
                 <tr><td bgcolor="#55FFFF">Current use</td></tr>
                 <tr><td bgcolor="#FF423D">New allocation</td></tr>
               </table>
+
+              <br/>
+              <b>Displaying </b>
+              <select name="plan" id="plans">
+              </select>
+
+              <br/>Rules for<br/>
+              <select name="rules" id="rules">
+                <option value="">Protected areas</option>
+                <option value="Point">Fisheries</option>
+                <option value="Polygon">Offshore wind farms</option>
+                <option value="Polygon">...</option>
+              </select>
+
+              <br/>Default is true<br/>
+              <div id="" style="overflow-y:scroll; height:100px;">
+                <input type="checkbox" name="vehicle" value="Bike">- Offshore wind farms.Value < 3</input><br>
+                <input type="checkbox" name="vehicle" value="Bike">- Protected areas.Allocation.Current use</input><br>
+                <input type="checkbox" name="vehicle" value="Bike">+ Fisheries.Value < 2</input><br>
+                <input type="checkbox" name="vehicle" value="Bike">Rule 4</input><br>
+                <input type="checkbox" name="vehicle" value="Bike">Rule 5</input><br>
+                <input type="checkbox" name="vehicle" value="Bike">Rule 6</input><br>
+              </div>
+
             </div>
 
             <br/>
             <label><b>Impacts</b></label><br/>
             <select id="impact_geom_type">
+              <option value=""></option>
               <option value="Point">Point</option>
               <option value="Polygon">Polygon</option>
             </select>

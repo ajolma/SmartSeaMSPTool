@@ -99,7 +99,7 @@ function boot_map(options) {
             planlist.append(element('option',{value:plan.my_id},plan.title));
         });
         planlist.change(function () {
-            plan = $("#plans option:selected").value;
+            plan = {my_id:$("#plans").val(), title:$("#plans :selected").text()};
             if (uses) {
                 map.removeLayer(analysisSite);
                 addLayers(map, proj, uses, plan, false);
@@ -107,6 +107,7 @@ function boot_map(options) {
             }
         }).change();
         
+        plan = plans[0];
         $.ajax({
             url: 'http://'+server+'/core/uses'
         }).done(function(ret) {
@@ -137,7 +138,7 @@ function addExplainTool(uses) {
         var feature = evt.feature;
         var geom = feature.getGeometry();
         var type = geom.getType();
-        var query = 'plan='+plan+'&';
+        var query = 'plan='+plan.my_id+'&';
         $.each(uses, function(i, use) {
             $.each(use.layers, function(j, layer) {
                 if (layer.visible) query += 'layer='+layer.name+'&';
@@ -180,28 +181,34 @@ function addExplainTool(uses) {
     
     var typeSelect = $('#ia_type')[0];
 
-    var draw;
+    var draw = {};
     function addInteraction() {
         var value = typeSelect.value;
         if (value == 'Polygon') {
-            if (draw) map.unByKey(draw);
+            if (draw.key) {
+                map.unByKey(draw.key);
+                draw.key = null;
+            }
             var geometryFunction, maxPoints;
-            draw = new ol.interaction.Draw({
+            draw.draw = new ol.interaction.Draw({
                 source: source,
                 type: /** @type {ol.geom.GeometryType} */ (value),
                 geometryFunction: geometryFunction,
                 maxPoints: maxPoints
             });
 
-            map.addInteraction(draw);
+            map.addInteraction(draw.draw);
 
-            draw.on('drawstart', function() {
+            draw.draw.on('drawstart', function() {
                 source.clear();
             });
 
         } else if (value == 'Point') {
-            if (draw) map.removeInteraction(draw);
-            draw = map.on('click', function(evt) {
+            if (draw.draw) {
+                map.removeInteraction(draw.draw);
+                draw.draw = null;
+            }
+            draw.key = map.on('click', function(evt) {
                 var coordinates = evt.coordinate;
                 var f = new ol.Feature({
                     geometry: new ol.geom.Point(coordinates)
@@ -210,6 +217,17 @@ function addExplainTool(uses) {
                 source.clear();
                 source.addFeature(f);
             });
+        } else {
+            if (draw.key) {
+                map.unByKey(draw.key);
+                draw.key = null;
+            }
+            if (draw.draw) {
+                map.removeInteraction(draw.draw);
+                draw.draw = null;
+            }
+            source.clear();
+            $('#info').html('');
         }
     }
     typeSelect.onchange = addInteraction;

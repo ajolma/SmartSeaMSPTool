@@ -13,19 +13,19 @@ use Data::Dumper;
 use Geo::OGC::Service;
 use DBI;
 
+use SmartSea::Schema;
+
 binmode STDERR, ":utf8"; 
 
 sub new {
     my ($class, $self) = @_;
-    $self->{plan} = Geo::GDAL::Open(
-        Name => $self->{db},
+    my $dsn = "dbi:Pg:dbname=$self->{dbname}";
+    $self->{dbh} = DBI->connect($dsn, $self->{user}, $self->{pass}, {});
+    $self->{schema} = SmartSea::Schema->connect($dsn, $self->{user}, $self->{pass}, {});
+    $dsn = "PG:dbname='$self->{dbname}' host='localhost' port='5432'";
+    $self->{GDALVectorDataset} = Geo::GDAL::Open(
+        Name => "$dsn user='$self->{user}' password='$self->{pass}'",
         Type => 'Vector');
-    #my @l = $self->{plan}->GetLayerNames;
-    #print STDERR "layers = @l\n";
-    $self->{depth} = Geo::GDAL::Open("$self->{data_path}/depth-classes.tiff");
-    $self->{natura} = Geo::GDAL::Open("$self->{data_path}/natura.tiff");
-    $self->{VelmuSyvyys} = Geo::GDAL::Open("$self->{data_path}/VelmuSyvyys/VelmuSyvyysEez.tif");
-    $self->{surf_sal} = Geo::GDAL::Open("$self->{data_path}/surf_sal/surf_sal_final.tif");
     return bless $self, $class;
 }
 
@@ -34,9 +34,8 @@ sub config {
 
     my @tilesets = ();
 
-    my $dbh = DBI->connect("dbi:Pg:dbname=$self->{dbname}", $self->{user}, $self->{pass}, {AutoCommit => 0});
-    my $uses = $dbh->selectall_arrayref("select use_id,layer_id from tool.uses_list");
-    my $plans = $dbh->selectall_arrayref("select id from tool.plans");
+    my $uses = $self->{dbh}->selectall_arrayref("select use_id,layer_id from tool.uses_list");
+    my $plans = $self->{dbh}->selectall_arrayref("select id from tool.plans");
 
     my $tileset = sub {
         my $title = shift;
@@ -46,7 +45,7 @@ sub config {
             Resolutions => "9..19",
             SRS => "EPSG:3067",
             BoundingBox => $config->{BoundingBox3067},
-            file => "/home/ajolma/data/SmartSea/corine-sea.tiff",
+            file => "$self->{data_path}/corine-sea.tiff",
             ext => "png",
             'no-cache' => 1,
         };
@@ -75,133 +74,124 @@ sub config {
 sub process {
     my ($self, $dataset, $tile, $params) = @_;
 
-    say STDERR $params->{layer};
-
     $dataset = $dataset->Translate( "/vsimem/tmp.tiff", 
                                     ['-of' => 'GTiff', '-r' => 'nearest' , 
                                      '-outsize' , $tile->tile,
                                      '-projwin', $tile->projwin] );
-    my $data = $dataset->Band()->Piddle;
-
-    my $depth = $self->{depth}->Translate( "/vsimem/d.tiff", 
-                                           ['-of' => 'GTiff', '-r' => 'nearest' , 
-                                            '-outsize' , $tile->tile,
-                                            '-projwin', $tile->projwin] )
-        ->Band()->Piddle;
-    my $natura = $self->{natura}->Translate( "/vsimem/n.tiff", 
-                                             ['-of' => 'GTiff', '-r' => 'nearest' , 
-                                              '-outsize' , $tile->tile,
-                                              '-projwin', $tile->projwin] )
-        ->Band()->Piddle;
-    my $velmu_depth = $self->{depth}->Translate( "/vsimem/v.tiff",
-                                                 ['-of' => 'GTiff', '-r' => 'nearest' ,
-                                                  '-outsize' , $tile->tile,
-                                                  '-projwin', $tile->projwin] )
-        ->Band()->Piddle;
-
-    #$self->{plan}->Rasterize($dataset, [-a => 'value', -l => 'plan']);
-    #$self->{plan}->Rasterize($dataset, [-burn => 1, -l => 'merged']);
-
-    if ($params->{layer} eq 'fisheries_value') {
-        $data *= 0;
-        $dataset->Band()->Piddle($data);
-        $self->{plan}->Rasterize($dataset, [-burn => 1, -l => 'energy_scenarios']);
-
-        my $ct = Geo::GDAL::ColorTable->new();
-        # 0 is no data                                                                                     
-        $ct->Color(1, [0,0,0]);
-        $dataset->Band()->ColorTable($ct);
-
-        return $dataset;
-    }
-    if ($params->{layer} eq 'protected_areas_allocation') {
-        $data *= 0;
-	$dataset->Band()->Piddle($data);
-
-        $self->{plan}->Rasterize($dataset, [-burn => 1, -l => 'naturakohde_ma']);
-
-        my $ct = Geo::GDAL::ColorTable->new();
-        # 0 is no data                                                                                     
-	$ct->Color(1, [85,255,255]);
-        $dataset->Band()->ColorTable($ct);
-
-        return $dataset;
-    }
-    if ($params->{layer} eq 'offshore_wind_farms_value') {
-
-        #print STDERR $velmu_depth->range([0,10],[0,10]);                                                  
-        $dataset->Band()->Piddle($velmu_depth);
-
-        my $ct = Geo::GDAL::ColorTable->new();
-        # 0 is no data                                                                                     
-        my $k = (0-255)/(10-1);
-        for my $d (1..10) {
-            my $r = 255+$k*($d-1);
-            $ct->Color($d, $r, 255, 255);
-        }
-        for my $d (1..10) {
-            my $g = 255+$k*($d-1);
-            $ct->Color(10+$d, 0, $g, 255);
-        }
-        $dataset->Band()->ColorTable($ct);
-
-        return $dataset;
-    }
-    if ($params->{layer} eq 'fish_farming_suitability') {
-        $dataset = $self->{surf_sal}->Translate( "/vsimem/sal.tiff",
-                                                 ['-of' => 'GTiff', '-r' => 'nearest',
-                                                  '-scale' => '0.894 7.272',
-                                                  '-a_nodata' => '0',
-                                                  '-outsize' , $tile->tile,
-                                                  '-projwin', $tile->projwin] );
-        #say STDERR $surf_sal;                                                                             
-        #$dataset->Band()->Piddle($surf_sal);                                                              
-	return $dataset;
-    }
-
-    # data:
-    # 1 and 3 are territorial sea
-    # 2 is eez
-    # depth: 1=shallow, 2=transitional, 3=deep
-    # natura: 0=no / !0=yes
-
-    my $not_suitable = 1;
-    my $suitable_with_conditions = 2;
-    my $suitable = 3;
-
-    my $result = $data*0;
-    my $i = $result->where($depth == 1);
-    $i .= $suitable;
-    $i = $result->where($depth == 2);
-    $i .= $suitable_with_conditions;
-    $i = $result->where($depth == 3);
-    $i .= $not_suitable;
-    $i = $result->where($natura > 0);
-    $i .= $not_suitable;
-    $i = $result->where($data == 0);
-    $i .= 0;
-
-    $dataset->Band()->Piddle($result);
+    $dataset->Band(1)->ColorTable(value_color_table());
     
-    my @not_suitable = (255,66,61);
-    my @suitable_with_conditions = (255,133,61);
-    my @suitable = (31,203,10);
-
-    my $ct = Geo::GDAL::ColorTable->new();
-
-    say STDERR $params->{layer};
-    if ($params->{layer} eq 'fisheries_value') {
-        $ct->Color($not_suitable, \@suitable);
-        $ct->Color($suitable_with_conditions, \@suitable);
-        $ct->Color($suitable, \@suitable);
+    my ($use, $layer, $plan);
+    if ($params->{layer} =~ /^(\w+)_(\w+)_(\w+)/) {
+        $use = $self->{schema}->resultset('Use')->single({ id => $1 })->title;
+        $layer = $self->{schema}->resultset('Layer')->single({ id => $2 })->data;
+        $plan = $self->{schema}->resultset('Plan')->single({ id => $3 })->title;
+    } elsif ($params->{layer} =~ /^(\w+)_(\w+)/) {
+        $use = $self->{schema}->resultset('Use')->single({ id => $1 })->title;
+        $layer = $self->{schema}->resultset('Layer')->single({ id => $2 })->data;
+        $plan = '';
     } else {
-        $ct->Color($not_suitable, \@not_suitable);
-        $ct->Color($suitable_with_conditions, \@suitable_with_conditions);
-        $ct->Color($suitable, \@suitable);
+        return $dataset;
     }
-    $dataset->Band(1)->ColorTable($ct);
 
+    if ($use eq 'Protected areas') {
+        return $self->mpa_layer($dataset, $tile, $layer, $plan);
+    } elsif ($use eq 'Fisheries') {
+        return $self->fish_layer($dataset, $tile, $layer, $plan);
+    } elsif ($use eq 'Offshore wind farms') {
+        return $self->wind_layer($dataset, $tile, $layer, $plan);
+    } elsif ($use eq 'Fish farming') {
+        return $dataset;
+    } elsif ($use eq 'Geoenergy extraction') {
+        return $dataset;
+    } elsif ($use eq 'Disposal of dredged material') {
+        return $dataset;
+    } elsif ($use eq 'Coastal turism') {
+        return $dataset;
+    } elsif ($use eq 'Seabed mining') {
+        return $dataset;
+    } else {
+        return $dataset;
+    }
+}
+
+sub mpa_layer {
+    my ($self, $dataset, $tile, $layer, $plan) = @_;
+    if ($layer eq 'Allocation') {
+        my $data = $dataset->Band(1)->Piddle;
+        $data .= 0;
+        $dataset->Band(1)->Piddle($data);
+        $self->{GDALVectorDataset}->Rasterize($dataset, [-burn => 1, -l => 'naturakohde_meri_ma']);
+        $dataset->Band(1)->ColorTable(allocation_color_table());
+    }
     return $dataset;
+}
+
+sub fish_layer {
+    my ($self, $dataset, $tile, $layer, $plan) = @_;
+    if ($layer eq 'Value') {
+        my $data = $dataset->Band(1)->Piddle;
+        $data .= 0;
+        $dataset->Band(1)->Piddle($data);
+        $self->{GDALVectorDataset}->Rasterize($dataset, [-burn => 3, -l => 'plan bothnia.fishery']);
+        $dataset->Band(1)->ColorTable(value_color_table());
+    }
+    return $dataset;
+}
+
+sub wind_layer {
+    my ($self, $dataset, $tile, $layer, $plan) = @_;
+    if ($layer eq 'Value') {
+        my $wind = Geo::GDAL::Open("$self->{data_path}/tuuli/WS_100M/WS_100M.tif")
+            ->Translate( "/vsimem/tmp.tiff", 
+                         ['-of' => 'GTiff', '-r' => 'nearest' , 
+                          '-outsize' , $tile->tile,
+                          '-projwin', $tile->projwin] )
+            ->Band(1)
+            ->Piddle;
+
+        $wind *= $wind > 0;
+
+        # wind = 5.2 ... 9.7
+        my $data = $dataset->Band(1)->Piddle;
+
+        $data .= 4;
+
+        $data -= $wind < 8.5; # 3 where wind < 8
+        $data -= $wind < 7; # 2 where wind < 7
+        $data -= $wind < 6; # 1 where wind < 6
+        $data -= $wind <= 0; # 0 where wind <= 0
+        
+        $dataset->Band(1)->Piddle($data);
+        $dataset->Band(1)->ColorTable(value_color_table());
+    } elsif ($layer eq 'Allocation') {
+        my $data = $dataset->Band(1)->Piddle;
+        $data .= 0;
+        $dataset->Band(1)->Piddle($data);
+        if ($plan eq 'Plan Bothnia') {
+            $self->{GDALVectorDataset}->Rasterize($dataset, [-burn => 2, -l => 'plan bothnia.energy']);
+        } else {
+        }
+        $dataset->Band(1)->ColorTable(allocation_color_table());
+    }
+    return $dataset;
+}
+
+sub value_color_table {
+    my $ct = Geo::GDAL::ColorTable->new();
+    $ct->Color(0, [0,0,0,0]); # no data
+    $ct->Color(1, [255,255,255,255]); # no value
+    $ct->Color(2, [255,237,164,255]); # some value
+    $ct->Color(3, [255,220,78,255]); # valuable
+    $ct->Color(4, [255,204,0,255]); # high value
+    return $ct;
+}
+
+sub allocation_color_table {
+    my $ct = Geo::GDAL::ColorTable->new();
+    $ct->Color(0, [0,0,0,0]); # no data
+    $ct->Color(1, [85,255,255,255]); # current use
+    $ct->Color(2, [255,66,61,255]); # new allocation
+    return $ct;
 }
 
 1;
