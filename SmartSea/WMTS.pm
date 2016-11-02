@@ -100,11 +100,11 @@ sub process {
     }
 
     if ($use eq 'Protected areas') {
-        return $self->mpa_layer($dataset, $tile, $layer, $plan, @rules);
+        return $self->mpa_layer($dataset, $tile, $plan, $layer, @rules);
     } elsif ($use eq 'Fisheries') {
-        return $self->fish_layer($dataset, $tile, $layer, $plan, @rules);
+        return $self->fish_layer($dataset, $tile, $plan, $layer, @rules);
     } elsif ($use eq 'Offshore wind farms') {
-        return $self->wind_layer($dataset, $tile, $layer, $plan, @rules);
+        return $self->wind_layer($dataset, $tile, $plan, $layer, @rules);
     } elsif ($use eq 'Fish farming') {
         return $dataset;
     } elsif ($use eq 'Geoenergy extraction') {
@@ -121,7 +121,7 @@ sub process {
 }
 
 sub mpa_layer {
-    my ($self, $dataset, $tile, $layer, $plan, @rules) = @_;
+    my ($self, $dataset, $tile, $plan, $layer, @rules) = @_;
     if ($layer eq 'Allocation') {
         my $data = $dataset->Band(1)->Piddle;
         $data .= 0;
@@ -133,7 +133,7 @@ sub mpa_layer {
 }
 
 sub fish_layer {
-    my ($self, $dataset, $tile, $layer, $plan, @rules) = @_;
+    my ($self, $dataset, $tile, $plan, $layer, @rules) = @_;
     if ($layer eq 'Value') {
         my $data = $dataset->Band(1)->Piddle;
         $data .= 0;
@@ -145,7 +145,7 @@ sub fish_layer {
 }
 
 sub wind_layer {
-    my ($self, $dataset, $tile, $layer, $plan, @rules) = @_;
+    my ($self, $dataset, $tile, $plan, $layer, @rules) = @_;
     if ($layer eq 'Value') {
         my $data = $self->wind_value($dataset, $tile);        
         $dataset->Band(1)->Piddle($data);

@@ -27,21 +27,24 @@ sub call {
     my ($self, $env) = @_;
     my $ret = common_responses($env);
     return $ret if $ret;
-    my $uri = $env->{REQUEST_URI};
-    for ($uri) {
+    my $request = Plack::Request->new($env);
+    $self->{parameters} = $request->parameters;
+    $self->{uri} = $env->{REQUEST_URI};
+    for ($self->{uri}) {
         return $self->uses() if /uses$/;
         return $self->plans() if /plans$/;
+        return $self->rules($1) if /rules\/?([\w]*)$/;
         return $self->impact_network() if /impact_network$/;
         return $self->dataset($1) if /datasets([\/\w]*)$/;
         last;
     }
     my @l;
-    push @l, [li => a(uses => $uri.'/uses')];
-    push @l, [li => a(plans => $uri.'/plans')];
-    push @l, [li => a(impact_network => $uri.'/impact_network')];
-    push @l, [li => a(datasets => $uri.'/datasets')];
-    my $html = SmartSea::HTML->new(html => [body => [ul => \@l]]);
-    return html200($html->html);
+    push @l, [li => a(uses => $self->{uri}.'uses')];
+    push @l, [li => a(plans => $self->{uri}.'plans')];
+    push @l, [li => a(rules => $self->{uri}.'rules')];
+    push @l, [li => a(impact_network => $self->{uri}.'impact_network')];
+    push @l, [li => a(datasets => $self->{uri}.'datasets')];
+    return html200(SmartSea::HTML->new(html => [body => [ul => \@l]])->html);
 }
 
 sub dataset {
@@ -49,13 +52,20 @@ sub dataset {
     
     if ($set) {
 
-        $set =~ s/^\///;
+        ($set) = $set =~ /(\d+)/;
         $set = $self->{schema}->resultset('Dataset')->single({ id => $set });
         
         my $body;
         if ($set) {
-            my $path = $self->{data_path}.'/'.$set->path;
-            my $info = `gdalinfo $path`;
+            my $info;
+            if ($set->path =~ /^PG:/) {
+                my $dsn = $set->path;
+                $dsn =~ s/^PG://;
+                $info = `ogrinfo -so PG:dbname=$self->{dbname} '$dsn'`;
+            } else {
+                my $path = $self->{data_path}.'/'.$set->path;
+                $info = `gdalinfo $path`;
+            }
             $body = [[h2 => "GDAL info of ".$set->name.":"], [pre => $info]];
             push @$body, $set->as_HTML_data;
         } else {
@@ -68,7 +78,7 @@ sub dataset {
 
         my @l;
         for $set ($self->{schema}->resultset('Dataset')->search({path => {'!=', undef}})) {
-            push @l, [li => a($set->name, 'datasets/'.$set->id)];
+            push @l, [li => a($set->long_name, $self->{uri}.'/'.$set->id)];
         }
         return html200(SmartSea::HTML->new(html => [body => [ul => \@l]])->html);
 
@@ -109,7 +119,7 @@ sub plans {
                 
                 push @rules_for_use, {
                     id => $rule->id,
-                    text => $rule->as_text($use->title),
+                    text => $rule->as_text,
                     active => JSON::true
                 };
                 
@@ -125,6 +135,76 @@ sub plans {
         push @plans, {title => $plan->title, my_id => $plan->id, rules => \@rules};
     }
     return json200(\@plans);
+}
+
+sub rules {
+    my ($self, $rule) = @_;
+
+    if ($rule eq 'add') {
+
+        my $body = [];
+
+        if ($self->{parameters}{input}) {
+
+            my %rule_parameters;
+            for my $p (sort $self->{parameters}->keys) {
+                next if $p eq 'input';
+                $rule_parameters{$p} = $self->{parameters}{$p};
+                say STDERR "$p => $self->{parameters}{$p}";
+            }
+
+            eval {
+                $rule = $self->{schema}->resultset('Rule')->create(\%rule_parameters);
+            };
+            $rule = $@ if $@;
+
+            # if ok, show list
+            return $self->list_rules if ref $rule eq 'SmartSea::Schema::Result::Rule';
+
+            # if not ok, signal error and go back to form
+            push @$body, [p => 'No, this is not a good rule!'], [p => 'error is: '.$rule];
+        }
+
+        push @$body, [form => 
+                      {
+                          action => $self->{uri},
+                          method => 'POST'
+                      },
+                      SmartSea::Schema::Result::Rule::HTML_form_data($self->{parameters})];
+        return html200(SmartSea::HTML->new(html => [body => $body])->html);
+
+    } elsif ($rule) {
+
+        my $rules_rs = $self->{schema}->resultset('Rule');
+        ($rule) = $rule =~ /(\d+)/;
+        $rule = $rules_rs->single({ id => $rule });
+        return return_400 unless defined $rule;
+        return html200(SmartSea::HTML->new(html => [body => $rule->as_HTML_data])->html);
+
+    } else {
+
+        return $self->list_rules;
+
+    }
+}
+
+sub list_rules {
+    my $self = shift;
+    my $rules_rs = $self->{schema}->resultset('Rule');
+    my %data;
+    for my $rule ($rules_rs->search(undef, {order_by => [qw/me.id/]})) {
+        push @{$data{$rule->plan->title}{$rule->use->title}}, [li => a($rule->as_text => $self->{uri}.'/'.$rule->id)];
+    }
+    my @body;
+    for my $plan (sort keys %data) {
+        my @l;
+        for my $use (sort keys %{$data{$plan}}) {
+            push @l, [li => [[b => $use], [ul => \@{$data{$plan}{$use}}]]];
+        }
+        push @body, [b => $plan], [ul => \@l];
+    }
+    push @body, a(add => $self->{uri}.'add');
+    return html200(SmartSea::HTML->new(html => [body => \@body])->html);
 }
 
 sub impact_network {
