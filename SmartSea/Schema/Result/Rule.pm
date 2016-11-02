@@ -19,4 +19,21 @@ __PACKAGE__->belongs_to(r_layer => 'SmartSea::Schema::Result::Layer');
 __PACKAGE__->belongs_to(r_plan => 'SmartSea::Schema::Result::Plan');
 __PACKAGE__->belongs_to(r_op => 'SmartSea::Schema::Result::Op');
 
+sub as_text {
+    my ($self, $use_title) = @_;
+    my $text;
+    $text = $self->reduce ? "- " : "+ ";
+    my $u = '';
+    $u = $self->r_use->title if $self->r_use->title ne $use_title;
+    if ($self->r_layer->data eq 'Value') {
+        $u = " for ".$u if $u;
+        $text .= $self->r_layer->data.$u;
+    } elsif ($self->r_layer->data eq 'Allocation') {
+        $u = " of ".$u if $u;
+        $text .= $self->r_layer->data.$u;
+        $text .= $self->r_plan ? " in plan".$self->r_plan->title : " of this plan";
+    } # else?
+    $text .= " is ".$self->r_op->op." ".$self->r_value;
+}
+
 1;

@@ -44,75 +44,35 @@ sub call {
     return html200($html->html);
 }
 
-sub add_dataset_description {
-    my ($this, $sets, $body) = @_;
-
-    my @l;
-    push @l, [li => [[b => 'custodian'],[1 => " = $this->{custodian}"]]] if $this->{custodian};
-    push @l, [li => [[b => "contact"],[1 => " = $this->{contact}"]]] if $this->{contact};
-    push @l, [li => [[b => "description"],[1 => " = $this->{desc}"]]] if $this->{desc};
-    push @l, [li => [[b => "disclaimer"],[1 => " = $this->{disclaimer}"]]] if $this->{disclaimer};
-    push @l, [li => [[b => "license"],[1 => " = "],a($this->{license}{name}, $this->{license}{url})]] if $this->{license};
-    push @l, [li => [[b => "attribution"],[1 => " = $this->{attribution}"]]] if $this->{attribution};
-    push @l, [li => [[b => "data model"],[1 => " = $this->{'data model'}"]]] if $this->{'data model'};
-    push @l, [li => [[b => "unit"],[1 => " = $this->{unit}"]]] if $this->{unit};
-    push @$body, [ul => \@l];
-
-    my $x = $this->{'is a part of'};
-    if ($x && $sets->{$x}) {
-        my $super = $sets->{$x};
-        push @$body, [h2 => "'$this->{name}' is a part of '$super->{name}'"];
-        add_dataset_description($super, $sets, $body);
-    }
-    $x = $this->{'is derived from'};
-    if ($x && $sets->{$x}) {
-        my $super = $sets->{$x};
-        push @$body, [h2 => "'$this->{name}' is derived from '$super->{name}'"];
-        add_dataset_description($super, $sets, $body);
-    }
-}
-
 sub dataset {
     my ($self, $set) = @_;
-    $set =~ s/^\///;
-
-    my $dbh = DBI->connect("dbi:Pg:dbname=$self->{dbname}", $self->{user}, $self->{pass}, {AutoCommit => 0});
     
     if ($set) {
-        my $sets = $dbh->selectall_hashref("select * from data.datasets", 'id');
-        my $custodians = $dbh->selectall_hashref("select * from data.organizations", 'id');
-        my $data_models = $dbh->selectall_hashref("select * from data.\"data models\"", 'id');
-        my $licenses = $dbh->selectall_hashref("select * from data.licenses", 'id');
-        my $units = $dbh->selectall_hashref("select * from data.units", 'id');
-        for my $set (keys %$sets) {
-            my $s = $sets->{$set};
-            $s->{custodian} = $custodians->{$s->{custodian}}{name} if $s->{custodian};
-            $s->{'data model'} = $data_models->{$s->{'data model'}}{name} if $s->{'data model'};
-            $s->{license} = $licenses->{$s->{license}} if $s->{license};
-            $s->{unit} = $units->{$s->{unit}}{title} if $s->{unit};
-        }
 
-        my $this = $sets->{$set};
-        my $body = "dataset not found";
+        $set =~ s/^\///;
+        $set = $self->{schema}->resultset('Dataset')->single({ id => $set });
         
-        if ($this) {
-            my $info = `gdalinfo $this->{path}`;
-            $body = [[h2 => "GDAL info of $this->{name}:"], [pre => $info]];
-            add_dataset_description($this, $sets, $body);
+        my $body;
+        if ($set) {
+            my $path = $self->{data_path}.'/'.$set->path;
+            my $info = `gdalinfo $path`;
+            $body = [[h2 => "GDAL info of ".$set->name.":"], [pre => $info]];
+            push @$body, $set->as_HTML_data;
+        } else {
+            $body = "dataset not found";
         }
-
-        $dbh->disconnect;
 
         return html200(SmartSea::HTML->new(html => [body => $body])->html);
-    }
 
-    my $sets = $dbh->selectall_arrayref("select id,name from data.datasets where not path isnull");
-    my @l;
-    for my $row (@$sets) {
-        push @l, [li => [a => $row->[1], {href=>"datasets/$row->[0]"}]];
-    }
+    } else {
 
-    return html200(SmartSea::HTML->new(html => [body => [ul => \@l]])->html);
+        my @l;
+        for $set ($self->{schema}->resultset('Dataset')->search({path => {'!=', undef}})) {
+            push @l, [li => a($set->name, 'datasets/'.$set->id)];
+        }
+        return html200(SmartSea::HTML->new(html => [body => [ul => \@l]])->html);
+
+    }
 }
 
 sub uses {
@@ -149,7 +109,7 @@ sub plans {
                 
                 push @rules_for_use, {
                     id => $rule->id,
-                    text => rule_text($rule, $use->title),
+                    text => $rule->as_text($use->title),
                     active => JSON::true
                 };
                 
@@ -167,59 +127,42 @@ sub plans {
     return json200(\@plans);
 }
 
-sub rule_text {
-    my ($rule, $use_title) = @_;
-    my $text;
-    $text = $rule->reduce ? "- " : "+ ";
-    my $u = '';
-    $u = $rule->r_use->title if $rule->r_use->title ne $use_title;
-    if ($rule->r_layer->data eq 'Value') {
-        $u = " for ".$u if $u;
-        $text .= $rule->r_layer->data.$u;
-    } elsif ($rule->r_layer->data eq 'Allocation') {
-        $u = " of ".$u if $u;
-        $text .= $rule->r_layer->data.$u;
-        $text .= $rule->r_plan ? " in plan".$rule->r_plan->title : " of this plan";
-    } # else?
-    $text .= " is ".$rule->r_op->op." ".$rule->r_value;
-}
-
 sub impact_network {
     my $self = shift;
-    my $dbh = DBI->connect("dbi:Pg:dbname=$self->{dbname}", $self->{user}, $self->{pass}, {AutoCommit => 0});
 
-    my $uses = $dbh->selectall_arrayref("select id,title from tool.uses order by id");
-    my $impacts = $dbh->selectall_arrayref("select id,title from tool.impacts order by id");
-    my $characteristics = $dbh->selectall_arrayref("select id,title from tool.characteristics order by id");
-    
     my %elements = (nodes => [], edges => []);
-    my @uses;
-    for my $row (@$uses) {
-        push @{$elements{nodes}}, { data => { id => 'u'.$row->[0], name => $row->[1] }};
-        push @uses, $row->[0];
+
+    my $uses = $self->{schema}->resultset('Use');
+    my $impacts = $self->{schema}->resultset('Impact');
+    my $characteristics = $self->{schema}->resultset('Characteristic');
+
+    for my $use ($uses->search(undef, {order_by => ['me.id']})) {
+        push @{$elements{nodes}}, { data => { id => 'u'.$use->id, name => $use->title }};
     }
-    my @impacts;
-    for my $row (@$impacts) {
-        push @{$elements{nodes}}, { data => { id => 'i'.$row->[0], name => $row->[1] }};
-        push @impacts, $row->[0];
+    for my $impact ($impacts->search(undef, {order_by => ['me.id']})) {
+        push @{$elements{nodes}}, { data => { id => 'i'.$impact->id, name => $impact->title }};
     }
-    my @characteristics;
-    for my $row (@$characteristics) {
-        push @{$elements{nodes}}, { data => { id => 'c'.$row->[0], name => $row->[1] }};
-        push @characteristics, $row->[0];
+    for my $characteristic ($characteristics->search(undef, {order_by => ['me.id']})) {
+        push @{$elements{nodes}}, { data => { id => 'c'.$characteristic->id, name => $characteristic->title }};
     }
-    
+
     # uses -> impacts
-    for my $use (@uses) {
-        for my $impact (@impacts) {
-            push @{$elements{edges}}, { data => { source => 'u'.$use, target => 'i'.$impact }};
+    for my $use ($uses->search(undef, {order_by => ['me.id']})) {
+        my $rels = $use->use2impact;
+        while (my $rel = $rels->next) {
+            push @{$elements{edges}}, { data => { 
+                source => 'u'.$use->id, 
+                target => 'i'.$rel->impact->id }};
         }
     }
 
     # impacts -> characteristics
-    for my $impact (@impacts) {
-        for my $characteristic (@characteristics) {
-            push @{$elements{edges}}, { data => { source => 'i'.$impact, target => 'c'.$characteristic }};
+    for my $impact ($impacts->search(undef, {order_by => ['me.id']})) {
+        my $rels = $impact->impact2characteristic;
+        while (my $rel = $rels->next) {
+            push @{$elements{edges}}, { data => { 
+                source => 'i'.$impact->id, 
+                target => 'c'.$rel->characteristic->id }};
         }
     }
 
