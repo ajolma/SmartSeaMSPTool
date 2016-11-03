@@ -1,4 +1,7 @@
 package SmartSea::Schema::Result::Organization;
+use strict;
+use warnings;
+use 5.010000;
 use base qw/DBIx::Class::Core/;
 
 __PACKAGE__->table('data.organizations');

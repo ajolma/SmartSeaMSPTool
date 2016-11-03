@@ -90,7 +90,7 @@ sub process {
     ($s, $id) = parse_integer($s);
     my $use = $self->{schema}->resultset('Use')->single({ id => $id })->title;
     ($s, $id) = parse_integer($s);
-    my $layer = $self->{schema}->resultset('Layer')->single({ id => $id })->data;
+    my $layer = $self->{schema}->resultset('Layer')->single({ id => $id })->title;
     my $plan = '';
     ($s, $id) = parse_integer($s);
     $plan = $self->{schema}->resultset('Plan')->single({ id => $id })->title if $id;
@@ -167,15 +167,15 @@ sub wind_layer {
             # OR
             # rule is non-spatial
 
-            my $op = $rule->r_op ? $rule->r_op->op : '';
-            my $value = $rule->r_value;
+            my $op = $rule->op ? $rule->op->op : '';
+            my $value = $rule->value;
             my $tmp;
 
             if ($rule->r_layer) {
 
                 my $r_plan = $rule->r_plan ? $rule->r_plan->title : '';
                 my $r_use = $rule->r_use ? $rule->r_use->title : '';
-                my $r_layer = $rule->r_layer ? $rule->r_layer->data : '';
+                my $r_layer = $rule->r_layer ? $rule->r_layer->title : '';
                 
                 if ($r_use eq $use and $r_layer eq 'Value') {
                     $tmp = $self->wind_value($dataset, $tile);                    
@@ -183,10 +183,13 @@ sub wind_layer {
                     say STDERR "Unsupported layer: $plan.$use.$layer";
                 }
             
-            } elsif ($rule->r_table) {
+            } elsif ($rule->r_dataset) {
+
+                my $layer = $rule->r_dataset->path;
+                $layer =~ s/^PG://;
 
                 $dataset->Band(1)->Piddle($data*0);
-                $self->{GDALVectorDataset}->Rasterize($dataset, [-burn => 1, -l => $rule->r_table]);
+                $self->{GDALVectorDataset}->Rasterize($dataset, [-burn => 1, -l => $layer]);
                 $tmp = $dataset->Band(1)->Piddle;
 
                 say STDERR "op and value not supported with tables" if $op || defined $value;

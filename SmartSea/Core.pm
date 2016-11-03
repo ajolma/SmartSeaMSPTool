@@ -8,7 +8,7 @@ use JSON;
 
 require Exporter;
 our @ISA = qw(Exporter);
-our @EXPORT    = qw(common_responses html200 json200 return_400 return_403 a parse_integer);
+our @EXPORT    = qw(common_responses html200 json200 return_400 return_403 parse_integer);
 
 sub common_responses {
     my $env = shift;
@@ -58,11 +58,6 @@ sub return_400 {
 sub return_403 {
     my $self = shift;
     return [403, ['Content-Type' => 'text/plain', 'Content-Length' => 9], ['forbidden']];
-}
-
-sub a {
-    my ($link, $url) = @_;
-    return [a => $link, {href=>$url}];
 }
 
 sub parse_integer {

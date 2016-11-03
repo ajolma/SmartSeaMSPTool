@@ -1,4 +1,7 @@
 package SmartSea::Schema::Result::Dataset;
+use strict;
+use warnings;
+use 5.010000;
 use base qw/DBIx::Class::Core/;
 
 __PACKAGE__->table('data.datasets');
@@ -16,11 +19,11 @@ sub long_name {
     my $name = "'".$self->name."'";
     my $rel = $self->is_a_part_of;
     if ($rel) {
-        $name .= " of '".$rel->long_name."'";
+        $name .= " of ".$rel->long_name;
     }
     $rel = $self->is_derived_from;
     if ($rel) {
-        $name .= " from '".$rel->long_name."'";
+        $name .= " from ".$rel->long_name;
     }
     return $name;
 }
@@ -40,7 +43,9 @@ sub as_HTML_data {
     }
     push @l, [li => [[b => "description"],[1 => " = ".$self->desc]]] if $self->desc;
     push @l, [li => [[b => "disclaimer"],[1 => " = ".$self->disclaimer]]] if $self->disclaimer;
-    push @l, [li => [[b => "license"],[1 => " = "],a($self->license->name, $self->license->url)]] if $self->license;
+    push @l, [li => [[b => "license"],[1 => " = "],
+                     SmartSea::HTML->a(link => $self->license->name, 
+                                       url => $self->license->url)]] if $self->license;
     push @l, [li => [[b => "attribution"],[1 => " = ".$self->attribution]]] if $self->attribution;
     push @l, [li => [[b => "data model"],[1 => " = ".$self->data_model->name]]] if $self->data_model;
     push @l, [li => [[b => "unit"],[1 => " = ".$self->unit->name]]] if $self->unit;
@@ -59,11 +64,6 @@ sub as_HTML_data {
 
     return @data;
 
-}
-
-sub a {
-    my ($link, $url) = @_;
-    return [a => $link, {href=>$url}];
 }
 
 1;

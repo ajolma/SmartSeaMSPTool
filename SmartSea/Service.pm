@@ -38,13 +38,14 @@ sub call {
         return $self->dataset($1) if /datasets([\/\w]*)$/;
         last;
     }
+    my $html = SmartSea::HTML->new;
     my @l;
-    push @l, [li => a(uses => $self->{uri}.'uses')];
-    push @l, [li => a(plans => $self->{uri}.'plans')];
-    push @l, [li => a(rules => $self->{uri}.'rules')];
-    push @l, [li => a(impact_network => $self->{uri}.'impact_network')];
-    push @l, [li => a(datasets => $self->{uri}.'datasets')];
-    return html200(SmartSea::HTML->new(html => [body => [ul => \@l]])->html);
+    push @l, [li => $html->a(link => 'uses', url => $self->{uri}.'uses')];
+    push @l, [li => $html->a(link => 'plans', url  => $self->{uri}.'plans')];
+    push @l, [li => $html->a(link => 'rules', url  => $self->{uri}.'rules')];
+    push @l, [li => $html->a(link => 'impact_network', url  => $self->{uri}.'impact_network')];
+    push @l, [li => $html->a(link => 'datasets', url  => $self->{uri}.'datasets')];
+    return html200($html->html(html => [body => [ul => \@l]]));
 }
 
 sub dataset {
@@ -76,11 +77,12 @@ sub dataset {
 
     } else {
 
+        my $html = SmartSea::HTML->new;
         my @l;
         for $set ($self->{schema}->resultset('Dataset')->search({path => {'!=', undef}})) {
-            push @l, [li => a($set->long_name, $self->{uri}.'/'.$set->id)];
+            push @l, [li => $html->a(link => $set->long_name, url => $self->{uri}.'/'.$set->id)];
         }
-        return html200(SmartSea::HTML->new(html => [body => [ul => \@l]])->html);
+        return html200($html->html(html => [body => [ul => \@l]]));
 
     }
 }
@@ -92,7 +94,7 @@ sub uses {
         my @layers;
         my $rels = $use->use2layer->search(undef, {order_by => { -desc => 'me.layer'}});
         while (my $rel = $rels->next) {
-            push @layers, {title => $rel->layer->data, my_id => $rel->layer->id};
+            push @layers, {title => $rel->layer->title, my_id => $rel->layer->id};
         }
         push @uses, {
             title => $use->title,
@@ -140,37 +142,49 @@ sub plans {
 sub rules {
     my ($self, $rule) = @_;
 
+    my %rule_parameters;
+    my $delete;
+    for my $p ($self->{parameters}->keys) {
+        next if $p eq 'input';
+        $rule_parameters{$p} = $self->{parameters}{$p};
+        if ($rule_parameters{$p} eq 'Delete') {
+            $delete = $p;
+            last;
+        }
+        $rule_parameters{$p} = undef if $rule_parameters{$p} eq 'NULL';
+    }
+    $rule_parameters{value} = undef if exists $rule_parameters{value} && $rule_parameters{value} eq '';
+
+    if (defined $delete) {
+        $self->{schema}->resultset('Rule')->single({ id => $delete })->delete;
+        return $self->list_rules;
+    }
+
     if ($rule eq 'add') {
 
         my $body = [];
 
         if ($self->{parameters}{input}) {
 
-            my %rule_parameters;
-            for my $p (sort $self->{parameters}->keys) {
-                next if $p eq 'input';
-                $rule_parameters{$p} = $self->{parameters}{$p};
-                say STDERR "$p => $self->{parameters}{$p}";
-            }
-
             eval {
                 $rule = $self->{schema}->resultset('Rule')->create(\%rule_parameters);
             };
             $rule = $@ if $@;
-
+            
             # if ok, show list
             return $self->list_rules if ref $rule eq 'SmartSea::Schema::Result::Rule';
-
+            
             # if not ok, signal error and go back to form
             push @$body, [p => 'No, this is not a good rule!'], [p => 'error is: '.$rule];
         }
 
+        $rule_parameters{reduce} = 1 unless defined $rule_parameters{reduce};
         push @$body, [form => 
                       {
                           action => $self->{uri},
                           method => 'POST'
                       },
-                      SmartSea::Schema::Result::Rule::HTML_form_data($self->{parameters})];
+                      SmartSea::Schema::Result::Rule->HTML_form($self->{schema}, \%rule_parameters)];
         return html200(SmartSea::HTML->new(html => [body => $body])->html);
 
     } elsif ($rule) {
@@ -179,7 +193,7 @@ sub rules {
         ($rule) = $rule =~ /(\d+)/;
         $rule = $rules_rs->single({ id => $rule });
         return return_400 unless defined $rule;
-        return html200(SmartSea::HTML->new(html => [body => $rule->as_HTML_data])->html);
+        return html200(SmartSea::HTML->new(html => [body => $rule->HTML_form($self->{schema})])->html);
 
     } else {
 
@@ -192,8 +206,14 @@ sub list_rules {
     my $self = shift;
     my $rules_rs = $self->{schema}->resultset('Rule');
     my %data;
+    my $html = SmartSea::HTML->new;
     for my $rule ($rules_rs->search(undef, {order_by => [qw/me.id/]})) {
-        push @{$data{$rule->plan->title}{$rule->use->title}}, [li => a($rule->as_text => $self->{uri}.'/'.$rule->id)];
+        my $li = [
+            $html->a(link => $rule->as_text, url => $self->{uri}.'/'.$rule->id),
+            [1 => '  '],
+            [input => {type=>"submit", name=>$rule->id, value=>"Delete"}]
+        ];
+        push @{$data{$rule->plan->title}{$rule->use->title}}, [li => $li];
     }
     my @body;
     for my $plan (sort keys %data) {
@@ -203,8 +223,13 @@ sub list_rules {
         }
         push @body, [b => $plan], [ul => \@l];
     }
-    push @body, a(add => $self->{uri}.'add');
-    return html200(SmartSea::HTML->new(html => [body => \@body])->html);
+    push @body, $html->a(link => 'add', url => $self->{uri}.'/add');
+    return html200($html->html(html => [body => [ 
+                                            form => 
+                                            {
+                                                action => $self->{uri},
+                                                method => 'POST'
+                                            },\@body ]]));
 }
 
 sub impact_network {

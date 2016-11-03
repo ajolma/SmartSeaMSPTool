@@ -1,4 +1,7 @@
 package SmartSea::Schema::Result::Impact;
+use strict;
+use warnings;
+use 5.010000;
 use base qw/DBIx::Class::Core/;
 
 __PACKAGE__->table('tool.impacts');
