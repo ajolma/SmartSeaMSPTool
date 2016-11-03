@@ -146,35 +146,32 @@ function fill_rules_panel() {
             $.each(u.rules, function(i, rule) {
                 r.append(element('input', {
                     type:"checkbox",
-                    plan: plan.my_id,
                     use: use, 
                     rule:rule.id,
                     checked:"checked"
                 }, rule.text));
                 rule.active = true;
                 r.append(element('br'));
-                // if r changed, call new_plan()
-            });
-            $("#rules :checkbox").change(function() {
-                var plan_id = $(this).attr('plan');
-                var use_id = $(this).attr('use');
-                var rule_id = $(this).attr('rule');
-                var active = this.checked;
-                $.each(plan.rules, function(i, u) {
-                    if (u.id == use) {
-                        $.each(u.rules, function(i, rule) {
-                            if (rule.id = rule_id) {
-                                rule.active = active;
-                            }
-                            return false;
-                        });
-                        return false;
-                    }
-                });
-                new_plan();
             });
             return false;
         }
+    });
+    $("#rules :checkbox").change(function() {
+        var use_id = $(this).attr('use');
+        var rule_id = $(this).attr('rule');
+        var active = this.checked;
+        $.each(plan.rules, function(i, u) {
+            if (u.id == use_id) {
+                $.each(u.rules, function(i, rule) {
+                    if (rule.id == rule_id) {
+                        rule.active = active;
+                        return false;
+                    }
+                });
+                return false;
+            }
+        });
+        new_plan();
     });
 }
 

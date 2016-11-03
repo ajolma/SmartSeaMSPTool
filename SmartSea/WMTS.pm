@@ -84,6 +84,7 @@ sub process {
                                      '-projwin', $tile->projwin] );
     $dataset->Band(1)->ColorTable(value_color_table());
 
+    my @arg = ($dataset, $tile);
     my $s = $params->{layer};
     my $id;
     ($s, $id) = parse_integer($s);
@@ -93,35 +94,28 @@ sub process {
     my $plan = '';
     ($s, $id) = parse_integer($s);
     $plan = $self->{schema}->resultset('Plan')->single({ id => $id })->title if $id;
-    my @rules = ();
+    push @arg, $plan, $use, $layer;
     while ($s) {
+        # rule application order is defined by the client
         ($s, $id) = parse_integer($s);
-        push @rules, $self->{schema}->resultset('Rule')->single({ id => $id });
+        push @arg, $self->{schema}->resultset('Rule')->single({ id => $id });
     }
 
-    if ($use eq 'Protected areas') {
-        return $self->mpa_layer($dataset, $tile, $plan, $layer, @rules);
-    } elsif ($use eq 'Fisheries') {
-        return $self->fish_layer($dataset, $tile, $plan, $layer, @rules);
-    } elsif ($use eq 'Offshore wind farms') {
-        return $self->wind_layer($dataset, $tile, $plan, $layer, @rules);
-    } elsif ($use eq 'Fish farming') {
-        return $dataset;
-    } elsif ($use eq 'Geoenergy extraction') {
-        return $dataset;
-    } elsif ($use eq 'Disposal of dredged material') {
-        return $dataset;
-    } elsif ($use eq 'Coastal turism') {
-        return $dataset;
-    } elsif ($use eq 'Seabed mining') {
-        return $dataset;
-    } else {
+    for ($use) {
+        return $self->mpa_layer(@arg) if /^Protected areas/;
+        return $self->fish_layer(@arg) if /^Fisheries/;
+        return $self->wind_layer(@arg) if /^Offshore wind farms/;
+        return $dataset if /Fish farming/;
+        return $dataset if /Geoenergy extraction/;
+        return $dataset if /Disposal of dredged material/;
+        return $dataset if /Coastal turism/;
+        return $dataset if /Seabed mining/;
         return $dataset;
     }
 }
 
 sub mpa_layer {
-    my ($self, $dataset, $tile, $plan, $layer, @rules) = @_;
+    my ($self, $dataset, $tile, $plan, $use, $layer, @rules) = @_;
     if ($layer eq 'Allocation') {
         my $data = $dataset->Band(1)->Piddle;
         $data .= 0;
@@ -133,7 +127,7 @@ sub mpa_layer {
 }
 
 sub fish_layer {
-    my ($self, $dataset, $tile, $plan, $layer, @rules) = @_;
+    my ($self, $dataset, $tile, $plan, $use, $layer, @rules) = @_;
     if ($layer eq 'Value') {
         my $data = $dataset->Band(1)->Piddle;
         $data .= 0;
@@ -145,37 +139,78 @@ sub fish_layer {
 }
 
 sub wind_layer {
-    my ($self, $dataset, $tile, $plan, $layer, @rules) = @_;
+    my ($self, $dataset, $tile, $plan, $use, $layer, @rules) = @_;
     if ($layer eq 'Value') {
         my $data = $self->wind_value($dataset, $tile);        
         $dataset->Band(1)->Piddle($data);
         $dataset->Band(1)->ColorTable(value_color_table());
     } elsif ($layer eq 'Allocation') {
         my $data = $dataset->Band(1)->Piddle;
-        if ($plan eq 'Plan Bothnia') {
-            $data .= 0;
-            $dataset->Band(1)->Piddle($data);
-            $self->{GDALVectorDataset}->Rasterize($dataset, [-burn => 2, -l => 'plan bothnia.energy']);
-        } else {
-            $data->where($data > 0) .= 2;
-            # apply rules
-            for my $rule (@rules) {
-                # maybe test $rule->plan->title and $rule->use->title
-                # if $rule->reduce then set to 0 where rule is true
-                # $rule->r_use->title and $rule->r_layer->data define the layer to use
-                # possibly also $rule->r_plan
-                # $rule->r_op->op and $rule->r_value define the math
+        my $result = $data + 0;
 
-                if ($rule->r_use->title eq 'Offshore wind farms' and $rule->r_layer->data eq 'Value') {
-                    my $value = $self->wind_value($dataset, $tile);
-                    if ($rule->r_op->op eq '<=') {
-                        $data->where($value <= $rule->r_value) .= 0;
-                    }
+        # default is allocate all
+        $result->where($data > 0) .= 2;
+
+        # apply rules
+        for my $rule (@rules) {
+            # maybe we should test $rule->plan and $rule->use?
+            # if $rule->reduce then set to 0 where rule is true
+
+            say STDERR "rule: ",$rule->as_text;
+
+            my $val = $rule->reduce ? 0 : 2;
+
+            # $rule->r_plan, $rule->r_use and $rule->r_layer define the layer to use
+            # r_plan is by default plan, r_use is by default use
+            # OR
+            # $rule->r_table is table name
+            # OR
+            # rule is non-spatial
+
+            my $op = $rule->r_op ? $rule->r_op->op : '';
+            my $value = $rule->r_value;
+            my $tmp;
+
+            if ($rule->r_layer) {
+
+                my $r_plan = $rule->r_plan ? $rule->r_plan->title : '';
+                my $r_use = $rule->r_use ? $rule->r_use->title : '';
+                my $r_layer = $rule->r_layer ? $rule->r_layer->data : '';
+                
+                if ($r_use eq $use and $r_layer eq 'Value') {
+                    $tmp = $self->wind_value($dataset, $tile);                    
+                } else {
+                    say STDERR "Unsupported layer: $plan.$use.$layer";
                 }
+            
+            } elsif ($rule->r_table) {
+
+                $dataset->Band(1)->Piddle($data*0);
+                $self->{GDALVectorDataset}->Rasterize($dataset, [-burn => 1, -l => $rule->r_table]);
+                $tmp = $dataset->Band(1)->Piddle;
+
+                say STDERR "op and value not supported with tables" if $op || defined $value;
+
+                $op = '==';
+                $value = 1;
+
+            } else {
+                
+                $result .= $val;
 
             }
-            $dataset->Band(1)->Piddle($data);
+
+            if (defined $tmp) {
+                if ($op eq '<=')    { $result->where($tmp <= $value) .= $val; } 
+                elsif ($op eq '<')  { $result->where($tmp <  $value) .= $val; }
+                elsif ($op eq '>=') { $result->where($tmp >= $value) .= $val; }
+                elsif ($op eq '>')  { $result->where($tmp >  $value) .= $val; }
+                elsif ($op eq '==') { $result->where($tmp == $value) .= $val; }
+                else                {  }
+            }
+            
         }
+        $dataset->Band(1)->Piddle($result);
         $dataset->Band(1)->ColorTable(allocation_color_table());
     }
     return $dataset;
