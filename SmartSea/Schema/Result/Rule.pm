@@ -4,6 +4,7 @@ use warnings;
 use 5.010000;
 use base qw/DBIx::Class::Core/;
 use Scalar::Util 'blessed';
+use SmartSea::Core;
 use SmartSea::HTML;
 
 __PACKAGE__->table('tool.rules');
@@ -50,11 +51,9 @@ sub as_text {
     return $text." is ".$self->op->op." ".$self->value;
 }
 
-sub as_HTML_data {
+sub HTML_text {
     my ($self) = @_;
     my @l;
-    #my %col = $rule->get_columns;
-    #sort keys %col
     for my $a (qw/id plan use reduce r_plan r_use r_layer r_dataset op value/) {
         my $v = $self->$a // '';
         if (ref $v) {
@@ -71,17 +70,21 @@ sub as_HTML_data {
 }
 
 sub HTML_form {
-    my ($self, $schema, $values) = @_;
+    my ($self, $config, $values) = @_;
+
+    my @ret;
+
     if ($self and blessed($self) and $self->isa('SmartSea::Schema::Result::Rule')) {
         for my $key (qw/plan use reduce r_plan r_use r_layer r_dataset op value/) {
             next unless $self->$key;
             next if defined $values->{$key};
             $values->{$key} = ref($self->$key) ? $self->$key->id : $self->$key;
         }
+        push @ret, [input => {type => 'hidden', name => 'id', value => $self->id}];
     }
 
     my %plans;
-    for my $plan ($schema->resultset('Plan')->all) {
+    for my $plan ($config->{schema}->resultset('Plan')->all) {
         $plans{$plan->id} = $plan->title;
     }
     my $plan = SmartSea::HTML->select(
@@ -92,7 +95,7 @@ sub HTML_form {
     );
 
     my %uses;
-    for my $use ($schema->resultset('Use')->all) {
+    for my $use ($config->{schema}->resultset('Use')->all) {
         $uses{$use->id} = $use->title;
     }
     my $use = SmartSea::HTML->select(
@@ -110,7 +113,7 @@ sub HTML_form {
 
     my %r_plans;
     my %visuals = ('NULL' => '');
-    for my $r_plan ($schema->resultset('Plan')->all) {
+    for my $r_plan ($config->{schema}->resultset('Plan')->all) {
         $r_plans{$r_plan->id} = $r_plan->title;
         $visuals{$r_plan->id} = $r_plan->title;
     }
@@ -123,7 +126,7 @@ sub HTML_form {
 
     my %r_uses;
     %visuals = ('NULL' => '');
-    for my $r_use ($schema->resultset('Use')->all) {
+    for my $r_use ($config->{schema}->resultset('Use')->all) {
         $r_uses{$r_use->id} = $r_use->title;
         $visuals{$r_use->id} = $r_use->title;
     }
@@ -136,7 +139,7 @@ sub HTML_form {
 
     my %r_layers;
     %visuals = ('NULL' => '');
-    for my $r_layer ($schema->resultset('Layer')->all) {
+    for my $r_layer ($config->{schema}->resultset('Layer')->all) {
         $r_layers{$r_layer->id} = $r_layer->title;
         $visuals{$r_layer->id} = $r_layer->title;
     }
@@ -149,7 +152,7 @@ sub HTML_form {
 
     my %r_datasets;
     %visuals = ('NULL' => '');
-    for my $r_dataset ($schema->resultset('Dataset')->all) {
+    for my $r_dataset ($config->{schema}->resultset('Dataset')->all) {
         next unless $r_dataset->path;
         $r_datasets{$r_dataset->id} = $r_dataset->long_name;
         $visuals{$r_dataset->id} = $r_dataset->long_name;
@@ -163,7 +166,7 @@ sub HTML_form {
 
     my %ops;
     %visuals = ('NULL' => '');
-    for my $op ($schema->resultset('Op')->all) {
+    for my $op ($config->{schema}->resultset('Op')->all) {
         $ops{$op->id} = $op->op;
         $visuals{$op->id} = $op->op;
     }
@@ -179,7 +182,7 @@ sub HTML_form {
         visual => $values->{value} // ''
     );
 
-    return [
+    push @ret, (
         [ p => [[1 => 'plan: '],$plan] ],
         [ p => [[1 => 'use: '],$use] ],
         [ p => $reduce ],
@@ -190,8 +193,45 @@ sub HTML_form {
         [ p => 'or' ],
         [ p => [[1 => 'dataset: '],$r_dataset] ],
         [ p => [[1 => 'Operator and value: '],$op,$value] ],
-        [input => {type=>"submit", name=>'input', value=>"Store"}]
-        ];
+        [input => {type=>"submit", name=>'submit', value=>"Store"}]
+    );
+    return \@ret;
+}
+
+sub HTML_list {
+    my (undef, $rs, $uri, $allow_edit) = @_;
+    my %data;
+    my $html = SmartSea::HTML->new;
+    for my $rule ($rs->search(undef, {order_by => [qw/me.id/]})) {
+        my $li = [ $html->a(link => $rule->as_text, url => $uri.'/'.$rule->id) ];
+        if ($allow_edit) {
+            push @$li, (
+                [1 => '  '],
+                $html->a(link => "edit", url => $uri.'/'.$rule->id.'?edit'),
+                [1 => '  '],
+                [input => {type=>"submit", 
+                           name=>$rule->id, 
+                           value=>"Delete",
+                           onclick => "return confirm('Are you sure you want to delete this rule?')" 
+                 }
+                ]
+            )
+        }
+        push @{$data{$rule->plan->title}{$rule->use->title}}, [li => $li];
+    }
+    my @body;
+    for my $plan (sort keys %data) {
+        my @l;
+        for my $use (sort keys %{$data{$plan}}) {
+            push @l, [li => [[b => $use], [ul => \@{$data{$plan}{$use}}]]];
+        }
+        push @body, [b => $plan], [ul => \@l];
+    }
+    if ($allow_edit) {
+        @body = ([ form => {action => $uri, method => 'POST'}, [@body] ]);
+        push @body, $html->a(link => 'add', url => $uri.'/new');
+    }
+    return \@body;
 }
 
 1;

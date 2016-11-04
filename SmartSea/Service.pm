@@ -33,58 +33,33 @@ sub call {
     for ($self->{uri}) {
         return $self->uses() if /uses$/;
         return $self->plans() if /plans$/;
-        return $self->rules($1) if /rules\/?([\w]*)$/;
+        return $self->class_editor('SmartSea::Schema::Result::Rule', 
+                                   $1, 
+                                   { empty_is_null => ['value'], 
+                                     defaults => {reduce=>1},
+                                     allow_edit => 0
+                                   }
+            ) if /rules([\/\?\w]*)$/;
         return $self->impact_network() if /impact_network$/;
-        return $self->dataset($1) if /datasets([\/\w]*)$/;
+        return $self->class_editor('SmartSea::Schema::Result::Dataset',
+                                   $1, 
+                                   { empty_is_null => [qw/contact desc attribution disclaimer path/],
+                                     defaults => {},
+                                     allow_edit => 0
+                                   }
+            ) if /datasets([\/\?\w]*)$/;
         last;
     }
     my $html = SmartSea::HTML->new;
     my @l;
-    push @l, [li => $html->a(link => 'uses', url => $self->{uri}.'uses')];
-    push @l, [li => $html->a(link => 'plans', url  => $self->{uri}.'plans')];
-    push @l, [li => $html->a(link => 'rules', url  => $self->{uri}.'rules')];
-    push @l, [li => $html->a(link => 'impact_network', url  => $self->{uri}.'impact_network')];
-    push @l, [li => $html->a(link => 'datasets', url  => $self->{uri}.'datasets')];
+    push @l, (
+        [li => $html->a(link => 'uses', url => $self->{uri}.'uses')],
+        [li => $html->a(link => 'plans', url  => $self->{uri}.'plans')],
+        [li => $html->a(link => 'rules', url  => $self->{uri}.'rules')],
+        [li => $html->a(link => 'impact_network', url  => $self->{uri}.'impact_network')],
+        [li => $html->a(link => 'datasets', url  => $self->{uri}.'datasets')]
+    );
     return html200($html->html(html => [body => [ul => \@l]]));
-}
-
-sub dataset {
-    my ($self, $set) = @_;
-    
-    if ($set) {
-
-        ($set) = $set =~ /(\d+)/;
-        $set = $self->{schema}->resultset('Dataset')->single({ id => $set });
-        
-        my $body;
-        if ($set) {
-            my $info;
-            if ($set->path =~ /^PG:/) {
-                my $dsn = $set->path;
-                $dsn =~ s/^PG://;
-                $info = `ogrinfo -so PG:dbname=$self->{dbname} '$dsn'`;
-            } else {
-                my $path = $self->{data_path}.'/'.$set->path;
-                $info = `gdalinfo $path`;
-            }
-            $body = [[h2 => "GDAL info of ".$set->name.":"], [pre => $info]];
-            push @$body, $set->as_HTML_data;
-        } else {
-            $body = "dataset not found";
-        }
-
-        return html200(SmartSea::HTML->new(html => [body => $body])->html);
-
-    } else {
-
-        my $html = SmartSea::HTML->new;
-        my @l;
-        for $set ($self->{schema}->resultset('Dataset')->search({path => {'!=', undef}})) {
-            push @l, [li => $html->a(link => $set->long_name, url => $self->{uri}.'/'.$set->id)];
-        }
-        return html200($html->html(html => [body => [ul => \@l]]));
-
-    }
 }
 
 sub uses {
@@ -139,99 +114,6 @@ sub plans {
     return json200(\@plans);
 }
 
-sub rules {
-    my ($self, $rule) = @_;
-
-    my %rule_parameters;
-    my $delete;
-    for my $p ($self->{parameters}->keys) {
-        next if $p eq 'input';
-        $rule_parameters{$p} = $self->{parameters}{$p};
-        if ($rule_parameters{$p} eq 'Delete') {
-            $delete = $p;
-            last;
-        }
-        $rule_parameters{$p} = undef if $rule_parameters{$p} eq 'NULL';
-    }
-    $rule_parameters{value} = undef if exists $rule_parameters{value} && $rule_parameters{value} eq '';
-
-    if (defined $delete) {
-        $self->{schema}->resultset('Rule')->single({ id => $delete })->delete;
-        return $self->list_rules;
-    }
-
-    if ($rule eq 'add') {
-
-        my $body = [];
-
-        if ($self->{parameters}{input}) {
-
-            eval {
-                $rule = $self->{schema}->resultset('Rule')->create(\%rule_parameters);
-            };
-            $rule = $@ if $@;
-            
-            # if ok, show list
-            return $self->list_rules if ref $rule eq 'SmartSea::Schema::Result::Rule';
-            
-            # if not ok, signal error and go back to form
-            push @$body, [p => 'No, this is not a good rule!'], [p => 'error is: '.$rule];
-        }
-
-        $rule_parameters{reduce} = 1 unless defined $rule_parameters{reduce};
-        push @$body, [form => 
-                      {
-                          action => $self->{uri},
-                          method => 'POST'
-                      },
-                      SmartSea::Schema::Result::Rule->HTML_form($self->{schema}, \%rule_parameters)];
-        return html200(SmartSea::HTML->new(html => [body => $body])->html);
-
-    } elsif ($rule) {
-
-        my $rules_rs = $self->{schema}->resultset('Rule');
-        ($rule) = $rule =~ /(\d+)/;
-        $rule = $rules_rs->single({ id => $rule });
-        return return_400 unless defined $rule;
-        return html200(SmartSea::HTML->new(html => [body => $rule->HTML_form($self->{schema})])->html);
-
-    } else {
-
-        return $self->list_rules;
-
-    }
-}
-
-sub list_rules {
-    my $self = shift;
-    my $rules_rs = $self->{schema}->resultset('Rule');
-    my %data;
-    my $html = SmartSea::HTML->new;
-    for my $rule ($rules_rs->search(undef, {order_by => [qw/me.id/]})) {
-        my $li = [
-            $html->a(link => $rule->as_text, url => $self->{uri}.'/'.$rule->id),
-            [1 => '  '],
-            [input => {type=>"submit", name=>$rule->id, value=>"Delete"}]
-        ];
-        push @{$data{$rule->plan->title}{$rule->use->title}}, [li => $li];
-    }
-    my @body;
-    for my $plan (sort keys %data) {
-        my @l;
-        for my $use (sort keys %{$data{$plan}}) {
-            push @l, [li => [[b => $use], [ul => \@{$data{$plan}{$use}}]]];
-        }
-        push @body, [b => $plan], [ul => \@l];
-    }
-    push @body, $html->a(link => 'add', url => $self->{uri}.'/add');
-    return html200($html->html(html => [body => [ 
-                                            form => 
-                                            {
-                                                action => $self->{uri},
-                                                method => 'POST'
-                                            },\@body ]]));
-}
-
 sub impact_network {
     my $self = shift;
 
@@ -272,6 +154,114 @@ sub impact_network {
     }
 
     return json200(\%elements);
+}
+
+sub class_editor {
+    my ($self, $class, $oid, $config) = @_;
+
+    # oid is what's after /objs in URI, it may have /new/ or /id/ (integer) in it
+    # DBIx Class understands undef as NULL
+    # config: delete => value-in-the-delete-button (default is Delete)
+    #         store => value-in-the-store-button (default is Store)
+    #         empty_is_null => parameters will be converted to undef if empty strings
+    #         defaults => parameters will be set to the value unless in self->parameters
+    # 'NULL' parameters will be converted to undef, 
+
+    my $uri = $self->{uri};
+    $uri =~ s/$oid$//;
+    
+    $config->{delete} //= 'Delete';
+    $config->{store} //= 'Store';
+    my $request = '';
+    my %parameters;
+    for my $p ($self->{parameters}->keys) {
+        if ($p eq 'submit') {
+            $request = $self->{parameters}{$p};
+            next;
+        }
+        $parameters{$p} = $self->{parameters}{$p};
+        if ($parameters{$p} eq $config->{delete}) {
+            $request = $parameters{$p};
+            $parameters{id} = $p;
+            last;
+        }
+        $parameters{$p} = undef if $parameters{$p} eq 'NULL';
+    }
+    for my $col (@{$config->{empty_is_null}}) {
+        $parameters{$col} = undef if exists $parameters{$col} && $parameters{$col} eq '';
+    }
+    for my $col (keys %{$config->{defaults}}) {
+        $parameters{$col} = $config->{defaults}{$col} unless defined $parameters{$col};
+    }
+
+    my $rs = $self->{schema}->resultset($class =~ /(\w+)$/);
+
+    my @body;
+
+    if ($request eq $config->{delete} and $config->{allow_edit}) {
+
+        eval {
+            $rs->single({ id => $parameters{id} })->delete;
+        };
+        if ($@) {
+            # if not ok, signal error
+            push @body, [p => 'Something went wrong!'], [p => 'Error is: '.$@];
+        }
+
+    } elsif ($request eq $config->{store} and $config->{allow_edit}) {
+
+        my $obj;
+        eval {
+            if (exists $parameters{id}) {
+                $obj = $rs->single({ id => $parameters{id} });
+                delete $parameters{id};
+                $obj->update(\%parameters);
+            } else {
+                $obj = $rs->create(\%parameters);
+            }
+        };
+        if ($@ or not $obj) {
+            my $body = [];
+            # if not ok, signal error and go back to form
+            push @$body, (
+                [p => 'Something went wrong!'], 
+                [p => 'Error is: '.$@],
+                [ form => { action => $uri, method => 'POST' },
+                  $class->HTML_form(undef, $self, \%parameters) ]
+            );
+            return html200(SmartSea::HTML->new(html => [body => $body])->html);
+        }
+        
+    } elsif ($oid =~ /new/ and $config->{allow_edit}) {
+
+        my $body = [];
+        push @$body, [form => { action => $uri, method => 'POST' },
+                      $class->HTML_form($self, \%parameters)];
+        return html200(SmartSea::HTML->new(html => [body => $body])->html);
+
+    } elsif ($oid =~ /edit/ and $config->{allow_edit}) {
+
+        ($oid) = $oid =~ /(\d+)/;
+        my $obj = $rs->single({ id => $oid });
+        return return_400 unless defined $obj;
+        my $body = [form => { action => $uri, method => 'POST' },
+                    $obj->HTML_form($self)];
+        return html200(SmartSea::HTML->new(html => [body => $body])->html);
+        
+    } elsif ($oid) {
+
+        ($oid) = $oid =~ /(\d+)/;
+        my $obj = $rs->single({ id => $oid });
+        return return_400 unless defined $obj;
+        my $body = $obj->HTML_text($self, $self);
+        $body = [form => { action => $uri, method => 'POST' }, $body] if $config->{allow_edit};
+        return html200(SmartSea::HTML->new(html => [body => $body])->html);
+        
+    }
+
+    push @body, @{$class->HTML_list($rs, $uri, $config->{allow_edit})};
+    return html200(SmartSea::HTML->new(html => [body => \@body])->html);
+
 }
 
 1;

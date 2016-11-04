@@ -3,6 +3,8 @@ use strict;
 use warnings;
 use 5.010000;
 use base qw/DBIx::Class::Core/;
+use Scalar::Util 'blessed';
+use SmartSea::Core;
 
 __PACKAGE__->table('data.datasets');
 __PACKAGE__->add_columns(qw/id name custodian contact desc data_model is_a_part_of is_derived_from license attribution disclaimer path unit/);
@@ -28,10 +30,23 @@ sub long_name {
     return $name;
 }
 
-sub as_HTML_data {
-    my ($self) = @_;
+sub HTML_text {
+    my ($self, $config) = @_;
 
-    my @data;
+    my @data = ([h2 => $self->name]);
+    
+    if ($self->path) {
+        my $info;
+        if ($self->path =~ /^PG:/) {
+            my $dsn = $self->path;
+            $dsn =~ s/^PG://;
+            $info = `ogrinfo -so PG:dbname=$config->{dbname} '$dsn'`;
+        } else {
+            my $path = $config->{data_path}.'/'.$self->path;
+            $info = `gdalinfo $path`;
+        }
+        push @data, [h3 => "GDAL info of ".$self->name.":"], [pre => $info];
+    }
 
     my @l;
     push @l, [li => [[b => 'custodian'],[1 => " = ".$self->custodian->name]]] if $self->custodian;
@@ -49,21 +64,80 @@ sub as_HTML_data {
     push @l, [li => [[b => "attribution"],[1 => " = ".$self->attribution]]] if $self->attribution;
     push @l, [li => [[b => "data model"],[1 => " = ".$self->data_model->name]]] if $self->data_model;
     push @l, [li => [[b => "unit"],[1 => " = ".$self->unit->name]]] if $self->unit;
+    push @l, [li => [[b => "path"],[1 => " = ".$self->path]]] if $self->path;
     push @data, [ul => \@l] if @l;
 
     my $rel = $self->is_a_part_of;
     if ($rel) {
-        push @data, [h2 => "'".$self->name."' is a part of '".$rel->name."'"];
-        push @data, $rel->as_HTML_data;
+        push @data, [h3 => "'".$self->name."' is a part of '".$rel->name."'"];
+        push @data, @{$rel->HTML_text($config)};
     }
     $rel = $self->is_derived_from;
     if ($rel) {
-        push @data, [h2 => "'".$self->name."' is derived from '".$rel->name."'"];
-        push @data, $rel->as_HTML_data;
+        push @data, [h3 => "'".$self->name."' is derived from '".$rel->name."'"];
+        push @data, @{$rel->HTML_text($config)};
     }
 
-    return @data;
+    return \@data;
+}
 
+sub HTML_form {
+    return [1 => 'to be done'];
+}
+
+sub li {
+    my ($all, $parent, $id, $html, $uri, $allow_edit) = @_;
+    my @li;
+    for my $set (@$all) {
+        my $sid = $set->id;
+        unless (defined $id) {
+            next if $parent->{$sid};
+        } else {
+            next unless $parent->{$sid} && $parent->{$sid} == $id;
+        }
+        my $li = [ $html->a(link => $set->name, url => $uri.'/'.$set->id) ];
+        if ($allow_edit) {
+            push @$li, (
+                [1 => '  '],
+                $html->a(link => "edit", url => $uri.'/'.$set->id.'?edit'),
+                [1 => '  '],
+                [input => {
+                    type=>"submit", 
+                    name=>$set->id, 
+                    value=>"Delete",
+                    onclick => "return confirm('Are you sure you want to delete this dataset?')"
+                 }
+                ]
+            )
+        }
+        my $children = li($all, $parent, $sid, $html, $uri, $allow_edit);
+        push @$li, [ul => $children] if @$children;
+        push @li, [li => $li];
+    }
+    return \@li;
+}
+
+sub tree {
+    my ($rs, $html, $uri, $allow_edit) = @_;
+    my %parent;
+    my @all;
+    for my $set ($rs->search(undef, {order_by => ['me.name']})) {
+        my $rel = $set->is_a_part_of // $set->is_derived_from;
+        $parent{$set->id} = $rel->id if $rel;
+        push @all, $set;
+    }
+    return [ul => li(\@all, \%parent, undef, $html, $uri, $allow_edit)];
+}
+
+sub HTML_list {
+    my (undef, $rs, $uri, $allow_edit) = @_;
+    my $html = SmartSea::HTML->new;
+    my @body = (tree($rs, $html, $uri, $allow_edit));
+    if ($allow_edit) {
+        @body = ([ form => {action => $uri, method => 'POST'}, [@body] ]);
+        push @body, $html->a(link => 'add', url => $uri.'/new');
+    }
+    return \@body;
 }
 
 1;
