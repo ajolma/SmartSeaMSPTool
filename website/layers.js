@@ -45,19 +45,13 @@ function addLayers(map, proj, uses, plan, boot) {
                     name += '_'+plan.my_id;
 
                     // add rules
-                    $.each(plan.rules, function(i, u) {
-                        if (u.id == use.my_id) {
-                            $.each(u.rules, function(i, rule) {
-                                if (rule.active) name += '_'+rule.id;
-                            });
-                            return false;
-                        }
+                    var rules = rules_of(use.my_id, layer.my_id);
+                    $.each(rules, function(i, rule) {
+                        if (rule.active) name += '_'+rule.id;
                     });
 
                     if (layer.object) layer.object = null;
                 }
-                //name = name.replace(new RegExp(' ', 'g'), '_');
-                //name = name.toLowerCase();
                 layer.name = name;
             }
 
@@ -79,6 +73,7 @@ function addLayers(map, proj, uses, plan, boot) {
     $.each(uses.reverse(), function(i, use) {
         useslist.append(usesItem(use));
     });
+    selectLayer(-1); // restore selected
     $.each(uses, function(i, use) {
         var b = $('li#use'+use.index+' button.visible');
         b.on('click', null, {use:use}, function(event) {
@@ -137,6 +132,24 @@ function forEachLayerGroup(groups, fArg) {
     }
 }
 
+function selectLayer(use, layer) {
+    if ( typeof selectLayer.use != 'undefined' ) {
+        if (use < 0) {
+            $("#l"+selectLayer.use+'_'+selectLayer.layer).css("background-color","yellow");
+            return;
+        }
+        $("#l"+selectLayer.use+'_'+selectLayer.layer).css("background-color","white");
+    }
+    $("#l"+use+'_'+layer).css("background-color","yellow");
+    if (layer == 3) 
+        $("#layer_rule_info").html("Default is to allocate.");
+    else 
+        $("#layer_rule_info").html("");
+    selectLayer.use = use;
+    selectLayer.layer = layer;
+    fill_rules_panel(use, layer);
+}
+
 function usesItem(use) {
     var b = element('button', {class:"visible", type:'button'}, '&rtrif;');
     var cb = element('label', {title:use.title}, b+' '+use.title);
@@ -144,7 +157,12 @@ function usesItem(use) {
     var subs = '';
     $.each(use.layers.reverse(), function(j, layer) {
         var attr = {type:"checkbox", class:"visible"+layer.index};
-        subs += element('input', attr, layer.title+'<br/>');
+        var lt = element('div', {
+            onclick:"selectLayer("+use.my_id+','+layer.my_id+");", 
+            style:'display:inline;',
+            id:'l'+use.my_id+'_'+layer.my_id}, layer.title+'<br/>');
+
+        subs += element('input', attr, lt);
         attr = {class:"opacity"+layer.index, type:"range", min:"0", max:"1", step:"0.01"}
         subs += element('div', {class:"opacity"+layer.index}, element('input', attr, '<br/>'));
     });

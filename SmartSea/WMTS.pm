@@ -35,36 +35,6 @@ sub config {
 
     my @tilesets = ();
 
-    my $uses = $self->{dbh}->selectall_arrayref("select use_id,layer_id from tool.uses_list");
-    my $plans = $self->{dbh}->selectall_arrayref("select id from tool.plans");
-
-    my $tileset = sub {
-        my $title = shift;
-        return {
-            Layers => $title,
-            'Format' => 'image/png',
-            Resolutions => "9..19",
-            SRS => "EPSG:3067",
-            BoundingBox => $config->{BoundingBox3067},
-            file => "$self->{data_path}/corine-sea.tiff",
-            ext => "png",
-            'no-cache' => 1,
-        };
-    };
-    
-    for my $row (@$uses) {
-        my $l = lc($row->[0] .'_'. $row->[1]);
-        $l =~ s/ /_/g;
-        if ($row->[1] eq '3') { # Allocation
-            for my $row (@$plans) {
-                $row->[0] =~ s/ /_/g;
-                push @tilesets, $tileset->($l.'_'.lc($row->[0]));
-            }
-        } else {
-            push @tilesets, $tileset->($l);
-        }
-    }
-
     for my $protocol (qw/TMS WMS WMTS/) {
         $config->{$protocol}->{TileSets} = \@tilesets;
         $config->{$protocol}->{serve_arbitrary_layers} = 1;

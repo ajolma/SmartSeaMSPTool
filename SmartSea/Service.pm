@@ -51,13 +51,15 @@ sub call {
         last;
     }
     my $html = SmartSea::HTML->new;
+    my $uri = $self->{uri};
+    $uri .= '/' unless $uri =~ /\/$/;
     my @l;
     push @l, (
-        [li => $html->a(link => 'uses', url => $self->{uri}.'uses')],
-        [li => $html->a(link => 'plans', url  => $self->{uri}.'plans')],
-        [li => $html->a(link => 'rules', url  => $self->{uri}.'rules')],
-        [li => $html->a(link => 'impact_network', url  => $self->{uri}.'impact_network')],
-        [li => $html->a(link => 'datasets', url  => $self->{uri}.'datasets')]
+        [li => $html->a(link => 'uses', url => $uri.'uses')],
+        [li => $html->a(link => 'plans', url  => $uri.'plans')],
+        [li => $html->a(link => 'rules', url  => $uri.'rules')],
+        [li => $html->a(link => 'impact_network', url  => $uri.'impact_network')],
+        [li => $html->a(link => 'datasets', url  => $uri.'datasets')]
     );
     return html200($html->html(html => [body => [ul => \@l]]));
 }
@@ -89,25 +91,47 @@ sub plans {
     for my $plan ($plans_rs->search(undef, {order_by => ['me.title']})) {
         my @rules;
         for my $use ($uses_rs->search(undef, {order_by => ['me.id']})) {
-            my @rules_for_use;
-            for my $rule ($rules_rs->search({ 'me.plan' => $plan->id,
-                                              'me.use' => $use->id },
-                                            { order_by => ['me.id'] })) {
+            my @r_uses;
+            my $rels = $use->use2layer->search(undef, {order_by => { -desc => 'me.layer'}});
+            while (my $rel = $rels->next) {
+                my @r_u_layers;
+                my $remove_default;
+                for my $rule ($rules_rs->search({ -or => [ plan => $plan->id,
+                                                           plan => undef ],
+                                                  use => $use->id,
+                                                  layer => $rel->layer->id
+                                                },
+                                                { order_by => ['me.id'] })) {
                 
-                push @rules_for_use, {
-                    id => $rule->id,
-                    text => $rule->as_text,
-                    active => JSON::true
-                };
-                
+                    # if there are rules for this plan, remove default rules
+                    $remove_default = 1 if $rule->plan;
+                    push @r_u_layers, {
+                        id => $rule->id,
+                        plan => $rule->plan,
+                        text => $rule->as_text,
+                        active => JSON::true
+                    };
+                    
+                }
+                my @final;
+                for my $rule (@r_u_layers) {
+                    next if $remove_default && !$rule->{plan};
+                    delete $rule->{plan};
+                    push @final, $rule;
+                }
+
+                push @r_uses, {
+                    id => $rel->layer->id,
+                    layer => $rel->layer->title,
+                    rules => \@final
+                }
             }
             
             push @rules, {
                 use => $use->title,
                 id => $use->id,
-                rules => \@rules_for_use
+                rules => \@r_uses
             }
-            
         }
         push @plans, {title => $plan->title, my_id => $plan->id, rules => \@rules};
     }

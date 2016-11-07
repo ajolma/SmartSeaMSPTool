@@ -8,12 +8,13 @@ use SmartSea::Core;
 use SmartSea::HTML;
 
 __PACKAGE__->table('tool.rules');
-__PACKAGE__->add_columns(qw/ id plan use reduce r_plan r_use r_layer r_dataset op value /);
+__PACKAGE__->add_columns(qw/ id plan use layer reduce r_plan r_use r_layer r_dataset op value /);
 __PACKAGE__->set_primary_key('id');
 
 # determines whether an area is allocated to a use in a plan
 __PACKAGE__->belongs_to(plan => 'SmartSea::Schema::Result::Plan');
 __PACKAGE__->belongs_to(use => 'SmartSea::Schema::Result::Use');
+__PACKAGE__->belongs_to(layer => 'SmartSea::Schema::Result::Layer');
 
 # by default the area is allocated to the use
 # if reduce is true, the rule disallocates
@@ -31,6 +32,7 @@ __PACKAGE__->belongs_to(op => 'SmartSea::Schema::Result::Op');
 
 sub as_text {
     my ($self) = @_;
+    return $self->r_dataset ? $self->r_dataset->long_name : 'error' if $self->layer->id == 1;
     my $text;
     $text = $self->reduce ? "- If " : "+ If ";
     my $u = '';
@@ -217,13 +219,21 @@ sub HTML_list {
                 ]
             )
         }
-        push @{$data{$rule->plan->title}{$rule->use->title}}, [li => $li];
+        if ($rule->plan) {
+            push @{$data{$rule->plan->title}{$rule->use->title}{$rule->layer->title}}, [li => $li];
+        } else {
+            push @{$data{'0 Default'}{$rule->use->title}{$rule->layer->title}}, [li => $li];
+        }
     }
     my @body;
     for my $plan (sort keys %data) {
         my @l;
         for my $use (sort keys %{$data{$plan}}) {
-            push @l, [li => [[b => $use], [ul => \@{$data{$plan}{$use}}]]];
+            my @l2;
+            for my $layer (sort keys %{$data{$plan}{$use}}) {
+                push @l2, [li => [[b => $layer], [ul => \@{$data{$plan}{$use}{$layer}}]]];
+            }
+            push @l, [li => [[b => $use], [ul => \@l2]]];
         }
         push @body, [b => $plan], [ul => \@l];
     }

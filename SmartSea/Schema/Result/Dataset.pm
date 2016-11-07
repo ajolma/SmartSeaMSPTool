@@ -40,7 +40,9 @@ sub HTML_text {
         if ($self->path =~ /^PG:/) {
             my $dsn = $self->path;
             $dsn =~ s/^PG://;
-            $info = `ogrinfo -so PG:dbname=$config->{dbname} '$dsn'`;
+            $info = `ogrinfo -so PG:"dbname=$config->{dbname} user='$config->{user}' password='$config->{pass}'" '$dsn'`;
+            $info =~ s/user='(.*?)'/user='xxx'/;
+            $info =~ s/password='(.*?)'/password='xxx'/;
         } else {
             my $path = $config->{data_path}.'/'.$self->path;
             $info = `gdalinfo $path`;
