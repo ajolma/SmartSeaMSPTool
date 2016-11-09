@@ -8,4 +8,9 @@ __PACKAGE__->table('tool.ops');
 __PACKAGE__->add_columns(qw/ id op /);
 __PACKAGE__->set_primary_key('id');
 
+sub title {
+    my $self = shift;
+    return $self->op;
+}
+
 1;

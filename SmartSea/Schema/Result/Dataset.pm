@@ -36,7 +36,7 @@ sub HTML_text {
     my @data = ([h2 => $self->name]);
     
     if ($self->path) {
-        my $info;
+        my $info = '';
         if ($self->path =~ /^PG:/) {
             my $dsn = $self->path;
             $dsn =~ s/^PG://;
@@ -45,7 +45,14 @@ sub HTML_text {
             $info =~ s/password='(.*?)'/password='xxx'/;
         } else {
             my $path = $config->{data_path}.'/'.$self->path;
-            $info = `gdalinfo $path`;
+            my @info = `gdalinfo $path`;
+            my $table;
+            for (@info) {
+                $table = 1 if /<GDALRasterAttributeTable>/;
+                next if $table;
+                $info .= $_;
+                $table = 0 if /<\/GDALRasterAttributeTable>/;
+            }
         }
         push @data, [h3 => "GDAL info of ".$self->name.":"], [pre => $info];
     }

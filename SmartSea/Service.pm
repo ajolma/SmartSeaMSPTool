@@ -13,7 +13,9 @@ use SmartSea::Schema;
 
 use parent qw/Plack::Component/;
 
-binmode STDERR, ":utf8"; 
+binmode STDERR, ":utf8";
+
+my $allow_edit = 1;
 
 sub new {
     my ($class, $self) = @_;
@@ -37,7 +39,7 @@ sub call {
                                    $1, 
                                    { empty_is_null => ['value'], 
                                      defaults => {reduce=>1},
-                                     allow_edit => 0
+                                     allow_edit => $allow_edit
                                    }
             ) if /rules([\/\?\w]*)$/;
         return $self->impact_network() if /impact_network$/;
@@ -45,7 +47,7 @@ sub call {
                                    $1, 
                                    { empty_is_null => [qw/contact desc attribution disclaimer path/],
                                      defaults => {},
-                                     allow_edit => 0
+                                     allow_edit => $allow_edit
                                    }
             ) if /datasets([\/\?\w]*)$/;
         last;
@@ -95,38 +97,20 @@ sub plans {
             my $rels = $use->use2layer->search(undef, {order_by => { -desc => 'me.layer'}});
             while (my $rel = $rels->next) {
                 my @r_u_layers;
-                my $remove_default;
-                for my $rule ($rules_rs->search({ -or => [ plan => $plan->id,
-                                                           plan => undef ],
-                                                  use => $use->id,
-                                                  layer => $rel->layer->id
-                                                },
-                                                { order_by => ['me.id'] })) {
-                
-                    # if there are rules for this plan, remove default rules
-                    $remove_default = 1 if $rule->plan;
+                for my $rule (SmartSea::Schema::Result::Rule::rules($rules_rs, $plan, $use, $rel->layer)) {
                     push @r_u_layers, {
                         id => $rule->id,
-                        plan => $rule->plan,
                         text => $rule->as_text,
                         active => JSON::true
                     };
-                    
                 }
-                my @final;
-                for my $rule (@r_u_layers) {
-                    next if $remove_default && !$rule->{plan};
-                    delete $rule->{plan};
-                    push @final, $rule;
-                }
-
                 push @r_uses, {
                     id => $rel->layer->id,
+                    use => $use->id,
                     layer => $rel->layer->title,
-                    rules => \@final
+                    rules => \@r_u_layers
                 }
             }
-            
             push @rules, {
                 use => $use->title,
                 id => $use->id,
@@ -251,7 +235,7 @@ sub class_editor {
                 [p => 'Something went wrong!'], 
                 [p => 'Error is: '.$@],
                 [ form => { action => $uri, method => 'POST' },
-                  $class->HTML_form(undef, $self, \%parameters) ]
+                  $class->HTML_form($self, \%parameters) ]
             );
             return html200(SmartSea::HTML->new(html => [body => $body])->html);
         }
@@ -268,6 +252,7 @@ sub class_editor {
         ($oid) = $oid =~ /(\d+)/;
         my $obj = $rs->single({ id => $oid });
         return return_400 unless defined $obj;
+        $uri =~ s/\?edit$//;
         my $body = [form => { action => $uri, method => 'POST' },
                     $obj->HTML_form($self)];
         return html200(SmartSea::HTML->new(html => [body => $body])->html);

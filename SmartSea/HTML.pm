@@ -42,6 +42,11 @@ sub checkbox {
 }
 sub text {
     my (undef, %arg) = @_;
-    return [input => {type => 'text', name => $arg{name}, value => encode_entities($arg{visual})}];
+    return [input => { type => 'text', 
+                       name => $arg{name}, 
+                       value => encode_entities($arg{visual}),
+                       size => $arg{size} // 10,
+            }
+        ];
 }
 1;

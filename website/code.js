@@ -112,7 +112,7 @@ function boot_map(options) {
             fill_rules_panel();
             if (uses) {
                 new_plan();
-                fill_rules_panel(selectLayer.use, selectLayer.layer);
+                fill_rules_panel(layer_of_current_plan(selectLayer.use, selectLayer.layer));
             }
         }).change();
         
@@ -122,11 +122,6 @@ function boot_map(options) {
         }).done(function(ret) {
             uses = ret;
             addLayers(map, proj, uses, plan, true);
-            //var rule_use_menu = $("#rule_use_menu");
-            //$.each(uses, function(i, use) {
-            //    rule_use_menu.append(element('option',{value:use.my_id},use.title));
-            //});
-            //rule_use_menu.change(fill_rules_panel).change();
             addExplainTool(uses);
         });
     });
@@ -139,30 +134,36 @@ function new_plan() {
     map.addLayer(analysisSite);
 }
 
-function fill_rules_panel(use, layer) {
+// if and when used for value rules, those cannot be turned off
+// or if they can be, then all dependent layers need to be reloaded
+function fill_rules_panel(layer) {
     // clear rule list, fill it with new
     var r = $("#rules");
     r.empty();
-    var rules = rules_of(use, layer);
-    if (rules.length == 0) return;
-    $.each(rules, function(i, rule) {
-        r.append(element('input', {
-            type:"checkbox",
-            use: use,
-            layer: layer,
-            rule:rule.id,
-            checked:"checked"
-        }, rule.text));
+    if (!layer) return;
+    $.each(layer.rules, function(i, rule) {
+        var item;
+        if (layer.layer == 'Value')
+            item = rule.text;
+        else
+            item = element('input', {
+                type:"checkbox",
+                use: layer.use,
+                layer: layer.id,
+                rule:rule.id,
+                checked:"checked"
+            }, rule.text);
+        r.append(item);
         rule.active = true;
         r.append(element('br'));
     });
     $("#rules :checkbox").change(function() {
         var use = $(this).attr('use');
-        var layer = $(this).attr('layer');
+        var id = $(this).attr('layer');
         var rule_id = $(this).attr('rule');
         var active = this.checked;
-        var rules = rules_of(use, layer);
-        $.each(rules, function(i, rule) {
+        var layer = layer_of_current_plan(use, id);
+        $.each(layer.rules, function(i, rule) {
             if (rule.id == rule_id) {
                 rule.active = active;
                 return false;
@@ -172,18 +173,17 @@ function fill_rules_panel(use, layer) {
     });
 }
 
-function rules_of(use, layer) {
+function layer_of_current_plan(use, layer) {
     var uses = plan.rules;
     for (var i = 0; i < uses.length; i++) {
         if (uses[i].id == use) {
             var layers = uses[i].rules;
             for (var j = 0; j < layers.length; j++) {
                 if (layers[j].id == layer)
-                    return layers[j].rules;
+                    return layers[j];
             }
         }
     }
-    return [];
 }
 
 function addExplainTool(uses) {

@@ -40,13 +40,13 @@ function addLayers(map, proj, uses, plan, boot) {
 
             if (plan) {
                 // initial boot or new plan
-                var name = use.my_id + '_' + layer.my_id;
+                var name = use.my_id + '_' + layer.my_id + '_' + plan.my_id;
                 if (layer.title === 'Allocation') {
-                    name += '_'+plan.my_id;
+                    //name += '_'+plan.my_id;
 
                     // add rules
-                    var rules = rules_of(use.my_id, layer.my_id);
-                    $.each(rules, function(i, rule) {
+                    var l = layer_of_current_plan(use.my_id, layer.my_id);
+                    $.each(l.rules, function(i, rule) {
                         if (rule.active) name += '_'+rule.id;
                     });
 
@@ -144,10 +144,10 @@ function selectLayer(use, layer) {
     if (layer == 3) 
         $("#layer_rule_info").html("Default is to allocate.");
     else 
-        $("#layer_rule_info").html("");
+        $("#layer_rule_info").html("Default is no value.");
     selectLayer.use = use;
     selectLayer.layer = layer;
-    fill_rules_panel(use, layer);
+    fill_rules_panel(layer_of_current_plan(use, layer));
 }
 
 function usesItem(use) {
