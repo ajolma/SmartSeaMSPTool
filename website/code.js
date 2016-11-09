@@ -35,18 +35,6 @@ var plan = null;
 var analysisSite = null;
 
 (function() {
-    $("#sortable").sortable({
-        stop: function () {
-            map.removeLayer(analysisSite);
-            var newOrder = [];
-            forEachLayerGroup(uses, function(use){
-                newOrder.push(use);
-            });
-            uses = newOrder;
-            addLayers(map, proj, uses, null, false);
-            map.addLayer(analysisSite);
-        }
-    });
     $('body').addClass('stop-scrolling');
     boot_map({});
     $(window).resize(window_resize);
@@ -109,7 +97,7 @@ function boot_map(options) {
                     return false;
                 }
             });
-            fill_rules_panel();
+            $("#rules").empty();
             if (uses) {
                 new_plan();
                 fill_rules_panel(layer_of_current_plan(selectLayer.use, selectLayer.layer));
@@ -124,6 +112,20 @@ function boot_map(options) {
             addLayers(map, proj, uses, plan, true);
             addExplainTool(uses);
         });
+
+        $("#sortable").sortable({
+            stop: function () {
+                map.removeLayer(analysisSite);
+                var newOrder = [];
+                forEachLayerGroup(uses, function(use){
+                    newOrder.push(use);
+                });
+                uses = newOrder;
+                addLayers(map, proj, uses, null, false);
+                map.addLayer(analysisSite);
+            }
+        });
+    
     });
     
 }

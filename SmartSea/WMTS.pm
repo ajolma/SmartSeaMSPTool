@@ -37,7 +37,7 @@ sub new {
 
     # value is from 0 to 100
     my $max_value = 100;
-    # from white to red
+    # from white to green
     my @color = (255,255,255,255);
     for my $value (0..$max_value) {
         my $c = int(255-255/$max_value*$value);
@@ -103,7 +103,7 @@ sub process {
             $self->{schema}->resultset('Rule'), $plan, $use, $layer
         );
         # compute, returns bad, 0..100
-        my $value = SmartSea::Schema::Result::Rule::compute_value($self, $tile, \@rules);
+        my $value = SmartSea::Schema::Result::Rule::compute_value($self, $use, $tile, \@rules);
         $value->inplace->setbadtoval(-1);
         my $mask = $dataset->Band(1)->Piddle; # 0 / 1
         $mask *= ($value + 2);
@@ -122,7 +122,7 @@ sub process {
             push @rules, $rule;
         }
         # compute, returns 0, 1, 2
-        my $allocation = SmartSea::Schema::Result::Rule::compute_allocation($self, $tile, \@rules);
+        my $allocation = SmartSea::Schema::Result::Rule::compute_allocation($self, $use, $tile, \@rules);
         $allocation->inplace->setbadtoval(0);
         my $mask = $dataset->Band(1)->Piddle; # 0 / 1
         $mask *= $allocation;

@@ -239,17 +239,10 @@ sub rules {
 }
 
 sub compute_allocation {
-    my ($config, $tile, $rules) = @_;
+    my ($config, $use, $tile, $rules) = @_;
 
     # default is to allocate all
     my $result = zeroes($tile->tile) + 2;
-    return $result unless @$rules;
-
-    # set current allocation if there is one
-    # TODO: how to deal with deallocations?
-    my $current = $rules->[0]->use->current_allocation;
-    $current = $current->path if $current;
-    $result->where(dataset($config, $tile, $current) > 0) .= 1 if $current;
 
     for my $rule (@$rules) {
 
@@ -263,7 +256,7 @@ sub compute_allocation {
         my $value = $rule->value // 1;
 
         # the operand
-        my $tmp = $rule->operand($config, $tile);
+        my $tmp = $rule->operand($config, $use, $tile);
 
         if (defined $tmp) {
             if ($op eq '<=')    { $result->where($tmp <= $value) .= $val; } 
@@ -276,14 +269,22 @@ sub compute_allocation {
         else                    { $result .= $val; }
         
     }
+
+    # set current allocation if there is one
+    # TODO: how to deal with deallocations?
+    my $current = $use->current_allocation;
+    $current = $current->path if $current;
+    $result->where(dataset($config, $tile, $current) > 0) .= 1 if $current;
+
     return $result;
 }
 
 sub compute_value {
-    my ($config, $tile, $rules) = @_;
+    my ($config, $use, $tile, $rules) = @_;
 
     # default is no value
     my $result = zeroes($tile->tile);
+    return $result unless @$rules;
 
     # apply rules
     for my $rule (@$rules) {
@@ -299,7 +300,7 @@ sub compute_value {
         #my $op = $rule->op ? $rule->op->op : '==';
 
         # the operand
-        my $tmp = double($rule->operand($config, $tile));
+        my $tmp = double($rule->operand($config, $use, $tile));
 
         # scale values from 0 to 100
         my $min = $rule->min_value;
@@ -315,18 +316,14 @@ sub compute_value {
     # how to deal with losses?
     $result->where($result < 0) .= 0;
 
-    # scale values from 0 to 100
-    my $max = @$rules*100;
-
-    $result = 100*($result)/($max) if $max > 0;
-
-    $result = short($result+0.5);
+    # scale values from 0 to 100 and round to integer values
+    $result = short($result/@$rules + 0.5);
 
     return $result;
 }
 
 sub operand {
-    my ($self, $config, $tile) = @_;
+    my ($self, $config, $use, $tile) = @_;
     if ($self->r_layer) {
         # we need the rules associated with the 2nd plan.use.layer
         my $plan = $self->r_plan ? $self->r_plan : $self->plan;
@@ -339,7 +336,7 @@ sub operand {
         say STDERR $plan->title,".",$use->title,".",$self->r_layer->title," did not return any rules" unless @rules;
         
         if ($self->r_layer->title eq 'Allocation') {
-            return compute_allocation($config, $tile, \@rules);
+            return compute_allocation($config, $use, $tile, \@rules);
         } else {
             return compute_value($config, $tile, \@rules);
         }
