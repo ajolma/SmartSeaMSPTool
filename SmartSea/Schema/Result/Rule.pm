@@ -338,7 +338,7 @@ sub operand {
         if ($self->r_layer->title eq 'Allocation') {
             return compute_allocation($config, $use, $tile, \@rules);
         } else {
-            return compute_value($config, $tile, \@rules);
+            return compute_value($config, $use, $tile, \@rules);
         }
     } elsif ($self->r_dataset) {
         return dataset($config, $tile, $self->r_dataset->path);
