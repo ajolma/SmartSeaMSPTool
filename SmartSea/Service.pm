@@ -50,6 +50,24 @@ sub call {
                                      allow_edit => $allow_edit
                                    }
             ) if /datasets([\/\?\w]*)$/;
+
+        return $self->class_editor('SmartSea::Schema::Result::Activity2Pressure',
+                                   $1, 
+                                   { empty_is_null => [qw//],
+                                     defaults => {},
+                                     allow_edit => $allow_edit
+                                   }
+            ) if /activity2pressure([\/\?\w]*)$/;
+
+        return $self->class_editor('SmartSea::Schema::Result::Impact',
+                                   $1, 
+                                   { empty_is_null => [qw//],
+                                     defaults => {},
+                                     allow_edit => $allow_edit
+                                   }
+            ) if /impact([\/\?\w]*)$/;
+
+        return $self->pressure_table($1) if /pressure_table([\/\?\w]*)$/;
         last;
     }
     my $html = SmartSea::HTML->new;
@@ -61,7 +79,10 @@ sub call {
         [li => $html->a(link => 'plans', url  => $uri.'plans')],
         [li => $html->a(link => 'rules', url  => $uri.'rules')],
         [li => $html->a(link => 'impact_network', url  => $uri.'impact_network')],
-        [li => $html->a(link => 'datasets', url  => $uri.'datasets')]
+        [li => $html->a(link => 'datasets', url  => $uri.'datasets')],
+        [li => $html->a(link => 'activity -> pressure links', url  => $uri.'activity2pressure')],
+        [li => $html->a(link => 'impacts', url  => $uri.'impact')],
+        [li => $html->a(link => 'pressure table', url  => $uri.'pressure_table')]
     );
     return html200($html->html(html => [body => [ul => \@l]]));
 }
@@ -127,38 +148,52 @@ sub impact_network {
 
     my %elements = (nodes => [], edges => []);
 
-    my $uses = $self->{schema}->resultset('Use');
+    my $activities = $self->{schema}->resultset('Activity');
+    my $pressures = $self->{schema}->resultset('Pressure');
+    my $aps = $self->{schema}->resultset('Activity2Pressure');
+    my $components = $self->{schema}->resultset('EcosystemComponent');
     my $impacts = $self->{schema}->resultset('Impact');
-    my $characteristics = $self->{schema}->resultset('Characteristic');
 
-    for my $use ($uses->search(undef, {order_by => ['me.id']})) {
-        push @{$elements{nodes}}, { data => { id => 'u'.$use->id, name => $use->title }};
+    my @activities = $activities->search(undef, {order_by => ['me.id']});
+    my @pressures = $pressures->search(undef, {order_by => ['me.id']});
+    my @aps = $aps->search(undef, {order_by => ['me.id']});
+    my @components = $components->search(undef, {order_by => ['me.id']});
+    my @impacts = $impacts->search(undef, {order_by => ['me.id']});
+
+    for my $activity (@activities) {
+        push @{$elements{nodes}}, { data => { id => 'a'.$activity->id, name => $activity->title }};
     }
-    for my $impact ($impacts->search(undef, {order_by => ['me.id']})) {
-        push @{$elements{nodes}}, { data => { id => 'i'.$impact->id, name => $impact->title }};
+    for my $pressure (@pressures) {
+        push @{$elements{nodes}}, { data => { id => 'p'.$pressure->id, name => $pressure->title }};
     }
-    for my $characteristic ($characteristics->search(undef, {order_by => ['me.id']})) {
-        push @{$elements{nodes}}, { data => { id => 'c'.$characteristic->id, name => $characteristic->title }};
+    for my $ap (@aps) {
+        push @{$elements{nodes}}, { data => { id => 'ap'.$ap->id, name => 'ap'.$ap->id }};
+    }
+    for my $component (@components) {
+        push @{$elements{nodes}}, { data => { id => 'c'.$component->id, name => $component->title }};
+    }
+    for my $impact (@impacts) {
+        push @{$elements{nodes}}, { data => { id => 'i'.$impact->id, name => 'i'.$impact->id }};
     }
 
-    # uses -> impacts
-    for my $use ($uses->search(undef, {order_by => ['me.id']})) {
-        my $rels = $use->use2impact;
-        while (my $rel = $rels->next) {
-            push @{$elements{edges}}, { data => { 
-                source => 'u'.$use->id, 
-                target => 'i'.$rel->impact->id }};
-        }
+    # activity, pressure -> ap
+    for my $ap (@aps) {
+        push @{$elements{edges}}, { data => { 
+            source => 'a'.$ap->activity->id, 
+            target => 'ap'.$ap->id }};
+        push @{$elements{edges}}, { data => { 
+            source => 'p'.$ap->pressure->id, 
+            target => 'ap'.$ap->id }};
     }
 
-    # impacts -> characteristics
-    for my $impact ($impacts->search(undef, {order_by => ['me.id']})) {
-        my $rels = $impact->impact2characteristic;
-        while (my $rel = $rels->next) {
-            push @{$elements{edges}}, { data => { 
-                source => 'i'.$impact->id, 
-                target => 'c'.$rel->characteristic->id }};
-        }
+    # ap, component -> impact
+    for my $impact (@impacts) {
+        push @{$elements{edges}}, { data => { 
+            source => 'ap'.$impact->activity2pressure->id, 
+            target => 'i'.$impact->id }};
+        push @{$elements{edges}}, { data => { 
+            source => 'c'.$impact->ecosystem_component->id, 
+            target => 'i'.$impact->id }};
     }
 
     return json200(\%elements);
@@ -271,6 +306,120 @@ sub class_editor {
     push @body, @{$class->HTML_list($rs, $uri, $config->{allow_edit})};
     return html200(SmartSea::HTML->new(html => [body => \@body])->html);
 
+}
+
+sub pressure_table {
+    my ($self, $x) = @_;
+    my $aps = $self->{schema}->resultset('Activity2Pressure');
+    my $pressures = $self->{schema}->resultset('Pressure');
+    my %title;
+    my %id;
+    my %pressures;
+    for my $pressure ($pressures->all) {
+        $pressures{$pressure->title} = $pressure->order;
+        $id{pressures}{$pressure->title} = $pressure->id;
+    }
+    my $activities = $self->{schema}->resultset('Activity');
+    my %activities;
+    for my $activity ($activities->all) {
+        $activities{$activity->title} = $activity->order;
+        $id{activities}{$activity->title} = $activity->id;
+        $title{$activity->title} = $activity->title.'('.$activity->order.')';
+    }
+    for my $pressure ($pressures->all) {
+        for my $activity ($activities->all) {
+            my $key = 'range_'.$pressure->id.'_'.$activity->id;
+            $title{$key} = $pressure->title.' '.$activity->title;
+        }
+    }
+    
+    #for my $key (sort $self->{parameters}->keys) {
+    #    say STDERR "$key $self->{parameters}{$key}";
+    #}
+
+    my @error = ();
+
+    my $submit = $self->{parameters}{submit} // '';
+    if ($submit eq 'Commit') {
+        my %have;
+        for my $ap ($aps->all) {
+            my $key = 'range_'.$ap->pressure->id.'_'.$ap->activity->id;
+            $have{$key} = $ap->range;
+        }
+        for my $key ($self->{parameters}->keys) {
+            next if $key eq 'submit';
+            my $value = $self->{parameters}{$key};
+            next if $value eq '0';
+            my ($pressure, $activity) = $key =~ /range_(\d+)_(\d+)/;
+            say STDERR "change $title{$key} ($have{$key}) to $value " if exists($have{$key}) && $have{$key} ne $value;
+            say STDERR "insert $title{$key} $value" unless exists $have{$key};
+            
+            #$obj->update(\%parameters);
+
+            unless (exists $have{$key}) {
+                my $obj;
+                eval {
+                    $obj = $aps->create({pressure => $pressure, activity => $activity, range => $value});
+                };
+                if ($@ or not $obj) {
+                    # if not ok, signal error
+                    @error = (
+                        [p => 'Something went wrong!'], 
+                        [p => 'Error is: '.$@]
+                        );
+                }
+            }
+        }
+    }
+    
+    my @rows;
+
+    my @headers = ('Pressure', 'Activity', 'Range');
+    my @tr;
+    for my $h (@headers) {
+        push @tr, [th => $h];
+    }
+    push @rows, [tr => \@tr];
+
+    my %table;
+    for my $ap ($aps->all) {
+        $table{$ap->pressure->title}{$ap->activity->title} = $ap->range;
+    }
+
+    for my $pressure (sort {$pressures{$a} <=> $pressures{$b}} keys %pressures) {
+        next unless $pressures{$pressure};
+        my @activities;
+        for my $activity (sort {$activities{$a} <=> $activities{$b}} keys %activities) {
+            my $range = $table{$pressure}{$activity} // 0;
+            next if $range < 0;
+            push @activities, $activity;
+        }
+        my @td = ([td => {rowspan => $#activities+1}, $pressure]);
+        for my $activity (@activities) {
+            push @td, [td => $title{$activity}];
+            my $range = $table{$pressure}{$activity} // 0;
+            $range = SmartSea::HTML->text(
+                name => 'range_'.$id{pressures}{$pressure}.'_'.$id{activities}{$activity},
+                size => 10,
+                visual => $range
+                );
+            push @td, [td => $range];
+            push @rows, [tr => [@td]];
+            @td = ();
+        }
+    }
+    
+    my @body = (
+        @error,
+        [ form => {action => $self->{uri}, method => 'POST'}, 
+          [[a => {href => $self->{uri}}, 'reload'],
+           [1 => "&nbsp;&nbsp;"],
+           [input => {type => 'submit', name => 'submit', value => 'Commit'}],
+           [table => {border => 1}, \@rows],
+           [input => {type => 'submit', name => 'submit', value => 'Commit'}]]]
+        );
+
+    return html200(SmartSea::HTML->new(html => [body => \@body])->html);
 }
 
 1;

@@ -49,4 +49,22 @@ sub text {
             }
         ];
 }
+sub drop_down {
+    my (undef, $col, $rs, $values, $allow_null) = @_;
+    my %objs;
+    my %visuals;
+    %visuals = ('NULL' => '') if $allow_null;
+    for my $obj ($rs->all) {
+        $objs{$obj->id} = $obj->title;
+        $visuals{$obj->id} = $obj->title;
+    }
+    my @values = sort {$objs{$a} cmp $objs{$b}} keys %objs;
+    unshift @values, 'NULL' if $allow_null;
+    return SmartSea::HTML->select(
+        name => $col,
+        values => [@values],
+        visuals => \%visuals,
+        selected => $values->{$col} // ($allow_null ? 'NULL' : '')
+    );
+}
 1;

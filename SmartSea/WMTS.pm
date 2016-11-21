@@ -21,7 +21,7 @@ binmode STDERR, ":utf8";
 sub new {
     my ($class, $self) = @_;
     my $dsn = "dbi:Pg:dbname=$self->{dbname}";
-    $self->{dbh} = DBI->connect($dsn, $self->{user}, $self->{pass}, {});
+    #$self->{dbh} = DBI->connect($dsn, $self->{user}, $self->{pass}, {});
     $self->{schema} = SmartSea::Schema->connect($dsn, $self->{user}, $self->{pass}, {});
     $dsn = "PG:dbname='$self->{dbname}' host='localhost' port='5432'";
     $self->{GDALVectorDataset} = Geo::GDAL::Open(

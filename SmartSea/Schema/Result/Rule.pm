@@ -72,25 +72,6 @@ sub HTML_text {
     return [ul => \@l];
 }
 
-sub drop_down {
-    my ($col, $rs, $values, $allow_null) = @_;
-    my %objs;
-    my %visuals;
-    %visuals = ('NULL' => '') if $allow_null;
-    for my $obj ($rs->all) {
-        $objs{$obj->id} = $obj->title;
-        $visuals{$obj->id} = $obj->title;
-    }
-    my @values = sort {$objs{$a} cmp $objs{$b}} keys %objs;
-    unshift @values, 'NULL' if $allow_null;
-    return SmartSea::HTML->select(
-        name => $col,
-        values => [@values],
-        visuals => \%visuals,
-        selected => $values->{$col} // ($allow_null ? 'NULL' : '')
-    );
-}
-
 sub HTML_form {
     my ($self, $config, $values) = @_;
 
@@ -105,9 +86,9 @@ sub HTML_form {
         push @ret, [input => {type => 'hidden', name => 'id', value => $self->id}];
     }
 
-    my $plan = drop_down('plan', $config->{schema}->resultset('Plan'), $values, 1);
-    my $use = drop_down('use', $config->{schema}->resultset('Use'), $values);
-    my $layer = drop_down('layer', $config->{schema}->resultset('Layer'), $values);
+    my $plan = SmartSea::HTML->drop_down('plan', $config->{schema}->resultset('Plan'), $values, 1);
+    my $use = SmartSea::HTML->drop_down('use', $config->{schema}->resultset('Use'), $values);
+    my $layer = SmartSea::HTML->drop_down('layer', $config->{schema}->resultset('Layer'), $values);
 
     my $reduce = SmartSea::HTML->checkbox(
         name => 'reduce',
