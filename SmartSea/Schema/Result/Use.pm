@@ -7,6 +7,8 @@ use base qw/DBIx::Class::Core/;
 __PACKAGE__->table('tool.uses');
 __PACKAGE__->add_columns(qw/ id title current_allocation /);
 __PACKAGE__->set_primary_key('id');
+__PACKAGE__->has_many(plan2use => 'SmartSea::Schema::Result::Plan2Use', 'use');
+__PACKAGE__->many_to_many(plans => 'plan2use', 'plan');
 __PACKAGE__->has_many(use2layer => 'SmartSea::Schema::Result::Use2Layer', 'use');
 __PACKAGE__->many_to_many(layers => 'use2layer', 'layer');
 __PACKAGE__->has_many(use2activity => 'SmartSea::Schema::Result::Use2Activity', 'use');

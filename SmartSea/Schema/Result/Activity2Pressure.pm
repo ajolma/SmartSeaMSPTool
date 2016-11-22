@@ -10,7 +10,7 @@ __PACKAGE__->add_columns(qw/ id activity pressure range /);
 __PACKAGE__->set_primary_key(qw/ id /);
 __PACKAGE__->belongs_to(activity => 'SmartSea::Schema::Result::Activity');
 __PACKAGE__->belongs_to(pressure => 'SmartSea::Schema::Result::Pressure');
-__PACKAGE__->has_many(impacts => 'SmartSea::Schema::Result::Impacts', 'activity2pressure');
+__PACKAGE__->has_many(impacts => 'SmartSea::Schema::Result::Impact', 'activity2pressure');
 
 sub as_text {
     my ($self) = @_;
