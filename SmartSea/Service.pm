@@ -10,12 +10,11 @@ use PDL;
 use SmartSea::Core;
 use SmartSea::HTML;
 use SmartSea::Schema;
+use Data::Dumper;
 
 use parent qw/Plack::Component/;
 
 binmode STDERR, ":utf8";
-
-my $allow_edit = 0;
 
 sub new {
     my ($class, $self) = @_;
@@ -35,43 +34,43 @@ sub call {
     for ($self->{uri}) {
         return $self->uses() if /uses$/;
         return $self->plans() if /plans$/;
-        return $self->class_editor('SmartSea::Schema::Result::Rule', 
+        return $self->object_editor('SmartSea::Schema::Result::Rule', 
                                    $1, 
                                    { empty_is_null => ['value'], 
                                      defaults => {reduce=>1},
-                                     allow_edit => $allow_edit
+                                     edit => $self->{edit}
                                    }
             ) if /rules([\/\?\w]*)$/;
         return $self->impact_network() if /impact_network$/;
-        return $self->class_editor('SmartSea::Schema::Result::Dataset',
+        return $self->object_editor('SmartSea::Schema::Result::Dataset',
                                    $1, 
                                    { empty_is_null => [qw/contact desc attribution disclaimer path/],
                                      defaults => {},
-                                     allow_edit => $allow_edit
+                                     edit => $self->{edit}
                                    }
             ) if /datasets([\/\?\w]*)$/;
 
-        return $self->class_editor('SmartSea::Schema::Result::Activity2Pressure',
+        return $self->object_editor('SmartSea::Schema::Result::Activity2Pressure',
                                    $1, 
                                    { empty_is_null => [qw//],
                                      defaults => {},
-                                     allow_edit => $allow_edit
+                                     edit => $self->{edit}
                                    }
             ) if /activity2pressure([\/\?\w]*)$/;
 
-        return $self->class_editor('SmartSea::Schema::Result::Impact',
+        return $self->object_editor('SmartSea::Schema::Result::Impact',
                                    $1, 
                                    { empty_is_null => [qw//],
                                      defaults => {},
-                                     allow_edit => $allow_edit
+                                     edit => $self->{edit}
                                    }
             ) if /impact([\/\?\w]*)$/;
 
-        return $self->class_editor('SmartSea::Schema::Result::Plan',
+        return $self->object_editor('SmartSea::Schema::Result::Plan',
                                    $1, 
                                    { empty_is_null => [qw//],
                                      defaults => {},
-                                     allow_edit => $allow_edit
+                                     edit => $self->{edit}
                                    }
             ) if /plan_editor([\/\?\w]*)$/;
 
@@ -208,10 +207,11 @@ sub impact_network {
     return json200(\%elements);
 }
 
-sub class_editor {
-    my ($self, $class, $oid, $config) = @_;
+sub object_editor {
+    my ($self, $class, $oids, $config) = @_;
 
-    # oid is what's after /objs in URI, it may have /new/ or /id/ (integer) in it
+    # oids is what's after the base in URI, 
+    # a list of object ids separated by / and possibly /new or ?edit in the end
     # DBIx Class understands undef as NULL
     # config: delete => value-in-the-delete-button (default is Delete)
     #         store => value-in-the-store-button (default is Store)
@@ -220,7 +220,11 @@ sub class_editor {
     # 'NULL' parameters will be converted to undef, 
 
     my $uri = $self->{uri};
-    $uri =~ s/$oid$//;
+    $uri =~ s/$oids$//;
+    my @oids = split /\//, $oids;
+    shift @oids;
+    my $oid = shift(@oids) // '';
+    #say STDERR "$uri, $oids, $oid";
     
     $config->{delete} //= 'Delete';
     $config->{store} //= 'Store';
@@ -250,7 +254,7 @@ sub class_editor {
 
     my @body;
 
-    if ($request eq $config->{delete} and $config->{allow_edit}) {
+    if ($request eq $config->{delete} and $config->{edit}) {
 
         eval {
             $rs->single({ id => $parameters{id} })->delete;
@@ -260,7 +264,7 @@ sub class_editor {
             push @body, [p => 'Something went wrong!'], [p => 'Error is: '.$@];
         }
 
-    } elsif ($request eq $config->{store} and $config->{allow_edit}) {
+    } elsif ($request eq $config->{store} and $config->{edit}) {
 
         my $obj;
         eval {
@@ -284,14 +288,14 @@ sub class_editor {
             return html200(SmartSea::HTML->new(html => [body => $body])->html);
         }
         
-    } elsif ($oid =~ /new/ and $config->{allow_edit}) {
+    } elsif ($oid eq 'new' and $config->{edit}) {
 
         my $body = [];
         push @$body, [form => { action => $uri, method => 'POST' },
                       $class->HTML_form($self, \%parameters)];
         return html200(SmartSea::HTML->new(html => [body => $body])->html);
 
-    } elsif ($oid =~ /edit/ and $config->{allow_edit}) {
+    } elsif ($oid =~ /edit/ and $config->{edit}) {
 
         ($oid) = $oid =~ /(\d+)/;
         my $obj = $rs->single({ id => $oid });
@@ -301,18 +305,18 @@ sub class_editor {
                     $obj->HTML_form($self)];
         return html200(SmartSea::HTML->new(html => [body => $body])->html);
         
-    } elsif ($oid) {
+    } elsif ($oid =~ /\d+/) {
 
         ($oid) = $oid =~ /(\d+)/;
         my $obj = $rs->single({ id => $oid });
         return return_400 unless defined $obj;
-        my $body = $obj->HTML_text($self, $self);
-        $body = [form => { action => $uri, method => 'POST' }, $body] if $config->{allow_edit};
+        my $body = $obj->HTML_text($self, \@oids);
+        $body = [form => { action => $uri, method => 'POST' }, $body] if $config->{edit};
         return html200(SmartSea::HTML->new(html => [body => $body])->html);
         
     }
 
-    push @body, @{$class->HTML_list($rs, $uri, $config->{allow_edit})};
+    push @body, @{$class->HTML_list([$rs->all], $uri, $config->{edit})};
     return html200(SmartSea::HTML->new(html => [body => \@body])->html);
 
 }
@@ -498,7 +502,7 @@ sub pressure_table {
                 name => 'range_'.$idp.'_'.$ida,
                 size => 1,
                 visual => $range
-                ) if $allow_edit;
+                ) if $self->{edit};
             push @td, [td => {bgcolor=>$color}, $range];
 
             $color = $c ? '#00ffff' : '#ffffff';
@@ -516,7 +520,7 @@ sub pressure_table {
                                name => 'belief_'.$idap.'_'.$idc,
                                size => 1,
                                visual => $impact->[1]
-                           )] if $allow_edit;
+                           )] if $self->{edit};
                 push @td, ([td => {bgcolor=>$color}, $impact->[0]],[td => {bgcolor=>$color2}, $impact->[1]]);
             }
 
@@ -537,9 +541,9 @@ sub pressure_table {
 
     my @a = ([a => {href => $self->{uri}}, 'reload'],
              [1 => "&nbsp;&nbsp;"]);
-    push @a, [input => {type => 'submit', name => 'submit', value => 'Commit'}] if $allow_edit;
+    push @a, [input => {type => 'submit', name => 'submit', value => 'Commit'}] if $self->{edit};
     push @a, [table => {border => 1}, \@rows];
-    push @a, [input => {type => 'submit', name => 'submit', value => 'Commit'}] if $allow_edit;
+    push @a, [input => {type => 'submit', name => 'submit', value => 'Commit'}] if $self->{edit};
     
     my @body = (@error, [ form => {action => $self->{uri}, method => 'POST'}, \@a ]);
 

@@ -51,12 +51,12 @@ sub HTML_form {
 }
 
 sub HTML_list {
-    my (undef, $rs, $uri, $allow_edit) = @_;
+    my (undef, $objs, $uri, $edit) = @_;
     my %data;
     my $html = SmartSea::HTML->new;
-    for my $link ($rs->all) {
+    for my $link (@$objs) {
         my $li = [ $html->a(link => $link->pressure->title, url => $uri.'/'.$link->id) ];
-        if ($allow_edit) {
+        if ($edit) {
             push @$li, (
                 [1 => '  '],
                 $html->a(link => "edit", url => $uri.'/'.$link->id.'?edit'),
@@ -75,7 +75,7 @@ sub HTML_list {
     for my $activity (sort keys %data) {
         push @body, [b => $activity], [ul => \@{$data{$activity}}];
     }
-    if ($allow_edit) {
+    if ($edit) {
         @body = ([ form => {action => $uri, method => 'POST'}, [@body] ]);
         push @body, $html->a(link => 'add', url => $uri.'/new');
     }

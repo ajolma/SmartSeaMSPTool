@@ -67,4 +67,23 @@ sub drop_down {
         selected => $values->{$col} // ($allow_null ? 'NULL' : '')
     );
 }
+sub item {
+    my (undef, $title, $url, $edit, $id, $ref) = @_;
+    my $i = [ a(1,link => $title, url => $url) ];
+    if ($edit) {
+        $url .= '?edit';
+        push @$i, (
+            [1 => '  '],
+            a(1,link => "edit", url => $url),
+            [1 => '  '],
+            [input => {type=>"submit", 
+                       name=>$id, 
+                       value=>"Delete",
+                       onclick => "return confirm('Are you sure you want to delete $ref?')" 
+             }
+            ]
+        )
+    }
+    return $i;
+}
 1;

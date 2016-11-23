@@ -152,12 +152,12 @@ sub HTML_form {
 }
 
 sub HTML_list {
-    my (undef, $rs, $uri, $allow_edit) = @_;
+    my (undef, $objs, $uri, $edit) = @_;
     my %data;
     my $html = SmartSea::HTML->new;
-    for my $rule ($rs->search(undef, {order_by => [qw/me.id/]})) {
+    for my $rule (@$objs) {
         my $li = [ $html->a(link => $rule->as_text, url => $uri.'/'.$rule->id) ];
-        if ($allow_edit) {
+        if ($edit) {
             push @$li, (
                 [1 => '  '],
                 $html->a(link => "edit", url => $uri.'/'.$rule->id.'?edit'),
@@ -188,7 +188,7 @@ sub HTML_list {
         }
         push @body, [b => $plan], [ul => \@l];
     }
-    if ($allow_edit) {
+    if ($edit) {
         @body = ([ form => {action => $uri, method => 'POST'}, [@body] ]);
         push @body, $html->a(link => 'add', url => $uri.'/new');
     }

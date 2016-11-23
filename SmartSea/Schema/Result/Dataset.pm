@@ -95,7 +95,7 @@ sub HTML_form {
 }
 
 sub li {
-    my ($all, $parent, $id, $html, $uri, $allow_edit) = @_;
+    my ($all, $parent, $id, $html, $uri, $edit) = @_;
     my @li;
     for my $set (@$all) {
         my $sid = $set->id;
@@ -105,7 +105,7 @@ sub li {
             next unless $parent->{$sid} && $parent->{$sid} == $id;
         }
         my $li = [ $html->a(link => $set->name, url => $uri.'/'.$set->id) ];
-        if ($allow_edit) {
+        if ($edit) {
             push @$li, (
                 [1 => '  '],
                 $html->a(link => "edit", url => $uri.'/'.$set->id.'?edit'),
@@ -119,7 +119,7 @@ sub li {
                 ]
             )
         }
-        my $children = li($all, $parent, $sid, $html, $uri, $allow_edit);
+        my $children = li($all, $parent, $sid, $html, $uri, $edit);
         push @$li, [ul => $children] if @$children;
         push @li, [li => $li];
     }
@@ -127,22 +127,22 @@ sub li {
 }
 
 sub tree {
-    my ($rs, $html, $uri, $allow_edit) = @_;
+    my ($objs, $html, $uri, $edit) = @_;
     my %parent;
     my @all;
-    for my $set ($rs->search(undef, {order_by => ['me.name']})) {
+    for my $set (sort {$a->name cmp $b->name} @$objs) {
         my $rel = $set->is_a_part_of // $set->is_derived_from;
         $parent{$set->id} = $rel->id if $rel;
         push @all, $set;
     }
-    return [ul => li(\@all, \%parent, undef, $html, $uri, $allow_edit)];
+    return [ul => li(\@all, \%parent, undef, $html, $uri, $edit)];
 }
 
 sub HTML_list {
-    my (undef, $rs, $uri, $allow_edit) = @_;
+    my (undef, $objs, $uri, $edit) = @_;
     my $html = SmartSea::HTML->new;
-    my @body = (tree($rs, $html, $uri, $allow_edit));
-    if ($allow_edit) {
+    my @body = (tree($objs, $html, $uri, $edit));
+    if ($edit) {
         @body = ([ form => {action => $uri, method => 'POST'}, [@body] ]);
         push @body, $html->a(link => 'add', url => $uri.'/new');
     }
