@@ -52,7 +52,7 @@ sub HTML_list {
 
 sub HTML_text {
     my ($self, $config, $oids) = @_;
-    my @l;
+    my @l = ([li => 'Use']);
     for my $a (qw/id title current_allocation/) {
         my $v = $self->$a // '';
         if (ref $v) {

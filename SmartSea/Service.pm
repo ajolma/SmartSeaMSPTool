@@ -59,6 +59,14 @@ sub call {
                                    }
             ) if /activity_browser([\/\?\w]*)$/;
 
+        return $self->object_editor('SmartSea::Schema::Result::EcosystemComponent',
+                                   $1, 
+                                   { empty_is_null => [qw//],
+                                     defaults => {},
+                                     edit => $self->{edit}
+                                   }
+            ) if /ec_browser([\/\?\w]*)$/;
+
         return $self->object_editor('SmartSea::Schema::Result::Rule', 
                                    $1, 
                                    { empty_is_null => ['value'], 
@@ -104,6 +112,7 @@ sub call {
         [li => a(link => 'plan browser', url => $uri.'plan_browser')],
         [li => a(link => 'use browser', url => $uri.'use_browser')],
         [li => a(link => 'activity browser', url => $uri.'activity_browser')],
+        [li => a(link => 'ecosystem component browser', url => $uri.'ec_browser')],
         [li => a(link => 'rule browser', url  => $uri.'rule_browser')],
         [li => a(link => 'impact_network', url  => $uri.'impact_network')],
         [li => a(link => 'datasets', url  => $uri.'datasets')],

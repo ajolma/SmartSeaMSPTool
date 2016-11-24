@@ -48,7 +48,7 @@ sub HTML_list {
 
 sub HTML_text {
     my ($self, $config, $oids) = @_;
-    my @l;
+    my @l = ([li => 'Plan']);
     for my $a (qw/id title/) {
         my $v = $self->$a // '';
         if (ref $v) {
@@ -61,7 +61,7 @@ sub HTML_text {
         }
         push @l, [li => "$a: ".$v];
     }
-    my @ret = ([h2 => 'Plan'],[ul => \@l]);
+    my @ret = ([ul => \@l]);
     if (@$oids) {
         my $oid = shift @$oids;
         my $use = $self->uses->single({'use.id' => $oid})->HTML_text($config, $oids);

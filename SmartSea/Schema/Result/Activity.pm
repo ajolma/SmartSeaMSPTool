@@ -49,7 +49,7 @@ sub HTML_list {
 
 sub HTML_text {
     my ($self, $config, $oids) = @_;
-    my @l;
+    my @l = ([li => 'Activity']);
     for my $a (qw/id title/) {
         my $v = $self->$a // '';
         if (ref $v) {

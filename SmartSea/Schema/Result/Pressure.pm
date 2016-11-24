@@ -4,6 +4,7 @@ use warnings;
 use 5.010000;
 use base qw/DBIx::Class::Core/;
 use SmartSea::HTML qw(:all);
+use SmartSea::Impact qw(:all);
 
 __PACKAGE__->table('tool.pressures');
 __PACKAGE__->add_columns(qw/ id order title category /);
@@ -11,11 +12,6 @@ __PACKAGE__->set_primary_key('id');
 __PACKAGE__->has_many(activity2pressure => 'SmartSea::Schema::Result::Activity2Pressure', 'pressure');
 __PACKAGE__->many_to_many(activities => 'activity2pressure', 'activity');
 __PACKAGE__->belongs_to(category => 'SmartSea::Schema::Result::PressureCategory');
-
-my %range = (1 => 'local', 2 => '< 500 m', 3 => '< 1 km', 4 => '< 10 km', 5 => '< 20 km', 6 => '> 20 km');
-
-my %strength = (0 => 'nil', 1 => 'very weak', 2 => 'weak', 3 => 'strong', 4 => 'very strong');
-my %belief = (1 => 'but this is very uncertain', 2 => 'but this is uncertain', 3 => 'and this is certain');
 
 sub list_impacts {
     my ($ap) = @_;
@@ -63,7 +59,7 @@ sub HTML_list {
 
 sub HTML_text {
     my ($self, $config, $oids, $context) = @_;
-    my @l;
+    my @l = ([li => 'Pressure']);
     for my $a (qw/id title category/) {
         my $v = $self->$a // '';
         if (ref $v) {

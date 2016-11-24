@@ -12,9 +12,32 @@ __PACKAGE__->set_primary_key('id');
 __PACKAGE__->belongs_to(activity2pressure => 'SmartSea::Schema::Result::Activity2Pressure');
 __PACKAGE__->belongs_to(ecosystem_component => 'SmartSea::Schema::Result::EcosystemComponent');
 
+sub HTML_list {
+    my (undef, $objs, $uri, $edit) = @_;
+    my %data;
+    for my $impact (@$objs) {
+        my $t = $impact->activity2pressure->title;
+        my $li = item($t, $uri.'/'.$impact->id, $edit, $impact->id, 'this impact');
+        $data{$impact->ecosystem_component->title}{$t} = [li => $li];
+    }
+    my @body;
+    for my $component (sort keys %data) {
+        my @ul;
+        for my $ul (sort keys %{$data{$component}}) {
+            push @ul, $data{$component}{$ul};
+        }
+        push @body, [b => $component], [ul => \@ul];
+    }
+    if ($edit) {
+        @body = ([ form => {action => $uri, method => 'POST'}, [@body] ]);
+        push @body, a(link => 'add', url => $uri.'/new');
+    }
+    return \@body;
+}
+
 sub HTML_text {
     my ($self) = @_;
-    my @l;
+    my @l = ([li => 'Impact']);
     for my $a (qw/id activity2pressure ecosystem_component strength belief/) {
         my $v = $self->$a // '';
         if (ref $v) {
@@ -70,42 +93,6 @@ sub HTML_form {
         [input => {type=>"submit", name=>'submit', value=>"Store"}]
     );
     return \@ret;
-}
-
-sub HTML_list {
-    my (undef, $objs, $uri, $edit) = @_;
-    my %data;
-    for my $impact (@$objs) {
-        my $t = $impact->activity2pressure->title;
-        my $li = [ a(link => $t, url => $uri.'/'.$impact->id) ];
-        if ($edit) {
-            push @$li, (
-                [1 => '  '],
-                a(link => "edit", url => $uri.'/'.$impact->id.'?edit'),
-                [1 => '  '],
-                [input => {type=>"submit", 
-                           name=>$impact->id, 
-                           value=>"Delete",
-                           onclick => "return confirm('Are you sure you want to delete this impact?')" 
-                 }
-                ]
-            )
-        }
-        $data{$impact->ecosystem_component->title}{$t} = [li => $li];
-    }
-    my @body;
-    for my $component (sort keys %data) {
-        my @ul;
-        for my $ul (sort keys %{$data{$component}}) {
-            push @ul, $data{$component}{$ul};
-        }
-        push @body, [b => $component], [ul => \@ul];
-    }
-    if ($edit) {
-        @body = ([ form => {action => $uri, method => 'POST'}, [@body] ]);
-        push @body, a(link => 'add', url => $uri.'/new');
-    }
-    return \@body;
 }
 
 1;

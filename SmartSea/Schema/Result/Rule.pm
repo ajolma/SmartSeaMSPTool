@@ -56,7 +56,7 @@ sub as_text {
 
 sub HTML_text {
     my ($self) = @_;
-    my @l;
+    my @l = ([li => 'Rule']);
     for my $a (qw/id plan use layer reduce r_plan r_use r_layer r_dataset op value min_value max_value/) {
         my $v = $self->$a // '';
         if (ref $v) {
