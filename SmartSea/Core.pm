@@ -8,7 +8,8 @@ use JSON;
 
 require Exporter;
 our @ISA = qw(Exporter);
-our @EXPORT    = qw(common_responses html200 json200 return_400 return_403 parse_integer);
+our @EXPORT_OK = qw(common_responses html200 json200 return_400 return_403 parse_integer); 
+our %EXPORT_TAGS = (all => \@EXPORT_OK);
 
 sub common_responses {
     my $env = shift;

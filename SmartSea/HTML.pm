@@ -3,7 +3,10 @@ use strict;
 use warnings;
 use HTML::Entities;
 use Geo::OGC::Service;
-our @ISA = qw(Geo::OGC::Service::XMLWriter);
+require Exporter;
+our @ISA = qw(Exporter Geo::OGC::Service::XMLWriter);
+our @EXPORT_OK = qw(a checkbox text_input drop_down item);
+our %EXPORT_TAGS = (all => \@EXPORT_OK);
 sub new {
     my $class = shift;
     my $self = bless {}, 'SmartSea::HTML';
@@ -21,60 +24,56 @@ sub html {
     return join '', @{$self->{cache}};
 }
 sub a {
-    my (undef, %arg) = @_;
+    my (%arg) = @_;
     return [a => encode_entities($arg{link}), {href=>$arg{url}}];
 }
-sub select {
-    my (undef, %arg) = @_;
-    my @options;
-    for my $value (@{$arg{values}}) {
-        my $attr = {value => $value};
-        $attr->{selected} = 'selected' if $value eq $arg{selected};
-        push @options, [option => $attr, encode_entities($arg{visuals}->{$value})];
-    }
-    return [select => {name => $arg{name}}, \@options];
-}
 sub checkbox {
-    my (undef, %arg) = @_;
+    my (%arg) = @_;
     my $attr = {type => 'checkbox',name => $arg{name},value => $arg{value}};
     $attr->{checked} = 'checked' if $arg{checked};
     return [input => $attr, encode_entities($arg{visual})];
 }
-sub text {
-    my (undef, %arg) = @_;
+sub text_input {
+    my (%arg) = @_;
     return [input => { type => 'text', 
                        name => $arg{name}, 
-                       value => encode_entities($arg{visual}),
+                       value => encode_entities($arg{value}),
                        size => $arg{size} // 10,
             }
         ];
 }
 sub drop_down {
-    my (undef, $col, $rs, $values, $allow_null) = @_;
-    my %objs;
-    my %visuals;
-    %visuals = ('NULL' => '') if $allow_null;
-    for my $obj ($rs->all) {
-        $objs{$obj->id} = $obj->title;
-        $visuals{$obj->id} = $obj->title;
+    my (%arg) = @_;
+    my $name = $arg{name} // '';
+    my $values = $arg{values};
+    my $visuals = $arg{visuals} // {};
+    my $selected = $arg{selected} // ($arg{allow_null} ? 'NULL' : '');
+    $visuals->{NULL} = '' if $arg{allow_null};
+    if ($arg{objs}) {
+        my %objs;
+        for my $obj (@{$arg{objs}}) {
+            $objs{$obj->id} = $obj->title;
+            $visuals->{$obj->id} = $obj->title;
+        }
+        $values = [sort {$objs{$a} cmp $objs{$b}} keys %objs];
+        unshift @$values, 'NULL' if $arg{allow_null};
     }
-    my @values = sort {$objs{$a} cmp $objs{$b}} keys %objs;
-    unshift @values, 'NULL' if $allow_null;
-    return SmartSea::HTML->select(
-        name => $col,
-        values => [@values],
-        visuals => \%visuals,
-        selected => $values->{$col} // ($allow_null ? 'NULL' : '')
-    );
+    my @options;
+    for my $value (@$values) {
+        my $attr = {value => $value};
+        $attr->{selected} = 'selected' if $value eq $selected;
+        push @options, [option => $attr, encode_entities($visuals->{$value})];
+    }
+    return [select => {name => $name}, \@options];
 }
 sub item {
-    my (undef, $title, $url, $edit, $id, $ref) = @_;
-    my $i = [ a(1,link => $title, url => $url) ];
+    my ($title, $url, $edit, $id, $ref) = @_;
+    my $i = [ a(link => $title, url => $url) ];
     if ($edit) {
         $url .= '?edit';
         push @$i, (
             [1 => '  '],
-            a(1,link => "edit", url => $url),
+            a(link => "edit", url => $url),
             [1 => '  '],
             [input => {type=>"submit", 
                        name=>$id, 

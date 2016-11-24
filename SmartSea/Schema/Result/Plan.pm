@@ -4,6 +4,7 @@ use warnings;
 use 5.010000;
 use base qw/DBIx::Class::Core/;
 use Scalar::Util 'blessed';
+use SmartSea::HTML qw(:all);
 
 __PACKAGE__->table('tool.plans');
 __PACKAGE__->add_columns(qw/ id title /);
@@ -17,17 +18,17 @@ sub HTML_list {
     my %li;
     for my $plan (@$objs) {
         my $p = $plan->title;
-        $li{plan}{$p} = SmartSea::HTML->item([b => $p], $uri.'/'.$plan->id, $edit, $plan->id, 'this plan');
+        $li{plan}{$p} = item([b => $p], $uri.'/'.$plan->id, $edit, $plan->id, 'this plan');
         my @refs = $plan->plan2use;
         for my $ref (@refs) {
             my $use = $ref->use;
             my $u = $use->title;
             $data{$p}{$u} = 1;
             my $id = $plan->id.'/'.$use->id;
-            $li{$p}{$u} = SmartSea::HTML->item($u, $uri.'/'.$id, $edit, $id, 'this use from this plan');
+            $li{$p}{$u} = item($u, $uri.'/'.$id, $edit, $id, 'this use from this plan');
         }
     }
-    my @body;
+    my @body = ([h2 => 'Plans']);
     for my $plan (sort keys %{$li{plan}}) {
         push @body, @{$li{plan}{$plan}};
         my @u = sort keys %{$data{$plan}};
@@ -40,7 +41,7 @@ sub HTML_list {
     }
     if ($edit) {
         @body = ([ form => {action => $uri, method => 'POST'}, [@body] ]);
-        push @body, SmartSea::HTML->a(link => 'add plan', url => $uri.'/new');
+        push @body, a(link => 'add plan', url => $uri.'/new');
     }
     return \@body;
 }
@@ -60,17 +61,17 @@ sub HTML_text {
         }
         push @l, [li => "$a: ".$v];
     }
-    my $ret = [ul => \@l];
+    my @ret = ([h2 => 'Plan'],[ul => \@l]);
     if (@$oids) {
         my $oid = shift @$oids;
         my $use = $self->uses->single({'use.id' => $oid})->HTML_text($config, $oids);
-        $ret = [$ret, @$use];
+        push @ret, @$use;
     } else {
         my $class = 'SmartSea::Schema::Result::Use';
         my $l = $class->HTML_list([$self->uses], $config->{uri}, $config->{edit});
-        $ret = [$ret, @$l];
+        push @ret, @$l;
     }
-    return $ret;
+    return \@ret;
 }
 
 sub HTML_form {
@@ -87,10 +88,10 @@ sub HTML_form {
         push @ret, [input => {type => 'hidden', name => 'id', value => $self->id}];
     }
 
-    my $title = SmartSea::HTML->text(
+    my $title = text_input(
         name => 'title',
         size => 15,
-        visual => $values->{title} // ''
+        value => $values->{title} // ''
     );
 
     push @ret, (

@@ -3,6 +3,7 @@ use strict;
 use warnings;
 use 5.010000;
 use base qw/DBIx::Class::Core/;
+use SmartSea::HTML qw(:all);
 
 __PACKAGE__->table('tool.uses');
 __PACKAGE__->add_columns(qw/ id title current_allocation /);
@@ -21,14 +22,14 @@ sub HTML_list {
     my %li;
     for my $use (@$objs) {
         my $p = $use->title;
-        $li{use}{$p} = SmartSea::HTML->item([b => $p], $uri.'/'.$use->id, $edit, $use->id, 'this use');
+        $li{use}{$p} = item([b => $p], $uri.'/'.$use->id, $edit, $use->id, 'this use');
         my @refs = $use->use2activity;
         for my $ref (@refs) {
             my $activity = $ref->activity;
             my $u = $activity->title;
             $data{$p}{$u} = 1;
             my $id = $use->id.'/'.$activity->id;
-            $li{$p}{$u} = SmartSea::HTML->item($u, $uri.'/'.$id, $edit, $id, 'this activity from this use');
+            $li{$p}{$u} = item($u, $uri.'/'.$id, $edit, $id, 'this activity from this use');
         }
     }
     my @body;
@@ -44,7 +45,7 @@ sub HTML_list {
     }
     if ($edit) {
         @body = ([ form => {action => $uri, method => 'POST'}, [@body] ]);
-        push @body, SmartSea::HTML->a(link => 'add use', url => $uri.'/new');
+        push @body, a(link => 'add use', url => $uri.'/new');
     }
     return \@body;
 }

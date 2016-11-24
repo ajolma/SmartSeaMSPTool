@@ -3,6 +3,7 @@ use strict;
 use warnings;
 use 5.010000;
 use base qw/DBIx::Class::Core/;
+use SmartSea::HTML qw(:all);
 
 __PACKAGE__->table('tool.activities');
 __PACKAGE__->add_columns(qw/ id order title /);
@@ -18,14 +19,14 @@ sub HTML_list {
     my %li;
     for my $act (@$objs) {
         my $a = $act->title;
-        $li{act}{$a} = SmartSea::HTML->item([b => $a], $uri.'/'.$act->id, $edit, $act->id, 'this activity');
+        $li{act}{$a} = item([b => $a], $uri.'/'.$act->id, $edit, $act->id, 'this activity');
         my @refs = $act->activity2pressure;
         for my $ref (@refs) {
             my $pressure = $ref->pressure;
             my $p = $pressure->title;
             $data{$a}{$p} = 1;
             my $id = $act->id.'/'.$pressure->id;
-            $li{$a}{$p} = SmartSea::HTML->item($p, $uri.'/'.$id, $edit, $id, 'this pressure from this activity');
+            $li{$a}{$p} = item($p, $uri.'/'.$id, $edit, $id, 'this pressure from this activity');
         }
     }
     my @body;
@@ -41,7 +42,7 @@ sub HTML_list {
     }
     if ($edit) {
         @body = ([ form => {action => $uri, method => 'POST'}, [@body] ]);
-        push @body, SmartSea::HTML->a(link => 'add activity', url => $uri.'/new');
+        push @body, a(link => 'add activity', url => $uri.'/new');
     }
     return \@body;
 }

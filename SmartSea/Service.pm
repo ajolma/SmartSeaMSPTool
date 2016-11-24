@@ -7,8 +7,8 @@ use Encode qw(decode encode);
 use Plack::App::File;
 use Geo::GDAL;
 use PDL;
-use SmartSea::Core;
-use SmartSea::HTML;
+use SmartSea::Core qw(:all);
+use SmartSea::HTML qw(:all);
 use SmartSea::Schema;
 use Data::Dumper;
 
@@ -34,13 +34,39 @@ sub call {
     for ($self->{uri}) {
         return $self->uses() if /uses$/;
         return $self->plans() if /plans$/;
+
+        return $self->object_editor('SmartSea::Schema::Result::Plan',
+                                   $1, 
+                                   { empty_is_null => [qw//],
+                                     defaults => {},
+                                     edit => $self->{edit}
+                                   }
+            ) if /plan_browser([\/\?\w]*)$/;
+
+        return $self->object_editor('SmartSea::Schema::Result::Use',
+                                   $1, 
+                                   { empty_is_null => [qw//],
+                                     defaults => {},
+                                     edit => $self->{edit}
+                                   }
+            ) if /use_browser([\/\?\w]*)$/;
+
+        return $self->object_editor('SmartSea::Schema::Result::Activity',
+                                   $1, 
+                                   { empty_is_null => [qw//],
+                                     defaults => {},
+                                     edit => $self->{edit}
+                                   }
+            ) if /activity_browser([\/\?\w]*)$/;
+
         return $self->object_editor('SmartSea::Schema::Result::Rule', 
                                    $1, 
                                    { empty_is_null => ['value'], 
                                      defaults => {reduce=>1},
                                      edit => $self->{edit}
                                    }
-            ) if /rules([\/\?\w]*)$/;
+            ) if /rule_browser([\/\?\w]*)$/;
+
         return $self->impact_network() if /impact_network$/;
         return $self->object_editor('SmartSea::Schema::Result::Dataset',
                                    $1, 
@@ -66,33 +92,26 @@ sub call {
                                    }
             ) if /impact([\/\?\w]*)$/;
 
-        return $self->object_editor('SmartSea::Schema::Result::Plan',
-                                   $1, 
-                                   { empty_is_null => [qw//],
-                                     defaults => {},
-                                     edit => $self->{edit}
-                                   }
-            ) if /plan_editor([\/\?\w]*)$/;
-
         return $self->pressure_table($1) if /pressure_table([\/\?\w]*)$/;
         last;
     }
-    my $html = SmartSea::HTML->new;
     my $uri = $self->{uri};
     $uri .= '/' unless $uri =~ /\/$/;
     my @l;
     push @l, (
-        [li => $html->a(link => 'uses', url => $uri.'uses')],
-        [li => $html->a(link => 'plans', url  => $uri.'plans')],
-        [li => $html->a(link => 'plan editor', url => $uri.'plan_editor')],
-        [li => $html->a(link => 'rules', url  => $uri.'rules')],
-        [li => $html->a(link => 'impact_network', url  => $uri.'impact_network')],
-        [li => $html->a(link => 'datasets', url  => $uri.'datasets')],
-        [li => $html->a(link => 'activity -> pressure links', url  => $uri.'activity2pressure')],
-        [li => $html->a(link => 'impacts', url  => $uri.'impact')],
-        [li => $html->a(link => 'pressure table', url  => $uri.'pressure_table')]
+        [li => a(link => 'uses', url => $uri.'uses')],
+        [li => a(link => 'plans', url  => $uri.'plans')],
+        [li => a(link => 'plan browser', url => $uri.'plan_browser')],
+        [li => a(link => 'use browser', url => $uri.'use_browser')],
+        [li => a(link => 'activity browser', url => $uri.'activity_browser')],
+        [li => a(link => 'rule browser', url  => $uri.'rule_browser')],
+        [li => a(link => 'impact_network', url  => $uri.'impact_network')],
+        [li => a(link => 'datasets', url  => $uri.'datasets')],
+        [li => a(link => 'activity -> pressure links', url  => $uri.'activity2pressure')],
+        [li => a(link => 'impacts', url  => $uri.'impact')],
+        [li => a(link => 'pressure table', url  => $uri.'pressure_table')]
     );
-    return html200($html->html(html => [body => [ul => \@l]]));
+    return html200(SmartSea::HTML->new(html => [body => [ul => \@l]])->html);
 }
 
 sub uses {

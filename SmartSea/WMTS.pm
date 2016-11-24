@@ -13,7 +13,7 @@ use Data::Dumper;
 use Geo::OGC::Service;
 use DBI;
 
-use SmartSea::Core;
+use SmartSea::Core qw(:all);
 use SmartSea::Schema;
 
 binmode STDERR, ":utf8"; 

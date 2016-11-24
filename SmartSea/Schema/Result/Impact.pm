@@ -4,6 +4,7 @@ use warnings;
 use 5.010000;
 use base qw/DBIx::Class::Core/;
 use Scalar::Util 'blessed';
+use SmartSea::HTML qw(:all);
 
 __PACKAGE__->table('tool.impacts');
 __PACKAGE__->add_columns(qw/ id activity2pressure ecosystem_component strength belief /);
@@ -43,22 +44,22 @@ sub HTML_form {
         push @ret, [input => {type => 'hidden', name => 'id', value => $self->id}];
     }
 
-    my $activity2pressure = SmartSea::HTML->drop_down('activity2pressure', 
-                                                      $config->{schema}->resultset('Activity2Pressure'), 
-                                                      $values);
-    my $ecosystem_component = SmartSea::HTML->drop_down('ecosystem_component', 
-                                                        $config->{schema}->resultset('EcosystemComponent'), 
-                                                        $values);
-
-    my $strength = SmartSea::HTML->text(
+    my $activity2pressure = drop_down(name => 'activity2pressure', 
+                                      objs => [$config->{schema}->resultset('Activity2Pressure')->all], 
+                                      selected => $values->{activity2pressure});
+    my $ecosystem_component = drop_down(name => 'ecosystem_component', 
+                                        obj => [$config->{schema}->resultset('EcosystemComponent')->all], 
+                                        selected => $values->{ecosystem_component});
+    
+    my $strength = text_input(
         name => 'strength',
         size => 10,
-        visual => $values->{strength} // ''
+        value => $values->{strength} // ''
     );
-    my $belief = SmartSea::HTML->text(
+    my $belief = text_input(
         name => 'belief',
         size => 10,
-        visual => $values->{belief} // ''
+        value => $values->{belief} // ''
     );
 
     push @ret, (
@@ -73,15 +74,14 @@ sub HTML_form {
 
 sub HTML_list {
     my (undef, $objs, $uri, $edit) = @_;
-    my $html = SmartSea::HTML->new;
     my %data;
     for my $impact (@$objs) {
         my $t = $impact->activity2pressure->title;
-        my $li = [ $html->a(link => $t, url => $uri.'/'.$impact->id) ];
+        my $li = [ a(link => $t, url => $uri.'/'.$impact->id) ];
         if ($edit) {
             push @$li, (
                 [1 => '  '],
-                $html->a(link => "edit", url => $uri.'/'.$impact->id.'?edit'),
+                a(link => "edit", url => $uri.'/'.$impact->id.'?edit'),
                 [1 => '  '],
                 [input => {type=>"submit", 
                            name=>$impact->id, 
@@ -103,7 +103,7 @@ sub HTML_list {
     }
     if ($edit) {
         @body = ([ form => {action => $uri, method => 'POST'}, [@body] ]);
-        push @body, $html->a(link => 'add', url => $uri.'/new');
+        push @body, a(link => 'add', url => $uri.'/new');
     }
     return \@body;
 }

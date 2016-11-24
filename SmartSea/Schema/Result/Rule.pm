@@ -5,7 +5,7 @@ use 5.010000;
 use base qw/DBIx::Class::Core/;
 use Scalar::Util 'blessed';
 use SmartSea::Core;
-use SmartSea::HTML;
+use SmartSea::HTML qw(:all);
 use PDL;
 
 __PACKAGE__->table('tool.rules');
@@ -86,51 +86,63 @@ sub HTML_form {
         push @ret, [input => {type => 'hidden', name => 'id', value => $self->id}];
     }
 
-    my $plan = SmartSea::HTML->drop_down('plan', $config->{schema}->resultset('Plan'), $values, 1);
-    my $use = SmartSea::HTML->drop_down('use', $config->{schema}->resultset('Use'), $values);
-    my $layer = SmartSea::HTML->drop_down('layer', $config->{schema}->resultset('Layer'), $values);
+    my $plan = drop_down(name => 'plan', 
+                         objs => [$config->{schema}->resultset('Plan')->all], 
+                         selected => $values->{plan}, 
+                         allow_null => 1);
+    my $use = drop_down(name => 'use', 
+                        objs => [$config->{schema}->resultset('Use')->all], 
+                        selected => $values->{use});
+    my $layer = drop_down(name => 'layer', 
+                          objs => [$config->{schema}->resultset('Layer')->all], 
+                          selected => $values->{layer});
 
-    my $reduce = SmartSea::HTML->checkbox(
+    my $reduce = checkbox(
         name => 'reduce',
         visual => 'Rule removes allocation/value',
         checked => $values->{reduce}
     );
 
-    my $r_plan = drop_down('r_plan', $config->{schema}->resultset('Plan'), $values, 1);
-    my $r_use = drop_down('r_use', $config->{schema}->resultset('Use'), $values, 1);
-    my $r_layer = drop_down('r_layer', $config->{schema}->resultset('Layer'), $values, 1);
+    my $r_plan = drop_down(name => 'r_plan', 
+                           objs => [$config->{schema}->resultset('Plan')->all], 
+                           selected => $values->{r_plan}, 
+                           allow_null => 1);
+    my $r_use = drop_down(name => 'r_use', 
+                          objs => [$config->{schema}->resultset('Use')->all], 
+                          selected => $values->{r_use}, 
+                          allow_null => 1);
+    my $r_layer = drop_down(name => 'r_layer', 
+                            objs => [$config->{schema}->resultset('Layer')->all], 
+                            selected => $values->{r_layer}, 
+                            allow_null => 1);
 
-    my %r_datasets;
-    my %visuals = ('NULL' => '');
-    for my $r_dataset ($config->{schema}->resultset('Dataset')->all) {
-        next unless $r_dataset->path;
-        $r_datasets{$r_dataset->id} = $r_dataset->long_name;
-        $visuals{$r_dataset->id} = $r_dataset->long_name;
-    }
-    my $r_dataset = SmartSea::HTML->select(
+    my $r_dataset = drop_down(
         name => 'r_dataset',
-        values => ['NULL', sort {$r_datasets{$a} cmp $r_datasets{$b}} keys %r_datasets], 
-        visuals => \%visuals,
-        selected => $values->{r_dataset} // 'NULL'
+        objs => [$config->{schema}->resultset('Dataset')->search({path => {'!=',undef}})],
+        selected => $values->{r_dataset},
+        allow_null => 1
     );
 
-    my $op = drop_down('op', $config->{schema}->resultset('Op'), $values, 1);
+    my $op = drop_down(name => 'op', 
+                       objs => [$config->{schema}->resultset('Op')->all], 
+                       selected => $values->{op}, 
+                       allow_null => 1);
 
-    my $value = SmartSea::HTML->text(
+    my $value = text_input(
         name => 'value',
         size => 10,
-        visual => $values->{value} // ''
+        value => $values->{value} // ''
     );
 
-    my $min_value = SmartSea::HTML->text(
+    my $min_value = text_input(
         name => 'min_value',
         size => 10,
-        visual => $values->{min_value} // ''
+        value => $values->{min_value} // ''
     );
-    my $max_value = SmartSea::HTML->text(
+    my $max_value = text_input(
         name => 'max_value',
         size => 10,
-        visual => $values->{max_value} // ''
+        value => $values->{max_value} // ''
     );
 
     push @ret, (
@@ -154,13 +166,12 @@ sub HTML_form {
 sub HTML_list {
     my (undef, $objs, $uri, $edit) = @_;
     my %data;
-    my $html = SmartSea::HTML->new;
     for my $rule (@$objs) {
-        my $li = [ $html->a(link => $rule->as_text, url => $uri.'/'.$rule->id) ];
+        my $li = [ a(link => $rule->as_text, url => $uri.'/'.$rule->id) ];
         if ($edit) {
             push @$li, (
                 [1 => '  '],
-                $html->a(link => "edit", url => $uri.'/'.$rule->id.'?edit'),
+                a(link => "edit", url => $uri.'/'.$rule->id.'?edit'),
                 [1 => '  '],
                 [input => {type=>"submit", 
                            name=>$rule->id, 
@@ -190,7 +201,7 @@ sub HTML_list {
     }
     if ($edit) {
         @body = ([ form => {action => $uri, method => 'POST'}, [@body] ]);
-        push @body, $html->a(link => 'add', url => $uri.'/new');
+        push @body, a(link => 'add', url => $uri.'/new');
     }
     return \@body;
 }

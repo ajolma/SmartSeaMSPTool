@@ -3,6 +3,7 @@ use strict;
 use warnings;
 use 5.010000;
 use base qw/DBIx::Class::Core/;
+use SmartSea::HTML qw(:all);
 
 __PACKAGE__->table('tool.pressures');
 __PACKAGE__->add_columns(qw/ id order title category /);
@@ -38,7 +39,7 @@ sub HTML_list {
         my $ap = $pre->activity2pressure->single({activity => $context->id});
         
         my $t = [[b => $p],[1 => ", range of impact is ".$range{$ap->range}]];
-        $li{pre}{$p} = SmartSea::HTML->item($t, $uri.'/'.$pre->id, $edit, $pre->id, 'this pressure');
+        $li{pre}{$p} = item($t, $uri.'/'.$pre->id, $edit, $pre->id, 'this pressure');
         
         $li{$p} = list_impacts($ap);
 
@@ -55,7 +56,7 @@ sub HTML_list {
     }
     if ($edit) {
         @body = ([ form => {action => $uri, method => 'POST'}, [@body] ]);
-        push @body, SmartSea::HTML->a(link => 'add pressure', url => $uri.'/new');
+        push @body, a(link => 'add pressure', url => $uri.'/new');
     }
     return \@body;
 }

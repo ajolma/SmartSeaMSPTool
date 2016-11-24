@@ -4,6 +4,7 @@ use warnings;
 use 5.010000;
 use base qw/DBIx::Class::Core/;
 use Scalar::Util 'blessed';
+use SmartSea::HTML qw(:all);
 
 __PACKAGE__->table('tool.activity2pressure');
 __PACKAGE__->add_columns(qw/ id activity pressure range /);
@@ -32,13 +33,17 @@ sub HTML_form {
         push @ret, [input => {type => 'hidden', name => 'id', value => $self->id}];
     }
 
-    my $activity = SmartSea::HTML->drop_down('activity', $config->{schema}->resultset('Activity'), $values);
-    my $pressure = SmartSea::HTML->drop_down('pressure', $config->{schema}->resultset('Pressure'), $values);
+    my $activity = drop_down(name => 'activity', 
+                             objs => [$config->{schema}->resultset('Activity')->all], 
+                             selected => $values->{activity});
+    my $pressure = drop_down(name => 'pressure', 
+                             objs => [$config->{schema}->resultset('Pressure')->all], 
+                             selected => $values->{pressure});
 
-    my $range = SmartSea::HTML->text(
+    my $range = text_input(
         name => 'range',
         size => 10,
-        visual => $values->{range} // ''
+        value => $values->{range} // ''
     );
 
     push @ret, (
@@ -53,13 +58,12 @@ sub HTML_form {
 sub HTML_list {
     my (undef, $objs, $uri, $edit) = @_;
     my %data;
-    my $html = SmartSea::HTML->new;
     for my $link (@$objs) {
-        my $li = [ $html->a(link => $link->pressure->title, url => $uri.'/'.$link->id) ];
+        my $li = [ a(link => $link->pressure->title, url => $uri.'/'.$link->id) ];
         if ($edit) {
             push @$li, (
                 [1 => '  '],
-                $html->a(link => "edit", url => $uri.'/'.$link->id.'?edit'),
+                a(link => "edit", url => $uri.'/'.$link->id.'?edit'),
                 [1 => '  '],
                 [input => {type=>"submit", 
                            name=>$link->id, 
@@ -77,7 +81,7 @@ sub HTML_list {
     }
     if ($edit) {
         @body = ([ form => {action => $uri, method => 'POST'}, [@body] ]);
-        push @body, $html->a(link => 'add', url => $uri.'/new');
+        push @body, a(link => 'add', url => $uri.'/new');
     }
     return \@body;
 }

@@ -5,6 +5,7 @@ use 5.010000;
 use base qw/DBIx::Class::Core/;
 use Scalar::Util 'blessed';
 use SmartSea::Core;
+use SmartSea::HTML qw(:all);
 
 __PACKAGE__->table('data.datasets');
 __PACKAGE__->add_columns(qw/id name custodian contact desc data_model is_a_part_of is_derived_from license attribution disclaimer path unit/);
@@ -29,6 +30,7 @@ sub long_name {
     }
     return $name;
 }
+*title = *long_name;
 
 sub HTML_text {
     my ($self, $config) = @_;
@@ -68,8 +70,8 @@ sub HTML_text {
     push @l, [li => [[b => "description"],[1 => " = ".$self->desc]]] if $self->desc;
     push @l, [li => [[b => "disclaimer"],[1 => " = ".$self->disclaimer]]] if $self->disclaimer;
     push @l, [li => [[b => "license"],[1 => " = "],
-                     SmartSea::HTML->a(link => $self->license->name, 
-                                       url => $self->license->url)]] if $self->license;
+                     a(link => $self->license->name, 
+                       url => $self->license->url)]] if $self->license;
     push @l, [li => [[b => "attribution"],[1 => " = ".$self->attribution]]] if $self->attribution;
     push @l, [li => [[b => "data model"],[1 => " = ".$self->data_model->name]]] if $self->data_model;
     push @l, [li => [[b => "unit"],[1 => " = ".$self->unit->name]]] if $self->unit;
@@ -95,7 +97,7 @@ sub HTML_form {
 }
 
 sub li {
-    my ($all, $parent, $id, $html, $uri, $edit) = @_;
+    my ($all, $parent, $id, $uri, $edit) = @_;
     my @li;
     for my $set (@$all) {
         my $sid = $set->id;
@@ -104,11 +106,11 @@ sub li {
         } else {
             next unless $parent->{$sid} && $parent->{$sid} == $id;
         }
-        my $li = [ $html->a(link => $set->name, url => $uri.'/'.$set->id) ];
+        my $li = [ a(link => $set->name, url => $uri.'/'.$set->id) ];
         if ($edit) {
             push @$li, (
                 [1 => '  '],
-                $html->a(link => "edit", url => $uri.'/'.$set->id.'?edit'),
+                a(link => "edit", url => $uri.'/'.$set->id.'?edit'),
                 [1 => '  '],
                 [input => {
                     type=>"submit", 
@@ -119,7 +121,7 @@ sub li {
                 ]
             )
         }
-        my $children = li($all, $parent, $sid, $html, $uri, $edit);
+        my $children = li($all, $parent, $sid, $uri, $edit);
         push @$li, [ul => $children] if @$children;
         push @li, [li => $li];
     }
@@ -127,7 +129,7 @@ sub li {
 }
 
 sub tree {
-    my ($objs, $html, $uri, $edit) = @_;
+    my ($objs, $uri, $edit) = @_;
     my %parent;
     my @all;
     for my $set (sort {$a->name cmp $b->name} @$objs) {
@@ -135,16 +137,15 @@ sub tree {
         $parent{$set->id} = $rel->id if $rel;
         push @all, $set;
     }
-    return [ul => li(\@all, \%parent, undef, $html, $uri, $edit)];
+    return [ul => li(\@all, \%parent, undef, $uri, $edit)];
 }
 
 sub HTML_list {
     my (undef, $objs, $uri, $edit) = @_;
-    my $html = SmartSea::HTML->new;
-    my @body = (tree($objs, $html, $uri, $edit));
+    my @body = (tree($objs, $uri, $edit));
     if ($edit) {
         @body = ([ form => {action => $uri, method => 'POST'}, [@body] ]);
-        push @body, $html->a(link => 'add', url => $uri.'/new');
+        push @body, a(link => 'add', url => $uri.'/new');
     }
     return \@body;
 }

@@ -7,8 +7,7 @@ use Encode qw(decode encode);
 use Plack::App::File;
 use Geo::GDAL;
 use PDL;
-
-use SmartSea::Core;
+use SmartSea::Core qw(:all);
 
 use parent qw/Plack::Component/;
 
