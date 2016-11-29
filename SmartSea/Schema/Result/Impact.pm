@@ -17,7 +17,7 @@ sub HTML_list {
     my %data;
     for my $impact (@$objs) {
         my $t = $impact->activity2pressure->title;
-        my $li = item($t, $uri.'/'.$impact->id, $edit, $impact->id, 'this impact');
+        my $li = item($t, $impact->id, $uri, $edit, 'this impact');
         $data{$impact->ecosystem_component->title}{$t} = [li => $li];
     }
     my @body;
@@ -90,7 +90,7 @@ sub HTML_form {
         [ p => [[1 => 'Activity+Pressure: '],$activity2pressure] ],
         [ p => [[1 => 'Strength: '],$strength] ],
         [ p => [[1 => 'Belief: '],$belief] ],
-        [input => {type=>"submit", name=>'submit', value=>"Store"}]
+        button(value => "Store")
     );
     return \@ret;
 }

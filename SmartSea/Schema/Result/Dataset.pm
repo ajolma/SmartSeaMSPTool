@@ -106,21 +106,7 @@ sub li {
         } else {
             next unless $parent->{$sid} && $parent->{$sid} == $id;
         }
-        my $li = [ a(link => $set->name, url => $uri.'/'.$set->id) ];
-        if ($edit) {
-            push @$li, (
-                [1 => '  '],
-                a(link => "edit", url => $uri.'/'.$set->id.'?edit'),
-                [1 => '  '],
-                [input => {
-                    type=>"submit", 
-                    name=>$set->id, 
-                    value=>"Delete",
-                    onclick => "return confirm('Are you sure you want to delete this dataset?')"
-                 }
-                ]
-            )
-        }
+        my $li = item($set->name, $set->id, $uri, $edit, 'this dataset');
         my $children = li($all, $parent, $sid, $uri, $edit);
         push @$li, [ul => $children] if @$children;
         push @li, [li => $li];

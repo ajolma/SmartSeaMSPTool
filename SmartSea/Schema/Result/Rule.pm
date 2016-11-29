@@ -158,7 +158,7 @@ sub HTML_form {
         [ p => [[1 => 'dataset: '],$r_dataset] ],
         [ p => [[1 => 'Operator and value: '],$op,$value] ],
         [ p => [[1 => 'Range of value: '],$min_value,[1=>'...'],$max_value] ],
-        [input => {type=>"submit", name=>'submit', value=>"Store"}]
+        button(value => "Store")
     );
     return \@ret;
 }
@@ -167,20 +167,7 @@ sub HTML_list {
     my (undef, $objs, $uri, $edit) = @_;
     my %data;
     for my $rule (@$objs) {
-        my $li = [ a(link => $rule->as_text, url => $uri.'/'.$rule->id) ];
-        if ($edit) {
-            push @$li, (
-                [1 => '  '],
-                a(link => "edit", url => $uri.'/'.$rule->id.'?edit'),
-                [1 => '  '],
-                [input => {type=>"submit", 
-                           name=>$rule->id, 
-                           value=>"Delete",
-                           onclick => "return confirm('Are you sure you want to delete this rule?')" 
-                 }
-                ]
-            )
-        }
+        my $li = item($rule->as_text, $rule->id, $uri, $edit, 'this rule');
         if ($rule->plan) {
             push @{$data{$rule->plan->title}{$rule->use->title}{$rule->layer->title}}, [li => $li];
         } else {
@@ -353,23 +340,32 @@ sub dataset {
         return $ds->Band(1)->Piddle;
         
     } else {
-        my $b = Geo::GDAL::Open("$config->{data_path}/$path")
-            ->Translate( "/vsimem/tmp.tiff", 
-                         ['-of' => 'GTiff', '-r' => 'nearest' , 
-                          '-outsize' , $tile->tile,
-                          '-projwin', $tile->projwin] )
-            ->Band(1);
-        my $pdl = $b->Piddle;
-        my $bad = $b->NoDataValue();
+        my $b;
+        eval {
+            $b = Geo::GDAL::Open("$config->{data_path}/$path")
+                ->Translate( "/vsimem/tmp.tiff", 
+                             ['-of' => 'GTiff', '-r' => 'nearest' , 
+                              '-outsize' , $tile->tile,
+                              '-projwin', $tile->projwin] )
+                ->Band(1);
+        };
+        my $pdl;
+        if ($@) {
+            $pdl = zeroes($tile->tile);
+            $pdl = $pdl->setbadif($pdl == 0);
+        } else {
+            $pdl = $b->Piddle;
+            my $bad = $b->NoDataValue();
         
-        # this is a hack
-        if (defined $bad) {
-            if ($bad < -1000) {
-                $pdl = $pdl->setbadif($pdl < -1000);
-            } elsif ($bad > 1000) {
-                $pdl = $pdl->setbadif($pdl > 1000);
-            } else {
-                $pdl = $pdl->setbadif($pdl == $bad);
+            # this is a hack
+            if (defined $bad) {
+                if ($bad < -1000) {
+                    $pdl = $pdl->setbadif($pdl < -1000);
+                } elsif ($bad > 1000) {
+                    $pdl = $pdl->setbadif($pdl > 1000);
+                } else {
+                    $pdl = $pdl->setbadif($pdl == $bad);
+                }
             }
         }
 

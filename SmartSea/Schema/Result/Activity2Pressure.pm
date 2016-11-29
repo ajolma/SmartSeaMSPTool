@@ -19,6 +19,24 @@ sub as_text {
 }
 *title = *as_text;
 
+sub HTML_list {
+    my (undef, $objs, $uri, $edit) = @_;
+    my %data;
+    for my $link (@$objs) {
+        my $li = item($link->pressure->title, $link->id, $uri, $edit, 'this link');
+        push @{$data{$link->activity->title}}, [li => $li];
+    }
+    my @body;
+    for my $activity (sort keys %data) {
+        push @body, [b => $activity], [ul => \@{$data{$activity}}];
+    }
+    if ($edit) {
+        @body = ([ form => {action => $uri, method => 'POST'}, [@body] ]);
+        push @body, a(link => 'add', url => $uri.'/new');
+    }
+    return \@body;
+}
+
 sub HTML_form {
     my ($self, $config, $values) = @_;
 
@@ -50,40 +68,9 @@ sub HTML_form {
         [ p => [[1 => 'Activity: '],$activity] ],
         [ p => [[1 => 'Pressure: '],$pressure] ],
         [ p => [[1 => 'Range: '],$range] ],
-        [input => {type=>"submit", name=>'submit', value=>"Store"}]
+        button(value => "Store")
     );
     return \@ret;
-}
-
-sub HTML_list {
-    my (undef, $objs, $uri, $edit) = @_;
-    my %data;
-    for my $link (@$objs) {
-        my $li = [ a(link => $link->pressure->title, url => $uri.'/'.$link->id) ];
-        if ($edit) {
-            push @$li, (
-                [1 => '  '],
-                a(link => "edit", url => $uri.'/'.$link->id.'?edit'),
-                [1 => '  '],
-                [input => {type=>"submit", 
-                           name=>$link->id, 
-                           value=>"Delete",
-                           onclick => "return confirm('Are you sure you want to delete this link?')" 
-                 }
-                ]
-            )
-        }
-        push @{$data{$link->activity->title}}, [li => $li];
-    }
-    my @body;
-    for my $activity (sort keys %data) {
-        push @body, [b => $activity], [ul => \@{$data{$activity}}];
-    }
-    if ($edit) {
-        @body = ([ form => {action => $uri, method => 'POST'}, [@body] ]);
-        push @body, a(link => 'add', url => $uri.'/new');
-    }
-    return \@body;
 }
 
 1;

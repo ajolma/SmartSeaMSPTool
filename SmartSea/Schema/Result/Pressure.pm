@@ -35,7 +35,7 @@ sub HTML_list {
         my $ap = $pre->activity2pressure->single({activity => $context->id});
         
         my $t = [[b => $p],[1 => ", range of impact is ".$range{$ap->range}]];
-        $li{pre}{$p} = item($t, $uri.'/'.$pre->id, $edit, $pre->id, 'this pressure');
+        $li{pre}{$p} = item($t, $pre->id, $uri, $edit, 'this pressure');
         
         $li{$p} = list_impacts($ap);
 

@@ -1,0 +1,28 @@
+[general]
+name=SmartSea
+qgisMinimumVersion=2.0
+description=Marine spatial planning toolbox
+version=0.0.1
+author=Ari Jolma
+email=ari.jolma@gmail.com
+
+# end of mandatory metadata
+
+# Optional items:
+
+# Uncomment the following line and add your changelog entries:
+changelog=
+
+# tags are comma separated with spaces allowed
+tags=python,scripts
+
+homepage=http://smartsea.fmi.fi/
+tracker=
+repository=https://github.com/ajolma/SmartSeaMSPTool
+icon=icon.png
+# experimental flag
+experimental=True
+
+# deprecated flag (applies to the whole plugin, not just a single version
+deprecated=
+

@@ -5,7 +5,7 @@ use HTML::Entities;
 use Geo::OGC::Service;
 require Exporter;
 our @ISA = qw(Exporter Geo::OGC::Service::XMLWriter);
-our @EXPORT_OK = qw(a checkbox text_input drop_down item);
+our @EXPORT_OK = qw(a button checkbox text_input drop_down item);
 our %EXPORT_TAGS = (all => \@EXPORT_OK);
 sub new {
     my $class = shift;
@@ -27,6 +27,11 @@ sub a {
     my (%arg) = @_;
     return [a => encode_entities($arg{link}), {href=>$arg{url}}];
 }
+sub button {
+    my (%arg) = @_;
+    $arg{name} //= 'submit';
+    return [input => {type=>"submit", name=>$arg{name}, value=>$arg{value}}]
+}
 sub checkbox {
     my (%arg) = @_;
     my $attr = {type => 'checkbox',name => $arg{name},value => $arg{value}};
@@ -36,7 +41,7 @@ sub checkbox {
 sub text_input {
     my (%arg) = @_;
     return [input => { type => 'text', 
-                       name => $arg{name}, 
+                       name => $arg{name},
                        value => encode_entities($arg{value}),
                        size => $arg{size} // 10,
             }
@@ -67,7 +72,8 @@ sub drop_down {
     return [select => {name => $name}, \@options];
 }
 sub item {
-    my ($title, $url, $edit, $id, $ref) = @_;
+    my ($title, $id, $url, $edit, $ref) = @_;
+    $url .= '/'.$id;
     my $i = [ a(link => $title, url => $url) ];
     if ($edit) {
         $url .= '?edit';

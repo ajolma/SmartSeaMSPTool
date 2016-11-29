@@ -18,14 +18,12 @@ sub HTML_list {
     my %li;
     for my $plan (@$objs) {
         my $p = $plan->title;
-        $li{plan}{$p} = item([b => $p], $uri.'/'.$plan->id, $edit, $plan->id, 'this plan');
-        my @refs = $plan->plan2use;
-        for my $ref (@refs) {
-            my $use = $ref->use;
+        $li{plan}{$p} = item([b => $p], $plan->id, $uri, $edit, 'this plan');
+        for my $use ($plan->uses) {
             my $u = $use->title;
             $data{$p}{$u} = 1;
             my $id = $plan->id.'/'.$use->id;
-            $li{$p}{$u} = item($u, $uri.'/'.$id, $edit, $id, 'this use from this plan');
+            $li{$p}{$u} = item($u, $id, $uri, $edit, 'this use from this plan');
         }
     }
     my @body = ([h2 => 'Plans']);
@@ -61,17 +59,17 @@ sub HTML_text {
         }
         push @l, [li => "$a: ".$v];
     }
-    my @ret = ([ul => \@l]);
+    my $ret = [[ul => \@l]];
     if (@$oids) {
         my $oid = shift @$oids;
         my $use = $self->uses->single({'use.id' => $oid})->HTML_text($config, $oids);
-        push @ret, @$use;
+        push @$ret, @$use if @$use;
     } else {
         my $class = 'SmartSea::Schema::Result::Use';
         my $l = $class->HTML_list([$self->uses], $config->{uri}, $config->{edit});
-        push @ret, @$l;
+        push @$ret, @$l if @$l;
     }
-    return \@ret;
+    return $ret;
 }
 
 sub HTML_form {
@@ -96,7 +94,7 @@ sub HTML_form {
 
     push @ret, (
         [ p => [[1 => 'title: '],$title] ],
-        [input => {type=>"submit", name=>'submit', value=>"Store"}]
+        button(value => "Store")
     );
 
     return \@ret;

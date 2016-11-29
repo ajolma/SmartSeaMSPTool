@@ -21,7 +21,7 @@ sub HTML_list {
     my %li;
     for my $ec (@$objs) {
         my $c = $ec->title;
-        $li{ec}{$c} = item([b => $c], $uri.'/'.$ec->id, $edit, $ec->id, 'this component');
+        $li{ec}{$c} = item([b => $c], $ec->id, $uri, $edit, 'this component');
         my @impacts = $ec->impacts;
         for my $impact (@impacts) {
             next unless defined $impact->strength;
@@ -34,7 +34,7 @@ sub HTML_list {
                 $li{$c}{$i} = [[$impact->strength,$impact->belief]];
             }
             #my $id = $ec->id.'/'.$activity->id;
-            #$li{$c}{$i} = item($i, $uri.'/'.$id, $edit, $id, 'this activity from this component');
+            #$li{$c}{$i} = item($i, $id, $uri, $edit, 'this activity from this component');
         }
     }
     my @li;

@@ -33,7 +33,7 @@ sub call {
     $self->{uri} = $env->{REQUEST_URI};
     for ($self->{uri}) {
         return $self->uses() if /uses$/;
-        return $self->plans() if /plans$/;
+        return $self->plans($1) if /plans([\/\d]*)$/;
 
         return $self->object_editor('SmartSea::Schema::Result::Plan',
                                    $1, 
@@ -142,39 +142,35 @@ sub uses {
 }
 
 sub plans {
-    my $self = shift;
-    my $plans_rs = $self->{schema}->resultset('Plan');
-    my $rules_rs = $self->{schema}->resultset('Rule');
-    my $uses_rs = $self->{schema}->resultset('Use');
+    my ($self, $oids) = @_;
+    my $uri = $self->{uri};
+    $uri =~ s/$oids$//;
+    my @oids = split /\//, $oids;
+    shift @oids;
+    my $plan_id = shift @oids;
+    my $schema = $self->{schema};
     my @plans;
-    for my $plan ($plans_rs->search(undef, {order_by => ['me.title']})) {
-        my @rules;
-        for my $use ($uses_rs->search(undef, {order_by => ['me.id']})) {
-            my @r_uses;
-            my $rels = $use->use2layer->search(undef, {order_by => { -desc => 'me.layer'}});
-            while (my $rel = $rels->next) {
-                my @r_u_layers;
-                for my $rule (SmartSea::Schema::Result::Rule::rules($rules_rs, $plan, $use, $rel->layer)) {
-                    push @r_u_layers, {
-                        id => $rule->id,
-                        text => $rule->as_text,
-                        active => JSON::true
-                    };
+    my $search = defined $plan_id ? {id => $plan_id}: undef;
+    for my $plan ($schema->resultset('Plan')->search($search, {order_by => 'title'})) {
+        my @uses;
+        for my $use ($plan->uses(undef, {order_by => 'id'})) {
+            my @layers;
+            for my $layer ($use->layers(undef, {order_by => 'id'})) {
+                my @rules;
+                for my $rule ($schema->resultset('Rule')->search({
+                    -and => [
+                         -or => [plan => $plan->id, plan => {'=' => undef}],
+                         use => $use->id,
+                         layer => $layer->id
+                        ]
+                                                                 })) {
+                    push @rules, {title => $rule->as_text, id => $rule->id, active => JSON::true};
                 }
-                push @r_uses, {
-                    id => $rel->layer->id,
-                    use => $use->id,
-                    layer => $rel->layer->title,
-                    rules => \@r_u_layers
-                }
+                push @layers, {title => $layer->title, id => $layer->id, rules => \@rules};
             }
-            push @rules, {
-                use => $use->title,
-                id => $use->id,
-                rules => \@r_uses
-            }
+            push @uses, {title => $use->title, id => $use->id, layers => \@layers};
         }
-        push @plans, {title => $plan->title, my_id => $plan->id, rules => \@rules};
+        push @plans, {title => $plan->title, id => $plan->id, uses => \@uses};
     }
     return json200(\@plans);
 }
@@ -526,10 +522,10 @@ sub pressure_table {
             my $idap = $id{activity2pressure}{$pressure}{$activity};
 
             my $range = $ranges{$pressure}{$activity} // 0;
-            $range = SmartSea::HTML->text(
+            $range = text_input(
                 name => 'range_'.$idp.'_'.$ida,
                 size => 1,
-                visual => $range
+                value => $range
                 ) if $self->{edit};
             push @td, [td => {bgcolor=>$color}, $range];
 
@@ -539,15 +535,15 @@ sub pressure_table {
             for my $component (@components) {
                 my $idc = $id{components}{$component};
                 my $impact = $impacts{$pressure}{$activity}{$component} // [-1,-1];
-                $impact = [SmartSea::HTML->text(
+                $impact = [text_input(
                                name => 'strength_'.$idap.'_'.$idc,
                                size => 1,
-                               visual => $impact->[0]
+                               value => $impact->[0]
                            ),
-                           SmartSea::HTML->text(
+                           text_input(
                                name => 'belief_'.$idap.'_'.$idc,
                                size => 1,
-                               visual => $impact->[1]
+                               value => $impact->[1]
                            )] if $self->{edit};
                 push @td, ([td => {bgcolor=>$color}, $impact->[0]],[td => {bgcolor=>$color2}, $impact->[1]]);
             }

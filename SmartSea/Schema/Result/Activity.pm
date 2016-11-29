@@ -19,14 +19,14 @@ sub HTML_list {
     my %li;
     for my $act (@$objs) {
         my $a = $act->title;
-        $li{act}{$a} = item([b => $a], $uri.'/'.$act->id, $edit, $act->id, 'this activity');
+        $li{act}{$a} = item([b => $a], $act->id, $uri, $edit, 'this activity');
         my @refs = $act->activity2pressure;
         for my $ref (@refs) {
             my $pressure = $ref->pressure;
             my $p = $pressure->title;
             $data{$a}{$p} = 1;
             my $id = $act->id.'/'.$pressure->id;
-            $li{$a}{$p} = item($p, $uri.'/'.$id, $edit, $id, 'this pressure from this activity');
+            $li{$a}{$p} = item($p, $id, $uri, $edit, 'this pressure from this activity');
         }
     }
     my @body;
@@ -40,7 +40,7 @@ sub HTML_list {
         }
         push @body, [ul => \@l];
     }
-    if ($edit) {
+    if ($edit and @body) {
         @body = ([ form => {action => $uri, method => 'POST'}, [@body] ]);
         push @body, a(link => 'add activity', url => $uri.'/new');
     }
@@ -62,15 +62,15 @@ sub HTML_text {
         }
         push @l, [li => "$a: ".$v];
     }
-    my $ret = [ul => \@l];
+    my $ret = [[ul => \@l]];
     if (@$oids) {
         my $oid = shift @$oids;
         my $a = $self->pressures->single({'pressure.id' => $oid})->HTML_text($config, $oids, $self);
-        $ret = [$ret, @$a];
+        push @$ret, @$a if @$a;
     } else {
         my $class = 'SmartSea::Schema::Result::Pressure';
         my $l = $class->HTML_list([$self->pressures], $config->{uri}, $config->{edit}, $self);
-        $ret = [$ret, @$l];
+        push @$ret, @$l if @$l;
     }
     return $ret;
 }

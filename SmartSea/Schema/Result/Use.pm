@@ -18,27 +18,24 @@ __PACKAGE__->belongs_to(current_allocation => 'SmartSea::Schema::Result::Dataset
 
 sub HTML_list {
     my (undef, $objs, $uri, $edit) = @_;
-    my %data;
     my %li;
     for my $use (@$objs) {
-        my $p = $use->title;
-        $li{use}{$p} = item([b => $p], $uri.'/'.$use->id, $edit, $use->id, 'this use');
-        my @refs = $use->use2activity;
-        for my $ref (@refs) {
-            my $activity = $ref->activity;
-            my $u = $activity->title;
-            $data{$p}{$u} = 1;
+        my $u = $use->title;
+        $li{$u}{0} = item([b => $u], $use->id, $uri, $edit, 'this use');
+        for my $activity ($use->activities) {
+            my $a = $activity->title;
             my $id = $use->id.'/'.$activity->id;
-            $li{$p}{$u} = item($u, $uri.'/'.$id, $edit, $id, 'this activity from this use');
+            $li{$u}{$a} = item($a, $id, $uri, $edit, 'this activity from this use');
         }
     }
     my @body;
-    for my $use (sort keys %{$li{use}}) {
-        push @body, [p => $li{use}{$use}];
-        my @a = sort keys %{$data{$use}};
-        next unless @a;
+    for my $use (sort keys %li) {
+        push @body, [p => $li{$use}{0}];
+        my @a = sort keys %{$li{$use}};
+        next unless @a > 1;
         my @l;
         for my $activity (@a) {
+            next unless $activity;
             push @l, [li => $li{$use}{$activity}];
         }
         push @body, [ul => \@l];
@@ -65,15 +62,15 @@ sub HTML_text {
         }
         push @l, [li => "$a: ".$v];
     }
-    my $ret = [ul => \@l];
+    my $ret = [[ul => \@l]];
     if (@$oids) {
         my $oid = shift @$oids;
         my $a = $self->activities->single({'activity.id' => $oid})->HTML_text($config, $oids);
-        $ret = [$ret, @$a];
+        push @$ret, @$a if @$a;
     } else {
         my $class = 'SmartSea::Schema::Result::Activity';
         my $l = $class->HTML_list([$self->activities], $config->{uri}, $config->{edit});
-        $ret = [$ret, @$l];
+        push @$ret, @$l if @$l;
     }
     return $ret;
 }

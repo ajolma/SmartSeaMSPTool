@@ -9,7 +9,6 @@ use JSON;
 use DBI;
 use Geo::GDAL;
 use PDL;
-use Data::Dumper;
 use Geo::OGC::Service;
 use DBI;
 
@@ -58,7 +57,26 @@ sub new {
 sub config {
     my ($self, $config) = @_;
 
-    my @tilesets = ();
+    my @tilesets = (
+        {
+            Layers => "3_3_3_1_26",
+            Format => "image/png",
+            Resolutions => "9..19",
+            SRS => "EPSG:3067",
+            BoundingBox => $config->{BoundingBox3067},
+            file => "/home/ajolma/data/SmartSea/smartsea-mask.tiff",
+            ext => "png"
+        },
+        {
+            Layers => "3_3_3",
+            Format => "image/png",
+            Resolutions => "9..19",
+            SRS => "EPSG:3067",
+            BoundingBox => $config->{BoundingBox3067},
+            file => "/home/ajolma/data/SmartSea/smartsea-mask.tiff",
+            ext => "png"
+        }
+        );
 
     for my $protocol (qw/TMS WMS WMTS/) {
         $config->{$protocol}->{TileSets} = \@tilesets;
@@ -71,13 +89,15 @@ sub config {
 sub process {
     my ($self, $dataset, $tile, $params) = @_;
     # $dataset is undef since we serve_arbitrary_layers
+    # params is a hash of WM(T)S parameters
 
     # a 0/1 mask of the planning area
     $dataset = Geo::GDAL::Open("$self->{data_path}/smartsea-mask.tiff");
     $dataset = $dataset->Translate( "/vsimem/tmp.tiff", 
-                                    ['-of' => 'GTiff', '-r' => 'nearest' , 
+                                    ['-ot' => 'Byte', '-of' => 'GTiff', '-r' => 'nearest' , 
                                      '-outsize' , $tile->tile,
-                                     '-projwin', $tile->projwin] );
+                                     '-projwin', $tile->projwin,
+                                     '-a_ullr', $tile->projwin] );
 
     # the client asks for use_layer_plan_rule_rule_...
     # _plan_rule_rule_... is optional
@@ -88,7 +108,7 @@ sub process {
     # change API? 
     # NO at least as long as rules for Value layers can't be set
 
-    my $s = $params->{layer};
+    my $s = $params->{layer} // $params->{layers};
     my $id;
     ($s, $id) = parse_integer($s);
     my $use = $self->{schema}->resultset('Use')->single({ id => $id });
@@ -127,6 +147,7 @@ sub process {
         my $mask = $dataset->Band(1)->Piddle; # 0 / 1
         $mask *= $allocation;
         $dataset->Band(1)->Piddle(byte $mask);
+
         # set color table
         $dataset->Band(1)->ColorTable($self->{allocation_color_table});
         return $dataset;
