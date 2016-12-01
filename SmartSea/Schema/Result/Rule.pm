@@ -4,9 +4,11 @@ use warnings;
 use 5.010000;
 use base qw/DBIx::Class::Core/;
 use Scalar::Util 'blessed';
+use PDL;
+
 use SmartSea::Core;
 use SmartSea::HTML qw(:all);
-use PDL;
+use SmartSea::Rules;
 
 __PACKAGE__->table('tool.rules');
 __PACKAGE__->add_columns(qw/ id plan use layer reduce r_plan r_use r_layer r_dataset op value min_value max_value /);
@@ -193,114 +195,6 @@ sub HTML_list {
     return \@body;
 }
 
-# return rules for plan.use.layer
-sub rules {
-    my ($rs, $plan, $use, $layer) = @_;
-    my @rules;
-    my $remove_default;
-    for my $rule ($rs->search({ -or => [ plan => $plan->id,
-                                         plan => undef ],
-                                use => $use->id,
-                                layer => $layer->id
-                              },
-                              { order_by => ['me.id'] })) {
-                
-        # if there are rules for this plan, remove default rules
-        $remove_default = 1 if $rule->plan;
-        push @rules, $rule;
-    }
-    my @final;
-    for my $rule (@rules) {
-        next if $remove_default && !$rule->plan;
-        push @final, $rule;
-    }
-    return @final;
-}
-
-sub compute_allocation {
-    my ($config, $use, $tile, $rules) = @_;
-
-    # default is to allocate all
-    my $result = zeroes($tile->tile) + 2;
-
-    for my $rule (@$rules) {
-
-        # a rule is a spatial rule to allocate or deallocate
-
-        # if $rule->reduce then deallocate where the rule is true
-        my $val = $rule->reduce ? 0 : 2;
-
-        # the default is to compare the spatial operand to 1
-        my $op = $rule->op ? $rule->op->op : '==';
-        my $value = $rule->value // 1;
-
-        # the operand
-        my $tmp = $rule->operand($config, $use, $tile);
-
-        if (defined $tmp) {
-            if ($op eq '<=')    { $result->where($tmp <= $value) .= $val; } 
-            elsif ($op eq '<')  { $result->where($tmp <  $value) .= $val; }
-            elsif ($op eq '>=') { $result->where($tmp >= $value) .= $val; }
-            elsif ($op eq '>')  { $result->where($tmp >  $value) .= $val; }
-            elsif ($op eq '==') { $result->where($tmp == $value) .= $val; }
-            else                { say STDERR "rule is a no-op: ",$rule->as_text; }
-        }   
-        else                    { $result .= $val; }
-        
-    }
-
-    # set current allocation if there is one
-    # TODO: how to deal with deallocations?
-    my $current = $use->current_allocation;
-    $current = $current->path if $current;
-    $result->where(dataset($config, $tile, $current) > 0) .= 1 if $current;
-
-    return $result;
-}
-
-sub compute_value {
-    my ($config, $use, $tile, $rules) = @_;
-
-    # default is no value
-    my $result = zeroes($tile->tile);
-    return $result unless @$rules;
-
-    # apply rules
-    for my $rule (@$rules) {
-
-        # a rule is a spatial rule to add value or reduce value
-        my $sign = $rule->reduce ? -1 : 1;
-
-        # the default is to use the value as a weight
-        my $value = $rule->value // 1;
-        $value *= $sign;
-
-        # operator is not used?
-        #my $op = $rule->op ? $rule->op->op : '==';
-
-        # the operand
-        my $tmp = double($rule->operand($config, $use, $tile));
-
-        # scale values from 0 to 100
-        my $min = $rule->min_value;
-        my $max = $rule->max_value;
-        $tmp = 100*($tmp-$min)/($max - $min) if $max - $min > 0;
-        $tmp->where($tmp < 0) .= 0;
-        $tmp->where($tmp > 100) .= 100;
-
-        $result += $tmp;
-    }
-
-    # no negative values
-    # how to deal with losses?
-    $result->where($result < 0) .= 0;
-
-    # scale values from 0 to 100 and round to integer values
-    $result = short($result/@$rules + 0.5);
-
-    return $result;
-}
-
 sub operand {
     my ($self, $config, $use, $tile) = @_;
     if ($self->r_layer) {
@@ -309,15 +203,15 @@ sub operand {
         my $use = $self->r_use ? $self->r_use : $self->use;
             
         # TODO: how to avoid circular references?
-                
-        my @rules = rules($config->{schema}->resultset('Rule'), $plan, $use, $self->r_layer);
 
-        say STDERR $plan->title,".",$use->title,".",$self->r_layer->title," did not return any rules" unless @rules;
+        my $rules = SmartSea::Rules->new($config->{schema}, $plan, $use, $self->r_layer);
+
+        say STDERR $plan->title,".",$use->title,".",$self->r_layer->title," did not return any rules" unless $rules->rules;
         
         if ($self->r_layer->title eq 'Allocation') {
-            return compute_allocation($config, $use, $tile, \@rules);
+            return $rules->compute_allocation($config, $tile);
         } else {
-            return compute_value($config, $use, $tile, \@rules);
+            return $rules->compute_value($config, $tile);
         }
     } elsif ($self->r_dataset) {
         return dataset($config, $tile, $self->r_dataset->path);

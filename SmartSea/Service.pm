@@ -151,11 +151,11 @@ sub plans {
     my $schema = $self->{schema};
     my @plans;
     my $search = defined $plan_id ? {id => $plan_id}: undef;
-    for my $plan ($schema->resultset('Plan')->search($search, {order_by => 'title'})) {
+    for my $plan ($schema->resultset('Plan')->search($search, {order_by => {-desc => 'title'}})) {
         my @uses;
         for my $use ($plan->uses(undef, {order_by => 'id'})) {
             my @layers;
-            for my $layer ($use->layers(undef, {order_by => 'id'})) {
+            for my $layer ($use->layers(undef, {order_by => {-desc => 'id'}})) {
                 my @rules;
                 for my $rule ($schema->resultset('Rule')->search({
                     -and => [

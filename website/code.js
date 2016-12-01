@@ -30,8 +30,6 @@ var right_width = 220; // from layout.css
 
 var map = null;
 var proj = null;
-var uses = null;
-var plan = null;
 var analysisSite = null;
 
 (function() {
@@ -80,60 +78,52 @@ function boot_map(options) {
     
     map.addLayer(createLayer({bg: 'mml'}, proj));
 
+    // the planning system is a tree: root->plans->uses->layers->rules
     $.ajax({
         url: 'http://'+server+'/core/plans'
     }).done(function(plans) {
 
         var planlist = $("#plans");
         $.each(plans, function(i, plan) {
-            planlist.append(element('option',{value:plan.my_id},plan.title));
+            planlist.append(element('option',{value:plan.id},plan.title));
         });
         planlist.change(function () {
-            plan = {my_id:$("#plans").val()};
+            plan = {id:$("#plans").val()};
             $.each(plans, function(i, p) {
-                if (p.my_id == plan.my_id) {
-                    plan.rules = p.rules;
+                if (p.id == plan.id) {
+                    plan.uses = p.uses;
                     plan.title = p.title;
                     return false;
                 }
             });
             $("#rules").empty();
-            if (uses) {
-                new_plan();
-                fill_rules_panel(layer_of_current_plan(selectLayer.use, selectLayer.layer));
-            }
+            new_plan(true);
+            fill_rules_panel(layer_of_current_plan(selectLayer.use, selectLayer.layer));
         }).change();
-        
-        plan = plans[0];
-        $.ajax({
-            url: 'http://'+server+'/core/uses'
-        }).done(function(ret) {
-            uses = ret;
-            addLayers(map, proj, uses, plan, true);
-            addExplainTool(uses);
-        });
 
         $("#sortable").sortable({
             stop: function () {
                 map.removeLayer(analysisSite);
                 var newOrder = [];
-                forEachLayerGroup(uses, function(use){
+                forEachLayerGroup(plan.uses, function(use){
                     newOrder.push(use);
                 });
-                uses = newOrder;
-                addLayers(map, proj, uses, null, false);
+                plan.uses = newOrder;
+                addLayers(map, proj, false, false);
                 map.addLayer(analysisSite);
             }
         });
+
+        addExplainTool();
     
     });
     
 }
 
-function new_plan() {
-    map.removeLayer(analysisSite);
-    addLayers(map, proj, uses, plan, false);
-    map.addLayer(analysisSite);
+function new_plan(boot) {
+    if (analysisSite) map.removeLayer(analysisSite);
+    addLayers(map, proj, boot, true);
+    if (analysisSite) map.addLayer(analysisSite);
 }
 
 // if and when used for value rules, those cannot be turned off
@@ -145,8 +135,8 @@ function fill_rules_panel(layer) {
     if (!layer) return;
     $.each(layer.rules, function(i, rule) {
         var item;
-        if (layer.layer == 'Value')
-            item = rule.text;
+        if (layer.title == 'Value')
+            item = rule.title;
         else
             item = element('input', {
                 type:"checkbox",
@@ -154,7 +144,7 @@ function fill_rules_panel(layer) {
                 layer: layer.id,
                 rule:rule.id,
                 checked:"checked"
-            }, rule.text);
+            }, rule.title);
         r.append(item);
         rule.active = true;
         r.append(element('br'));
@@ -171,24 +161,11 @@ function fill_rules_panel(layer) {
                 return false;
             }
         });
-        new_plan();
+        new_plan(false);
     });
 }
 
-function layer_of_current_plan(use, layer) {
-    var uses = plan.rules;
-    for (var i = 0; i < uses.length; i++) {
-        if (uses[i].id == use) {
-            var layers = uses[i].rules;
-            for (var j = 0; j < layers.length; j++) {
-                if (layers[j].id == layer)
-                    return layers[j];
-            }
-        }
-    }
-}
-
-function addExplainTool(uses) {
+function addExplainTool() {
 
     var source = new ol.source.Vector({});
 
@@ -206,8 +183,8 @@ function addExplainTool(uses) {
         var feature = evt.feature;
         var geom = feature.getGeometry();
         var type = geom.getType();
-        var query = 'plan='+plan.my_id+'&';
-        $.each(uses, function(i, use) {
+        var query = 'plan='+plan.id+'&';
+        $.each(plan.uses, function(i, use) {
             $.each(use.layers, function(j, layer) {
                 if (layer.visible) query += 'layer='+layer.name+'&';
             });

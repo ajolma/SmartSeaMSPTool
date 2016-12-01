@@ -14,6 +14,7 @@ use DBI;
 
 use SmartSea::Core qw(:all);
 use SmartSea::Schema;
+use SmartSea::Rules;
 
 binmode STDERR, ":utf8"; 
 
@@ -99,31 +100,16 @@ sub process {
                                      '-projwin', $tile->projwin,
                                      '-a_ullr', $tile->projwin] );
 
-    # the client asks for use_layer_plan_rule_rule_...
-    # _plan_rule_rule_... is optional
+    # the client asks for plan_use_layer_rule_rule_...
     # rules are those rules that the client wishes to be active
+    # no rules = all rules?
 
-    # TODO: use and layer are attributes of rule! and plan is not needed
-    # this depends of course on the relationship (1<->1 or n<->n) between those and rule
-    # change API? 
-    # NO at least as long as rules for Value layers can't be set
+    my $trail = $params->{layer} // $params->{layers};
+    my $rules = SmartSea::Rules->new($self->{schema}, $trail);
 
-    my $s = $params->{layer} // $params->{layers};
-    my $id;
-    ($s, $id) = parse_integer($s);
-    my $use = $self->{schema}->resultset('Use')->single({ id => $id });
-    ($s, $id) = parse_integer($s);
-    my $layer = $self->{schema}->resultset('Layer')->single({ id => $id });
-    my $plan;
-    ($s, $id) = parse_integer($s);
-    $plan = $self->{schema}->resultset('Plan')->single({ id => $id }) if $id;
-
-    if ($layer->title eq 'Value') {
-        my @rules = SmartSea::Schema::Result::Rule::rules(
-            $self->{schema}->resultset('Rule'), $plan, $use, $layer
-        );
+    if ($rules->layer->title eq 'Value') {
         # compute, returns bad, 0..100
-        my $value = SmartSea::Schema::Result::Rule::compute_value($self, $use, $tile, \@rules);
+        my $value = $rules->compute_value($self, $tile);
         $value->inplace->setbadtoval(-1);
         my $mask = $dataset->Band(1)->Piddle; # 0 / 1
         $mask *= ($value + 2);
@@ -132,22 +118,12 @@ sub process {
         $dataset->Band(1)->ColorTable($self->{value_color_table});
         return $dataset;
     } else {
-        my @rules;
-        while ($s) {
-            # rule application order is defined by the client
-            ($s, $id) = parse_integer($s);
-            my $rule = $self->{schema}->resultset('Rule')->single({ id => $id });
-            # maybe we should test $rule->plan and $rule->use?
-            # and that the $rule->layer->id is the same?
-            push @rules, $rule;
-        }
         # compute, returns 0, 1, 2
-        my $allocation = SmartSea::Schema::Result::Rule::compute_allocation($self, $use, $tile, \@rules);
+        my $allocation = $rules->compute_allocation($self, $tile);
         $allocation->inplace->setbadtoval(0);
         my $mask = $dataset->Band(1)->Piddle; # 0 / 1
         $mask *= $allocation;
         $dataset->Band(1)->Piddle(byte $mask);
-
         # set color table
         $dataset->Band(1)->ColorTable($self->{allocation_color_table});
         return $dataset;

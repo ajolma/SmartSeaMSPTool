@@ -26,27 +26,27 @@ USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 DAMAGE.
 */
 
-function addLayers(map, proj, uses, plan, boot) {
-    // called in three cases: initial boot, new order, new plan
+var plan = null;
+
+function addLayers(map, proj, boot, new_plan) {
+    // called in three cases: initial boot, new order for uses, new plan
 
     // end to beginning to maintain overlay order
-    $.each(uses.reverse(), function(i, use) {
-        use.index = uses.length - 1 - i;
+    $.each(plan.uses.reverse(), function(i, use) {
+        use.index = plan.uses.length - 1 - i;
         $.each(use.layers.reverse(), function(j, layer) {
             layer.index = use.layers.length - 1 - j;
             layer.wmts = true;
 
             if (layer.object) map.removeLayer(layer.object);
 
-            if (plan) {
+            if (boot || new_plan) {
                 // initial boot or new plan
-                var name = use.my_id + '_' + layer.my_id + '_' + plan.my_id;
+                var name = plan.id + '_' + use.id + '_' + layer.id;
                 if (layer.title === 'Allocation') {
-                    //name += '_'+plan.my_id;
 
                     // add rules
-                    var l = layer_of_current_plan(use.my_id, layer.my_id);
-                    $.each(l.rules, function(i, rule) {
+                    $.each(layer.rules, function(i, rule) {
                         if (rule.active) name += '_'+rule.id;
                     });
 
@@ -70,11 +70,11 @@ function addLayers(map, proj, uses, plan, boot) {
 
     var useslist = $("#useslist ul");
     useslist.html('');
-    $.each(uses.reverse(), function(i, use) {
+    $.each(plan.uses.reverse(), function(i, use) {
         useslist.append(usesItem(use));
     });
-    selectLayer(-1); // restore selected
-    $.each(uses, function(i, use) {
+    if (!(boot || new_plan)) selectLayer(-1); // restore selected
+    $.each(plan.uses, function(i, use) {
         var b = $('li#use'+use.index+' button.visible');
         b.on('click', null, {use:use}, function(event) {
             $('li#use'+event.data.use.index+' div.use').toggle();
@@ -119,6 +119,21 @@ function addLayers(map, proj, uses, plan, boot) {
     });
 }
 
+function layer_of_current_plan(use_id, layer_id) {
+    var ret;
+    $.each(plan.uses, function(i, use) {
+        if (use.id == use_id) {
+            $.each(use.layers, function(i, layer) {
+                if (layer.id == layer_id)
+                    ret = layer;
+                    return;
+            });
+            return;
+        }
+    });
+    return ret;
+}
+
 function forEachLayerGroup(groups, fArg) {
     var ul = $("#useslist ul").children();
     for (var i = 0; i < ul.length; ++i) {
@@ -133,7 +148,7 @@ function forEachLayerGroup(groups, fArg) {
 }
 
 function selectLayer(use, layer) {
-    if ( typeof selectLayer.use != 'undefined' ) {
+    if (typeof selectLayer.use != 'undefined') {
         if (use < 0) {
             $("#l"+selectLayer.use+'_'+selectLayer.layer).css("background-color","yellow");
             return;
@@ -158,9 +173,9 @@ function usesItem(use) {
     $.each(use.layers.reverse(), function(j, layer) {
         var attr = {type:"checkbox", class:"visible"+layer.index};
         var lt = element('div', {
-            onclick:"selectLayer("+use.my_id+','+layer.my_id+");", 
+            onclick:"selectLayer("+use.id+','+layer.id+");", 
             style:'display:inline;',
-            id:'l'+use.my_id+'_'+layer.my_id}, layer.title+'<br/>');
+            id:'l'+use.id+'_'+layer.id}, layer.title+'<br/>');
 
         subs += element('input', attr, lt);
         attr = {class:"opacity"+layer.index, type:"range", min:"0", max:"1", step:"0.01"}
