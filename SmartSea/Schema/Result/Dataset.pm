@@ -7,8 +7,76 @@ use Scalar::Util 'blessed';
 use SmartSea::Core;
 use SmartSea::HTML qw(:all);
 
+my %attributes = (
+        name => {
+            i => 1,
+            type => 'text',
+            size => 20,
+        },
+        custodian => {
+            i => 2,
+            type => 'lookup',
+            class => 'Organization',
+            allow_null => 1
+        },
+        contact => {
+            i => 3,
+            type => 'text',
+            size => 20,
+        },
+        descr => {
+            i => 4,
+            type => 'textarea'
+        },
+        data_model => {
+            i => 5,
+            type => 'lookup',
+            class => 'DataModel',
+            allow_null => 1
+        },
+        is_a_part_of => {
+            i => 6,
+            type => 'lookup',
+            class => 'Dataset',
+            allow_null => 1
+        },
+        is_derived_from => {
+            i => 7,
+            type => 'lookup',
+            class => 'Dataset',
+            allow_null => 1
+        },
+        license => {
+            i => 8,
+            type => 'lookup',
+            class => 'License',
+            allow_null => 1
+        },
+        attribution => {
+            i => 9,
+            type => 'text',
+            size => 40,
+        },
+        disclaimer => {
+            i => 10,
+            type => 'text',
+            size => 80,
+        },
+        path => {
+            i => 11,
+            type => 'text',
+            size => 30,
+        },
+        unit => {
+            i => 12,
+            type => 'lookup',
+            class => 'Unit',
+            allow_null => 1
+        }
+    );
+
 __PACKAGE__->table('data.datasets');
-__PACKAGE__->add_columns(qw/id name custodian contact desc data_model is_a_part_of is_derived_from license attribution disclaimer path unit/);
+__PACKAGE__->add_columns('id', keys %attributes);
 __PACKAGE__->set_primary_key('id');
 __PACKAGE__->belongs_to(custodian => 'SmartSea::Schema::Result::Organization');
 __PACKAGE__->belongs_to(data_model => 'SmartSea::Schema::Result::DataModel');
@@ -67,7 +135,7 @@ sub HTML_text {
         $c =~ s/\<.+?\>//;
         push @l, [li => [[b => "contact"],[1 => " = ".$c]]];
     }
-    push @l, [li => [[b => "description"],[1 => " = ".$self->desc]]] if $self->desc;
+    push @l, [li => [[b => "description"],[1 => " = ".$self->descr]]] if $self->descr;
     push @l, [li => [[b => "disclaimer"],[1 => " = ".$self->disclaimer]]] if $self->disclaimer;
     push @l, [li => [[b => "license"],[1 => " = "],
                      a(link => $self->license->name, 
@@ -93,7 +161,29 @@ sub HTML_text {
 }
 
 sub HTML_form {
-    return [1 => 'to be done'];
+    my ($self, $config, $values) = @_;
+
+    my @ret;
+
+    if ($self and blessed($self) and $self->isa('SmartSea::Schema::Result::Dataset')) {
+        for my $key (keys %attributes) {
+            next unless $self->$key;
+            next if defined $values->{$key};
+            $values->{$key} = ref($self->$key) ? $self->$key->id : $self->$key;
+        }
+        push @ret, [input => {type => 'hidden', name => 'id', value => $self->id}];
+    }
+
+    my $widgets = widgets(\%attributes, $values, $config->{schema});
+
+    for my $key (sort {$attributes{$a}{i} <=> $attributes{$b}{i}} keys %attributes) {
+        push @ret, [ p => [[1 => "$key: "], $widgets->{$key}] ];
+    }
+
+    push @ret, button(value => "Store");
+    push @ret, [1 => ' '];
+    push @ret, button(value => "Cancel");
+    return \@ret;
 }
 
 sub li {

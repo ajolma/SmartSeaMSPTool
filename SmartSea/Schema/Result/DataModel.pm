@@ -9,4 +9,6 @@ __PACKAGE__->table('data.data_models');
 __PACKAGE__->add_columns(qw/ id name /);
 __PACKAGE__->set_primary_key('id');
 
+*title = *name;
+
 1;

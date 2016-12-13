@@ -124,11 +124,12 @@ function layer_of_current_plan(use_id, layer_id) {
     $.each(plan.uses, function(i, use) {
         if (use.id == use_id) {
             $.each(use.layers, function(i, layer) {
-                if (layer.id == layer_id)
+                if (layer.id == layer_id) {
                     ret = layer;
-                    return;
+                    return false;
+                }
             });
-            return;
+            return false;
         }
     });
     return ret;

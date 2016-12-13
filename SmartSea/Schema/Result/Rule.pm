@@ -10,8 +10,75 @@ use SmartSea::Core;
 use SmartSea::HTML qw(:all);
 use SmartSea::Rules;
 
+my %attributes = (
+    plan => {
+        i => 1,
+        type => 'lookup',
+        class => 'Plan',
+        allow_null => 1
+    },
+    use => {
+        i => 2,
+        type => 'lookup',
+        class => 'Use'
+    },
+    layer => {
+        i => 3,
+        type => 'lookup',
+        class => 'Layer'
+    },
+    reduce => {
+        i => 4,
+        type => 'checkbox',
+        cue => 'Rule removes allocation/value',
+    },
+    r_plan => {
+        i => 5,
+        type => 'lookup',
+        class => 'Plan',
+        allow_null => 1
+    },
+    r_use => {
+        i => 6,
+        type => 'lookup',
+        class => 'Use',
+        allow_null => 1
+    },
+    r_layer => {
+        i => 7,
+        type => 'lookup',
+        class => 'Layer',
+        allow_null => 1
+    },
+    r_dataset => {
+        i => 8,
+        type => 'lookup',
+        class => 'Dataset',
+        objs => {path => {'!=',undef}},
+        allow_null => 1
+    },
+    op => {
+        i => 9,
+        type => 'lookup',
+        class => 'Op',
+        allow_null => 1
+    },
+    value => {
+        i => 10,
+        type => 'text'
+    },
+    min_value => {
+        i => 11,
+        type => 'text'
+    },
+    max_value => {
+        i => 12,
+        type => 'text'
+    },
+    );
+
 __PACKAGE__->table('tool.rules');
-__PACKAGE__->add_columns(qw/ id plan use layer reduce r_plan r_use r_layer r_dataset op value min_value max_value /);
+__PACKAGE__->add_columns('id', keys %attributes);
 __PACKAGE__->set_primary_key('id');
 
 # determines whether an area is allocated to a use in a plan
@@ -59,7 +126,7 @@ sub as_text {
 sub HTML_text {
     my ($self) = @_;
     my @l = ([li => 'Rule']);
-    for my $a (qw/id plan use layer reduce r_plan r_use r_layer r_dataset op value min_value max_value/) {
+    for my $a ('id', sort {$attributes{$a}{i} <=> $attributes{$b}{i}} keys %attributes) {
         my $v = $self->$a // '';
         if (ref $v) {
             for my $b (qw/title name data op id/) {
@@ -71,7 +138,7 @@ sub HTML_text {
         }
         push @l, [li => "$a: ".$v];
     }
-    return [ul => \@l];
+    return [[ul => \@l]];
 }
 
 sub HTML_form {
@@ -80,87 +147,32 @@ sub HTML_form {
     my @ret;
 
     if ($self and blessed($self) and $self->isa('SmartSea::Schema::Result::Rule')) {
-        for my $key (qw/plan use reduce r_plan r_use r_layer r_dataset op value min_value max_value/) {
+        for my $key (keys %attributes) {
             next unless $self->$key;
             next if defined $values->{$key};
             $values->{$key} = ref($self->$key) ? $self->$key->id : $self->$key;
         }
         push @ret, [input => {type => 'hidden', name => 'id', value => $self->id}];
     }
-
-    my $plan = drop_down(name => 'plan', 
-                         objs => [$config->{schema}->resultset('Plan')->all], 
-                         selected => $values->{plan}, 
-                         allow_null => 1);
-    my $use = drop_down(name => 'use', 
-                        objs => [$config->{schema}->resultset('Use')->all], 
-                        selected => $values->{use});
-    my $layer = drop_down(name => 'layer', 
-                          objs => [$config->{schema}->resultset('Layer')->all], 
-                          selected => $values->{layer});
-
-    my $reduce = checkbox(
-        name => 'reduce',
-        visual => 'Rule removes allocation/value',
-        checked => $values->{reduce}
-    );
-
-    my $r_plan = drop_down(name => 'r_plan', 
-                           objs => [$config->{schema}->resultset('Plan')->all], 
-                           selected => $values->{r_plan}, 
-                           allow_null => 1);
-    my $r_use = drop_down(name => 'r_use', 
-                          objs => [$config->{schema}->resultset('Use')->all], 
-                          selected => $values->{r_use}, 
-                          allow_null => 1);
-    my $r_layer = drop_down(name => 'r_layer', 
-                            objs => [$config->{schema}->resultset('Layer')->all], 
-                            selected => $values->{r_layer}, 
-                            allow_null => 1);
-
-    my $r_dataset = drop_down(
-        name => 'r_dataset',
-        objs => [$config->{schema}->resultset('Dataset')->search({path => {'!=',undef}})],
-        selected => $values->{r_dataset},
-        allow_null => 1
-    );
-
-    my $op = drop_down(name => 'op', 
-                       objs => [$config->{schema}->resultset('Op')->all], 
-                       selected => $values->{op}, 
-                       allow_null => 1);
-
-    my $value = text_input(
-        name => 'value',
-        size => 10,
-        value => $values->{value} // ''
-    );
-
-    my $min_value = text_input(
-        name => 'min_value',
-        size => 10,
-        value => $values->{min_value} // ''
-    );
-    my $max_value = text_input(
-        name => 'max_value',
-        size => 10,
-        value => $values->{max_value} // ''
-    );
+    
+    my $widgets = widgets(\%attributes, $values, $config->{schema});
 
     push @ret, (
-        [ p => [[1 => 'plan: '],$plan] ],
-        [ p => [[1 => 'use: '],$use] ],
-        [ p => [[1 => 'layer: '],$layer] ],
-        [ p => $reduce ],
+        [ p => [[1 => 'plan: '],$widgets->{plan}] ],
+        [ p => [[1 => 'use: '],$widgets->{use}] ],
+        [ p => [[1 => 'layer: '],$widgets->{layer}] ],
+        [ p => $widgets->{reduce} ],
         [ p => 'Layer in the rule:' ],
-        [ p => [[1 => 'plan: '],$r_plan] ],
-        [ p => [[1 => 'use: '],$r_use] ],
-        [ p => [[1 => 'layer: '],$r_layer] ],
+        [ p => [[1 => 'plan: '],$widgets->{r_plan}] ],
+        [ p => [[1 => 'use: '],$widgets->{r_use}] ],
+        [ p => [[1 => 'layer: '],$widgets->{r_layer}] ],
         [ p => 'or' ],
-        [ p => [[1 => 'dataset: '],$r_dataset] ],
-        [ p => [[1 => 'Operator and value: '],$op,$value] ],
-        [ p => [[1 => 'Range of value: '],$min_value,[1=>'...'],$max_value] ],
-        button(value => "Store")
+        [ p => [[1 => 'dataset: '],$widgets->{r_dataset}] ],
+        [ p => [[1 => 'Operator and value: '],$widgets->{op},$widgets->{value}] ],
+        [ p => [[1 => 'Range of value: '],$widgets->{min_value},[1 => '...'],$widgets->{max_value}] ],
+        button(value => "Store"),
+        [1 => ' '],
+        button(value => "Cancel")
     );
     return \@ret;
 }

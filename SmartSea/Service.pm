@@ -69,7 +69,7 @@ sub call {
 
         return $self->object_editor('SmartSea::Schema::Result::Rule', 
                                    $1, 
-                                   { empty_is_null => ['value'], 
+                                   { empty_is_null => [qw/value min_value max_value/], 
                                      defaults => {reduce=>1},
                                      edit => $self->{edit}
                                    }
@@ -166,9 +166,9 @@ sub plans {
                                                                  })) {
                     push @rules, {title => $rule->as_text, id => $rule->id, active => JSON::true};
                 }
-                push @layers, {title => $layer->title, id => $layer->id, rules => \@rules};
+                push @layers, {title => $layer->title, id => $layer->id, use => $use->id, rules => \@rules};
             }
-            push @uses, {title => $use->title, id => $use->id, layers => \@layers};
+            push @uses, {title => $use->title, id => $use->id, plan => $plan->id, layers => \@layers};
         }
         push @plans, {title => $plan->title, id => $plan->id, uses => \@uses};
     }
@@ -259,7 +259,7 @@ sub object_editor {
             $request = $self->{parameters}{$p};
             next;
         }
-        $parameters{$p} = $self->{parameters}{$p};
+        $parameters{$p} = decode utf8 => $self->{parameters}{$p};
         if ($parameters{$p} eq $config->{delete}) {
             $request = $parameters{$p};
             $parameters{id} = $p;
@@ -335,12 +335,15 @@ sub object_editor {
         my $obj = $rs->single({ id => $oid });
         return return_400 unless defined $obj;
         my $body = $obj->HTML_text($self, \@oids);
+        push @$body, a(link => 'up', url => $uri);
         $body = [form => { action => $uri, method => 'POST' }, $body] if $config->{edit};
         return html200(SmartSea::HTML->new(html => [body => $body])->html);
         
     }
 
     push @body, @{$class->HTML_list([$rs->all], $uri, $config->{edit})};
+    $uri =~ s/\/\w+$//;
+    push @body, ([1 => ' '], a(link => 'up', url => $uri));
     return html200(SmartSea::HTML->new(html => [body => \@body])->html);
 
 }
