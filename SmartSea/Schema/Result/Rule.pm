@@ -117,9 +117,10 @@ sub as_text {
         $text .= $self->r_plan ? " in plan".$self->r_plan->title : " of this plan";
     } # else?
     if ($self->r_dataset) {
-        $text .= $self->r_dataset->long_name." ";
+        #$text .= $self->r_dataset->long_name;
+        $text .= $self->r_dataset->name;
     }
-    return $text."(true)" unless $self->op;
+    return $text." (true)" unless $self->op;
     return $text." is ".$self->op->op." ".$self->value;
 }
 

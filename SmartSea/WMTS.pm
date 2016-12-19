@@ -82,6 +82,7 @@ sub config {
     for my $protocol (qw/TMS WMS WMTS/) {
         $config->{$protocol}->{TileSets} = \@tilesets;
         $config->{$protocol}->{serve_arbitrary_layers} = 1;
+        $config->{$protocol}->{layer} = {'no-cache' => 1};
     }
 
     return $config;

@@ -8,7 +8,7 @@ use JSON;
 
 require Exporter;
 our @ISA = qw(Exporter);
-our @EXPORT_OK = qw(common_responses html200 json200 return_400 return_403 parse_integer); 
+our @EXPORT_OK = qw(common_responses html200 json200 http_status parse_integer); 
 our %EXPORT_TAGS = (all => \@EXPORT_OK);
 
 sub common_responses {
@@ -51,14 +51,23 @@ sub json200 {
         [$json->encode($data)]];
 }
 
-sub return_400 {
-    my $self = shift;
-    return [400, ['Content-Type' => 'text/plain', 'Content-Length' => 11], ['Bad Request']];
-}
-
-sub return_403 {
-    my $self = shift;
-    return [403, ['Content-Type' => 'text/plain', 'Content-Length' => 9], ['forbidden']];
+sub http_status {
+    my $status = shift;
+    return [400, 
+            ["Access-Control-Allow-Origin" => "*",
+             'Content-Type' => 'text/plain', 
+             'Content-Length' => 11], 
+            ['Bad Request']] if $status == 400;
+    return [403, 
+            ["Access-Control-Allow-Origin" => "*",
+             'Content-Type' => 'text/plain', 
+             'Content-Length' => 9], 
+            ['Forbidden']] if $status == 403;
+    return [500, 
+            ["Access-Control-Allow-Origin" => "*",
+             'Content-Type' => 'text/plain', 
+             'Content-Length' => 21], 
+            ['Internal Server Error']] if $status == 500;
 }
 
 sub parse_integer {

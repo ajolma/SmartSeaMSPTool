@@ -244,17 +244,20 @@ sub object_editor {
     # 'NULL' parameters will be converted to undef, 
 
     my $uri = $self->{uri};
+    say STDERR $self->{uri};
+
     $uri =~ s/$oids$//;
     my @oids = split /\//, $oids;
     shift @oids;
     my $oid = shift(@oids) // '';
-    #say STDERR "$uri, $oids, $oid";
+    say STDERR "$uri, $oids (@oids), $oid";
     
     $config->{delete} //= 'Delete';
     $config->{store} //= 'Store';
     my $request = '';
     my %parameters;
-    for my $p ($self->{parameters}->keys) {
+    for my $p (sort $self->{parameters}->keys) {
+        say STDERR "$p => $self->{parameters}{$p}";
         if ($p eq 'submit') {
             $request = $self->{parameters}{$p};
             next;
@@ -278,6 +281,7 @@ sub object_editor {
 
     my @body;
 
+    say STDERR "request = $request, oid = $oid";
     if ($request eq $config->{delete} and $config->{edit}) {
 
         eval {
@@ -287,6 +291,14 @@ sub object_editor {
             # if not ok, signal error
             push @body, [p => 'Something went wrong!'], [p => 'Error is: '.$@];
         }
+
+    } elsif ($request eq 'Modify' and defined $oid) {
+
+        eval {
+            $rs->single({ id => $oid })->update({value => $parameters{value}});
+        };
+        return http_status(500) if $@;
+        return json200({0 => 'ok'});
 
     } elsif ($request eq $config->{store} and $config->{edit}) {
 
@@ -323,7 +335,7 @@ sub object_editor {
 
         ($oid) = $oid =~ /(\d+)/;
         my $obj = $rs->single({ id => $oid });
-        return return_400 unless defined $obj;
+        return http_status(400) unless defined $obj;
         $uri =~ s/\?edit$//;
         my $body = [form => { action => $uri, method => 'POST' },
                     $obj->HTML_form($self)];
@@ -333,7 +345,7 @@ sub object_editor {
 
         ($oid) = $oid =~ /(\d+)/;
         my $obj = $rs->single({ id => $oid });
-        return return_400 unless defined $obj;
+        return http_status(400) unless defined $obj;
         my $body = $obj->HTML_text($self, \@oids);
         push @$body, a(link => 'up', url => $uri);
         $body = [form => { action => $uri, method => 'POST' }, $body] if $config->{edit};

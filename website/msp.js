@@ -1,0 +1,558 @@
+/*
+Copyright (c) 2016, Finnish Environment Institute SYKE All rights
+reserved.
+
+Redistribution and use, with or without modification, are permitted
+provided that the following conditions are met:
+
+Redistributions of source code must retain the above copyright notice,
+this list of conditions and the following disclaimer.
+
+Neither the name of the Finnish Environment Institute (SYKE) nor the
+names of its contributors may be used to endorse or promote products
+derived from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE FINNISH
+ENVIRONMENT INSTITUTE (SYKE) BE LIABLE FOR ANY DIRECT, INDIRECT,
+INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
+OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR
+TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
+USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+DAMAGE.
+*/
+
+// after https://alexatnet.com/articles/model-view-controller-mvc-javascript
+
+function MSPController(model, view) {
+    var self = this;
+    self.model = model;
+    self.view = view;
+
+    self.view.planSelected.attach(function(sender, args) {
+        self.changePlan(args.id);
+    });
+}
+
+MSPController.prototype = {
+    changePlan: function(id) {
+        this.model.changePlan(id);
+    }
+};
+
+function MSPView(model, elements, id) {
+    var self = this;
+    self.model = model;
+    self.elements = elements;
+    self.id = id;
+    // elements are plans, layers, rule_info, rules, rule_dialog, ...
+    // ids are rules, rule_dialog
+
+    self.elements.layers.sortable({
+        stop: function () {
+            self.model.map.removeLayer(model.site);
+            var newOrder = [];
+            var uses = self.model.plan.uses;
+            var ul = $("#useslist ul").children();
+            for (var i = 0; i < ul.length; ++i) {
+                var n = $(ul[i]).children().attr('title');
+                for (var j = 0; j < uses.length; ++j) {
+                    if (n == uses[j].title) {
+                        newOrder.push(uses[j]);
+                        break;
+                    }
+                }
+            }
+            self.model.plan.uses = newOrder;
+            self.model.createLayers(false);
+            self.buildLayers(false);
+            self.model.map.addLayer(model.site);
+        }
+    });
+
+    self.elements.rule_dialog.dialog({
+        autoOpen: false,
+        height: 400,
+        width: 350,
+        modal: false,
+        buttons: {
+            Apply: function() {
+                var a = $("#rule-dialog #spinner").spinner("value");
+                self.model.applyToRuleInEdit(a);
+            },
+            Close: function() {
+                self.elements.rule_dialog.dialog( "close" );
+            }
+        },
+        close: function() {
+        }
+    });
+
+    self.planSelected = new Event(self);
+
+    // attach model listeners
+    self.model.newPlans.attach(function(sender, args) {
+        self.buildPlans();
+    });
+    self.model.planChanged.attach(function(sender, args) {
+        self.buildPlan(args.plan);
+    });
+    self.model.layerSelected.attach(function(sender, args) {
+        self.selectLayer();
+        self.fillRulesPanel();
+    });
+    self.model.layerUnselected.attach(function(sender, args) {
+        self.unselectLayer(args.use, args.layer);
+    });
+    self.model.ruleChanged.attach(function(sender, args) {
+        self.ruleChanged();
+    });
+    self.model.siteInitialized.attach(function(sender, args) {
+        self.siteInteraction(args.source);
+    });
+
+    // attach listeners to HTML controls
+    self.elements.plans.change(function(e) {
+        self.planSelected.notify({ id : self.elements.plans.val() });
+    });
+}
+
+MSPView.prototype = {
+    windowResize: function() {
+        var h = $(window).height() -  $('.header').height() - $('.plot').height();
+        var w = $(window).width() - right_width - 15;
+        this.elements.map
+            .height(h)
+            .width(w);
+        $('.right').css('max-height', h);
+        if (this.model.map) this.model.map.updateSize();
+    },
+    buildPlans: function() {
+        var self = this;
+        $.each(self.model.plans, function(i, plan) {
+            self.elements.plans.append(element('option',{value:plan.id},plan.title));
+        });
+    },
+    buildPlan: function(plan) {
+        var self = this;
+        self.model.removeSite();
+        self.model.createLayers(true);
+        self.buildLayers(true);
+        self.model.addSite();
+        self.elements.rules.empty();
+        self.fillRulesPanel();
+    },
+    usesItem: function(use) {
+        var b = element('button', {class:"visible", type:'button'}, '&rtrif;');
+        var cb = element('label', {title:use.title}, b+' '+use.title);
+        var callbacks = [];
+        var subs = '';
+        $.each(use.layers.reverse(), function(j, layer) {
+            var attr = { type: "checkbox", class: "visible"+layer.index };
+            var id = 'l'+use.id+'_'+layer.id;
+            var lt = element('div', { id: id, style: 'display:inline;' }, layer.title+'<br/>');
+            callbacks.push({ selector: '#'+id, use: use.id, layer: layer.id });
+            subs += element('input', attr, lt);
+            attr = { class:"opacity"+layer.index, type:"range", min:"0", max:"1", step:"0.01" };
+            subs += element('div', {class:"opacity"+layer.index}, element('input', attr, '<br/>'));
+        });
+        subs = element('div', {class:'use'}, subs);
+        var attr = { id: 'use'+use.index, tabindex: use.index+1 };
+        return { element: element('li', attr, cb + subs), callbacks: callbacks };
+    },
+    buildLayers: function(boot) {
+        var self = this;
+        self.elements.layers.html('');
+        $.each(self.model.plan.uses.reverse(), function(i, use) {
+            var item = self.usesItem(use);
+            self.elements.layers.append(item.element);
+            $.each(item.callbacks, function(i, callback) {
+                $(callback.selector).click(function() {
+                    self.model.unselectLayer();
+                    self.model.selectLayer(callback.use, callback.layer);
+                });
+            });
+        });
+        self.selectLayer();
+        // restore useslist open and close
+        $.each(self.model.plan.uses, function(i, use) {
+            var b = $('li#use'+use.index+' button.visible');
+            b.on('click', null, {use:use}, function(event) {
+                $('li#use'+event.data.use.index+' div.use').toggle();
+                if (!arguments.callee.flipflop) {
+                    arguments.callee.flipflop = 1;
+                    $(this).html('&dtrif;');
+                    event.data.use.open = true;
+                } else {
+                    arguments.callee.flipflop = 0;
+                    $(this).html('&rtrif;');
+                    event.data.use.open = false;
+                }
+            });
+            $('li#use'+use.index+' div.use').hide();
+
+            var must_click = false;
+            if (boot) {
+                use.open = false;
+            } else {
+                if (use.open) must_click = true;
+            }
+            $.each(use.layers, function(j, layer) {
+                var cb = $('li#use'+use.index+' input.visible'+layer.index);
+                cb.on('change', null, {use:use, layer:layer}, function(event) {
+                    $('li#use'+event.data.use.index+' div.opacity'+event.data.layer.index).toggle();
+                    event.data.layer.object.setVisible(this.checked);
+                });
+                var slider = $('li#use'+use.index+' input.opacity'+layer.index);
+                if (layer.visible) {
+                    cb.prop('checked', true);
+                } else {
+                    $('li#use'+use.index+' div.opacity'+layer.index).hide();
+                }
+                slider.on('input change', null, {layer:layer}, function(event) {
+                    event.data.layer.object.setOpacity(parseFloat(this.value));
+                });
+                slider.val(String(layer.object.getOpacity()));
+            });
+            if (must_click) b.trigger('click');  // triggers b.on('click'... above
+        });
+    },
+    selectLayer: function() {
+        if (!this.model.use || !this.model.layer) return;
+        var use = this.model.use.id;
+        var layer = this.model.layer.id;
+        $("#l"+use+'_'+layer).css("background-color","yellow");
+        if (layer == 3) 
+            this.elements.rule_info.html("Default is to allocate.");
+        else 
+            this.elements.rule_info.html("Default is no value.");
+    },
+    unselectLayer: function(use, layer) {
+        $("#l"+use+'_'+layer).css("background-color","white");
+        this.elements.rules.empty();
+    },
+    fillRulesPanel: function(layer) {
+        var self = this;
+        self.elements.rules.empty();
+        if (!self.model.layer) return;
+        var layer = self.model.layer;
+        $.each(layer.rules, function(i, rule) {
+            var item;
+            if (layer.title == 'Value')
+                item = rule.title;
+            else
+                item = element(
+                    'input', 
+                    {
+                        type:"checkbox",
+                        use: layer.use,
+                        layer: layer.id,
+                        rule:rule.id,
+                        checked:"checked"
+                    }, 
+                    element('a', {id:"rule", rule:rule.id}, rule.title)
+                );
+            self.elements.rules.append(item);
+            rule.active = true;
+            self.elements.rules.append(element('br'));
+        });
+        $(self.id.rules+" :checkbox").change(function() {
+            var use = $(this).attr('use');
+            var id = $(this).attr('layer');
+            var rule_id = $(this).attr('rule');
+            var active = this.checked;
+            var layer = self.model.layer;
+            $.each(layer.rules, function(i, rule) {
+                if (rule.id == rule_id) {
+                    rule.active = active;
+                    return false;
+                }
+            });
+            self.model.removeSite();
+            self.model.createLayers(true);
+            self.buildLayers(false);
+            self.model.addSite();
+        });
+        $(self.id.rules+" #rule").click(function() {
+            var id = $(this).attr('rule');
+            $.each(layer.rules, function(i, rule) {
+                if (rule.id == id) {
+                    self.model.ruleInEdit = rule;
+                    return false;
+                }
+            });
+            var title = self.model.ruleInEdit.title;
+            title = title.replace(/^- If/, "Do not allocate if");
+            var value = title.match(/\d+$/);
+            value = value[0];
+            title = title.replace(/\d+$/, "");
+            
+            var html = title+" "+element('input', {id:"spinner",name:"value"});
+
+            self.elements.rule_dialog.html(html);
+            
+            var spinner = $(self.id.rule_dialog+" #spinner");
+            spinner.spinner({
+                min: 0,
+                max: 10
+            });
+            spinner.spinner("value", value);
+
+            self.elements.rule_dialog.dialog( "open" );
+        });
+    },
+    ruleChanged: function() {
+        this.model.createLayers(true);
+        this.buildLayers(false);
+    },
+    siteInteraction: function(source) {
+        var self = this;
+        var typeSelect = self.elements.site_type[0];
+        var draw = {};
+        function addInteraction() {
+            var value = typeSelect.value;
+            if (value == 'Polygon') {
+                if (draw.key) {
+                    self.model.map.unByKey(draw.key);
+                    draw.key = null;
+                }
+                var geometryFunction, maxPoints;
+                draw.draw = new ol.interaction.Draw({
+                    source: source,
+                    type: /** @type {ol.geom.GeometryType} */ (value),
+                    geometryFunction: geometryFunction,
+                    maxPoints: maxPoints
+                });
+                self.model.map.addInteraction(draw.draw);
+                draw.draw.on('drawstart', function() {
+                    source.clear();
+                });
+            } else if (value == 'Point') {
+                if (draw.draw) {
+                    self.model.map.removeInteraction(draw.draw);
+                    draw.draw = null;
+                }
+                draw.key = self.model.map.on('click', function(evt) {
+                    var coordinates = evt.coordinate;
+                    var f = new ol.Feature({
+                        geometry: new ol.geom.Point(coordinates)
+                    });
+                    var iconStyle = new ol.style.Style({
+                        image: new ol.style.Icon(/** @type {olx.style.IconOptions} */ ({
+                            anchor: [16, 32],
+                            anchorXUnits: 'pixels',
+                            anchorYUnits: 'pixels',
+                            opacity: 1,
+                            src: 'Map-Marker-Marker-Outside-Pink-icon.png'
+                        }))
+                    });
+                    f.setStyle(iconStyle);
+                    source.clear();
+                    source.addFeature(f);
+                });
+            } else {
+                if (draw.key) {
+                    self.model.map.unByKey(draw.key);
+                    draw.key = null;
+                }
+                if (draw.draw) {
+                    self.model.map.removeInteraction(draw.draw);
+                    draw.draw = null;
+                }
+                source.clear();
+                self.elements.site_info.html('');
+            }
+        }
+        typeSelect.onchange = addInteraction;
+        addInteraction();
+    }
+};
+
+function MSP() {
+    this.proj = null;
+    this.map = null;
+    this.site = null; // layer showing selected location or area
+    this.plans = null;
+    this.plan = null;
+    this.use = null;
+    this.layer = null;
+    this.ruleInEdit = null;
+
+    this.newPlans = new Event(this);
+    this.planChanged = new Event(this);
+    this.layerSelected = new Event(this);
+    this.layerUnselected = new Event(this);
+    this.ruleChanged = new Event(this);
+    this.siteInitialized = new Event(this);
+}
+
+MSP.prototype = {
+    setPlans: function(plans) {
+        this.plans = plans;
+        this.newPlans.notify();
+    },
+    changePlan: function(id) {
+        var self = this;
+        self.plan = null;
+        self.use = null;
+        self.layer = null;
+        $.each(self.plans, function(i, plan) {
+            if (id == plan.id) self.plan = plan;
+            $.each(plan.uses, function(i, use) {
+                $.each(use.layers, function(j, layer) {
+                    if (layer.object) self.map.removeLayer(layer.object);
+                });
+            });
+        });
+        if (self.plan) self.planChanged.notify({ plan: self.plan });
+    },
+    createLayers: function(boot) {
+        var self = this;
+        // end to beginning to maintain overlay order
+        $.each(self.plan.uses.reverse(), function(i, use) {
+            use.index = self.plan.uses.length - 1 - i;
+            $.each(use.layers.reverse(), function(j, layer) {
+                layer.index = use.layers.length - 1 - j;
+                layer.wmts = true;
+                if (layer.object) self.map.removeLayer(layer.object);
+                if (boot) {
+                    // initial boot or new plan
+                    var name = self.plan.id + '_' + use.id + '_' + layer.id;
+                    if (layer.title === 'Allocation') {
+                        // add rules
+                        $.each(layer.rules, function(i, rule) {
+                            if (rule.active) name += '_'+rule.id;
+                        });
+                        if (layer.object) layer.object = null;
+                    }
+                    layer.name = name;
+                }
+                if (!layer.object) layer.object = createLayer(layer, self.proj);
+                layer.object.on('change:visible', function () {
+                    this.visible = !this.visible;
+                }, layer);
+                // restore visibility:
+                var visible = layer.visible;
+                layer.object.setVisible(visible);
+                layer.visible = visible;
+                self.map.addLayer(layer.object);
+            });
+        });
+    },
+    selectLayer: function(use_id, layer_id) {
+        var self = this;
+        self.use = null;
+        self.layer = null;
+        $.each(self.plan.uses, function(i, use) {
+            if (use.id == use_id) {
+                self.use = use;
+                $.each(use.layers, function(i, layer) {
+                    if (layer.id == layer_id) {
+                        self.layer = layer;
+                        return false;
+                    }
+                });
+                return false;
+            }
+        });
+        if (self.layer) self.layerSelected.notify();
+    },
+    unselectLayer: function() {
+        var self = this;
+        var use = null, layer = null;
+        if (self.use && self.layer) {
+            use = self.use.id;
+            layer = self.layer.id;
+        }
+        self.use = null;
+        self.layer = null;
+        if (use && layer) self.layerUnselected.notify({ use: use, layer: layer });
+    },
+    applyToRuleInEdit: function(value) {
+        var self = this;
+        $.post( 'http://'+server+'/core/rule_browser/'+this.ruleInEdit.id, 
+                { submit: 'Modify', value: value }, 
+                function(data) {
+                    self.removeSite();
+                    self.ruleChanged.notify();
+                    self.addSite();
+                })
+            .fail(function(data) {
+                alert(data.responseText);
+            });
+    },
+    initSite: function() {
+        var self = this;
+        var source = new ol.source.Vector({});
+        source.on('addfeature', function(evt){
+            var feature = evt.feature;
+            var geom = feature.getGeometry();
+            var type = geom.getType();
+            var query = 'plan='+self.plan.id+'&';
+            $.each(self.plan.uses, function(i, use) {
+                $.each(use.layers, function(j, layer) {
+                    if (layer.visible) query += 'layer='+layer.name+'&';
+                });
+            });
+            if (type == 'Polygon') {
+                var format  = new ol.format.WKT();
+                query += 'wkt='+format.writeGeometry(geom);
+            } else if (type == 'Point') {
+                var coordinates = geom.getCoordinates();
+                query += 'easting='+coordinates[0]+'&northing='+coordinates[1];
+            }
+            $.ajax({
+                url: 'http://'+server+'/explain?'+query
+            }).done(function(ret) {
+                $('#info').html(ret.report);
+            });
+        });
+        self.site = new ol.layer.Vector({
+            source: source,
+            style: new ol.style.Style({
+                fill: new ol.style.Fill({
+                    color: 'rgba(255, 255, 255, 0.2)'
+                }),
+                stroke: new ol.style.Stroke({
+                    color: '#ffcc33',
+                    width: 2
+                }),
+                image: new ol.style.Circle({
+                    radius: 7,
+                    fill: new ol.style.Fill({
+                        color: '#ffcc33'
+                    })
+                })
+            })
+        });
+        self.map.addLayer(self.site);
+        self.siteInitialized.notify({source: source});
+    },
+    removeSite: function() {
+        if (this.site) this.map.removeLayer(this.site);
+    },
+    addSite: function() {
+        if (this.site) this.map.addLayer(this.site);
+    }
+};
+
+function Event(sender) {
+    this.sender = sender;
+    this.listeners = [];
+}
+
+Event.prototype = {
+    attach : function(listener) {
+        this.listeners.push(listener);
+    },
+    notify : function(args) {
+        var i;
+        for (i = 0; i < this.listeners.length; ++i) {
+            this.listeners[i](this.sender, args);
+        }
+    }
+};
