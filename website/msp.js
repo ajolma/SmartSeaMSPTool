@@ -49,7 +49,7 @@ function MSPView(model, elements, id) {
     self.model = model;
     self.elements = elements;
     self.id = id;
-    // elements are plans, layers, rule_info, rules, rule_dialog, ...
+    // elements are plans, layers, rule_info, rules, rule_dialog, site_type, site_info, ...
     // ids are rules, rule_dialog
 
     self.elements.layers.sortable({
@@ -57,7 +57,7 @@ function MSPView(model, elements, id) {
             self.model.map.removeLayer(model.site);
             var newOrder = [];
             var uses = self.model.plan.uses;
-            var ul = $("#useslist ul").children();
+            var ul = self.elements.layers.children();
             for (var i = 0; i < ul.length; ++i) {
                 var n = $(ul[i]).children().attr('title');
                 for (var j = 0; j < uses.length; ++j) {
@@ -81,11 +81,11 @@ function MSPView(model, elements, id) {
         modal: false,
         buttons: {
             Apply: function() {
-                var a = $("#rule-dialog #spinner").spinner("value");
+                var a = $(self.id.rule_dialog+" #spinner").spinner("value");
                 self.model.applyToRuleInEdit(a);
             },
             Close: function() {
-                self.elements.rule_dialog.dialog( "close" );
+                self.elements.rule_dialog.dialog("close");
             }
         },
         close: function() {
@@ -113,6 +113,9 @@ function MSPView(model, elements, id) {
     });
     self.model.siteInitialized.attach(function(sender, args) {
         self.siteInteraction(args.source);
+    });
+    self.model.siteInformationReceived.attach(function(sender, args) {
+        self.elements.site_info.html(args.report);
     });
 
     // attach listeners to HTML controls
@@ -388,6 +391,7 @@ function MSP() {
     this.layerUnselected = new Event(this);
     this.ruleChanged = new Event(this);
     this.siteInitialized = new Event(this);
+    this.siteInformationReceived = new Event(this);
 }
 
 MSP.prototype = {
@@ -507,8 +511,8 @@ MSP.prototype = {
             }
             $.ajax({
                 url: 'http://'+server+'/explain?'+query
-            }).done(function(ret) {
-                $('#info').html(ret.report);
+            }).done(function(data) {
+                self.siteInformationReceived.notify(data);
             });
         });
         self.site = new ol.layer.Vector({

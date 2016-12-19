@@ -38,8 +38,8 @@ var right_width = 220; // from layout.css
         rule_info: $("#layer_rule_info"),
         rules: $("#rules"),
         rule_dialog: $("#rule-dialog"),
-        site_type: $('#ia_type'),
-        site_info: $('#info')
+        site_type: $('#site-type'),
+        site_info: $('#site-info')
     }, {
         rules: "#rules",
         rule_dialog: "#rule-dialog"
