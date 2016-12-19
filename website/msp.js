@@ -126,6 +126,7 @@ function MSPView(model, elements, id) {
 
 MSPView.prototype = {
     windowResize: function() {
+        var right_width = 220; // from layout.css
         var h = $(window).height() -  $('.header').height() - $('.plot').height();
         var w = $(window).width() - right_width - 15;
         this.elements.map
@@ -375,7 +376,9 @@ MSPView.prototype = {
     }
 };
 
-function MSP() {
+function MSP(server, firstPlan) {
+    this.server = server;
+    this.firstPlan = firstPlan;
     this.proj = null;
     this.map = null;
     this.site = null; // layer showing selected location or area
@@ -395,9 +398,17 @@ function MSP() {
 }
 
 MSP.prototype = {
-    setPlans: function(plans) {
-        this.plans = plans;
-        this.newPlans.notify();
+    getPlans: function() {
+        var self = this;
+        // the planning system is a tree: root->plans->uses->layers->rules
+        $.ajax({
+            url: 'http://'+self.server+'/core/plans'
+        }).done(function(plans) {
+            self.plans = plans;
+            self.newPlans.notify();
+            self.changePlan(self.firstPlan);
+            self.initSite();
+        });
     },
     changePlan: function(id) {
         var self = this;
@@ -478,7 +489,7 @@ MSP.prototype = {
     },
     applyToRuleInEdit: function(value) {
         var self = this;
-        $.post( 'http://'+server+'/core/rule_browser/'+this.ruleInEdit.id, 
+        $.post( 'http://'+self.server+'/core/rule_browser/'+this.ruleInEdit.id, 
                 { submit: 'Modify', value: value }, 
                 function(data) {
                     self.removeSite();
@@ -510,7 +521,7 @@ MSP.prototype = {
                 query += 'easting='+coordinates[0]+'&northing='+coordinates[1];
             }
             $.ajax({
-                url: 'http://'+server+'/explain?'+query
+                url: 'http://'+self.server+'/explain?'+query
             }).done(function(data) {
                 self.siteInformationReceived.notify(data);
             });

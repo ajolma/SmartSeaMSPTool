@@ -26,16 +26,14 @@ USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 DAMAGE.
 */
 
-var right_width = 220; // from layout.css
-
 (function() {
     $('body').addClass('stop-scrolling');
-    var model = new MSP();
+    var model = new MSP(server, 3);
     var view = new MSPView(model, {
         map: $("#map"),
         plans: $("#plans"),
         layers: $("#layers"),
-        rule_info: $("#layer_rule_info"),
+        rule_info: $("#rule-info"),
         rules: $("#rules"),
         rule_dialog: $("#rule-dialog"),
         site_type: $('#site-type'),
@@ -61,14 +59,7 @@ var right_width = 220; // from layout.css
     model.map.addControl(new ol.control.ScaleLine());
     model.map.addLayer(createLayer({bg: 'mml'}, model.proj));
 
-    // the planning system is a tree: root->plans->uses->layers->rules
-    $.ajax({
-        url: 'http://'+server+'/core/plans'
-    }).done(function(plans) {
-        model.setPlans(plans);
-        model.changePlan(3);
-        model.initSite();
-    });
+    model.getPlans();
 
     $(window).resize(function(){view.windowResize()});
     view.windowResize();
