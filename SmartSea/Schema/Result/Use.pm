@@ -62,15 +62,15 @@ sub HTML_text {
         }
         push @l, [li => "$a: ".$v];
     }
-    my $ret = [[ul => \@l]];
+    my $ret = [ul => \@l];
     if (@$oids) {
         my $oid = shift @$oids;
         my $a = $self->activities->single({'activity.id' => $oid})->HTML_text($config, $oids);
-        push @$ret, @$a if @$a;
+        return [$ret, $a] if @$a;
     } else {
         my $class = 'SmartSea::Schema::Result::Activity';
         my $l = $class->HTML_list([$self->activities], $config->{uri}, $config->{edit});
-        push @$ret, @$l if @$l;
+        return [$ret, $l] if @$l;
     }
     return $ret;
 }

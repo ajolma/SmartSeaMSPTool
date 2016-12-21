@@ -81,6 +81,16 @@ sub drop_down {
     }
     return [select => {name => $name}, \@options];
 }
+sub spinner {
+    my (%arg) = @_;
+    $arg{step} //= 1;
+    return [input => {name => $arg{name},
+                      type => 'number', 
+                      min => $arg{min}, 
+                      max => $arg{max}, 
+                      step => $arg{step}, 
+                      value => $arg{value}}];
+}
 sub item {
     my ($title, $id, $url, $edit, $ref) = @_;
     $url .= '/'.$id;
@@ -137,6 +147,13 @@ sub widgets {
                 name => $key,
                 visual => $a->{cue},
                 checked => $values->{$key}
+            );
+        } elsif ($a->{type} eq 'spinner') {
+            $widgets{$key} = spinner(
+                name => $key,
+                min => $a->{min},
+                max => $a->{max},
+                value => $values->{$key} // 1
             );
         }
     }

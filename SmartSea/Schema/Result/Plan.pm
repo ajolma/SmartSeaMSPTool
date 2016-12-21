@@ -59,15 +59,15 @@ sub HTML_text {
         }
         push @l, [li => "$a: ".$v];
     }
-    my $ret = [[ul => \@l]];
+    my $ret = [ul => \@l];
     if (@$oids) {
         my $oid = shift @$oids;
         my $use = $self->uses->single({'use.id' => $oid})->HTML_text($config, $oids);
-        push @$ret, @$use if @$use;
+        return [$ret, $use] if @$use;
     } else {
         my $class = 'SmartSea::Schema::Result::Use';
         my $l = $class->HTML_list([$self->uses], $config->{uri}, $config->{edit});
-        push @$ret, @$l if @$l;
+        return [$ret, $l] if @$l;
     }
     return $ret;
 }

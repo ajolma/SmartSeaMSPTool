@@ -109,7 +109,7 @@ sub compute_allocation {
             elsif ($op eq '>=') { $result->where($tmp >= $value) .= $val; }
             elsif ($op eq '>')  { $result->where($tmp >  $value) .= $val; }
             elsif ($op eq '==') { $result->where($tmp == $value) .= $val; }
-            else                { say STDERR "rule is a no-op: ",$rule->as_text; }
+            else                { say STDERR "rule is a no-op: ",$rule->as_text(include_value => 1); }
         }   
         else                    { $result .= $val; }
         

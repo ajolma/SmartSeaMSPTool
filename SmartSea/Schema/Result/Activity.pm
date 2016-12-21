@@ -62,15 +62,15 @@ sub HTML_text {
         }
         push @l, [li => "$a: ".$v];
     }
-    my $ret = [[ul => \@l]];
+    my $ret = [ul => \@l];
     if (@$oids) {
         my $oid = shift @$oids;
         my $a = $self->pressures->single({'pressure.id' => $oid})->HTML_text($config, $oids, $self);
-        push @$ret, @$a if @$a;
+        return [$ret, $a] if @$a;
     } else {
         my $class = 'SmartSea::Schema::Result::Pressure';
         my $l = $class->HTML_list([$self->pressures], $config->{uri}, $config->{edit}, $self);
-        push @$ret, @$l if @$l;
+        return [$ret, $l] if @$l;
     }
     return $ret;
 }

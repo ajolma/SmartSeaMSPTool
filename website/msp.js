@@ -36,6 +36,12 @@ function MSPController(model, view) {
     self.view.planSelected.attach(function(sender, args) {
         self.changePlan(args.id);
     });
+    self.view.newLayerOrder.attach(function(sender, args) {
+        self.model.setLayerOrder(args.order);
+    });
+    self.view.ruleEdited.attach(function(sender, args) {
+        self.model.applyToRuleInEdit(args.value);
+    });
 }
 
 MSPController.prototype = {
@@ -54,7 +60,6 @@ function MSPView(model, elements, id) {
 
     self.elements.layers.sortable({
         stop: function () {
-            self.model.map.removeLayer(model.site);
             var newOrder = [];
             var uses = self.model.plan.uses;
             var ul = self.elements.layers.children();
@@ -67,10 +72,7 @@ function MSPView(model, elements, id) {
                     }
                 }
             }
-            self.model.plan.uses = newOrder;
-            self.model.createLayers(false);
-            self.buildLayers(false);
-            self.model.map.addLayer(model.site);
+            self.newLayerOrder.notify({ order : newOrder });
         }
     });
 
@@ -81,8 +83,14 @@ function MSPView(model, elements, id) {
         modal: false,
         buttons: {
             Apply: function() {
-                var a = $(self.id.rule_dialog+" #spinner").spinner("value");
-                self.model.applyToRuleInEdit(a);
+                var value;
+
+                if (self.model.ruleInEdit.type == 'int')
+                    value = $(self.id.rule_dialog+" #rule-spinner").spinner("value");
+                else if (self.model.ruleInEdit.type == 'double')
+                    value = $(self.id.rule_dialog+" #rule-slider").slider("value");
+
+                self.ruleEdited.notify({ value : value });
             },
             Close: function() {
                 self.elements.rule_dialog.dialog("close");
@@ -93,6 +101,8 @@ function MSPView(model, elements, id) {
     });
 
     self.planSelected = new Event(self);
+    self.newLayerOrder = new Event(self);
+    self.ruleEdited = new Event(self);
 
     // attach model listeners
     self.model.newPlans.attach(function(sender, args) {
@@ -101,6 +111,9 @@ function MSPView(model, elements, id) {
     self.model.planChanged.attach(function(sender, args) {
         self.buildPlan(args.plan);
     });
+    self.model.newLayerList.attach(function(sender, args) {
+        self.buildLayers();
+    });
     self.model.layerSelected.attach(function(sender, args) {
         self.selectLayer();
         self.fillRulesPanel();
@@ -108,8 +121,8 @@ function MSPView(model, elements, id) {
     self.model.layerUnselected.attach(function(sender, args) {
         self.unselectLayer(args.use, args.layer);
     });
-    self.model.ruleChanged.attach(function(sender, args) {
-        self.ruleChanged();
+    self.model.ruleEdited.attach(function(sender, args) {
+        self.fillRulesPanel(self.model.layer);
     });
     self.model.siteInitialized.attach(function(sender, args) {
         self.siteInteraction(args.source);
@@ -145,7 +158,6 @@ MSPView.prototype = {
         var self = this;
         self.model.removeSite();
         self.model.createLayers(true);
-        self.buildLayers(true);
         self.model.addSite();
         self.elements.rules.empty();
         self.fillRulesPanel();
@@ -168,9 +180,11 @@ MSPView.prototype = {
         var attr = { id: 'use'+use.index, tabindex: use.index+1 };
         return { element: element('li', attr, cb + subs), callbacks: callbacks };
     },
-    buildLayers: function(boot) {
+    buildLayers: function() {
         var self = this;
         self.elements.layers.html('');
+        // all uses with controls: on/off, select/unselect, transparency
+        // end to beginning to maintain overlay order
         $.each(self.model.plan.uses.reverse(), function(i, use) {
             var item = self.usesItem(use);
             self.elements.layers.append(item.element);
@@ -181,9 +195,9 @@ MSPView.prototype = {
                 });
             });
         });
-        self.selectLayer();
-        // restore useslist open and close
+        self.selectLayer(); // restore selected layer
         $.each(self.model.plan.uses, function(i, use) {
+            // open and close a use item
             var b = $('li#use'+use.index+' button.visible');
             b.on('click', null, {use:use}, function(event) {
                 $('li#use'+event.data.use.index+' div.use').toggle();
@@ -198,13 +212,7 @@ MSPView.prototype = {
                 }
             });
             $('li#use'+use.index+' div.use').hide();
-
-            var must_click = false;
-            if (boot) {
-                use.open = false;
-            } else {
-                if (use.open) must_click = true;
-            }
+            // show/hide layer and set its transparency
             $.each(use.layers, function(j, layer) {
                 var cb = $('li#use'+use.index+' input.visible'+layer.index);
                 cb.on('change', null, {use:use, layer:layer}, function(event) {
@@ -222,7 +230,13 @@ MSPView.prototype = {
                 });
                 slider.val(String(layer.object.getOpacity()));
             });
-            if (must_click) b.trigger('click');  // triggers b.on('click'... above
+            if (use.hasOwnProperty("open") && use.open) {
+                // restore openness of use
+                use.open = true;
+                b.trigger('click');  // triggers b.on('click'... above
+            } else {
+                use.open = false;
+            }
         });
     },
     selectLayer: function() {
@@ -258,19 +272,17 @@ MSPView.prototype = {
                         rule:rule.id,
                         checked:"checked"
                     }, 
-                    element('a', {id:"rule", rule:rule.id}, rule.title)
+                    element('a', {id:"rule", rule:rule.id}, rule.title+' '+rule.value)
                 );
             self.elements.rules.append(item);
             rule.active = true;
             self.elements.rules.append(element('br'));
         });
         $(self.id.rules+" :checkbox").change(function() {
-            var use = $(this).attr('use');
-            var id = $(this).attr('layer');
+            // todo: send message rule activity changed
             var rule_id = $(this).attr('rule');
             var active = this.checked;
-            var layer = self.model.layer;
-            $.each(layer.rules, function(i, rule) {
+            $.each(self.model.layer.rules, function(i, rule) {
                 if (rule.id == rule_id) {
                     rule.active = active;
                     return false;
@@ -278,7 +290,6 @@ MSPView.prototype = {
             });
             self.model.removeSite();
             self.model.createLayers(true);
-            self.buildLayers(false);
             self.model.addSite();
         });
         $(self.id.rules+" #rule").click(function() {
@@ -291,27 +302,31 @@ MSPView.prototype = {
             });
             var title = self.model.ruleInEdit.title;
             title = title.replace(/^- If/, "Do not allocate if");
-            var value = title.match(/\d+$/);
-            value = value[0];
-            title = title.replace(/\d+$/, "");
+ 
+            if (self.model.ruleInEdit.type == 'int') {
+                var html = title+" "+element('input', {id:"rule-spinner",name:"rule-value"});
+                self.elements.rule_dialog.html(html);
+                var spinner = $(self.id.rule_dialog+" #rule-spinner");
+                spinner.spinner({
+                    min: self.model.ruleInEdit.min,
+                    max: self.model.ruleInEdit.max,
+                    value: self.model.ruleInEdit.value
+                });
+            } else if (self.model.ruleInEdit.type == 'double') {
+                var html = title+" "+element('div', {id:"rule-slider",name:"rule-value"}, '');
+                self.elements.rule_dialog.html(html);
+                var slider = $(self.id.rule_dialog+" #rule-slider");
+                slider.slider({
+                    min: parseFloat(self.model.ruleInEdit.min),
+                    max: parseFloat(self.model.ruleInEdit.max),
+                    step: 0.1, // todo fix this
+                    value: parseFloat(self.model.ruleInEdit.value)
+                });
+                // todo: show value while sliding
+            }
             
-            var html = title+" "+element('input', {id:"spinner",name:"value"});
-
-            self.elements.rule_dialog.html(html);
-            
-            var spinner = $(self.id.rule_dialog+" #spinner");
-            spinner.spinner({
-                min: 0,
-                max: 10
-            });
-            spinner.spinner("value", value);
-
             self.elements.rule_dialog.dialog( "open" );
         });
-    },
-    ruleChanged: function() {
-        this.model.createLayers(true);
-        this.buildLayers(false);
     },
     siteInteraction: function(source) {
         var self = this;
@@ -327,7 +342,7 @@ MSPView.prototype = {
                 var geometryFunction, maxPoints;
                 draw.draw = new ol.interaction.Draw({
                     source: source,
-                    type: /** @type {ol.geom.GeometryType} */ (value),
+                    type: value,
                     geometryFunction: geometryFunction,
                     maxPoints: maxPoints
                 });
@@ -346,13 +361,13 @@ MSPView.prototype = {
                         geometry: new ol.geom.Point(coordinates)
                     });
                     var iconStyle = new ol.style.Style({
-                        image: new ol.style.Icon(/** @type {olx.style.IconOptions} */ ({
+                        image: new ol.style.Icon({
                             anchor: [16, 32],
                             anchorXUnits: 'pixels',
                             anchorYUnits: 'pixels',
                             opacity: 1,
                             src: 'Map-Marker-Marker-Outside-Pink-icon.png'
-                        }))
+                        })
                     });
                     f.setStyle(iconStyle);
                     source.clear();
@@ -390,9 +405,10 @@ function MSP(server, firstPlan) {
 
     this.newPlans = new Event(this);
     this.planChanged = new Event(this);
+    this.newLayerList = new Event(this);
     this.layerSelected = new Event(this);
     this.layerUnselected = new Event(this);
-    this.ruleChanged = new Event(this);
+    this.ruleEdited = new Event(this);
     this.siteInitialized = new Event(this);
     this.siteInformationReceived = new Event(this);
 }
@@ -427,7 +443,7 @@ MSP.prototype = {
     },
     createLayers: function(boot) {
         var self = this;
-        // end to beginning to maintain overlay order
+        // reverse order to add to map in correct order
         $.each(self.plan.uses.reverse(), function(i, use) {
             use.index = self.plan.uses.length - 1 - i;
             $.each(use.layers.reverse(), function(j, layer) {
@@ -457,6 +473,13 @@ MSP.prototype = {
                 self.map.addLayer(layer.object);
             });
         });
+        self.newLayerList.notify();
+    },
+    setLayerOrder: function(order) {
+        this.removeSite();
+        this.plan.uses = order;
+        this.createLayers(false);
+        this.addSite();
     },
     selectLayer: function(use_id, layer_id) {
         var self = this;
@@ -489,11 +512,13 @@ MSP.prototype = {
     },
     applyToRuleInEdit: function(value) {
         var self = this;
-        $.post( 'http://'+self.server+'/core/rule_browser/'+this.ruleInEdit.id, 
+        $.post( 'http://'+self.server+'/core/rule_browser/'+self.ruleInEdit.id, 
                 { submit: 'Modify', value: value }, 
                 function(data) {
+                    self.ruleInEdit.title = data.object;
                     self.removeSite();
-                    self.ruleChanged.notify();
+                    self.createLayers(true);
+                    self.ruleEdited.notify();
                     self.addSite();
                 })
             .fail(function(data) {

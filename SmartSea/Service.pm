@@ -32,7 +32,6 @@ sub call {
     $self->{parameters} = $request->parameters;
     $self->{uri} = $env->{REQUEST_URI};
     for ($self->{uri}) {
-        return $self->uses() if /uses$/;
         return $self->plans($1) if /plans([\/\d]*)$/;
 
         return $self->object_editor('SmartSea::Schema::Result::Plan',
@@ -107,7 +106,6 @@ sub call {
     $uri .= '/' unless $uri =~ /\/$/;
     my @l;
     push @l, (
-        [li => a(link => 'uses', url => $uri.'uses')],
         [li => a(link => 'plans', url  => $uri.'plans')],
         [li => a(link => 'plan browser', url => $uri.'plan_browser')],
         [li => a(link => 'use browser', url => $uri.'use_browser')],
@@ -121,24 +119,6 @@ sub call {
         [li => a(link => 'pressure table', url  => $uri.'pressure_table')]
     );
     return html200(SmartSea::HTML->new(html => [body => [ul => \@l]])->html);
-}
-
-sub uses {
-    my $self = shift;
-    my @uses;
-    for my $use ($self->{schema}->resultset('Use')->search(undef, {order_by => ['me.id']})) {
-        my @layers;
-        my $rels = $use->use2layer->search(undef, {order_by => { -desc => 'me.layer'}});
-        while (my $rel = $rels->next) {
-            push @layers, {title => $rel->layer->title, my_id => $rel->layer->id};
-        }
-        push @uses, {
-            title => $use->title,
-            my_id => $use->id,
-            layers => \@layers
-        };
-    }
-    return json200(\@uses);
 }
 
 sub plans {
@@ -157,14 +137,27 @@ sub plans {
             my @layers;
             for my $layer ($use->layers(undef, {order_by => {-desc => 'id'}})) {
                 my @rules;
-                for my $rule ($schema->resultset('Rule')->search({
-                    -and => [
-                         -or => [plan => $plan->id, plan => {'=' => undef}],
-                         use => $use->id,
-                         layer => $layer->id
-                        ]
-                                                                 })) {
-                    push @rules, {title => $rule->as_text, id => $rule->id, active => JSON::true};
+                for my $rule ($schema->resultset('Rule')->search(
+                                  {
+                                      -and => [
+                                           -or => [plan => $plan->id, plan => {'=' => undef}],
+                                           use => $use->id,
+                                           layer => $layer->id
+                                          ]
+                                  },
+                                  {
+                                      order_by => { -asc => 'my_index' }
+                                  })) {
+                    push @rules, {
+                        title => $rule->as_text(include_value => 0), 
+                        id => $rule->id, 
+                        active => JSON::true, 
+                        index => $rule->my_index,
+                        value => $rule->value,
+                        min => $rule->min_value() // 0,
+                        max => $rule->max_value() // 10,
+                        type => $rule->value_type() // 'int'
+                    };
                 }
                 push @layers, {title => $layer->title, id => $layer->id, use => $use->id, rules => \@rules};
             }
@@ -243,18 +236,22 @@ sub object_editor {
     #         defaults => parameters will be set to the value unless in self->parameters
     # 'NULL' parameters will be converted to undef, 
 
+    my ($request) = $oids =~ /([a-z]+)$/;
+
     my $uri = $self->{uri};
     say STDERR $self->{uri};
 
     $uri =~ s/$oids$//;
     my @oids = split /\//, $oids;
+    for (@oids) {
+        ($_) = $_ =~ /(\d+)/;
+    }
     shift @oids;
     my $oid = shift(@oids) // '';
     say STDERR "$uri, $oids (@oids), $oid";
     
     $config->{delete} //= 'Delete';
     $config->{store} //= 'Store';
-    my $request = '';
     my %parameters;
     for my $p (sort $self->{parameters}->keys) {
         say STDERR "$p => $self->{parameters}{$p}";
@@ -265,7 +262,7 @@ sub object_editor {
         $parameters{$p} = decode utf8 => $self->{parameters}{$p};
         if ($parameters{$p} eq $config->{delete}) {
             $request = $parameters{$p};
-            $parameters{id} = $p;
+            $oid = $p;
             last;
         }
         $parameters{$p} = undef if $parameters{$p} eq 'NULL';
@@ -279,85 +276,82 @@ sub object_editor {
 
     my $rs = $self->{schema}->resultset($class =~ /(\w+)$/);
 
-    my @body;
-
+    $oid ||= $parameters{id} //= '';
+    $request //= '';
+    delete $parameters{id};
     say STDERR "request = $request, oid = $oid";
-    if ($request eq $config->{delete} and $config->{edit}) {
 
+    my @body;
+    my $obj;
+    if ($oid) {
         eval {
-            $rs->single({ id => $parameters{id} })->delete;
+            $obj = $rs->single({ id => $oid });
         };
-        if ($@) {
-            # if not ok, signal error
-            push @body, [p => 'Something went wrong!'], [p => 'Error is: '.$@];
-        }
-
-    } elsif ($request eq 'Modify' and defined $oid) {
-
-        eval {
-            $rs->single({ id => $oid })->update({value => $parameters{value}});
-        };
-        return http_status(500) if $@;
-        return json200({0 => 'ok'});
-
-    } elsif ($request eq $config->{store} and $config->{edit}) {
-
-        my $obj;
-        eval {
-            if (exists $parameters{id}) {
-                $obj = $rs->single({ id => $parameters{id} });
-                delete $parameters{id};
-                $obj->update(\%parameters);
-            } else {
-                $obj = $rs->create(\%parameters);
-            }
-        };
-        if ($@ or not $obj) {
-            my $body = [];
-            # if not ok, signal error and go back to form
-            push @$body, (
-                [p => 'Something went wrong!'], 
-                [p => 'Error is: '.$@],
-                [ form => { action => $uri, method => 'POST' },
-                  $class->HTML_form($self, \%parameters) ]
-            );
-            return html200(SmartSea::HTML->new(html => [body => $body])->html);
-        }
-        
-    } elsif ($oid eq 'new' and $config->{edit}) {
-
-        my $body = [];
-        push @$body, [form => { action => $uri, method => 'POST' },
-                      $class->HTML_form($self, \%parameters)];
-        return html200(SmartSea::HTML->new(html => [body => $body])->html);
-
-    } elsif ($oid =~ /edit/ and $config->{edit}) {
-
-        ($oid) = $oid =~ /(\d+)/;
-        my $obj = $rs->single({ id => $oid });
-        return http_status(400) unless defined $obj;
-        $uri =~ s/\?edit$//;
-        my $body = [form => { action => $uri, method => 'POST' },
-                    $obj->HTML_form($self)];
-        return html200(SmartSea::HTML->new(html => [body => $body])->html);
-        
-    } elsif ($oid =~ /\d+/) {
-
-        ($oid) = $oid =~ /(\d+)/;
-        my $obj = $rs->single({ id => $oid });
-        return http_status(400) unless defined $obj;
-        my $body = $obj->HTML_text($self, \@oids);
-        push @$body, a(link => 'up', url => $uri);
-        $body = [form => { action => $uri, method => 'POST' }, $body] if $config->{edit};
-        return html200(SmartSea::HTML->new(html => [body => $body])->html);
-        
+        push @body, [p => "Error: $@"] if $@;
     }
-
+    if ($obj) {
+        if ($request eq $config->{delete} and $config->{edit}) {
+            eval {
+                $obj->delete;
+            };
+            if ($@) {
+                push @body, [p => 'Error: '.$@];
+            }
+        } elsif ($request eq 'Modify') {
+            eval {
+                $obj->update({value => $parameters{value}});
+            };
+            return http_status(500) if $@;
+            return json200({object => $obj->as_text(include_value => 0)}); # todo object JSON streamed ?
+        } elsif ($request eq $config->{store} and $config->{edit}) {
+            eval {
+                $obj->update(\%parameters);
+            };
+            if ($@ or not $obj) {
+                push @body, (
+                    [p => 'Error: '.$@],
+                    [form => { action => $uri, method => 'POST' },
+                     $obj->HTML_form($self, \%parameters)]
+                );
+                return html200(SmartSea::HTML->new(html => [body => \@body])->html);
+            }
+        } elsif ($request eq 'edit' and $config->{edit}) {
+            $uri =~ s/\?edit$//;
+            push @body, [form => { action => $uri, method => 'POST' },
+                         $obj->HTML_form($self)];
+            return html200(SmartSea::HTML->new(html => [body => \@body])->html);
+        } else {
+            push @body, $obj->HTML_text($self, \@oids);
+            push @body, a(link => 'up', url => $uri);
+            @body = [
+                form => { action => $uri, method => 'POST' }, 
+                [@body]
+                ] if $config->{edit};
+            return html200(SmartSea::HTML->new(html => [body => \@body])->html);
+        }
+    } else {
+        if ($request eq 'new' and $config->{edit}) {
+            push @body, [form => { action => $uri, method => 'POST' },
+                         $class->HTML_form($self, \%parameters)];
+            return html200(SmartSea::HTML->new(html => [body => \@body])->html);
+        } elsif ($request eq $config->{store} and $config->{edit}) {
+            eval {
+                $obj = $rs->create(\%parameters);
+            };
+            if ($@ or not $obj) {
+                push @body, (
+                    [p => 'Error: '.$@],
+                    [form => { action => $uri, method => 'POST' },
+                     $class->HTML_form($self, \%parameters)]
+                );
+                return html200(SmartSea::HTML->new(html => [body => \@body])->html);
+            }
+        }
+    }
     push @body, @{$class->HTML_list([$rs->all], $uri, $config->{edit})};
     $uri =~ s/\/\w+$//;
     push @body, ([1 => ' '], a(link => 'up', url => $uri));
     return html200(SmartSea::HTML->new(html => [body => \@body])->html);
-
 }
 
 sub pressure_table {

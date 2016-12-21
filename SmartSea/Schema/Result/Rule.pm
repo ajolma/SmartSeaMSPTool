@@ -75,6 +75,14 @@ my %attributes = (
         i => 12,
         type => 'text'
     },
+    my_index => {
+        i => 13,
+        type => 'spinner'
+    },
+    value_type => {
+        i => 14,
+        type => 'text'
+    }
     );
 
 __PACKAGE__->table('tool.rules');
@@ -101,7 +109,7 @@ __PACKAGE__->belongs_to(op => 'SmartSea::Schema::Result::Op');
 
 
 sub as_text {
-    my ($self) = @_;
+    my ($self, %arg) = @_;
     return $self->r_dataset ? $self->r_dataset->long_name : 'error' if $self->layer->id == 1;
     my $text;
     $text = $self->reduce ? "- If " : "+ If ";
@@ -121,7 +129,9 @@ sub as_text {
         $text .= $self->r_dataset->name;
     }
     return $text." (true)" unless $self->op;
-    return $text." is ".$self->op->op." ".$self->value;
+    $text .= " ".$self->op->op;
+    $text .= " ".$self->value if $arg{include_value};
+    return $text;
 }
 
 sub HTML_text {
@@ -139,7 +149,7 @@ sub HTML_text {
         }
         push @l, [li => "$a: ".$v];
     }
-    return [[ul => \@l]];
+    return [ul => \@l];
 }
 
 sub HTML_form {
@@ -159,9 +169,9 @@ sub HTML_form {
     my $widgets = widgets(\%attributes, $values, $config->{schema});
 
     push @ret, (
-        [ p => [[1 => 'plan: '],$widgets->{plan}] ],
-        [ p => [[1 => 'use: '],$widgets->{use}] ],
-        [ p => [[1 => 'layer: '],$widgets->{layer}] ],
+        [ p => [[1 => 'Plan: '],$widgets->{plan}] ],
+        [ p => [[1 => 'Use: '],$widgets->{use}] ],
+        [ p => [[1 => 'Layer: '],$widgets->{layer}] ],
         [ p => $widgets->{reduce} ],
         [ p => 'Layer in the rule:' ],
         [ p => [[1 => 'plan: '],$widgets->{r_plan}] ],
@@ -171,6 +181,8 @@ sub HTML_form {
         [ p => [[1 => 'dataset: '],$widgets->{r_dataset}] ],
         [ p => [[1 => 'Operator and value: '],$widgets->{op},$widgets->{value}] ],
         [ p => [[1 => 'Range of value: '],$widgets->{min_value},[1 => '...'],$widgets->{max_value}] ],
+        [ p => [[1 => 'Index in this plan.use.layer: '],$widgets->{my_index}] ],
+        [ p => [[1 => 'Type of value: '],$widgets->{value_type}] ],
         button(value => "Store"),
         [1 => ' '],
         button(value => "Cancel")
@@ -181,8 +193,8 @@ sub HTML_form {
 sub HTML_list {
     my (undef, $objs, $uri, $edit) = @_;
     my %data;
-    for my $rule (@$objs) {
-        my $li = item($rule->as_text, $rule->id, $uri, $edit, 'this rule');
+    for my $rule (sort {$a->my_index <=> $b->my_index} @$objs) {
+        my $li = item($rule->as_text(include_value => 1)." (".$rule->my_index.")", $rule->id, $uri, $edit, 'this rule');
         if ($rule->plan) {
             push @{$data{$rule->plan->title}{$rule->use->title}{$rule->layer->title}}, [li => $li];
         } else {
@@ -195,7 +207,7 @@ sub HTML_list {
         for my $use (sort keys %{$data{$plan}}) {
             my @l2;
             for my $layer (sort keys %{$data{$plan}{$use}}) {
-                push @l2, [li => [[b => $layer], [ul => \@{$data{$plan}{$use}{$layer}}]]];
+                push @l2, [li => [[b => $layer], [ol => \@{$data{$plan}{$use}{$layer}}]]];
             }
             push @l, [li => [[b => $use], [ul => \@l2]]];
         }
