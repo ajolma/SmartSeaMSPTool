@@ -148,7 +148,7 @@ sub plans {
                                   {
                                       order_by => { -asc => 'my_index' }
                                   })) {
-                    push @rules, $rule->as_hash_for_json
+                    push @rules, $rule->as_hashref_for_json
                 }
                 push @layers, {title => $layer->title, id => $layer->id, use => $use->id, rules => \@rules};
             }
