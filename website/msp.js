@@ -83,13 +83,7 @@ function MSPView(model, elements, id) {
         modal: false,
         buttons: {
             Apply: function() {
-                var value;
-
-                if (self.model.ruleInEdit.type == 'int')
-                    value = $(self.id.rule_dialog+" #rule-spinner").spinner("value");
-                else if (self.model.ruleInEdit.type == 'double')
-                    value = $(self.id.rule_dialog+" #rule-slider").slider("value");
-
+                var value = self.getRuleEditValue();
                 self.ruleEdited.notify({ value : value });
             },
             Close: function() {
@@ -300,33 +294,53 @@ MSPView.prototype = {
                     return false;
                 }
             });
-            var title = self.model.ruleInEdit.title;
-            title = title.replace(/^- If/, "Do not allocate if");
- 
-            if (self.model.ruleInEdit.type == 'int') {
-                var html = title+" "+element('input', {id:"rule-spinner",name:"rule-value"});
-                self.elements.rule_dialog.html(html);
-                var spinner = $(self.id.rule_dialog+" #rule-spinner");
-                spinner.spinner({
-                    min: self.model.ruleInEdit.min,
-                    max: self.model.ruleInEdit.max,
-                    value: self.model.ruleInEdit.value
-                });
-            } else if (self.model.ruleInEdit.type == 'double') {
-                var html = title+" "+element('div', {id:"rule-slider",name:"rule-value"}, '');
-                self.elements.rule_dialog.html(html);
-                var slider = $(self.id.rule_dialog+" #rule-slider");
-                slider.slider({
-                    min: parseFloat(self.model.ruleInEdit.min),
-                    max: parseFloat(self.model.ruleInEdit.max),
-                    step: 0.1, // todo fix this
-                    value: parseFloat(self.model.ruleInEdit.value)
-                });
-                // todo: show value while sliding
+            var rule = self.model.ruleInEdit;
+            var title = rule.title;
+            title = title
+                .replace(/^- If/, "Do not allocate if")
+                .replace(/==/, "equals:");
+            var html = title;
+            if (rule.type == 'int') {
+                html += element('p',{},element('input', {id:"rule-editor"}));
+            } else if (rule.type == 'double') {
+                html += element('p',{},element('div', {id:"rule-editor"}));
+                html += element('p', {id:"rule-slider-value"}, '');
+                self.id.rule_editor_info = self.id.rule_dialog+" #rule-slider-value";
             }
-            
+            self.id.rule_editor = self.id.rule_dialog+" #rule-editor";
+            html += element('p', {id:"rule-info"}, '');
+            self.elements.rule_dialog.html(html);
+
+            $(self.id.rule_dialog+" #rule-info").html(rule.description); 
+            if (rule.type == 'int') {
+                $(self.id.rule_editor)
+                    .spinner({
+                        min: rule.min,
+                        max: rule.max
+                    })
+                    .spinner("value", rule.value);
+            } else if (rule.type == 'double') {
+                var slider = $(self.id.rule_editor).slider({
+                    min: parseFloat(rule.min),
+                    max: parseFloat(rule.max),
+                    step: 0.1, // todo fix this
+                    value: parseFloat(rule.value),
+                    slide: function (event, ui) {
+                        var value = slider.slider("value");
+                        $(self.id.rule_editor_info).html(value);
+                    }
+                });
+                $(self.id.rule_editor_info).html(rule.value);
+            }
             self.elements.rule_dialog.dialog( "open" );
         });
+    },
+    getRuleEditValue: function() {
+        var self = this;
+        if (self.model.ruleInEdit.type == 'int')
+            return $(this.id.rule_editor).spinner("value");
+        else if (self.model.ruleInEdit.type == 'double')
+            return $(this.id.rule_editor).slider("value");
     },
     siteInteraction: function(source) {
         var self = this;
@@ -515,7 +529,7 @@ MSP.prototype = {
         $.post( 'http://'+self.server+'/core/rule_browser/'+self.ruleInEdit.id, 
                 { submit: 'Modify', value: value }, 
                 function(data) {
-                    self.ruleInEdit.title = data.object;
+                    self.ruleInEdit.value = data.object.value;
                     self.removeSite();
                     self.createLayers(true);
                     self.ruleEdited.notify();

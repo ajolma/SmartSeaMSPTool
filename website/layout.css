@@ -146,3 +146,7 @@ input.opacity {
 .ui-resizable-handle { position: absolute;font-size: 0.1px;z-index: 99999; display: block; }
 .ui-resizable-w { cursor: w-resize; width: 7px; left: -5px; top: 0; height: 100%; }
 
+.ui-widget {
+    font-family: "Times New Roman", Times, serif;
+    font-size: 1em;
+}

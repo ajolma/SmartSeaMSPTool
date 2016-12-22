@@ -148,16 +148,7 @@ sub plans {
                                   {
                                       order_by => { -asc => 'my_index' }
                                   })) {
-                    push @rules, {
-                        title => $rule->as_text(include_value => 0), 
-                        id => $rule->id, 
-                        active => JSON::true, 
-                        index => $rule->my_index,
-                        value => $rule->value,
-                        min => $rule->min_value() // 0,
-                        max => $rule->max_value() // 10,
-                        type => $rule->value_type() // 'int'
-                    };
+                    push @rules, $rule->as_hash_for_json
                 }
                 push @layers, {title => $layer->title, id => $layer->id, use => $use->id, rules => \@rules};
             }
@@ -302,7 +293,7 @@ sub object_editor {
                 $obj->update({value => $parameters{value}});
             };
             return http_status(500) if $@;
-            return json200({object => $obj->as_text(include_value => 0)}); # todo object JSON streamed ?
+            return json200({object => $obj->as_hashref_for_json}); # todo object JSON streamed ?
         } elsif ($request eq $config->{store} and $config->{edit}) {
             eval {
                 $obj->update(\%parameters);
@@ -321,7 +312,7 @@ sub object_editor {
                          $obj->HTML_form($self)];
             return html200(SmartSea::HTML->new(html => [body => \@body])->html);
         } else {
-            push @body, $obj->HTML_text($self, \@oids);
+            push @body, @{$obj->HTML_text($self, \@oids)};
             push @body, a(link => 'up', url => $uri);
             @body = [
                 form => { action => $uri, method => 'POST' }, 

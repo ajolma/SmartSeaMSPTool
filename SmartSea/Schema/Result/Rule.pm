@@ -134,6 +134,22 @@ sub as_text {
     return $text;
 }
 
+sub as_hashref_for_json {
+    my ($self) = @_;
+    my $desc = $self->r_dataset ? $self->r_dataset->descr : '';
+    return {
+        title => $self->as_text(include_value => 0), 
+        id => $self->id, 
+        active => JSON::true, 
+        index => $self->my_index,
+        value => $self->value,
+        min => $self->min_value() // 0,
+        max => $self->max_value() // 10,
+        type => $self->value_type() // 'int',
+        description => $desc,
+    };
+}
+
 sub HTML_text {
     my ($self) = @_;
     my @l = ([li => 'Rule']);
