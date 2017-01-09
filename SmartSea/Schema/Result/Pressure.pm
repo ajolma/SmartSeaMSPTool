@@ -40,25 +40,22 @@ sub HTML_list {
         $li{$p} = list_impacts($ap);
 
     }
-    my @body;
+    my @li;
     for my $pressure (sort keys %{$li{pre}}) {
-        push @body, [p => $li{pre}{$pressure}];
+        push @li, [li => $li{pre}{$pressure}];
         next unless @{$li{$pressure}};
         my @l;
         for my $impact (@{$li{$pressure}}) {
             push @l, [li => $impact];
         }
-        push @body, [ul => \@l];
+        push @li, [ul => \@l];
     }
-    if ($edit) {
-        @body = ([ form => {action => $uri, method => 'POST'}, [@body] ]);
-        push @body, a(link => 'add pressure', url => $uri.'/new');
-    }
-    return \@body;
+    push @li, [li => a(link => 'add pressure', url => $uri.'/new')] if $edit;
+    return [ul => \@li];
 }
 
-sub HTML_text {
-    my ($self, $config, $oids, $context) = @_;
+sub HTML_div {
+    my ($self, $attributes, $config, $oids, $context) = @_;
     my @l = ([li => 'Pressure']);
     for my $a (qw/id title category/) {
         my $v = $self->$a // '';
@@ -72,7 +69,7 @@ sub HTML_text {
         }
         push @l, [li => "$a: ".$v];
     }
-    my $ret = [ul => \@l];
+    my @div = ([ul => \@l]);
     my $ap = $self->activity2pressure->single({activity => $context->id});
     my $impacts = list_impacts($ap);
     if (@$impacts) {
@@ -80,10 +77,9 @@ sub HTML_text {
         for my $impact (@$impacts) {
             push @l, [li => $impact];
         }
-        return [$ret, [p => "Range of impact is ".$range{$ap->range}.'.'], [ul => \@l]];
-    } else {
-        return [$ret];
+        push @div, [p => "Range of impact is ".$range{$ap->range}.'.'], [ul => \@l];
     }
+    return [div => $attributes, @div];
 }
 
 1;

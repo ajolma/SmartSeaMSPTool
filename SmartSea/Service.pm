@@ -29,93 +29,62 @@ sub call {
     my $ret = common_responses($env);
     return $ret if $ret;
     my $request = Plack::Request->new($env);
+    my $cookies = $request->cookies;
+    for my $cookie (sort keys %$cookies) {
+        say STDERR "cookie: $cookie => $cookies->{$cookie}";
+    }
     $self->{parameters} = $request->parameters;
     $self->{uri} = $env->{REQUEST_URI};
-    for ($self->{uri}) {
+    my $r = $self->{uri};
+    $r =~ s/^.*core?//;
+    say STDERR $r;
+
+    my $class = 'SmartSea::Schema::Result::';
+    if ($r =~ /browser/) {
+        $r =~ s/^.*browser?//;
+        say STDERR $r;
+        my ($c) = $r =~ /\/(\w+)/;
+        $r =~ s/\/(\w+)//;
+        say STDERR $r;
+        for ($c) {
+            return $self->object_editor($class.'Plan', $r, {}) if /plans/;
+            return $self->object_editor($class.'Use', $r, {}) if /uses/;
+            return $self->object_editor($class.'Activity', $r, {}) if /activities/;
+            return $self->object_editor($class.'EcosystemComponent', $r, {}) if /ecosystem_components/;
+            return $self->object_editor($class.'Rule', $r, 
+                                        { empty_is_null => [qw/value min_value max_value/], 
+                                          defaults => {reduce=>1}
+                                        }) if /rules/;
+            return $self->object_editor($class.'Dataset', $r, 
+                                        { empty_is_null => [qw/contact desc attribution disclaimer path/] }
+                ) if /datasets/;
+            return $self->object_editor($class.'Activity2Pressure', $r, {}) if /activity2pressure/;
+            return $self->object_editor($class.'Impact', $r, {}) if /impacts/;
+            last;
+        }
+    }
+    
+    for ($r) {
         return $self->plans($1) if /plans([\/\d]*)$/;
-
-        return $self->object_editor('SmartSea::Schema::Result::Plan',
-                                   $1, 
-                                   { empty_is_null => [qw//],
-                                     defaults => {},
-                                     edit => $self->{edit}
-                                   }
-            ) if /plan_browser([\/\?\w]*)$/;
-
-        return $self->object_editor('SmartSea::Schema::Result::Use',
-                                   $1, 
-                                   { empty_is_null => [qw//],
-                                     defaults => {},
-                                     edit => $self->{edit}
-                                   }
-            ) if /use_browser([\/\?\w]*)$/;
-
-        return $self->object_editor('SmartSea::Schema::Result::Activity',
-                                   $1, 
-                                   { empty_is_null => [qw//],
-                                     defaults => {},
-                                     edit => $self->{edit}
-                                   }
-            ) if /activity_browser([\/\?\w]*)$/;
-
-        return $self->object_editor('SmartSea::Schema::Result::EcosystemComponent',
-                                   $1, 
-                                   { empty_is_null => [qw//],
-                                     defaults => {},
-                                     edit => $self->{edit}
-                                   }
-            ) if /ec_browser([\/\?\w]*)$/;
-
-        return $self->object_editor('SmartSea::Schema::Result::Rule', 
-                                   $1, 
-                                   { empty_is_null => [qw/value min_value max_value/], 
-                                     defaults => {reduce=>1},
-                                     edit => $self->{edit}
-                                   }
-            ) if /rule_browser([\/\?\w]*)$/;
-
         return $self->impact_network() if /impact_network$/;
-        return $self->object_editor('SmartSea::Schema::Result::Dataset',
-                                   $1, 
-                                   { empty_is_null => [qw/contact desc attribution disclaimer path/],
-                                     defaults => {},
-                                     edit => $self->{edit}
-                                   }
-            ) if /datasets([\/\?\w]*)$/;
-
-        return $self->object_editor('SmartSea::Schema::Result::Activity2Pressure',
-                                   $1, 
-                                   { empty_is_null => [qw//],
-                                     defaults => {},
-                                     edit => $self->{edit}
-                                   }
-            ) if /activity2pressure([\/\?\w]*)$/;
-
-        return $self->object_editor('SmartSea::Schema::Result::Impact',
-                                   $1, 
-                                   { empty_is_null => [qw//],
-                                     defaults => {},
-                                     edit => $self->{edit}
-                                   }
-            ) if /impact([\/\?\w]*)$/;
-
         return $self->pressure_table($1) if /pressure_table([\/\?\w]*)$/;
         last;
     }
-    my $uri = $self->{uri};
+
+    my $uri = $env->{REQUEST_URI};
     $uri .= '/' unless $uri =~ /\/$/;
     my @l;
     push @l, (
         [li => a(link => 'plans', url  => $uri.'plans')],
-        [li => a(link => 'plan browser', url => $uri.'plan_browser')],
-        [li => a(link => 'use browser', url => $uri.'use_browser')],
-        [li => a(link => 'activity browser', url => $uri.'activity_browser')],
-        [li => a(link => 'ecosystem component browser', url => $uri.'ec_browser')],
-        [li => a(link => 'rule browser', url  => $uri.'rule_browser')],
+        [li => a(link => 'browser/plans', url => $uri.'browser/plans')],
+        [li => a(link => 'browser/uses', url => $uri.'browser/uses')],
+        [li => a(link => 'browser/activities', url => $uri.'browser/activities')],
+        [li => a(link => 'browser/activity -> pressure links', url  => $uri.'browser/activity2pressure')],
+        [li => a(link => 'browser/ecosystem components', url => $uri.'browser/ecosystem_components')],
+        [li => a(link => 'browser/rules', url  => $uri.'browser/rules')],
+        [li => a(link => 'browser/datasets', url  => $uri.'browser/datasets')],
+        [li => a(link => 'browser/impacts', url  => $uri.'browser/impacts')],
         [li => a(link => 'impact_network', url  => $uri.'impact_network')],
-        [li => a(link => 'datasets', url  => $uri.'datasets')],
-        [li => a(link => 'activity -> pressure links', url  => $uri.'activity2pressure')],
-        [li => a(link => 'impacts', url  => $uri.'impact')],
         [li => a(link => 'pressure table', url  => $uri.'pressure_table')]
     );
     return html200(SmartSea::HTML->new(html => [body => [ul => \@l]])->html);
@@ -123,8 +92,6 @@ sub call {
 
 sub plans {
     my ($self, $oids) = @_;
-    my $uri = $self->{uri};
-    $uri =~ s/$oids$//;
     my @oids = split /\//, $oids;
     shift @oids;
     my $plan_id = shift @oids;
@@ -226,12 +193,14 @@ sub object_editor {
     #         empty_is_null => parameters will be converted to undef if empty strings
     #         defaults => parameters will be set to the value unless in self->parameters
     # 'NULL' parameters will be converted to undef, 
+    $config->{defaults} //= {};
+    $config->{empty_is_null} //= [];
 
+    my ($get) = $oids =~ /\?(.*)/;
+    $oids =~ s/\?.*//;
     my ($request) = $oids =~ /([a-z]+)$/;
 
     my $uri = $self->{uri};
-    say STDERR $self->{uri};
-
     $uri =~ s/$oids$//;
     my @oids = split /\//, $oids;
     for (@oids) {
@@ -272,7 +241,8 @@ sub object_editor {
     delete $parameters{id};
     say STDERR "request = $request, oid = $oid";
 
-    my @body;
+    my $type = $parameters{type} // 'html';
+    my @body; # a list of elements
     my $obj;
     if ($oid) {
         eval {
@@ -281,7 +251,7 @@ sub object_editor {
         push @body, [p => "Error: $@"] if $@;
     }
     if ($obj) {
-        if ($request eq $config->{delete} and $config->{edit}) {
+        if ($request eq $config->{delete} and $self->{edit}) {
             eval {
                 $obj->delete;
             };
@@ -289,60 +259,53 @@ sub object_editor {
                 push @body, [p => 'Error: '.$@];
             }
         } elsif ($request eq 'Modify') {
+            # store with cookie as reference
             eval {
                 $obj->update({value => $parameters{value}});
             };
             return http_status(500) if $@;
             return json200({object => $obj->as_hashref_for_json}); # todo object JSON streamed ?
-        } elsif ($request eq $config->{store} and $config->{edit}) {
+        } elsif ($request eq $config->{store} and $self->{edit}) {
             eval {
                 $obj->update(\%parameters);
             };
             if ($@ or not $obj) {
                 push @body, (
                     [p => 'Error: '.$@],
-                    [form => { action => $uri, method => 'POST' },
-                     $obj->HTML_form($self, \%parameters)]
+                    $obj->HTML_form({ action => $uri, method => 'POST' }, $self, \%parameters)
                 );
-                return html200(SmartSea::HTML->new(html => [body => \@body])->html);
+                return html200(SmartSea::HTML->new($type => [body => \@body])->html);
             }
-        } elsif ($request eq 'edit' and $config->{edit}) {
+        } elsif ($request eq 'edit' and $self->{edit}) {
             $uri =~ s/\?edit$//;
-            push @body, [form => { action => $uri, method => 'POST' },
-                         $obj->HTML_form($self)];
-            return html200(SmartSea::HTML->new(html => [body => \@body])->html);
+            push @body, $obj->HTML_form({ action => $uri, method => 'POST' }, $self);
+            return html200(SmartSea::HTML->new($type => [body => \@body])->html);
         } else {
-            push @body, @{$obj->HTML_text($self, \@oids)};
+            push @body, $obj->HTML_div({}, $self, \@oids);
             push @body, a(link => 'up', url => $uri);
-            @body = [
-                form => { action => $uri, method => 'POST' }, 
-                [@body]
-                ] if $config->{edit};
-            return html200(SmartSea::HTML->new(html => [body => \@body])->html);
+            return html200(SmartSea::HTML->new($type => [body => \@body])->html);
         }
     } else {
-        if ($request eq 'new' and $config->{edit}) {
-            push @body, [form => { action => $uri, method => 'POST' },
-                         $class->HTML_form($self, \%parameters)];
-            return html200(SmartSea::HTML->new(html => [body => \@body])->html);
-        } elsif ($request eq $config->{store} and $config->{edit}) {
+        if ($request eq 'new' and $self->{edit}) {
+            push @body, $class->HTML_form({ action => $uri, method => 'POST' }, $self, \%parameters);
+            return html200(SmartSea::HTML->new($type => [body => \@body])->html);
+        } elsif ($request eq $config->{store} and $self->{edit}) {
             eval {
                 $obj = $rs->create(\%parameters);
             };
             if ($@ or not $obj) {
                 push @body, (
                     [p => 'Error: '.$@],
-                    [form => { action => $uri, method => 'POST' },
-                     $class->HTML_form($self, \%parameters)]
+                    $class->HTML_form({ action => $uri, method => 'POST' }, $self, \%parameters)
                 );
-                return html200(SmartSea::HTML->new(html => [body => \@body])->html);
+                return html200(SmartSea::HTML->new($type => [body => \@body])->html);
             }
         }
     }
-    push @body, @{$class->HTML_list([$rs->all], $uri, $config->{edit})};
+    push @body, $class->HTML_list([$rs->all], $uri, $self->{edit});
     $uri =~ s/\/\w+$//;
     push @body, ([1 => ' '], a(link => 'up', url => $uri));
-    return html200(SmartSea::HTML->new(html => [body => \@body])->html);
+    return html200(SmartSea::HTML->new($type => [body => \@body])->html);
 }
 
 sub pressure_table {

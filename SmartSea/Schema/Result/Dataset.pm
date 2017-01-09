@@ -100,10 +100,10 @@ sub long_name {
 }
 *title = *long_name;
 
-sub HTML_text {
-    my ($self, $config) = @_;
+sub HTML_div {
+    my ($self, $attributes, $config) = @_;
 
-    my @data = ([h2 => $self->name]);
+    my @div = ([h2 => $self->name]);
     
     if ($self->path) {
         my $info = '';
@@ -124,7 +124,7 @@ sub HTML_text {
                 $table = 0 if /<\/GDALRasterAttributeTable>/;
             }
         }
-        push @data, [h3 => "GDAL info of ".$self->name.":"], [pre => $info];
+        push @div, [h3 => "GDAL info of ".$self->name.":"], [pre => $info];
     }
 
     my @l;
@@ -144,26 +144,26 @@ sub HTML_text {
     push @l, [li => [[b => "data model"],[1 => " = ".$self->data_model->name]]] if $self->data_model;
     push @l, [li => [[b => "unit"],[1 => " = ".$self->unit->name]]] if $self->unit;
     push @l, [li => [[b => "path"],[1 => " = ".$self->path]]] if $self->path;
-    push @data, [ul => \@l] if @l;
+    push @div, [ul => \@l] if @l;
 
     my $rel = $self->is_a_part_of;
     if ($rel) {
-        push @data, [h3 => "'".$self->name."' is a part of '".$rel->name."'"];
-        push @data, @{$rel->HTML_text($config)};
+        push @div, [h3 => "'".$self->name."' is a part of '".$rel->name."'"];
+        push @div, $rel->HTML_div({}, $config);
     }
     $rel = $self->is_derived_from;
     if ($rel) {
-        push @data, [h3 => "'".$self->name."' is derived from '".$rel->name."'"];
-        push @data, @{$rel->HTML_text($config)};
+        push @div, [h3 => "'".$self->name."' is derived from '".$rel->name."'"];
+        push @div, $rel->HTML_div({}, $config);
     }
 
-    return \@data;
+    return [div => $attributes, @div];
 }
 
 sub HTML_form {
-    my ($self, $config, $values) = @_;
+    my ($self, $attributes, $config, $values) = @_;
 
-    my @ret;
+    my @form;
 
     if ($self and blessed($self) and $self->isa('SmartSea::Schema::Result::Dataset')) {
         for my $key (keys %attributes) {
@@ -171,19 +171,20 @@ sub HTML_form {
             next if defined $values->{$key};
             $values->{$key} = ref($self->$key) ? $self->$key->id : $self->$key;
         }
-        push @ret, [input => {type => 'hidden', name => 'id', value => $self->id}];
+        push @form, [input => {type => 'hidden', name => 'id', value => $self->id}];
     }
 
     my $widgets = widgets(\%attributes, $values, $config->{schema});
 
     for my $key (sort {$attributes{$a}{i} <=> $attributes{$b}{i}} keys %attributes) {
-        push @ret, [ p => [[1 => "$key: "], $widgets->{$key}] ];
+        push @form, [ p => [[1 => "$key: "], $widgets->{$key}] ];
     }
 
-    push @ret, button(value => "Store");
-    push @ret, [1 => ' '];
-    push @ret, button(value => "Cancel");
-    return \@ret;
+    push @form, button(value => "Store");
+    push @form, [1 => ' '];
+    push @form, button(value => "Cancel");
+
+    return [form => $attributes, @form];
 }
 
 sub li {
@@ -197,11 +198,11 @@ sub li {
             next unless $parent->{$sid} && $parent->{$sid} == $id;
         }
         my $li = item($set->name, $set->id, $uri, $edit, 'this dataset');
-        my $children = li($all, $parent, $sid, $uri, $edit);
-        push @$li, [ul => $children] if @$children;
         push @li, [li => $li];
+        my @children = li($all, $parent, $sid, $uri, $edit);
+        push @li, [ul => \@children] if @children;
     }
-    return \@li;
+    return @li;
 }
 
 sub tree {
@@ -213,17 +214,14 @@ sub tree {
         $parent{$set->id} = $rel->id if $rel;
         push @all, $set;
     }
-    return [ul => li(\@all, \%parent, undef, $uri, $edit)];
+    return li(\@all, \%parent, undef, $uri, $edit);
 }
 
 sub HTML_list {
     my (undef, $objs, $uri, $edit) = @_;
-    my @body = (tree($objs, $uri, $edit));
-    if ($edit) {
-        @body = ([ form => {action => $uri, method => 'POST'}, [@body] ]);
-        push @body, a(link => 'add', url => $uri.'/new');
-    }
-    return \@body;
+    my @li = tree($objs, $uri, $edit);
+    push @li, [li => a(link => 'add', url => $uri.'/new')] if $edit;
+    return [ul => \@li];
 }
 
 1;

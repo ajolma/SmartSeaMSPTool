@@ -61,17 +61,12 @@ sub HTML_list {
             push @li, [li => $li{ec}{$c}];
         }
     }
-    my @body;
-    push @body, [ul => \@li];
-    if ($edit) {
-        @body = ([ form => {action => $uri, method => 'POST'}, [@body] ]);
-        push @body, a(link => 'add use', url => $uri.'/new');
-    }
-    return \@body;
+    push @li, [li => a(link => 'add use', url => $uri.'/new')] if $edit;
+    return [ul => \@li];
 }
 
-sub HTML_text {
-    my ($self, $config, $oids) = @_;
+sub HTML_div {
+    my ($self, $attributes, $config, $oids) = @_;
     my @l = ([li => 'Ecosystem component']);
     for my $a (qw/id title/) {
         my $v = $self->$a // '';
@@ -85,8 +80,7 @@ sub HTML_text {
         }
         push @l, [li => "$a: ".$v];
     }
-    my $ret = [ul => \@l];
-    return $ret;
+    return [div => $attributes, [ul => \@l]];
 }
 
 1;

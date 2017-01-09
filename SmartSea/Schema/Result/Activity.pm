@@ -29,26 +29,23 @@ sub HTML_list {
             $li{$a}{$p} = item($p, $id, $uri, $edit, 'this pressure from this activity');
         }
     }
-    my @body;
+    my @li;
     for my $act (sort keys %{$li{act}}) {
-        push @body, [p => $li{act}{$act}];
+        push @li, [li => $li{act}{$act}];
         my @p = sort keys %{$data{$act}};
         next unless @p;
         my @l;
         for my $pressure (@p) {
             push @l, [li => $li{$act}{$pressure}];
         }
-        push @body, [ul => \@l];
+        push @li, [ul => \@l];
     }
-    if ($edit and @body) {
-        @body = ([ form => {action => $uri, method => 'POST'}, [@body] ]);
-        push @body, a(link => 'add activity', url => $uri.'/new');
-    }
-    return \@body;
+    push @li, [li => a(link => 'add activity', url => $uri.'/new')] if $edit;
+    return [ul => \@li];
 }
 
-sub HTML_text {
-    my ($self, $config, $oids) = @_;
+sub HTML_div {
+    my ($self, $attributes, $config, $oids) = @_;
     my @l = ([li => 'Activity']);
     for my $a (qw/id title/) {
         my $v = $self->$a // '';
@@ -62,17 +59,15 @@ sub HTML_text {
         }
         push @l, [li => "$a: ".$v];
     }
-    my $ret = [ul => \@l];
+    my @div = ([ul => \@l]);
     if (@$oids) {
         my $oid = shift @$oids;
-        my $a = $self->pressures->single({'pressure.id' => $oid})->HTML_text($config, $oids, $self);
-        return [$ret, $a] if @$a;
+        push @div, $self->pressures->single({'pressure.id' => $oid})->HTML_div({}, $config, $oids, $self);
     } else {
         my $class = 'SmartSea::Schema::Result::Pressure';
-        my $l = $class->HTML_list([$self->pressures], $config->{uri}, $config->{edit}, $self);
-        return [$ret, $l] if @$l;
+        push @div, $class->HTML_list([$self->pressures], $config->{uri}, $config->{edit}, $self);
     }
-    return $ret;
+    return [div => $attributes, @div];
 }
 
 1;

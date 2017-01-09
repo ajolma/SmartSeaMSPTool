@@ -26,26 +26,23 @@ sub HTML_list {
             $li{$p}{$u} = item($u, $id, $uri, $edit, 'this use from this plan');
         }
     }
-    my @body = ([h2 => 'Plans']);
+    my @li;
     for my $plan (sort keys %{$li{plan}}) {
-        push @body, @{$li{plan}{$plan}};
+        push @li, @{$li{plan}{$plan}};
         my @u = sort keys %{$data{$plan}};
         next unless @u;
         my @l;
         for my $use (@u) {
             push @l, [li => $li{$plan}{$use}];
         }
-        push @body, [ul => \@l];
+        push @li, [ul => \@l];
     }
-    if ($edit) {
-        @body = ([ form => {action => $uri, method => 'POST'}, [@body] ]);
-        push @body, a(link => 'add plan', url => $uri.'/new');
-    }
-    return \@body;
+    push @li, [li => a(link => 'add plan', url => $uri.'/new')] if $edit;
+    return [ul => \@li];
 }
 
-sub HTML_text {
-    my ($self, $config, $oids) = @_;
+sub HTML_div {
+    my ($self, $attributes, $config, $oids) = @_;
     my @l = ([li => 'Plan']);
     for my $a (qw/id title/) {
         my $v = $self->$a // '';
@@ -59,23 +56,21 @@ sub HTML_text {
         }
         push @l, [li => "$a: ".$v];
     }
-    my $ret = [ul => \@l];
+    my @div = ([ul => \@l]);
     if (@$oids) {
         my $oid = shift @$oids;
-        my $use = $self->uses->single({'use.id' => $oid})->HTML_text($config, $oids);
-        return [$ret, $use] if @$use;
+        push @div, $self->uses->single({'use.id' => $oid})->HTML_div({}, $config, $oids);
     } else {
         my $class = 'SmartSea::Schema::Result::Use';
-        my $l = $class->HTML_list([$self->uses], $config->{uri}, $config->{edit});
-        return [$ret, $l] if @$l;
+        push @div, $class->HTML_list([$self->uses], $config->{uri}, $config->{edit});
     }
-    return $ret;
+    return [div => $attributes, @div];
 }
 
 sub HTML_form {
-    my ($self, $config, $values) = @_;
+    my ($self, $attributes, $config, $values) = @_;
 
-    my @ret;
+    my @form;
 
     if ($self and blessed($self) and $self->isa('SmartSea::Schema::Result::Plan')) {
         for my $key (qw/title/) {
@@ -83,7 +78,7 @@ sub HTML_form {
             next if defined $values->{$key};
             $values->{$key} = ref($self->$key) ? $self->$key->id : $self->$key;
         }
-        push @ret, [input => {type => 'hidden', name => 'id', value => $self->id}];
+        push @form, [input => {type => 'hidden', name => 'id', value => $self->id}];
     }
 
     my $title = text_input(
@@ -92,12 +87,12 @@ sub HTML_form {
         value => $values->{title} // ''
     );
 
-    push @ret, (
+    push @form, (
         [ p => [[1 => 'title: '],$title] ],
         button(value => "Store")
     );
 
-    return \@ret;
+    return [form => $attributes, @form];
 }
 
 1;

@@ -26,21 +26,18 @@ sub HTML_list {
         my $li = item($link->pressure->title, $link->id, $uri, $edit, 'this link');
         push @{$data{$link->activity->title}}, [li => $li];
     }
-    my @body;
+    my @li;
     for my $activity (sort keys %data) {
-        push @body, [b => $activity], [ul => \@{$data{$activity}}];
+        push @li, [b => $activity], [ul => \@{$data{$activity}}];
     }
-    if ($edit) {
-        @body = ([ form => {action => $uri, method => 'POST'}, [@body] ]);
-        push @body, a(link => 'add', url => $uri.'/new');
-    }
-    return \@body;
+    push @li, [li => a(link => 'add', url => $uri.'/new')] if $edit;
+    return [ul => \@li];
 }
 
 sub HTML_form {
-    my ($self, $config, $values) = @_;
+    my ($self, $attributes, $config, $values) = @_;
 
-    my @ret;
+    my @form;
 
     if ($self and blessed($self) and $self->isa('SmartSea::Schema::Result::Activity2Pressure')) {
         for my $key (qw/activity pressure range/) {
@@ -48,7 +45,7 @@ sub HTML_form {
             next if defined $values->{$key};
             $values->{$key} = ref($self->$key) ? $self->$key->id : $self->$key;
         }
-        push @ret, [input => {type => 'hidden', name => 'id', value => $self->id}];
+        push @form, [input => {type => 'hidden', name => 'id', value => $self->id}];
     }
 
     my $activity = drop_down(name => 'activity', 
@@ -64,13 +61,13 @@ sub HTML_form {
         value => $values->{range} // ''
     );
 
-    push @ret, (
+    push @form, (
         [ p => [[1 => 'Activity: '],$activity] ],
         [ p => [[1 => 'Pressure: '],$pressure] ],
         [ p => [[1 => 'Range: '],$range] ],
         button(value => "Store")
     );
-    return \@ret;
+    return [form => $attributes, @form];
 }
 
 1;

@@ -150,8 +150,8 @@ sub as_hashref_for_json {
     };
 }
 
-sub HTML_text {
-    my ($self) = @_;
+sub HTML_div {
+    my ($self, $attributes) = @_;
     my @l = ([li => 'Rule']);
     for my $a ('id', sort {$attributes{$a}{i} <=> $attributes{$b}{i}} keys %attributes) {
         my $v = $self->$a // '';
@@ -165,13 +165,13 @@ sub HTML_text {
         }
         push @l, [li => "$a: ".$v];
     }
-    return [ul => \@l];
+    return [div => $attributes, [ul => \@l]];
 }
 
 sub HTML_form {
-    my ($self, $config, $values) = @_;
+    my ($self, $attributes, $config, $values) = @_;
 
-    my @ret;
+    my @form;
 
     if ($self and blessed($self) and $self->isa('SmartSea::Schema::Result::Rule')) {
         for my $key (keys %attributes) {
@@ -179,12 +179,12 @@ sub HTML_form {
             next if defined $values->{$key};
             $values->{$key} = ref($self->$key) ? $self->$key->id : $self->$key;
         }
-        push @ret, [input => {type => 'hidden', name => 'id', value => $self->id}];
+        push @form, [input => {type => 'hidden', name => 'id', value => $self->id}];
     }
     
     my $widgets = widgets(\%attributes, $values, $config->{schema});
 
-    push @ret, (
+    push @form, (
         [ p => [[1 => 'Plan: '],$widgets->{plan}] ],
         [ p => [[1 => 'Use: '],$widgets->{use}] ],
         [ p => [[1 => 'Layer: '],$widgets->{layer}] ],
@@ -203,7 +203,7 @@ sub HTML_form {
         [1 => ' '],
         button(value => "Cancel")
     );
-    return \@ret;
+    return [form => $attributes, @form];
 }
 
 sub HTML_list {
@@ -217,7 +217,7 @@ sub HTML_list {
             push @{$data{'0 Default'}{$rule->use->title}{$rule->layer->title}}, [li => $li];
         }
     }
-    my @body;
+    my @li;
     for my $plan (sort keys %data) {
         my @l;
         for my $use (sort keys %{$data{$plan}}) {
@@ -227,13 +227,10 @@ sub HTML_list {
             }
             push @l, [li => [[b => $use], [ul => \@l2]]];
         }
-        push @body, [b => $plan], [ul => \@l];
+        push @li, [b => $plan], [ul => \@l];
     }
-    if ($edit) {
-        @body = ([ form => {action => $uri, method => 'POST'}, [@body] ]);
-        push @body, a(link => 'add', url => $uri.'/new');
-    }
-    return \@body;
+    push @li, [li => a(link => 'add', url => $uri.'/new')] if $edit;
+    return [ul => \@li];
 }
 
 sub operand {

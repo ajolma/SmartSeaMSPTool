@@ -28,6 +28,8 @@ sub new {
                 my $rule = $schema->resultset('Rule')->single({ id => $id });
                 # maybe we should test $rule->plan and $rule->use?
                 # and that the $rule->layer->id is the same?
+
+                # if rule has a cookie, check the given one against it
                 push @rules, $rule;
             }
         }

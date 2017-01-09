@@ -20,23 +20,20 @@ sub HTML_list {
         my $li = item($t, $impact->id, $uri, $edit, 'this impact');
         $data{$impact->ecosystem_component->title}{$t} = [li => $li];
     }
-    my @body;
+    my @li;
     for my $component (sort keys %data) {
         my @ul;
         for my $ul (sort keys %{$data{$component}}) {
             push @ul, $data{$component}{$ul};
         }
-        push @body, [b => $component], [ul => \@ul];
+        push @li, [b => $component], [ul => \@ul];
     }
-    if ($edit) {
-        @body = ([ form => {action => $uri, method => 'POST'}, [@body] ]);
-        push @body, a(link => 'add', url => $uri.'/new');
-    }
-    return \@body;
+    push @li, [li => a(link => 'add', url => $uri.'/new')] if $edit;
+    return [ul => \@li];
 }
 
-sub HTML_text {
-    my ($self) = @_;
+sub HTML_div {
+    my ($self, $attributes) = @_;
     my @l = ([li => 'Impact']);
     for my $a (qw/id activity2pressure ecosystem_component strength belief/) {
         my $v = $self->$a // '';
@@ -50,13 +47,13 @@ sub HTML_text {
         }
         push @l, [li => "$a: ".$v];
     }
-    return [ul => \@l];
+    return [div => $attributes, [ul => \@l]];
 }
 
 sub HTML_form {
-    my ($self, $config, $values) = @_;
+    my ($self, $attributes, $config, $values) = @_;
 
-    my @ret;
+    my @form;
 
     if ($self and blessed($self) and $self->isa('SmartSea::Schema::Result::Impact')) {
         for my $key (qw/activity2pressure ecosystem_component strength belief/) {
@@ -64,7 +61,7 @@ sub HTML_form {
             next if defined $values->{$key};
             $values->{$key} = ref($self->$key) ? $self->$key->id : $self->$key;
         }
-        push @ret, [input => {type => 'hidden', name => 'id', value => $self->id}];
+        push @form, [input => {type => 'hidden', name => 'id', value => $self->id}];
     }
 
     my $activity2pressure = drop_down(name => 'activity2pressure', 
@@ -85,14 +82,14 @@ sub HTML_form {
         value => $values->{belief} // ''
     );
 
-    push @ret, (
+    push @form, (
         [ p => [[1 => 'Ecosystem component: '],$ecosystem_component] ],
         [ p => [[1 => 'Activity+Pressure: '],$activity2pressure] ],
         [ p => [[1 => 'Strength: '],$strength] ],
         [ p => [[1 => 'Belief: '],$belief] ],
         button(value => "Store")
     );
-    return \@ret;
+    return [form => $attributes, @form];
 }
 
 1;

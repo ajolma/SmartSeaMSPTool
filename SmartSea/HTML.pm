@@ -25,7 +25,7 @@ sub html {
 }
 sub a {
     my (%arg) = @_;
-    return [a => encode_entities($arg{link}), {href=>$arg{url}}];
+    return [a => {href=>$arg{url}}, encode_entities($arg{link})];
 }
 sub button {
     my (%arg) = @_;

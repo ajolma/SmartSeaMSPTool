@@ -28,9 +28,9 @@ sub HTML_list {
             $li{$u}{$a} = item($a, $id, $uri, $edit, 'this activity from this use');
         }
     }
-    my @body;
+    my @li;
     for my $use (sort keys %li) {
-        push @body, [p => $li{$use}{0}];
+        push @li, [li => $li{$use}{0}];
         my @a = sort keys %{$li{$use}};
         next unless @a > 1;
         my @l;
@@ -38,17 +38,14 @@ sub HTML_list {
             next unless $activity;
             push @l, [li => $li{$use}{$activity}];
         }
-        push @body, [ul => \@l];
+        push @li, [ul => \@l];
     }
-    if ($edit) {
-        @body = ([ form => {action => $uri, method => 'POST'}, [@body] ]);
-        push @body, a(link => 'add use', url => $uri.'/new');
-    }
-    return \@body;
+    push @li, [li => a(link => 'add use', url => $uri.'/new')] if $edit;
+    return [ul => \@li];
 }
 
-sub HTML_text {
-    my ($self, $config, $oids) = @_;
+sub HTML_div {
+    my ($self, $attributes, $config, $oids) = @_;
     my @l = ([li => 'Use']);
     for my $a (qw/id title current_allocation/) {
         my $v = $self->$a // '';
@@ -62,17 +59,15 @@ sub HTML_text {
         }
         push @l, [li => "$a: ".$v];
     }
-    my $ret = [ul => \@l];
+    my @div = ([ul => \@l]);
     if (@$oids) {
         my $oid = shift @$oids;
-        my $a = $self->activities->single({'activity.id' => $oid})->HTML_text($config, $oids);
-        return [$ret, $a] if @$a;
+        push @div, $self->activities->single({'activity.id' => $oid})->HTML_div({}, $config, $oids);
     } else {
         my $class = 'SmartSea::Schema::Result::Activity';
-        my $l = $class->HTML_list([$self->activities], $config->{uri}, $config->{edit});
-        return [$ret, $l] if @$l;
+        push @div, $class->HTML_list([$self->activities], $config->{uri}, $config->{edit});
     }
-    return $ret;
+    return [div => $attributes, @div];
 }
 
 1;
