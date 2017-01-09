@@ -11,6 +11,7 @@ use SmartSea::Core qw(:all);
 use SmartSea::HTML qw(:all);
 use SmartSea::Schema;
 use Data::Dumper;
+use Data::GUID;
 
 use parent qw/Plack::Component/;
 
@@ -31,10 +32,17 @@ sub call {
     my $request = Plack::Request->new($env);
     my $cookies = $request->cookies;
     for my $cookie (sort keys %$cookies) {
-        say STDERR "cookie: $cookie => $cookies->{$cookie}";
+        #say STDERR "cookie: $cookie => $cookies->{$cookie}";
     }
+    $self->{cookie} = $cookies->{SmartSea} // 'default';
+    say STDERR "cookie: $self->{cookie}";
     $self->{parameters} = $request->parameters;
     $self->{uri} = $env->{REQUEST_URI};
+    $self->{origin} = $env->{HTTP_ORIGIN};
+    for my $key (sort keys %$env) {
+        #say STDERR "$key => $env->{$key}";
+    }
+    #say STDERR 'http://'.$env->{HTTP_HOST};
     my $r = $self->{uri};
     $r =~ s/^.*core?//;
     say STDERR $r;
@@ -52,7 +60,7 @@ sub call {
             return $self->object_editor($class.'Activity', $r, {}) if /activities/;
             return $self->object_editor($class.'EcosystemComponent', $r, {}) if /ecosystem_components/;
             return $self->object_editor($class.'Rule', $r, 
-                                        { empty_is_null => [qw/value min_value max_value/], 
+                                        { empty_is_null => [qw/value min_value max_value value_type/], 
                                           defaults => {reduce=>1}
                                         }) if /rules/;
             return $self->object_editor($class.'Dataset', $r, 
@@ -76,14 +84,18 @@ sub call {
     my @l;
     push @l, (
         [li => a(link => 'plans', url  => $uri.'plans')],
-        [li => a(link => 'browser/plans', url => $uri.'browser/plans')],
-        [li => a(link => 'browser/uses', url => $uri.'browser/uses')],
-        [li => a(link => 'browser/activities', url => $uri.'browser/activities')],
-        [li => a(link => 'browser/activity -> pressure links', url  => $uri.'browser/activity2pressure')],
-        [li => a(link => 'browser/ecosystem components', url => $uri.'browser/ecosystem_components')],
-        [li => a(link => 'browser/rules', url  => $uri.'browser/rules')],
-        [li => a(link => 'browser/datasets', url  => $uri.'browser/datasets')],
-        [li => a(link => 'browser/impacts', url  => $uri.'browser/impacts')],
+        [li => [0 => 'browsers']],
+        [ul => [
+             [li => a(link => 'plans', url => $uri.'browser/plans')],
+             [li => a(link => 'uses', url => $uri.'browser/uses')],
+             [li => a(link => 'activities', url => $uri.'browser/activities')],
+             [li => a(link => 'activity -> pressure links', url  => $uri.'browser/activity2pressure')],
+             [li => a(link => 'ecosystem components', url => $uri.'browser/ecosystem_components')],
+             [li => a(link => 'rules', url  => $uri.'browser/rules')],
+             [li => a(link => 'datasets', url  => $uri.'browser/datasets')],
+             [li => a(link => 'impacts', url  => $uri.'browser/impacts')],
+         ]
+        ],
         [li => a(link => 'impact_network', url  => $uri.'impact_network')],
         [li => a(link => 'pressure table', url  => $uri.'pressure_table')]
     );
@@ -109,7 +121,8 @@ sub plans {
                                       -and => [
                                            -or => [plan => $plan->id, plan => {'=' => undef}],
                                            use => $use->id,
-                                           layer => $layer->id
+                                           layer => $layer->id,
+                                           cookie => 'default'
                                           ]
                                   },
                                   {
@@ -123,7 +136,13 @@ sub plans {
         }
         push @plans, {title => $plan->title, id => $plan->id, uses => \@uses};
     }
-    return json200(\@plans);
+    # this is the first request made by the App, thus set the Cookie
+    # TODO!: reset (delete) rules with this cookie
+    my $guid = Data::GUID->new;
+    my $string = $guid->as_string;
+    return json200({'Set-Cookie' => "SmartSea=$string; httponly; Path=/",
+                    'Access-Control-Allow-Origin' => $self->{origin},
+                    'Access-Control-Allow-Credentials' => 'true'}, \@plans);
 }
 
 sub impact_network {
@@ -179,7 +198,7 @@ sub impact_network {
             target => 'i'.$impact->id }};
     }
 
-    return json200(\%elements);
+    return json200({}, \%elements);
 }
 
 sub object_editor {
@@ -197,11 +216,12 @@ sub object_editor {
     $config->{empty_is_null} //= [];
 
     my ($get) = $oids =~ /\?(.*)/;
-    $oids =~ s/\?.*//;
     my ($request) = $oids =~ /([a-z]+)$/;
 
     my $uri = $self->{uri};
     $uri =~ s/$oids$//;
+    
+    $oids =~ s/\?.*//;
     my @oids = split /\//, $oids;
     for (@oids) {
         ($_) = $_ =~ /(\d+)/;
@@ -245,8 +265,13 @@ sub object_editor {
     my @body; # a list of elements
     my $obj;
     if ($oid) {
+        my $pk = { id => $oid };
+        for my $col ($class->primary_columns) {
+            next if $col eq 'id';
+            $pk->{$col} = 'default';
+        }
         eval {
-            $obj = $rs->single({ id => $oid });
+            $obj = $rs->single($pk);
         };
         push @body, [p => "Error: $@"] if $@;
     }
@@ -259,12 +284,21 @@ sub object_editor {
                 push @body, [p => 'Error: '.$@];
             }
         } elsif ($request eq 'Modify') {
-            # store with cookie as reference
+            # only modify if $self->{cookie} ne default
+            return http_status(500) if $self->{cookie} eq 'default'; # should tell the user to accept cookies 
+            my $cols = $obj->values;
+            $cols->{value} = $parameters{value};
+            $cols->{id} = $obj->id;
+            $cols->{cookie} = $self->{cookie};
             eval {
-                $obj->update({value => $parameters{value}});
+                $obj = $rs->update_or_new($cols, {key => 'primary'});
+                $obj->insert if !$obj->in_storage;
             };
+            say STDERR "error: $@" if $@;
             return http_status(500) if $@;
-            return json200({object => $obj->as_hashref_for_json}); # todo object JSON streamed ?
+            return json200({'Access-Control-Allow-Origin' => $self->{origin},
+                            'Access-Control-Allow-Credentials' => 'true'}, 
+                           {object => $obj->as_hashref_for_json});
         } elsif ($request eq $config->{store} and $self->{edit}) {
             eval {
                 $obj->update(\%parameters);

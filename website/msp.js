@@ -432,7 +432,10 @@ MSP.prototype = {
         var self = this;
         // the planning system is a tree: root->plans->uses->layers->rules
         $.ajax({
-            url: 'http://'+self.server+'/core/plans'
+            url: 'http://'+self.server+'/core/plans',
+            xhrFields: {
+                withCredentials: true
+            }
         }).done(function(plans) {
             self.plans = plans;
             self.newPlans.notify();
@@ -526,7 +529,13 @@ MSP.prototype = {
     },
     applyToRuleInEdit: function(value) {
         var self = this;
-        $.post( 'http://'+self.server+'/core/rule_browser/'+self.ruleInEdit.id, 
+        $.ajaxSetup({
+            crossDomain: true,
+            xhrFields: {
+                withCredentials: true
+            }
+        });
+        $.post( 'http://'+self.server+'/core/browser/rules/'+self.ruleInEdit.id, 
                 { submit: 'Modify', value: value }, 
                 function(data) {
                     self.ruleInEdit.value = data.object.value;
@@ -538,6 +547,28 @@ MSP.prototype = {
             .fail(function(data) {
                 alert(data.responseText);
             });
+        /*
+        $.ajax({
+            type: 'post',
+            url: 'http://'+self.server+'/core/browser/rules/'+self.ruleInEdit.id, 
+            crossDomain: true,
+            dataType: "json",
+            xhrFields: {
+                withCredentials: true
+            },
+            data: { submit: 'Modify', value: value },
+            success: function(data) {
+                self.ruleInEdit.value = data.object.value;
+                self.removeSite();
+                self.createLayers(true);
+                self.ruleEdited.notify();
+                self.addSite();
+            },
+            error: function(data) {
+                alert(data.responseText);
+            }
+        });
+        */
     },
     initSite: function() {
         var self = this;

@@ -89,9 +89,11 @@ sub config {
 }
 
 sub process {
-    my ($self, $dataset, $tile, $params) = @_;
+    my ($self, $dataset, $tile, $server) = @_;
+    my $params = $server->{parameters};
     # $dataset is undef since we serve_arbitrary_layers
     # params is a hash of WM(T)S parameters
+    #say STDERR "@_";
 
     # a 0/1 mask of the planning area
     $dataset = Geo::GDAL::Open("$self->{data_path}/smartsea-mask.tiff");
@@ -106,7 +108,12 @@ sub process {
     # no rules = all rules?
 
     my $trail = $params->{layer} // $params->{layers};
-    my $rules = SmartSea::Rules->new($self->{schema}, $trail);
+
+    my $cookies = $server->{request}->cookies;
+    $self->{cookie} = $cookies->{SmartSea} // 'default';
+    say STDERR "cookie: $self->{cookie}";
+    
+    my $rules = SmartSea::Rules->new({schema => $self->{schema}, cookie => $self->{cookie}, trail => $trail});
 
     if ($rules->layer->title eq 'Value') {
         # compute, returns bad, 0..100

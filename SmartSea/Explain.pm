@@ -34,7 +34,7 @@ sub call {
     }
     my @rules;
     for my $layer ($request->query_parameters->get_all('layer')) {
-        push @rules, SmartSea::Rules->new($self->{schema}, $layer);
+        push @rules, SmartSea::Rules->new({schema => $self->{schema}, cookie => 'default', trail => $layer});
     }
 
     my $gt = $self->{mask}->GeoTransform;
@@ -102,7 +102,7 @@ sub call {
 
     }
 
-    return json200({report => $report});
+    return json200({}, {report => $report});
 
 }
 

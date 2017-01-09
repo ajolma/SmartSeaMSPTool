@@ -86,8 +86,8 @@ my %attributes = (
     );
 
 __PACKAGE__->table('tool.rules');
-__PACKAGE__->add_columns('id', keys %attributes);
-__PACKAGE__->set_primary_key('id');
+__PACKAGE__->add_columns('id', 'cookie', keys %attributes);
+__PACKAGE__->set_primary_key('id', 'cookie');
 
 # determines whether an area is allocated to a use in a plan
 __PACKAGE__->belongs_to(plan => 'SmartSea::Schema::Result::Plan');
@@ -107,6 +107,19 @@ __PACKAGE__->belongs_to(r_dataset => 'SmartSea::Schema::Result::Dataset');
 
 __PACKAGE__->belongs_to(op => 'SmartSea::Schema::Result::Op');
 
+sub values {
+    my ($self) = @_;
+    my %values;
+    for my $key (keys %attributes) {
+        if ($attributes{$key}{type} eq 'lookup') {
+            my $foreign = $self->$key;
+            $values{$key} = $self->$key->id if $foreign;
+        } else {
+            $values{$key} = $self->$key;
+        }
+    }
+    return \%values;
+}
 
 sub as_text {
     my ($self, %arg) = @_;
@@ -180,29 +193,30 @@ sub HTML_form {
             $values->{$key} = ref($self->$key) ? $self->$key->id : $self->$key;
         }
         push @form, [input => {type => 'hidden', name => 'id', value => $self->id}];
+        push @form, [input => {type => 'hidden', name => 'cookie', value => 'default'}];
     }
     
     my $widgets = widgets(\%attributes, $values, $config->{schema});
 
-    push @form, (
-        [ p => [[1 => 'Plan: '],$widgets->{plan}] ],
-        [ p => [[1 => 'Use: '],$widgets->{use}] ],
-        [ p => [[1 => 'Layer: '],$widgets->{layer}] ],
-        [ p => $widgets->{reduce} ],
-        [ p => 'Layer in the rule:' ],
-        [ p => [[1 => 'plan: '],$widgets->{r_plan}] ],
-        [ p => [[1 => 'use: '],$widgets->{r_use}] ],
-        [ p => [[1 => 'layer: '],$widgets->{r_layer}] ],
-        [ p => 'or' ],
-        [ p => [[1 => 'dataset: '],$widgets->{r_dataset}] ],
-        [ p => [[1 => 'Operator and value: '],$widgets->{op},$widgets->{value}] ],
-        [ p => [[1 => 'Range of value: '],$widgets->{min_value},[1 => '...'],$widgets->{max_value}] ],
-        [ p => [[1 => 'Index in this plan.use.layer: '],$widgets->{my_index}] ],
-        [ p => [[1 => 'Type of value: '],$widgets->{value_type}] ],
-        button(value => "Store"),
-        [1 => ' '],
-        button(value => "Cancel")
-    );
+    push (@form,
+          [ p => [[1 => 'Plan: '],$widgets->{plan}] ],
+          [ p => [[1 => 'Use: '],$widgets->{use}] ],
+          [ p => [[1 => 'Layer: '],$widgets->{layer}] ],
+          [ p => $widgets->{reduce} ],
+          [ p => 'Layer in the rule:' ],
+          [ p => [[1 => 'plan: '],$widgets->{r_plan}] ],
+          [ p => [[1 => 'use: '],$widgets->{r_use}] ],
+          [ p => [[1 => 'layer: '],$widgets->{r_layer}] ],
+          [ p => 'or' ],
+          [ p => [[1 => 'dataset: '],$widgets->{r_dataset}] ],
+          [ p => [[1 => 'Operator and value: '],$widgets->{op},$widgets->{value}] ],
+          [ p => [[1 => 'Range of value: '],$widgets->{min_value},[1 => '...'],$widgets->{max_value}] ],
+          [ p => [[1 => 'Index in this plan.use.layer: '],$widgets->{my_index}] ],
+          [ p => [[1 => 'Type of value: '],$widgets->{value_type}] ],
+          button(value => "Store"),
+          [1 => ' '],
+          button(value => "Cancel")
+        );
     return [form => $attributes, @form];
 }
 

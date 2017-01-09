@@ -41,14 +41,20 @@ sub html200 {
 }
 
 sub json200 {
+    my $header = shift;
     my $data = shift;
     my $json = JSON->new;
     $json->utf8;
-    return [
-        200, 
-        [ 'Content-Type' => 'application/json; charset=utf-8',
-          'Access-Control-Allow-Origin' => '*' ],
-        [$json->encode($data)]];
+    my %header;
+    for my $key (keys %$header) {
+        $header{$key} = $header->{$key};
+    }
+    $header{'Content-Type'} //= 'application/json; charset=utf-8';
+    $header{'Access-Control-Allow-Origin'} //= '*';
+    return [ 200, 
+             [%header],
+             [$json->encode($data)]
+        ];
 }
 
 sub http_status {

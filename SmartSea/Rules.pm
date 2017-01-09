@@ -10,22 +10,24 @@ use SmartSea::Core qw(:all);
 # a set of rules for plan.use.layer
 
 sub new {
-    my ($class, $schema, $plan, $use, $layer, @rules);
-    if (@_ == 3) {
-        my $trail;
-        ($class, $schema, $trail) = @_;
+    my ($class, $args) = @_; # must give schema, cookie, then either trail or plan, use, and layer
+    my @rules;
+    if ($args->{trail}) {
+        my $trail = $args->{trail};
         my $id;
         ($trail, $id) = parse_integer($trail);
-        $plan = $schema->resultset('Plan')->single({ id => $id });
+        $args->{plan} = $args->{schema}->resultset('Plan')->single({ id => $id });
         ($trail, $id) = parse_integer($trail);
-        $use = $schema->resultset('Use')->single({ id => $id });
+        $args->{use} = $args->{schema}->resultset('Use')->single({ id => $id });
         ($trail, $id) = parse_integer($trail);
-        $layer = $schema->resultset('Layer')->single({ id => $id });
+        $args->{layer} = $args->{schema}->resultset('Layer')->single({ id => $id });
         if ($trail) {
             while ($trail) {
                 # rule application order is defined by the client
                 ($trail, $id) = parse_integer($trail);
-                my $rule = $schema->resultset('Rule')->single({ id => $id });
+                # todo: get cookie from the request
+                my $cookie = 'default';
+                my $rule = $args->{schema}->resultset('Rule')->single({ id => $id, cookie => $cookie });
                 # maybe we should test $rule->plan and $rule->use?
                 # and that the $rule->layer->id is the same?
 
@@ -33,17 +35,16 @@ sub new {
                 push @rules, $rule;
             }
         }
-    } else {
-        ($class, $schema, $plan, $use, $layer) = @_;
     }
     unless (@rules) {
         my $remove_default;
         my @tmp;
-        for my $rule ($schema->resultset('Rule')->search(
-                          { -or => [ plan => $plan->id,
+        for my $rule ($args->{schema}->resultset('Rule')->search(
+                          { -or => [ plan => $args->{plan}->id,
                                      plan => undef ],
-                            use => $use->id,
-                            layer => $layer->id
+                            use => $args->{use}->id,
+                            layer => $args->{layer}->id,
+                            cookie => 'default'
                           },
                           { order_by => ['me.id'] })) {
             
@@ -56,7 +57,7 @@ sub new {
             push @rules, $rule;
         }
     }
-    my $self = {rules => \@rules, plan => $plan, use => $use, layer => $layer};
+    my $self = {rules => \@rules, plan => $args->{plan}, use => $args->{use}, layer => $args->{layer}};
     return bless $self, $class;
 }
 

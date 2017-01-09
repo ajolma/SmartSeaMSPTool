@@ -36,6 +36,7 @@ function createLayer(template, projection) {
                     html: 'Tiles &copy; <a href="http://www.maanmittauslaitos.fi/avoindata_lisenssi">MML</a>'
                 })],
                 url: 'http://avoindata.maanmittauslaitos.fi/mapcache/wmts',
+                //url: 'http://localhost:5000/proxy',
                 layer: 'taustakartta',
                 matrixSet: 'ETRS-TM35FIN',
                 format: 'image/png',
