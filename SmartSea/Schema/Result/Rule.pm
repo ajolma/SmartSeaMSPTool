@@ -6,7 +6,7 @@ use base qw/DBIx::Class::Core/;
 use Scalar::Util 'blessed';
 use PDL;
 
-use SmartSea::Core;
+use SmartSea::Core qw(:all);
 use SmartSea::HTML qw(:all);
 use SmartSea::Rules;
 
@@ -14,8 +14,7 @@ my %attributes = (
     plan => {
         i => 1,
         type => 'lookup',
-        class => 'Plan',
-        allow_null => 1
+        class => 'Plan'
     },
     use => {
         i => 2,
@@ -86,7 +85,7 @@ my %attributes = (
     );
 
 __PACKAGE__->table('tool.rules');
-__PACKAGE__->add_columns('id', 'cookie', keys %attributes);
+__PACKAGE__->add_columns('id', 'cookie', 'made', keys %attributes);
 __PACKAGE__->set_primary_key('id', 'cookie');
 
 # determines whether an area is allocated to a use in a plan
@@ -193,8 +192,8 @@ sub HTML_form {
             $values->{$key} = ref($self->$key) ? $self->$key->id : $self->$key;
         }
         push @form, [input => {type => 'hidden', name => 'id', value => $self->id}];
-        push @form, [input => {type => 'hidden', name => 'cookie', value => 'default'}];
     }
+    push @form, [input => {type => 'hidden', name => 'cookie', value => 'default'}];
     
     my $widgets = widgets(\%attributes, $values, $config->{schema});
 

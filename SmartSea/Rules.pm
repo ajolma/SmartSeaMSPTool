@@ -7,57 +7,64 @@ use PDL;
 
 use SmartSea::Core qw(:all);
 
-# a set of rules for plan.use.layer
+# an ordered set of rules to create a layer for a use in a plan
+# the default order of rules is defined in the rules table using "my_index"
+# layer name is a sequence of integers separated with non-numbers (a trail)
+# trail = plan use layer [rule*]
 
 sub new {
-    my ($class, $args) = @_; # must give schema, cookie, then either trail or plan, use, and layer
-    my @rules;
-    if ($args->{trail}) {
-        my $trail = $args->{trail};
-        my $id;
-        ($trail, $id) = parse_integer($trail);
-        $args->{plan} = $args->{schema}->resultset('Plan')->single({ id => $id });
-        ($trail, $id) = parse_integer($trail);
-        $args->{use} = $args->{schema}->resultset('Use')->single({ id => $id });
-        ($trail, $id) = parse_integer($trail);
-        $args->{layer} = $args->{schema}->resultset('Layer')->single({ id => $id });
-        if ($trail) {
-            while ($trail) {
-                # rule application order is defined by the client
-                ($trail, $id) = parse_integer($trail);
-                # todo: get cookie from the request
-                my $cookie = 'default';
-                my $rule = $args->{schema}->resultset('Rule')->single({ id => $id, cookie => $cookie });
-                # maybe we should test $rule->plan and $rule->use?
-                # and that the $rule->layer->id is the same?
+    my ($class, $args) = @_; # must give schema, cookie, and trail
+    my $trail = $args->{trail};
+    my $id;
+    ($trail, $id) = parse_integer($trail);
+    my $plan = $args->{schema}->resultset('Plan')->single({ id => $id });
+    ($trail, $id) = parse_integer($trail);
+    my $use = $args->{schema}->resultset('Use')->single({ id => $id });
+    ($trail, $id) = parse_integer($trail);
+    my $layer = $args->{schema}->resultset('Layer')->single({ id => $id });
 
-                # if rule has a cookie, check the given one against it
-                push @rules, $rule;
+    my @rules;
+    # rule list is optional
+    if ($trail) {
+        # rule order is defined by the client in this case
+        while ($trail) {            
+            ($trail, $id) = parse_integer($trail);
+            # there may be default rule and a modified rule denoted with a cookie
+            # prefer the one with our cookie
+            my $rule;
+            for my $r ($args->{schema}->resultset('Rule')->search({ id => $id })) {
+                if ($r->cookie eq $args->{cookie}) {
+                    $rule = $r;
+                    last;
+                }
+                $rule = $r if $r->cookie eq DEFAULT;
+            }
+            # maybe we should test $rule->plan and $rule->use?
+            # and that the $rule->layer->id is the same?
+            push @rules, $rule;
+        }
+    } else {
+        my %rules;
+        for my $rule ($args->{schema}->resultset('Rule')->search(
+                          { plan => $plan->id,
+                            use => $use->id,
+                            layer => $layer->id,
+                            -or => [ cookie => DEFAULT,
+                                     cookie => $args->{cookie}]
+                          })) {
+            
+            # prefer id/cookie pair to id/default, they have the same id
+            if (exists $rules{$rule->id}) {
+                $rules{$rule->id} = $rule if $rule->cookie eq $args->{cookie};
+            } else {
+                $rules{$rule->id} = $rule;
             }
         }
-    }
-    unless (@rules) {
-        my $remove_default;
-        my @tmp;
-        for my $rule ($args->{schema}->resultset('Rule')->search(
-                          { -or => [ plan => $args->{plan}->id,
-                                     plan => undef ],
-                            use => $args->{use}->id,
-                            layer => $args->{layer}->id,
-                            cookie => 'default'
-                          },
-                          { order_by => ['me.id'] })) {
-            
-            # if there are rules for this plan, remove default rules
-            $remove_default = 1 if $rule->plan;
-            push @rules, $rule;
-        }
-        for my $rule (@tmp) {
-            next if $remove_default && !$rule->plan;
-            push @rules, $rule;
+        for my $i (sort {$rules{$a}->my_index <=> $rules{$b}->my_index} keys %rules) {
+            push @rules, $rules{$i};
         }
     }
-    my $self = {rules => \@rules, plan => $args->{plan}, use => $args->{use}, layer => $args->{layer}};
+    my $self = {rules => \@rules, plan => $plan, use => $use, layer => $layer};
     return bless $self, $class;
 }
 

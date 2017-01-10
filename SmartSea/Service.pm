@@ -34,7 +34,7 @@ sub call {
     for my $cookie (sort keys %$cookies) {
         #say STDERR "cookie: $cookie => $cookies->{$cookie}";
     }
-    $self->{cookie} = $cookies->{SmartSea} // 'default';
+    $self->{cookie} = $cookies->{SmartSea} // DEFAULT;
     say STDERR "cookie: $self->{cookie}";
     $self->{parameters} = $request->parameters;
     $self->{uri} = $env->{REQUEST_URI};
@@ -52,6 +52,7 @@ sub call {
         $r =~ s/^.*browser?//;
         say STDERR $r;
         my ($c) = $r =~ /\/(\w+)/;
+        $c //= '';
         $r =~ s/\/(\w+)//;
         say STDERR $r;
         for ($c) {
@@ -122,7 +123,7 @@ sub plans {
                                            -or => [plan => $plan->id, plan => {'=' => undef}],
                                            use => $use->id,
                                            layer => $layer->id,
-                                           cookie => 'default'
+                                           cookie => DEFAULT
                                           ]
                                   },
                                   {
@@ -136,13 +137,36 @@ sub plans {
         }
         push @plans, {title => $plan->title, id => $plan->id, uses => \@uses};
     }
-    # this is the first request made by the App, thus set the Cookie
-    # TODO!: reset (delete) rules with this cookie
-    my $guid = Data::GUID->new;
-    my $string = $guid->as_string;
-    return json200({'Set-Cookie' => "SmartSea=$string; httponly; Path=/",
-                    'Access-Control-Allow-Origin' => $self->{origin},
-                    'Access-Control-Allow-Credentials' => 'true'}, \@plans);
+
+    # This is the first request made by the App, thus set the cookie
+    # if there is not one. The cookie is only for the duration the
+    # browser is open.
+
+    my $header = {
+        'Access-Control-Allow-Origin' => $self->{origin},
+        'Access-Control-Allow-Credentials' => 'true'
+    };
+    if ($self->{cookie} eq DEFAULT) {
+        my $guid = Data::GUID->new;
+        my $cookie = $guid->as_string;
+        $header->{'Set-Cookie'} = "SmartSea=$cookie; httponly; Path=/";
+    } else {
+
+        # Cookie already set, reset changes, i.e., delete temporary
+        # rules.  Above we give the default ones, this makes sure
+        # temporary ones are not used for WMTS. Note that the rules
+        # are left in the table and should be cleaned regularly based
+        # on the "made" column.
+
+        eval {
+            for my $rule ($schema->resultset('Rule')->search({ cookie => $self->{cookie} })) {
+                $rule->delete;
+            }
+        };
+        say STDERR 'Error: '.$@ if $@;
+
+    }
+    return json200($header, \@plans);
 }
 
 sub impact_network {
@@ -261,15 +285,14 @@ sub object_editor {
     delete $parameters{id};
     say STDERR "request = $request, oid = $oid";
 
+    my %primary_columns = map {$_ => 1} $class->primary_columns;
+
     my $type = $parameters{type} // 'html';
     my @body; # a list of elements
     my $obj;
     if ($oid) {
         my $pk = { id => $oid };
-        for my $col ($class->primary_columns) {
-            next if $col eq 'id';
-            $pk->{$col} = 'default';
-        }
+        $pk->{cookie} = DEFAULT if $primary_columns{cookie};
         eval {
             $obj = $rs->single($pk);
         };
@@ -285,11 +308,13 @@ sub object_editor {
             }
         } elsif ($request eq 'Modify') {
             # only modify if $self->{cookie} ne default
-            return http_status(500) if $self->{cookie} eq 'default'; # should tell the user to accept cookies 
+            return http_status(500) if $self->{cookie} eq DEFAULT; # should tell the user to accept cookies 
             my $cols = $obj->values;
             $cols->{value} = $parameters{value};
             $cols->{id} = $obj->id;
             $cols->{cookie} = $self->{cookie};
+            my $a = ['current_timestamp'];
+            $cols->{made} = \$a;
             eval {
                 $obj = $rs->update_or_new($cols, {key => 'primary'});
                 $obj->insert if !$obj->in_storage;
@@ -336,7 +361,15 @@ sub object_editor {
             }
         }
     }
-    push @body, $class->HTML_list([$rs->all], $uri, $self->{edit});
+    my $objs;
+    if (not $primary_columns{cookie}) {
+        $objs = [$rs->all];
+    } else {
+        $objs = [$rs->search({cookie => 'default'})]
+    }
+    my $list = $class->HTML_list($objs, $uri, $self->{edit});
+    $list = [form => { action => $uri, method => 'POST' }, $list] if $self->{edit};
+    push @body, $list;
     $uri =~ s/\/\w+$//;
     push @body, ([1 => ' '], a(link => 'up', url => $uri));
     return html200(SmartSea::HTML->new($type => [body => \@body])->html);

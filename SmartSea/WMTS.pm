@@ -111,9 +111,13 @@ sub process {
 
     my $cookies = $server->{request}->cookies;
     $self->{cookie} = $cookies->{SmartSea} // 'default';
-    say STDERR "cookie: $self->{cookie}";
+    #say STDERR "cookie: $self->{cookie}";
     
-    my $rules = SmartSea::Rules->new({schema => $self->{schema}, cookie => $self->{cookie}, trail => $trail});
+    my $rules = SmartSea::Rules->new({
+        schema => $self->{schema}, 
+        cookie => $self->{cookie}, 
+        trail => $trail
+    });
 
     if ($rules->layer->title eq 'Value') {
         # compute, returns bad, 0..100

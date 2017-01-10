@@ -6,9 +6,11 @@ use Carp;
 use Encode qw(decode encode);
 use JSON;
 
+use constant DEFAULT => 'default'; # not user changed object, used for cookie attribute
+
 require Exporter;
 our @ISA = qw(Exporter);
-our @EXPORT_OK = qw(common_responses html200 json200 http_status parse_integer); 
+our @EXPORT_OK = qw(common_responses html200 json200 http_status parse_integer DEFAULT); 
 our %EXPORT_TAGS = (all => \@EXPORT_OK);
 
 sub common_responses {
