@@ -545,7 +545,10 @@ MSP.prototype = {
                     self.addSite();
                 })
             .fail(function(data) {
-                alert(data.responseText);
+                if (data.status == 403)
+                    alert("Rule modification requires cookies. Please enable cookies and reload this app.");
+                else
+                    alert(data.responseText);
             });
         /*
         $.ajax({

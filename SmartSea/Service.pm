@@ -27,7 +27,7 @@ sub new {
 
 sub call {
     my ($self, $env) = @_;
-    my $ret = common_responses($env);
+    my $ret = common_responses({}, $env);
     return $ret if $ret;
     my $request = Plack::Request->new($env);
     my $cookies = $request->cookies;
@@ -100,7 +100,7 @@ sub call {
         [li => a(link => 'impact_network', url  => $uri.'impact_network')],
         [li => a(link => 'pressure table', url  => $uri.'pressure_table')]
     );
-    return html200(SmartSea::HTML->new(html => [body => [ul => \@l]])->html);
+    return html200({}, SmartSea::HTML->new(html => [body => [ul => \@l]])->html);
 }
 
 sub plans {
@@ -266,7 +266,8 @@ sub object_editor {
         $parameters{$p} = decode utf8 => $self->{parameters}{$p};
         if ($parameters{$p} eq $config->{delete}) {
             $request = $parameters{$p};
-            $oid = $p;
+            @oids = split /\//, $p;
+            $oid = shift(@oids);
             last;
         }
         $parameters{$p} = undef if $parameters{$p} eq 'NULL';
@@ -300,15 +301,22 @@ sub object_editor {
     }
     if ($obj) {
         if ($request eq $config->{delete} and $self->{edit}) {
-            eval {
-                $obj->delete;
-            };
-            if ($@) {
-                push @body, [p => 'Error: '.$@];
+            if (@oids) {
+                push @body, [p => "Request to delete an associated object declined for now. Sorry."];
+            } else {
+                eval {
+                    $obj->delete;
+                };
+                if ($@) {
+                    push @body, [p => 'Error: '.$@];
+                }
             }
         } elsif ($request eq 'Modify') {
+            # to make jQuery happy:
+            my $header = { 'Access-Control-Allow-Origin' => $self->{origin},
+                           'Access-Control-Allow-Credentials' => 'true' };
             # only modify if $self->{cookie} ne default
-            return http_status(500) if $self->{cookie} eq DEFAULT; # should tell the user to accept cookies 
+            return http_status($header, 403) if $self->{cookie} eq DEFAULT; # forbidden 
             my $cols = $obj->values;
             $cols->{value} = $parameters{value};
             $cols->{id} = $obj->id;
@@ -320,10 +328,8 @@ sub object_editor {
                 $obj->insert if !$obj->in_storage;
             };
             say STDERR "error: $@" if $@;
-            return http_status(500) if $@;
-            return json200({'Access-Control-Allow-Origin' => $self->{origin},
-                            'Access-Control-Allow-Credentials' => 'true'}, 
-                           {object => $obj->as_hashref_for_json});
+            return http_status($header, 500) if $@;
+            return json200($header, {object => $obj->as_hashref_for_json});
         } elsif ($request eq $config->{store} and $self->{edit}) {
             eval {
                 $obj->update(\%parameters);
@@ -333,21 +339,21 @@ sub object_editor {
                     [p => 'Error: '.$@],
                     $obj->HTML_form({ action => $uri, method => 'POST' }, $self, \%parameters)
                 );
-                return html200(SmartSea::HTML->new($type => [body => \@body])->html);
+                return html200({}, SmartSea::HTML->new($type => [body => \@body])->html);
             }
         } elsif ($request eq 'edit' and $self->{edit}) {
             $uri =~ s/\?edit$//;
-            push @body, $obj->HTML_form({ action => $uri, method => 'POST' }, $self);
-            return html200(SmartSea::HTML->new($type => [body => \@body])->html);
+            push @body, $obj->HTML_form({ action => $uri, method => 'POST' }, $self, {}, \@oids);
+            return html200({}, SmartSea::HTML->new($type => [body => \@body])->html);
         } else {
             push @body, $obj->HTML_div({}, $self, \@oids);
             push @body, a(link => 'up', url => $uri);
-            return html200(SmartSea::HTML->new($type => [body => \@body])->html);
+            return html200({}, SmartSea::HTML->new($type => [body => \@body])->html);
         }
     } else {
         if ($request eq 'new' and $self->{edit}) {
             push @body, $class->HTML_form({ action => $uri, method => 'POST' }, $self, \%parameters);
-            return html200(SmartSea::HTML->new($type => [body => \@body])->html);
+            return html200({}, SmartSea::HTML->new($type => [body => \@body])->html);
         } elsif ($request eq $config->{store} and $self->{edit}) {
             eval {
                 $obj = $rs->create(\%parameters);
@@ -357,7 +363,7 @@ sub object_editor {
                     [p => 'Error: '.$@],
                     $class->HTML_form({ action => $uri, method => 'POST' }, $self, \%parameters)
                 );
-                return html200(SmartSea::HTML->new($type => [body => \@body])->html);
+                return html200({}, SmartSea::HTML->new($type => [body => \@body])->html);
             }
         }
     }
@@ -372,7 +378,7 @@ sub object_editor {
     push @body, $list;
     $uri =~ s/\/\w+$//;
     push @body, ([1 => ' '], a(link => 'up', url => $uri));
-    return html200(SmartSea::HTML->new($type => [body => \@body])->html);
+    return html200({}, SmartSea::HTML->new($type => [body => \@body])->html);
 }
 
 sub pressure_table {
@@ -601,7 +607,7 @@ sub pressure_table {
     
     my @body = (@error, [ form => {action => $self->{uri}, method => 'POST'}, \@a ]);
 
-    return html200(SmartSea::HTML->new(html => [body => \@body])->html);
+    return html200({}, SmartSea::HTML->new(html => [body => \@body])->html);
 }
 
 1;

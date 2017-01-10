@@ -93,23 +93,23 @@ sub spinner {
 }
 sub item {
     my ($title, $id, $url, $edit, $ref) = @_;
+    return ref($title) ? [$title] : [[0 => $title]] unless $url;
     $url .= '/'.$id;
-    my $i = [ a(link => $title, url => $url) ];
+    my @i = (a(link => $title, url => $url));
     if ($edit) {
         $url .= '?edit';
-        push @$i, (
+        push @i, (
             [1 => '  '],
             a(link => "edit", url => $url),
             [1 => '  '],
-            [input => {type=>"submit", 
-                       name=>$id, 
-                       value=>"Delete",
-                       onclick => "return confirm('Are you sure you want to delete $ref?')" 
-             }
-            ]
-        )
+            [input => {
+                type=>"submit", 
+                name=>$id, 
+                value=>"Delete",
+                onclick => "return confirm('Are you sure you want to delete $ref?')" 
+             }]);
     }
-    return $i;
+    return \@i;
 }
 sub widgets {
     my ($attributes, $values, $schema) = @_;

@@ -26,7 +26,7 @@ sub HTML_list {
         for my $ul (sort keys %{$data{$component}}) {
             push @ul, $data{$component}{$ul};
         }
-        push @li, [b => $component], [ul => \@ul];
+        push @li, [li => [[b => $component], [ul => \@ul]]];
     }
     push @li, [li => a(link => 'add', url => $uri.'/new')] if $edit;
     return [ul => \@li];

@@ -3,6 +3,7 @@ use strict;
 use warnings;
 use 5.010000;
 use base qw/DBIx::Class::Core/;
+use Scalar::Util 'blessed';
 use SmartSea::HTML qw(:all);
 
 __PACKAGE__->table('tool.activities');
@@ -31,14 +32,13 @@ sub HTML_list {
     }
     my @li;
     for my $act (sort keys %{$li{act}}) {
-        push @li, [li => $li{act}{$act}];
-        my @p = sort keys %{$data{$act}};
-        next unless @p;
         my @l;
-        for my $pressure (@p) {
+        for my $pressure (sort keys %{$data{$act}}) {
             push @l, [li => $li{$act}{$pressure}];
         }
-        push @li, [ul => \@l];
+        my @item = @{$li{act}{$act}};
+        push @item, [ul => \@l] if @l;
+        push @li, [li => \@item];
     }
     push @li, [li => a(link => 'add activity', url => $uri.'/new')] if $edit;
     return [ul => \@li];
@@ -60,14 +60,47 @@ sub HTML_div {
         push @l, [li => "$a: ".$v];
     }
     my @div = ([ul => \@l]);
+    my $associated_class = 'SmartSea::Schema::Result::Pressure';
     if (@$oids) {
         my $oid = shift @$oids;
-        push @div, $self->pressures->single({'pressure.id' => $oid})->HTML_div({}, $config, $oids, $self);
+        if (not defined $oid) {
+            push @div, $associated_class->HTML_list([$self->pressures], undef, undef, $self);
+            push @div, [div => 'add here a form for adding an existing pressure into this activity'];
+        } else {
+            push @div, $self->pressures->single({'pressure.id' => $oid})->HTML_div({}, $config, $oids, $self);
+        }
     } else {
-        my $class = 'SmartSea::Schema::Result::Pressure';
-        push @div, $class->HTML_list([$self->pressures], $config->{uri}, $config->{edit}, $self);
+        push @div, $associated_class->HTML_list([$self->pressures], $config->{uri}, $config->{edit}, $self);
     }
     return [div => $attributes, @div];
+}
+
+sub HTML_form {
+    my ($self, $attributes, $config, $values) = @_;
+
+    my @form;
+
+    if ($self and blessed($self) and $self->isa('SmartSea::Schema::Result::Activity')) {
+        for my $key (qw/title/) {
+            next unless $self->$key;
+            next if defined $values->{$key};
+            $values->{$key} = ref($self->$key) ? $self->$key->id : $self->$key;
+        }
+        push @form, [input => {type => 'hidden', name => 'id', value => $self->id}];
+    }
+
+    my $title = text_input(
+        name => 'title',
+        size => 15,
+        value => $values->{title} // ''
+    );
+
+    push @form, (
+        [ p => [[1 => 'title: '],$title] ],
+        button(value => "Store")
+    );
+
+    return [form => $attributes, @form];
 }
 
 1;

@@ -28,7 +28,7 @@ sub HTML_list {
     }
     my @li;
     for my $activity (sort keys %data) {
-        push @li, [b => $activity], [ul => \@{$data{$activity}}];
+        push @li, [li => [[b => $activity], [ul => \@{$data{$activity}}]]];
     }
     push @li, [li => a(link => 'add', url => $uri.'/new')] if $edit;
     return [ul => \@li];

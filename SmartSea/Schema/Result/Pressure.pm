@@ -42,13 +42,13 @@ sub HTML_list {
     }
     my @li;
     for my $pressure (sort keys %{$li{pre}}) {
-        push @li, [li => $li{pre}{$pressure}];
-        next unless @{$li{$pressure}};
         my @l;
         for my $impact (@{$li{$pressure}}) {
             push @l, [li => $impact];
         }
-        push @li, [ul => \@l];
+        my @item = @{$li{pre}{$pressure}};
+        push @item, [ul => \@l] if @l;
+        push @li, [li => \@item];
     }
     push @li, [li => a(link => 'add pressure', url => $uri.'/new')] if $edit;
     return [ul => \@li];

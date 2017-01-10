@@ -240,7 +240,7 @@ sub HTML_list {
             }
             push @l, [li => [[b => $use], [ul => \@l2]]];
         }
-        push @li, [b => $plan], [ul => \@l];
+        push @li, [li => [[b => $plan], [ul => \@l]]];
     }
     push @li, [li => a(link => 'add', url => $uri.'/new')] if $edit;
     return [ul => \@li];

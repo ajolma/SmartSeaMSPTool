@@ -28,14 +28,13 @@ sub HTML_list {
     }
     my @li;
     for my $plan (sort keys %{$li{plan}}) {
-        push @li, @{$li{plan}{$plan}};
-        my @u = sort keys %{$data{$plan}};
-        next unless @u;
         my @l;
-        for my $use (@u) {
+        for my $use (sort keys %{$data{$plan}}) {
             push @l, [li => $li{$plan}{$use}];
         }
-        push @li, [ul => \@l];
+        my @item = @{$li{plan}{$plan}};
+        push @item, [ul => \@l] if @l;
+        push @li, [li => \@item];
     }
     push @li, [li => a(link => 'add plan', url => $uri.'/new')] if $edit;
     return [ul => \@li];
@@ -57,18 +56,28 @@ sub HTML_div {
         push @l, [li => "$a: ".$v];
     }
     my @div = ([ul => \@l]);
+    my $associated_class = 'SmartSea::Schema::Result::Use';
     if (@$oids) {
         my $oid = shift @$oids;
-        push @div, $self->uses->single({'use.id' => $oid})->HTML_div({}, $config, $oids);
+        if (not defined $oid) {
+            push @div, $associated_class->HTML_list([$self->uses]);
+            push @div, [div => 'add here a form for adding an existing use into this plan'];
+        } else {
+            push @div, $self->uses->single({'use.id' => $oid})->HTML_div({}, $config, $oids);
+        }
     } else {
-        my $class = 'SmartSea::Schema::Result::Use';
-        push @div, $class->HTML_list([$self->uses], $config->{uri}, $config->{edit});
+        push @div, $associated_class->HTML_list([$self->uses], $config->{uri}, $config->{edit});
     }
     return [div => $attributes, @div];
 }
 
 sub HTML_form {
-    my ($self, $attributes, $config, $values) = @_;
+    my ($self, $attributes, $config, $values, $oids) = @_;
+
+    if (@$oids) {
+        my $oid = shift @$oids;
+        return $self->uses->single({'use.id' => $oid})->HTML_form($attributes, $config, undef, $oids);
+    }
 
     my @form;
 

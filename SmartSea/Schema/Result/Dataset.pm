@@ -198,9 +198,10 @@ sub li {
             next unless $parent->{$sid} && $parent->{$sid} == $id;
         }
         my $li = item($set->name, $set->id, $uri, $edit, 'this dataset');
-        push @li, [li => $li];
-        my @children = li($all, $parent, $sid, $uri, $edit);
-        push @li, [ul => \@children] if @children;
+        my @item = @$li;
+        my @l = li($all, $parent, $sid, $uri, $edit);
+        push @item, [ul => \@l] if @l;
+        push @li, [li => \@item];
     }
     return @li;
 }

@@ -24,7 +24,7 @@ sub new {
 
 sub call {
     my ($self, $env) = @_;
-    my $ret = common_responses($env);
+    my $ret = common_responses({}, $env);
     return $ret if $ret;
     my $request = Plack::Request->new($env);
     my $parameters = $request->parameters;
