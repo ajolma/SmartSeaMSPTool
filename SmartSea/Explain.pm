@@ -102,7 +102,9 @@ sub call {
 
     }
 
-    return json200({}, {report => $report});
+    return json200({ 'Access-Control-Allow-Origin' => $env->{HTTP_ORIGIN},
+                     'Access-Control-Allow-Credentials' => 'true'
+                   }, {report => $report});
 
 }
 
