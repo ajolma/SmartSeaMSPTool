@@ -27,8 +27,16 @@ DAMAGE.
 */
 
 function createLayer(template, projection) {
+    if (template.bg && template.bg == 'osm') {
+        return [
+            new ol.layer.Tile({
+                source: new ol.source.OSM()
+            })
+            // how to add 'http://t1.openseamap.org/seamark/' on top of this?
+        ]
+    }
     if (template.bg && template.bg == 'mml') {
-        return new ol.layer.Tile({
+        return [new ol.layer.Tile({
             opacity: 1,
             extent: projection.extent,
             source: new ol.source.WMTS({
@@ -48,7 +56,7 @@ function createLayer(template, projection) {
                 }),
                 style: 'default'
             })
-        });
+        })];
     }
     if (template.wmts) {
         return new ol.layer.Tile({

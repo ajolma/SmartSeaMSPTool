@@ -44,7 +44,7 @@ DAMAGE.
     });
     var controller = new MSPController(model, view);
         
-    model.proj = projection(3067);
+    model.proj = projection(config);
 
     model.map = new ol.Map({
         layers: [],
@@ -57,7 +57,9 @@ DAMAGE.
         view: model.proj.view
     });
     model.map.addControl(new ol.control.ScaleLine());
-    model.map.addLayer(createLayer({bg: 'mml'}, model.proj));
+    $.each(createLayer({bg: config.bg}, model.proj), function(i, layer) {
+        model.map.addLayer(layer);
+    });
 
     model.getPlans();
 

@@ -26,16 +26,21 @@ USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 DAMAGE.
 */
 
-function projection(epsg) {
-    var p = ol.proj.get('EPSG:3067');
-    var extent = [-548576, 6291456, 1548576, 8388608];
-    p.setExtent(extent);
+function projection(options) {
+    var p = ol.proj.get('EPSG:'+options.epsg);
+    var extent;
+    if (options.epsg == 3067) {
+        extent = [-548576, 6291456, 1548576, 8388608];
+        p.setExtent(extent);
+    } else {
+        extent = p.getExtent();
+    }
     var proj = {
         projection: p,
         view: new ol.View({
-            projection: p,
-            center: [346735, 6943420],
-            zoom: 3
+            projection: p, // needed at least for 3067, not for 3857
+            center: options.center,
+            zoom: options.zoom
         }),
         extent: extent
     };
