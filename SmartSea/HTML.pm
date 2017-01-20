@@ -92,21 +92,23 @@ sub spinner {
                       value => $arg{value}}];
 }
 sub item {
-    my ($title, $id, $url, $edit, $ref) = @_;
-    return ref($title) ? [$title] : [[0 => $title]] unless $url;
-    $url .= '/'.$id;
-    my @i = (a(link => $title, url => $url));
-    if ($edit) {
-        $url .= '?edit';
+    my ($title, $id, %arg) = @_;
+    return ref($title) ? [$title] : [[0 => $title]] unless $arg{uri};
+    my $uri = $arg{uri}.'/'.$id;
+    my @i = (a(link => $title, url => $uri));
+    my $value = $arg{action} // 'Delete';
+    return $i[0] if $arg{action} eq 'None';
+    if ($arg{edit}) {
+        #$url .= '?edit';
         push @i, (
-            [1 => '  '],
-            a(link => "edit", url => $url),
+            #[1 => '  '],
+            #a(link => "edit", url => $url),
             [1 => '  '],
             [input => {
-                type=>"submit", 
-                name=>$id, 
-                value=>"Delete",
-                onclick => "return confirm('Are you sure you want to delete $ref?')" 
+                type => "submit", 
+                name => $id, 
+                value => $value,
+                onclick => "return confirm('Are you sure you want to ".lc($value)." $arg{ref}?')" 
              }]);
     }
     return \@i;

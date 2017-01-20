@@ -81,8 +81,28 @@ my %attributes = (
     value_type => {
         i => 14,
         type => 'text'
+    },
+    value_at_min => {
+        i => 15,
+        type => 'text'
+    },
+    value_at_max => {
+        i => 16,
+        type => 'text'
+    },
+    weight => {
+        i => 17,
+        type => 'text'
     }
     );
+
+# how to compute the weighted value for x:
+# w_r = weight * (value_at_min + (x - min_value)*(value_at_max - value_at_min)/(max_value - min_value))
+# value_at_min and value_at_max are between 0 and 1
+# x, min_value and max_value are in data units
+# 
+# to combine multiple rules, multiply
+# suitability = multiply_all(w_r_1 ... w_r_n)
 
 __PACKAGE__->table('tool.rules');
 __PACKAGE__->add_columns('id', 'cookie', 'made', keys %attributes);
@@ -163,8 +183,8 @@ sub as_hashref_for_json {
 }
 
 sub HTML_div {
-    my ($self, $attributes) = @_;
-    my @l = ([li => 'Rule']);
+    my ($self, $attributes, $oids, %arg) = @_;
+    my @l = ([li => [b => 'Rule']]);
     for my $a ('id', sort {$attributes{$a}{i} <=> $attributes{$b}{i}} keys %attributes) {
         my $v = $self->$a // '';
         if (ref $v) {
@@ -177,11 +197,12 @@ sub HTML_div {
         }
         push @l, [li => "$a: ".$v];
     }
+    push @l, [li => a(url => "$arg{uri}?edit", link => 'edit')] if $arg{edit};
     return [div => $attributes, [ul => \@l]];
 }
 
 sub HTML_form {
-    my ($self, $attributes, $config, $values) = @_;
+    my ($self, $attributes, $values, $oids, %arg) = @_;
 
     my @form;
 
@@ -195,7 +216,7 @@ sub HTML_form {
     }
     push @form, [input => {type => 'hidden', name => 'cookie', value => 'default'}];
     
-    my $widgets = widgets(\%attributes, $values, $config->{schema});
+    my $widgets = widgets(\%attributes, $values, $arg{schema});
 
     push (@form,
           [ p => [[1 => 'Plan: '],$widgets->{plan}] ],
@@ -220,29 +241,38 @@ sub HTML_form {
 }
 
 sub HTML_list {
-    my (undef, $objs, $uri, $edit) = @_;
+    my (undef, $objs, %arg) = @_;
     my %data;
+    my %plans;
+    my %uses;
+    my %layers;
     for my $rule (sort {$a->my_index <=> $b->my_index} @$objs) {
-        my $li = item($rule->as_text(include_value => 1)." (".$rule->my_index.")", $rule->id, $uri, $edit, 'this rule');
-        if ($rule->plan) {
-            push @{$data{$rule->plan->title}{$rule->use->title}{$rule->layer->title}}, [li => $li];
-        } else {
-            push @{$data{'0 Default'}{$rule->use->title}{$rule->layer->title}}, [li => $li];
-        }
+        my $li = item($rule->as_text(include_value => 1)." (".$rule->my_index.")", $rule->id, %arg, ref => 'this rule');
+        $plans{$rule->plan->title} = 1;
+        $uses{$rule->use->title} = 1;
+        $layers{$rule->layer->title} = 1;
+        push @{$data{$rule->plan->title}{$rule->use->title}{$rule->layer->title}}, [li => $li];
     }
     my @li;
-    for my $plan (sort keys %data) {
-        my @l;
-        for my $use (sort keys %{$data{$plan}}) {
-            my @l2;
-            for my $layer (sort keys %{$data{$plan}{$use}}) {
-                push @l2, [li => [[b => $layer], [ol => \@{$data{$plan}{$use}{$layer}}]]];
+    if (keys %plans == 1 && keys %uses == 1 && keys %layers == 1) {
+        my $plan = (keys %plans)[0];
+        my $use = (keys %uses)[0];
+        my $layer = (keys %layers)[0];
+        push @li, [ol => \@{$data{$plan}{$use}{$layer}}];
+    } else {
+        for my $plan (sort keys %data) {
+            my @l;
+            for my $use (sort keys %{$data{$plan}}) {
+                my @l2;
+                for my $layer (sort keys %{$data{$plan}{$use}}) {
+                    push @l2, [li => [[b => $layer], [ol => \@{$data{$plan}{$use}{$layer}}]]];
+                }
+                push @l, [li => [[b => $use], [ul => \@l2]]];
             }
-            push @l, [li => [[b => $use], [ul => \@l2]]];
+            push @li, [li => [[b => $plan], [ul => \@l]]];
         }
-        push @li, [li => [[b => $plan], [ul => \@l]]];
     }
-    push @li, [li => a(link => 'add', url => $uri.'/new')] if $edit;
+    push @li, [li => a(link => 'add rule', url => $arg{uri}.'/new')] if $arg{edit};
     return [ul => \@li];
 }
 

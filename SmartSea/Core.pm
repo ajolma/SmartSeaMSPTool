@@ -32,6 +32,9 @@ sub common_responses {
     if ($env->{REQUEST_METHOD} eq 'OPTIONS') {
         return [ 200, [%header], [] ];
     }
+    # deny unauthenticated use over https:
+    return http_status(\%header, 403) 
+        if $env->{HTTP_X_REAL_PROTOCOL} && $env->{HTTP_X_REAL_PROTOCOL} eq 'https' && !$env->{REMOTE_USER};
     return undef;
 }
 

@@ -13,17 +13,17 @@ __PACKAGE__->has_many(plan2use => 'SmartSea::Schema::Result::Plan2Use', 'plan');
 __PACKAGE__->many_to_many(uses => 'plan2use', 'use');
 
 sub HTML_list {
-    my (undef, $objs, $uri, $edit) = @_;
+    my (undef, $objs, %arg) = @_;
     my %data;
     my %li;
     for my $plan (@$objs) {
         my $p = $plan->title;
-        $li{plan}{$p} = item([b => $p], $plan->id, $uri, $edit, 'this plan');
+        $li{plan}{$p} = item([b => $p], $plan->id, %arg, ref => 'this plan');
         for my $use ($plan->uses) {
             my $u = $use->title;
             $data{$p}{$u} = 1;
             my $id = $plan->id.'/'.$use->id;
-            $li{$p}{$u} = item($u, $id, $uri, $edit, 'this use from this plan');
+            $li{$p}{$u} = item($u, $id, %arg, action => 'None', ref => 'this use from this plan');
         }
     }
     my @li;
@@ -36,13 +36,14 @@ sub HTML_list {
         push @item, [ul => \@l] if @l;
         push @li, [li => \@item];
     }
-    push @li, [li => a(link => 'add plan', url => $uri.'/new')] if $edit;
+    my $action = $arg{action} eq 'Delete' ? 'create' : 'add';
+    push @li, [li => a(link => "$action plan", url => $arg{uri}.'/new')] if $arg{edit};
     return [ul => \@li];
 }
 
 sub HTML_div {
-    my ($self, $attributes, $config, $oids) = @_;
-    my @l = ([li => 'Plan']);
+    my ($self, $attributes, $oids, %arg) = @_;
+    my @l = ([li => [b => 'Plan']]);
     for my $a (qw/id title/) {
         my $v = $self->$a // '';
         if (ref $v) {
@@ -57,26 +58,28 @@ sub HTML_div {
     }
     my @div = ([ul => \@l]);
     my $associated_class = 'SmartSea::Schema::Result::Use';
+    $arg{action} = 'Remove';
     if (@$oids) {
         my $oid = shift @$oids;
         if (not defined $oid) {
             push @div, $associated_class->HTML_list([$self->uses]);
             push @div, [div => 'add here a form for adding an existing use into this plan'];
         } else {
-            push @div, $self->uses->single({'use.id' => $oid})->HTML_div({}, $config, $oids);
+            $arg{context} = $self;
+            push @div, $self->uses->single({'use.id' => $oid})->HTML_div({}, $oids, %arg);
         }
     } else {
-        push @div, $associated_class->HTML_list([$self->uses], $config->{uri}, $config->{edit});
+        push @div, $associated_class->HTML_list([$self->uses], %arg);
     }
     return [div => $attributes, @div];
 }
 
 sub HTML_form {
-    my ($self, $attributes, $config, $values, $oids) = @_;
+    my ($self, $attributes, $values, $oids, %arg) = @_;
 
     if (@$oids) {
         my $oid = shift @$oids;
-        return $self->uses->single({'use.id' => $oid})->HTML_form($attributes, $config, undef, $oids);
+        return $self->uses->single({'use.id' => $oid})->HTML_form($attributes, undef, $oids, %arg);
     }
 
     my @form;

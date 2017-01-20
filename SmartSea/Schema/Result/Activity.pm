@@ -15,19 +15,20 @@ __PACKAGE__->has_many(use2activity => 'SmartSea::Schema::Result::Use2Activity', 
 __PACKAGE__->many_to_many(activities => 'use2activity', 'activity');
 
 sub HTML_list {
-    my (undef, $objs, $uri, $edit) = @_;
+    my (undef, $objs, %arg) = @_;
+    my ($uri, $edit) = ($arg{uri}, $arg{edit});
     my %data;
     my %li;
     for my $act (@$objs) {
         my $a = $act->title;
-        $li{act}{$a} = item([b => $a], $act->id, $uri, $edit, 'this activity');
+        $li{act}{$a} = item([b => $a], $act->id, %arg, ref => 'this activity');
         my @refs = $act->activity2pressure;
         for my $ref (@refs) {
             my $pressure = $ref->pressure;
             my $p = $pressure->title;
             $data{$a}{$p} = 1;
             my $id = $act->id.'/'.$pressure->id;
-            $li{$a}{$p} = item($p, $id, $uri, $edit, 'this pressure from this activity');
+            $li{$a}{$p} = item($p, $id, %arg, ref => 'this pressure from this activity');
         }
     }
     my @li;
@@ -40,12 +41,15 @@ sub HTML_list {
         push @item, [ul => \@l] if @l;
         push @li, [li => \@item];
     }
-    push @li, [li => a(link => 'add activity', url => $uri.'/new')] if $edit;
-    return [ul => \@li];
+    push @li, [li => a(link => 'add activity', url => $uri.'/activity:new')] if $edit;
+    my $ret = [ul => \@li];
+    return [ ul => [ [li => 'Activities'], $ret ]] if $arg{named_list};
+    return [ li => [ [0 => 'Activities'], $ret ]] if $arg{named_item};
+    return $ret;
 }
 
 sub HTML_div {
-    my ($self, $attributes, $config, $oids) = @_;
+    my ($self, $attributes, $oids, %arg) = @_;
     my @l = ([li => 'Activity']);
     for my $a (qw/id title/) {
         my $v = $self->$a // '';
@@ -64,19 +68,20 @@ sub HTML_div {
     if (@$oids) {
         my $oid = shift @$oids;
         if (not defined $oid) {
-            push @div, $associated_class->HTML_list([$self->pressures], undef, undef, $self);
+            push @div, $associated_class->HTML_list([$self->pressures], %arg, context => $self);
             push @div, [div => 'add here a form for adding an existing pressure into this activity'];
         } else {
-            push @div, $self->pressures->single({'pressure.id' => $oid})->HTML_div({}, $config, $oids, $self);
+            push @div, $self->pressures->single({'pressure.id' => $oid})->HTML_div({}, $oids, %arg);
         }
     } else {
-        push @div, $associated_class->HTML_list([$self->pressures], $config->{uri}, $config->{edit}, $self);
+        $arg{context} = $self;
+        push @div, $associated_class->HTML_list([$self->pressures], %arg);
     }
     return [div => $attributes, @div];
 }
 
 sub HTML_form {
-    my ($self, $attributes, $config, $values) = @_;
+    my ($self, $attributes, $values, %arg) = @_;
 
     my @form;
 

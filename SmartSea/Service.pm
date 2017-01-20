@@ -29,6 +29,7 @@ sub call {
     my ($self, $env) = @_;
     my $ret = common_responses({}, $env);
     return $ret if $ret;
+    $self->{edit} = 1 if $env->{REMOTE_USER} && $env->{REMOTE_USER} eq 'ajolma';
     my $request = Plack::Request->new($env);
     my $cookies = $request->cookies;
     for my $cookie (sort keys %$cookies) {
@@ -58,6 +59,7 @@ sub call {
         for ($c) {
             return $self->object_editor($class.'Plan', $r, {}) if /plans/;
             return $self->object_editor($class.'Use', $r, {}) if /uses/;
+            return $self->object_editor($class.'Layer', $r, {}) if /layers/;
             return $self->object_editor($class.'Activity', $r, {}) if /activities/;
             return $self->object_editor($class.'EcosystemComponent', $r, {}) if /ecosystem_components/;
             return $self->object_editor($class.'Rule', $r, 
@@ -89,6 +91,7 @@ sub call {
         [ul => [
              [li => a(link => 'plans', url => $uri.'browser/plans')],
              [li => a(link => 'uses', url => $uri.'browser/uses')],
+             [li => a(link => 'layers', url => $uri.'browser/layers')],
              [li => a(link => 'activities', url => $uri.'browser/activities')],
              [li => a(link => 'activity -> pressure links', url  => $uri.'browser/activity2pressure')],
              [li => a(link => 'ecosystem components', url => $uri.'browser/ecosystem_components')],
@@ -247,12 +250,12 @@ sub object_editor {
     
     $oids =~ s/\?.*//;
     my @oids = split /\//, $oids;
-    for (@oids) {
-        ($_) = $_ =~ /(\d+)/;
-    }
+    #for (@oids) {
+    #    ($_) = $_ =~ /(\d+)/;
+    #}
     shift @oids;
     my $oid = shift(@oids) // '';
-    say STDERR "$uri, $oids (@oids), $oid";
+    say STDERR "$uri, class=$class, $oids (@oids), $oid";
     
     $config->{delete} //= 'Delete';
     $config->{store} //= 'Store';
@@ -261,7 +264,6 @@ sub object_editor {
         say STDERR "$p => $self->{parameters}{$p}";
         if ($p eq 'submit') {
             $request = $self->{parameters}{$p};
-            next;
         }
         $parameters{$p} = decode utf8 => $self->{parameters}{$p};
         if ($parameters{$p} eq $config->{delete}) {
@@ -286,12 +288,18 @@ sub object_editor {
     delete $parameters{id};
     say STDERR "request = $request, oid = $oid";
 
+    my %arg;
+    for my $key (qw/uri schema edit dbname user pass data_path/) {
+        $arg{$key} = $self->{$key};
+    }
+    $arg{parameters} = \%parameters;
+
     my %primary_columns = map {$_ => 1} $class->primary_columns;
 
     my $type = $parameters{type} // 'html';
     my @body; # a list of elements
     my $obj;
-    if ($oid) {
+    if ($oid =~ /^\d+$/) {
         my $pk = { id => $oid };
         $pk->{cookie} = DEFAULT if $primary_columns{cookie};
         eval {
@@ -300,6 +308,7 @@ sub object_editor {
         push @body, [p => "Error: $@"] if $@;
     }
     if ($obj) {
+        say STDERR "got obj";
         if ($request eq $config->{delete} and $self->{edit}) {
             if (@oids) {
                 push @body, [p => "Request to delete an associated object declined for now. Sorry."];
@@ -337,22 +346,23 @@ sub object_editor {
             if ($@ or not $obj) {
                 push @body, (
                     [p => 'Error: '.$@],
-                    $obj->HTML_form({ action => $uri, method => 'POST' }, $self, \%parameters)
+                    $obj->HTML_form({ action => $uri, method => 'POST' }, \%parameters, [], %arg)
                 );
                 return html200({}, SmartSea::HTML->new($type => [body => \@body])->html);
             }
         } elsif ($request eq 'edit' and $self->{edit}) {
             $uri =~ s/\?edit$//;
-            push @body, $obj->HTML_form({ action => $uri, method => 'POST' }, $self, {}, \@oids);
+            push @body, $obj->HTML_form({ action => $uri, method => 'POST' }, {}, \@oids, %arg);
             return html200({}, SmartSea::HTML->new($type => [body => \@body])->html);
         } else {
-            push @body, $obj->HTML_div({}, $self, \@oids);
+            # todo: wrap to form if edit
+            push @body, $obj->HTML_div({}, \@oids, %arg);
             push @body, a(link => 'up', url => $uri);
             return html200({}, SmartSea::HTML->new($type => [body => \@body])->html);
         }
     } else {
         if ($request eq 'new' and $self->{edit}) {
-            push @body, $class->HTML_form({ action => $uri, method => 'POST' }, $self, \%parameters);
+            push @body, $class->HTML_form({ action => $uri, method => 'POST' }, \%parameters, [], %arg);
             return html200({}, SmartSea::HTML->new($type => [body => \@body])->html);
         } elsif ($request eq $config->{store} and $self->{edit}) {
             eval {
@@ -361,7 +371,7 @@ sub object_editor {
             if ($@ or not $obj) {
                 push @body, (
                     [p => 'Error: '.$@],
-                    $class->HTML_form({ action => $uri, method => 'POST' }, $self, \%parameters)
+                    $class->HTML_form({ action => $uri, method => 'POST' }, \%parameters, [], %arg)
                 );
                 return html200({}, SmartSea::HTML->new($type => [body => \@body])->html);
             }
@@ -373,7 +383,7 @@ sub object_editor {
     } else {
         $objs = [$rs->search({cookie => 'default'})]
     }
-    my $list = $class->HTML_list($objs, $uri, $self->{edit});
+    my $list = $class->HTML_list($objs, %arg, action => 'Delete');
     $list = [form => { action => $uri, method => 'POST' }, $list] if $self->{edit};
     push @body, $list;
     $uri =~ s/\/\w+$//;
