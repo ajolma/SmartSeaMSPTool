@@ -10,24 +10,7 @@ use SmartSea::Core qw(:all);
 use SmartSea::HTML qw(:all);
 use SmartSea::Rules;
 
-__PACKAGE__->belongs_to(plan2use2layer => 'SmartSea::Schema::Result::Plan2Use2Layer');
-
 my %attributes = (
-    plan => {
-        i => 1,
-        type => 'lookup',
-        class => 'Plan'
-    },
-    use => {
-        i => 2,
-        type => 'lookup',
-        class => 'Use'
-    },
-    layer => {
-        i => 3,
-        type => 'lookup',
-        class => 'Layer'
-    },
     reduce => {
         i => 4,
         type => 'checkbox',
@@ -107,18 +90,10 @@ my %attributes = (
 # suitability = multiply_all(w_r_1 ... w_r_n)
 
 __PACKAGE__->table('tool.rules');
-__PACKAGE__->add_columns('id', 'cookie', 'made', keys %attributes);
+__PACKAGE__->add_columns('id', 'cookie', 'made', 'plan2use2layer', keys %attributes);
 __PACKAGE__->set_primary_key('id', 'cookie');
 
-# determines whether an area is allocated to a use in a plan
-__PACKAGE__->belongs_to(plan => 'SmartSea::Schema::Result::Plan');
-__PACKAGE__->belongs_to(use => 'SmartSea::Schema::Result::Use');
-__PACKAGE__->belongs_to(layer => 'SmartSea::Schema::Result::Layer');
-
-# by default the area is allocated to the use
-# if reduce is true, the rule disallocates
-# rule consists of an use, layer type, plan (optional, default is this plan)
-# operator (optional), value (optional)
+__PACKAGE__->belongs_to(plan2use2layer => 'SmartSea::Schema::Result::Plan2Use2Layer');
 
 __PACKAGE__->belongs_to(r_plan => 'SmartSea::Schema::Result::Plan');
 __PACKAGE__->belongs_to(r_use => 'SmartSea::Schema::Result::Use');
@@ -144,7 +119,7 @@ sub values {
 
 sub as_text {
     my ($self, %arg) = @_;
-    return $self->r_dataset ? $self->r_dataset->long_name : 'error' if $self->layer->id == 1;
+    return $self->r_dataset ? $self->r_dataset->long_name : 'error' if $self->plan2use2layer->layer->id == 1;
     my $text;
     $text = $self->reduce ? "- If " : "+ If ";
     my $u = '';
@@ -222,11 +197,6 @@ sub HTML_form {
     my $widgets = widgets(\%attributes, $values, $arg{schema});
 
     push (@form,
-          [ p => [b => 'This Rule is for'] ],
-          [ p => [[1 => 'Plan: '],$widgets->{plan}] ],
-          [ p => [[1 => 'Use: '],$widgets->{use}] ],
-          [ p => [[1 => 'Layer: '],$widgets->{layer}] ],
-          ['hr'],
           [ p => 'Spatial dataset for this Rule:' ],
           [ p => [[1 => 'plan: '],$widgets->{r_plan}] ],
           [ p => [[1 => 'use: '],$widgets->{r_use}] ],
@@ -258,17 +228,22 @@ sub HTML_list {
     my %layers;
     for my $rule (sort {$a->my_index <=> $b->my_index} @$objs) {
         my $li = item($rule->as_text(include_value => 1)." (".$rule->my_index.")", $rule->id, %arg, ref => 'this rule');
-        $plans{$rule->plan->title} = 1;
-        $uses{$rule->use->title} = 1;
-        $layers{$rule->layer->title} = 1;
-        push @{$data{$rule->plan->title}{$rule->use->title}{$rule->layer->title}}, [li => $li];
+        my $plan2use2layer = $rule->plan2use2layer;
+        my $plan2use = $plan2use2layer->plan2use;
+        my $plan = $plan2use->plan;
+        my $use = $plan2use->use;
+        my $layer = $plan2use2layer->layer;
+        $plans{$plan->title} = 1;
+        $uses{$use->title} = 1;
+        $layers{$layer->title} = 1;
+        push @{$data{$plan->title}{$use->title}{$layer->title}}, [li => $li];
     }
     my @li;
     if (keys %plans == 1 && keys %uses == 1 && keys %layers == 1) {
         my $plan = (keys %plans)[0];
         my $use = (keys %uses)[0];
         my $layer = (keys %layers)[0];
-        push @li, [ol => \@{$data{$plan}{$use}{$layer}}];
+        push @li, [li => [0 => 'Rules:'],[ol => \@{$data{$plan}{$use}{$layer}}]];
     } else {
         for my $plan (sort keys %data) {
             my @l;

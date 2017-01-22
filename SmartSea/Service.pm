@@ -246,6 +246,7 @@ sub object_editor {
     $config->{remove} //= 'Remove';
     $config->{store} //= 'Store';
     $config->{modify} //= 'Modify';
+    $config->{update} //= 'Update';
     $config->{defaults} //= {};
     $config->{empty_is_null} //= [];
 

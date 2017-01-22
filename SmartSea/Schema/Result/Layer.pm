@@ -78,9 +78,19 @@ sub HTML_div {
             resultset('Plan2Use2Layer')->
             single({plan2use => $arg{plan2use}, layer => $self->id});
         my @rules = $pul->rules->search({'me.cookie' => DEFAULT});
-        say STDERR "n rules = ",scalar(@rules);
         $arg{pul} = $pul->id;
-        push @div, SmartSea::Schema::Result::Rule->HTML_list(\@rules, %arg);
+        my $list = SmartSea::Schema::Result::Rule->HTML_list(\@rules, %arg);
+        my $rule_class = $pul->rule_class;
+        my @list;
+        push @list, (
+            [0 => "Rules are applied "], 
+            drop_down(name => 'rule_class',
+                      objs => [$arg{schema}->
+                               resultset('RuleClass')->all], 
+                      selected => $rule_class->id),
+            button(value => 'Update', name => 'pul')) if $rule_class;
+        push @list, $list;
+        push @div, [ul => [li => @list]];
     }
 
     return [div => $attributes, @div];
