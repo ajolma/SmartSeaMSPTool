@@ -13,9 +13,6 @@ __PACKAGE__->set_primary_key('id');
 __PACKAGE__->has_many(plan2use => 'SmartSea::Schema::Result::Plan2Use', 'use');
 __PACKAGE__->many_to_many(plans => 'plan2use', 'plan');
 
-__PACKAGE__->has_many(use2layer => 'SmartSea::Schema::Result::Use2Layer', 'use');
-__PACKAGE__->many_to_many(layers => 'use2layer', 'layer');
-
 __PACKAGE__->has_many(use2activity => 'SmartSea::Schema::Result::Use2Activity', 'use');
 __PACKAGE__->many_to_many(activities => 'use2activity', 'activity');
 
@@ -23,15 +20,19 @@ __PACKAGE__->belongs_to(current_allocation => 'SmartSea::Schema::Result::Dataset
 
 sub HTML_list {
     my (undef, $objs, %arg) = @_;
-    my ($uri, $edit, $context) = ($arg{uri}, $arg{edit}, $arg{context});
     my %li;
     for my $use (@$objs) {
         my $u = $use->title;
         $li{$u}{0} = item([b => $u], $use->id, %arg, ref => 'this use');
-        for my $layer ($use->layers) {
-            my $a = $layer->title;
-            my $id = $use->id.'/layer:'.$layer->id;
-            $li{$u}{layer}{$a} = item($a, $id, %arg, action => 'None', ref => 'this layer from this use');
+        if ($arg{plan}) {
+            my $plan2use = $arg{schema}->
+                resultset('Plan2Use')->
+                single({plan => $arg{plan}, use => $use->id});
+            for my $layer ($plan2use->layers) {
+                my $a = $layer->title;
+                my $id = $use->id.'/layer:'.$layer->id;
+                $li{$u}{layer}{$a} = item($a, $id, %arg, action => 'None', ref => 'this layer from this plan+use');
+            }
         }
         for my $activity ($use->activities) {
             my $a = $activity->title;
@@ -59,7 +60,7 @@ sub HTML_list {
         push @li, [li => \@item];
     }
     my $action = $arg{action} eq 'Delete' ? 'create' : 'add';
-    push @li, [li => a(link => "$action use", url => $uri.'/new')] if $edit;
+    push @li, [li => a(link => "$action use", url => $arg{uri}.'/new')] if $arg{edit};
     return [ul => \@li];
 }
 
@@ -82,46 +83,60 @@ sub HTML_div {
     $arg{action} = 'Remove';
     if (@$oids) {
         my $oid = shift @$oids;
-        my $new = $oid =~ /new/;
-        $oid =~ s/new//;
         if ($oid =~ /layer/) {
             $oid =~ s/layer://;
-            if ($new) {
-                push @div, SmartSea::Schema::Result::Layer->HTML_list([$self->layers], %arg, named_list => 1);
-                my %layers = SmartSea::Schema::Result::Layer->hash($arg{schema});
-                my @form = (
-                    [0 => 'Select a layer type and press Add'],['br'],
-                    [input => {type => 'hidden', name => 'use', value => $self->id}],
-                    drop_down(name => 'layer', 
-                              values => [sort {$layers{$a} cmp $layers{$b}} keys %layers], 
-                              visuals => \%layers),['br'],
-                    button(value => 'Add')
-                    );
-                my $uri = $arg{uri};
-                $uri =~ s/\/layer:new//;
-                push @div, [form => { action => $uri, method => 'POST' }, \@form];
-            } else {
-                $arg{context} = $arg{context} ? [$arg{context}, $self] : $self;
-                push @div, $self->layers->single({'layer.id' => $oid})->HTML_div({}, $oids, %arg);
+            if ($arg{plan}) {
+                my $plan2use = $arg{schema}->
+                    resultset('Plan2Use')->
+                    single({plan => $arg{plan}, use => $self->id});
+                $arg{plan2use} = $plan2use->id;
+                push @div, $plan2use->layers->single({'layer.id' => $oid})->HTML_div({}, $oids, %arg);
             }
         } elsif ($oid =~ /activity/) {
             $oid =~ s/activity://;
-            if ($new) {
-                push @div, SmartSea::Schema::Result::Activity->HTML_list([$self->activities], %arg, named_list => 1);
-                push @div, [div => 'add here a form for adding an existing activity into this use'];
-            } else {
-                push @div, $self->activities->single({'activity.id' => $oid})->HTML_div({}, $oids, %arg);
-            }
+            push @div, $self->activities->single({'activity.id' => $oid})->HTML_div({}, $oids, %arg);
         }
     } else {
-        if ($arg{parameters}{submit} && $arg{parameters}{submit} eq 'Add') {
-            my $layer = $arg{schema}->resultset('Layer')->single({ id => $arg{parameters}{layer} });
-            $self->add_to_layers($layer);
+        # parameters for remove request: remove => layer:n
+        # parameters for add request: layer => n
+        if ($arg{parameters}{request} eq 'add') {
+            if ($arg{parameters}{add} eq 'layer') {
+                if ($arg{plan}) {
+                    my $plan2use = $arg{schema}->
+                        resultset('Plan2Use')->
+                        single({plan => $arg{plan}, use => $self->id});
+                    my $layer = $arg{schema}->resultset('Layer')->single({ id => $arg{parameters}{layer} });
+                    $plan2use->add_to_layers($layer);
+                }
+            } elsif ($arg{parameters}{add} eq 'activity') {
+                my $activity = $arg{schema}->resultset('Activity')->single({ id => $arg{parameters}{activity} });
+                $self->add_to_activities($activity);
+            }
+        } elsif ($arg{parameters}{request} eq 'remove') {
+            my $remove = $arg{parameters}{remove};
+            if ($remove =~ /layer/) {
+                $remove =~ s/layer://;
+                if ($arg{plan}) {
+                    my $plan2use = $arg{schema}->
+                        resultset('Plan2Use')->
+                        single({plan => $arg{plan}, use => $self->id});
+                    my $layer = $arg{schema}->resultset('Layer')->single({ id => $remove });
+                    $plan2use->remove_from_layers($layer);
+                }
+            } elsif ($remove =~ /activity/) {
+                $remove =~ s/activity://;
+                my $activity = $arg{schema}->resultset('Activity')->single({ id => $remove });
+                $self->remove_from_activities($activity);
+            }
         }
-        my @ul = (
-            SmartSea::Schema::Result::Layer->HTML_list([$self->layers], %arg, named_item => 1),
-            SmartSea::Schema::Result::Activity->HTML_list([$self->activities], %arg, named_item => 1)
-        );
+        my @ul;
+        if ($arg{plan}) {
+            my $plan2use = $arg{schema}->
+                resultset('Plan2Use')->
+                single({plan => $arg{plan}, use => $self->id});
+            push @ul, SmartSea::Schema::Result::Layer->HTML_list([$plan2use->layers], %arg, named_item => 1);
+        }
+        push @ul, SmartSea::Schema::Result::Activity->HTML_list([$self->activities], %arg, named_item => 1);
         push @div, [ul => \@ul];
     }
     return [div => $attributes, @div];

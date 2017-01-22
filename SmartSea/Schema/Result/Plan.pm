@@ -65,11 +65,10 @@ sub HTML_div {
             push @div, $associated_class->HTML_list([$self->uses]);
             push @div, [div => 'add here a form for adding an existing use into this plan'];
         } else {
-            $arg{context} = $self;
-            push @div, $self->uses->single({'use.id' => $oid})->HTML_div({}, $oids, %arg);
+            push @div, $self->uses->single({'use.id' => $oid})->HTML_div({}, $oids, %arg, plan => $self->id);
         }
     } else {
-        push @div, $associated_class->HTML_list([$self->uses], %arg);
+        push @div, $associated_class->HTML_list([$self->uses], %arg, plan => $self->id);
     }
     return [div => $attributes, @div];
 }

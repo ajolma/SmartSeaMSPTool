@@ -9,25 +9,18 @@ use SmartSea::HTML qw(:all);
 __PACKAGE__->table('tool.layers');
 __PACKAGE__->add_columns(qw/ id title /);
 __PACKAGE__->set_primary_key('id');
-__PACKAGE__->has_many(use2layer => 'SmartSea::Schema::Result::Use2Layer', 'layer');
-__PACKAGE__->many_to_many(uses => 'use2layer', 'use');
-
-sub hash {
-    my (undef, $schema) = @_;
-    my %layers;
-    for my $l ($schema->resultset('Layer')->all) {
-        $layers{$l->id} = $l->title;
-    }
-    return %layers;
-}
+__PACKAGE__->has_many(plan2use2layer => 'SmartSea::Schema::Result::Plan2Use2Layer', 'layer');
+__PACKAGE__->many_to_many(plan2uses => 'plan2use2layer', 'plan2use');
 
 sub HTML_list {
     my (undef, $objs, %arg) = @_;
-    my ($uri, $edit) = ($arg{uri}, $arg{edit});
     my %li;
+    my %has;
     for my $layer (@$objs) {
         my $u = $layer->title;
-        $li{$u}{0} = item([b => $u], "layer:".$layer->id, %arg, ref => 'this layer');
+        my $id = $layer->id;
+        $has{$id} = 1;
+        $li{$u}{0} = item([b => $u], "layer:$id", %arg, ref => 'this layer');
     }
     my @li;
     for my $use (sort keys %li) {
@@ -40,7 +33,19 @@ sub HTML_list {
         push @item, [ul => \@l] if @l;
         push @li, [li => \@item];
     }
-    push @li, [li => a(link => 'add layer', url => $uri.'/layer:new')] if $edit;
+
+    if ($arg{edit}) {
+        my @objs;
+        for my $obj ($arg{schema}->resultset('Layer')->all) {
+            next if $has{$obj->id};
+            push @objs, $obj;
+        }
+        if (@objs) {
+            my $drop_down = drop_down(name => 'layer', objs => \@objs);
+            push @li, [li => [$drop_down, [0 => ' '], button(value => 'Add', name => 'layer')]];
+        }
+    }
+
     my $ret = [ul => \@li];
     return [ ul => [ [li => 'Layers'], $ret ]] if $arg{named_list};
     return [ li => [ [0 => 'Layers'], $ret ]] if $arg{named_item};
@@ -65,24 +70,17 @@ sub HTML_div {
 
     my @div = ([ul => \@l]);
     
-    # todo: add rules if context = [plan, use]
-    if (ref $arg{context} eq 'ARRAY' &&
-        ref $arg{context}[0] eq 'SmartSea::Schema::Result::Plan' &&
-        ref $arg{context}[1] eq 'SmartSea::Schema::Result::Use') 
-    {
-        if (@$oids) {
-            my $oid = shift @$oids;
-            push @div, $arg{schema}->resultset('Rule')->single({id => $oid})->HTML_div({}, $oids, %arg);
-        } else {
-            my @rules = $arg{schema}->resultset('Rule')->search(
-                {-and => [
-                      plan => $arg{context}[0]->id,
-                      use => $arg{context}[1]->id,
-                      layer => $self->id,
-                      cookie => DEFAULT
-                     ]});
-            push @div, SmartSea::Schema::Result::Rule->HTML_list(\@rules, %arg);
-        }
+    if (@$oids) {
+        my $oid = shift @$oids;
+        push @div, $arg{schema}->resultset('Rule')->single({id => $oid})->HTML_div({}, $oids, %arg);
+    } elsif ($arg{plan2use}) {
+        my $pul = $arg{schema}->
+            resultset('Plan2Use2Layer')->
+            single({plan2use => $arg{plan2use}, layer => $self->id});
+        my @rules = $pul->rules->search({'me.cookie' => DEFAULT});
+        say STDERR "n rules = ",scalar(@rules);
+        $arg{pul} = $pul->id;
+        push @div, SmartSea::Schema::Result::Rule->HTML_list(\@rules, %arg);
     }
 
     return [div => $attributes, @div];

@@ -239,65 +239,72 @@ sub object_editor {
     #         empty_is_null => parameters will be converted to undef if empty strings
     #         defaults => parameters will be set to the value unless in self->parameters
     # 'NULL' parameters will be converted to undef, 
+
+    $config->{create} //= 'Create';
+    $config->{add} //= 'Add';
+    $config->{delete} //= 'Delete';
+    $config->{remove} //= 'Remove';
+    $config->{store} //= 'Store';
+    $config->{modify} //= 'Modify';
     $config->{defaults} //= {};
     $config->{empty_is_null} //= [];
 
-    my ($get) = $oids =~ /\?(.*)/;
-    my ($request) = $oids =~ /([a-z]+)$/;
+    my %parameters; # <request> => what, key => value
+    ($parameters{request}) = $oids =~ /([a-z]+)$/ // '';
 
     my $uri = $self->{uri};
     $uri =~ s/$oids$//;
     
     $oids =~ s/\?.*//;
     my @oids = split /\//, $oids;
-    #for (@oids) {
-    #    ($_) = $_ =~ /(\d+)/;
-    #}
     shift @oids;
     my $oid = shift(@oids) // '';
-    say STDERR "$uri, class=$class, $oids (@oids), $oid";
     
-    $config->{delete} //= 'Delete';
-    $config->{store} //= 'Store';
-    my %parameters;
-    for my $p (sort $self->{parameters}->keys) {
-        say STDERR "$p => $self->{parameters}{$p}";
-        if ($p eq 'submit') {
-            $request = $self->{parameters}{$p};
+    # $self->{parameters} is a multivalue hash
+    # we may have both object => command and object => id
+    for my $key (sort keys %{$self->{parameters}}) {
+        for my $value ($self->{parameters}->get_all($key)) {
+            $value = decode utf8 => $value;
+            my $done = 0;
+            for my $request (keys %$config) {
+                if ($value eq $config->{$request}) {
+                    $parameters{request} = $request;
+                    $parameters{$request} = $key;
+                    $done = 1;
+                    last;
+                }
+            }
+            next if $done;
+            if ($value eq 'NULL') {
+                $parameters{$key} = undef;
+            } else {
+                $parameters{$key} = $value;
+            }
         }
-        $parameters{$p} = decode utf8 => $self->{parameters}{$p};
-        if ($parameters{$p} eq $config->{delete}) {
-            $request = $parameters{$p};
-            @oids = split /\//, $p;
-            $oid = shift(@oids);
-            last;
-        }
-        $parameters{$p} = undef if $parameters{$p} eq 'NULL';
     }
     for my $col (@{$config->{empty_is_null}}) {
         $parameters{$col} = undef if exists $parameters{$col} && $parameters{$col} eq '';
     }
     for my $col (keys %{$config->{defaults}}) {
-        $parameters{$col} = $config->{defaults}{$col} unless defined $parameters{$col};
+        $parameters{$col} //= $config->{defaults}{$col};
     }
 
-    my $rs = $self->{schema}->resultset($class =~ /(\w+)$/);
-
     $oid ||= $parameters{id} //= '';
-    $request //= '';
     delete $parameters{id};
-    say STDERR "request = $request, oid = $oid";
 
-    my %arg;
+    say STDERR "class=$class, oids=$oids (@oids), oid=$oid";
+    for my $p (sort keys %parameters) {
+        say STDERR "$p => $parameters{$p}";
+    }
+
+    my %arg = (parameters => \%parameters);
     for my $key (qw/uri schema edit dbname user pass data_path/) {
         $arg{$key} = $self->{$key};
     }
-    $arg{parameters} = \%parameters;
 
     my %primary_columns = map {$_ => 1} $class->primary_columns;
-
-    my $type = $parameters{type} // 'html';
-    my @body; # a list of elements
+    my $rs = $self->{schema}->resultset($class =~ /(\w+)$/);
+    my @body;
     my $obj;
     if ($oid =~ /^\d+$/) {
         my $pk = { id => $oid };
@@ -308,8 +315,8 @@ sub object_editor {
         push @body, [p => "Error: $@"] if $@;
     }
     if ($obj) {
-        say STDERR "got obj";
-        if ($request eq $config->{delete} and $self->{edit}) {
+        say STDERR "obj = $obj";
+        if ($parameters{request} eq 'delete' and $self->{edit}) {
             if (@oids) {
                 push @body, [p => "Request to delete an associated object declined for now. Sorry."];
             } else {
@@ -320,7 +327,7 @@ sub object_editor {
                     push @body, [p => 'Error: '.$@];
                 }
             }
-        } elsif ($request eq 'Modify') {
+        } elsif ($parameters{request} eq 'modify') {
             # to make jQuery happy:
             my $header = { 'Access-Control-Allow-Origin' => $self->{origin},
                            'Access-Control-Allow-Credentials' => 'true' };
@@ -339,7 +346,7 @@ sub object_editor {
             say STDERR "error: $@" if $@;
             return http_status($header, 500) if $@;
             return json200($header, {object => $obj->as_hashref_for_json});
-        } elsif ($request eq $config->{store} and $self->{edit}) {
+        } elsif ($parameters{request} eq 'store' and $self->{edit}) {
             eval {
                 $obj->update(\%parameters);
             };
@@ -348,23 +355,25 @@ sub object_editor {
                     [p => 'Error: '.$@],
                     $obj->HTML_form({ action => $uri, method => 'POST' }, \%parameters, [], %arg)
                 );
-                return html200({}, SmartSea::HTML->new($type => [body => \@body])->html);
+                return html200({}, SmartSea::HTML->new(html => [body => \@body])->html);
             }
-        } elsif ($request eq 'edit' and $self->{edit}) {
+        } elsif ($parameters{request} eq 'edit' and $self->{edit}) {
             $uri =~ s/\?edit$//;
             push @body, $obj->HTML_form({ action => $uri, method => 'POST' }, {}, \@oids, %arg);
-            return html200({}, SmartSea::HTML->new($type => [body => \@body])->html);
+            return html200({}, SmartSea::HTML->new(html => [body => \@body])->html);
         } else {
             # todo: wrap to form if edit
-            push @body, $obj->HTML_div({}, \@oids, %arg);
+            my $div = $obj->HTML_div({}, \@oids, %arg);
+            $div = [form => { action => $arg{uri}, method => 'POST' }, $div] if $arg{edit};
+            push @body, $div;
             push @body, a(link => 'up', url => $uri);
-            return html200({}, SmartSea::HTML->new($type => [body => \@body])->html);
+            return html200({}, SmartSea::HTML->new(html => [body => \@body])->html);
         }
     } else {
-        if ($request eq 'new' and $self->{edit}) {
+        if ($parameters{request} eq 'new' and $self->{edit}) {
             push @body, $class->HTML_form({ action => $uri, method => 'POST' }, \%parameters, [], %arg);
-            return html200({}, SmartSea::HTML->new($type => [body => \@body])->html);
-        } elsif ($request eq $config->{store} and $self->{edit}) {
+            return html200({}, SmartSea::HTML->new(html => [body => \@body])->html);
+        } elsif ($parameters{request} eq 'store' and $self->{edit}) {
             eval {
                 $obj = $rs->create(\%parameters);
             };
@@ -373,7 +382,7 @@ sub object_editor {
                     [p => 'Error: '.$@],
                     $class->HTML_form({ action => $uri, method => 'POST' }, \%parameters, [], %arg)
                 );
-                return html200({}, SmartSea::HTML->new($type => [body => \@body])->html);
+                return html200({}, SmartSea::HTML->new(html => [body => \@body])->html);
             }
         }
     }
@@ -388,7 +397,7 @@ sub object_editor {
     push @body, $list;
     $uri =~ s/\/\w+$//;
     push @body, ([1 => ' '], a(link => 'up', url => $uri));
-    return html200({}, SmartSea::HTML->new($type => [body => \@body])->html);
+    return html200({}, SmartSea::HTML->new(html => [body => \@body])->html);
 }
 
 sub pressure_table {

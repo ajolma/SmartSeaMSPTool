@@ -19,9 +19,12 @@ sub HTML_list {
     my ($uri, $edit) = ($arg{uri}, $arg{edit});
     my %data;
     my %li;
+    my %has;
     for my $act (@$objs) {
         my $a = $act->title;
-        $li{act}{$a} = item([b => $a], $act->id, %arg, ref => 'this activity');
+        my $id = $act->id;
+        $has{$id} = 1;
+        $li{act}{$a} = item([b => $a], "activity:$id", %arg, ref => 'this activity');
         my @refs = $act->activity2pressure;
         for my $ref (@refs) {
             my $pressure = $ref->pressure;
@@ -41,7 +44,19 @@ sub HTML_list {
         push @item, [ul => \@l] if @l;
         push @li, [li => \@item];
     }
-    push @li, [li => a(link => 'add activity', url => $uri.'/activity:new')] if $edit;
+
+    if ($edit) {
+        my @objs;
+        for my $obj ($arg{schema}->resultset('Activity')->all) {
+            next if $has{$obj->id};
+            push @objs, $obj;
+        }
+        if (@objs) {
+            my $drop_down = drop_down(name => 'activity', objs => \@objs);
+            push @li, [li => [$drop_down, [0 => ' '], button(value => 'Add', name => 'activity')]];
+        }
+    }
+
     my $ret = [ul => \@li];
     return [ ul => [ [li => 'Activities'], $ret ]] if $arg{named_list};
     return [ li => [ [0 => 'Activities'], $ret ]] if $arg{named_item};
@@ -68,14 +83,13 @@ sub HTML_div {
     if (@$oids) {
         my $oid = shift @$oids;
         if (not defined $oid) {
-            push @div, $associated_class->HTML_list([$self->pressures], %arg, context => $self);
+            push @div, $associated_class->HTML_list([$self->pressures], %arg, activity => $self->id);
             push @div, [div => 'add here a form for adding an existing pressure into this activity'];
         } else {
             push @div, $self->pressures->single({'pressure.id' => $oid})->HTML_div({}, $oids, %arg);
         }
     } else {
-        $arg{context} = $self;
-        push @div, $associated_class->HTML_list([$self->pressures], %arg);
+        push @div, $associated_class->HTML_list([$self->pressures], %arg, activity => $self->id);
     }
     return [div => $attributes, @div];
 }

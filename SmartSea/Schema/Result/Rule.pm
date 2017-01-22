@@ -10,6 +10,8 @@ use SmartSea::Core qw(:all);
 use SmartSea::HTML qw(:all);
 use SmartSea::Rules;
 
+__PACKAGE__->belongs_to(plan2use2layer => 'SmartSea::Schema::Result::Plan2Use2Layer');
+
 my %attributes = (
     plan => {
         i => 1,
@@ -203,6 +205,7 @@ sub HTML_div {
 
 sub HTML_form {
     my ($self, $attributes, $values, $oids, %arg) = @_;
+    # todo: arg.fixed to render some attributes to unchangeable (mainly plan, use, layer
 
     my @form;
 
@@ -219,20 +222,27 @@ sub HTML_form {
     my $widgets = widgets(\%attributes, $values, $arg{schema});
 
     push (@form,
+          [ p => [b => 'This Rule is for'] ],
           [ p => [[1 => 'Plan: '],$widgets->{plan}] ],
           [ p => [[1 => 'Use: '],$widgets->{use}] ],
           [ p => [[1 => 'Layer: '],$widgets->{layer}] ],
-          [ p => $widgets->{reduce} ],
-          [ p => 'Layer in the rule:' ],
+          ['hr'],
+          [ p => 'Spatial dataset for this Rule:' ],
           [ p => [[1 => 'plan: '],$widgets->{r_plan}] ],
           [ p => [[1 => 'use: '],$widgets->{r_use}] ],
           [ p => [[1 => 'layer: '],$widgets->{r_layer}] ],
           [ p => 'or' ],
           [ p => [[1 => 'dataset: '],$widgets->{r_dataset}] ],
-          [ p => [[1 => 'Operator and value: '],$widgets->{op},$widgets->{value}] ],
-          [ p => [[1 => 'Range of value: '],$widgets->{min_value},[1 => '...'],$widgets->{max_value}] ],
-          [ p => [[1 => 'Index in this plan.use.layer: '],$widgets->{my_index}] ],
+          [ p => [[1 => 'Range of data values: '],$widgets->{min_value},[1 => '...'],$widgets->{max_value}] ],
+          ['hr'],[ p => 'If a part of a sequentially applied set of rules (output is binary).' ],
+          [ p => $widgets->{reduce} ],
+          [ p => [[1 => 'Operator and threshold value: '],$widgets->{op},$widgets->{value}] ],
+          [ p => [[1 => 'Index in sequence: '],$widgets->{my_index}] ],
           [ p => [[1 => 'Type of value: '],$widgets->{value_type}] ],
+          ['hr'],[ p => 'If a part of a weighted, multiplied set of rules (output is float).' ],
+          [ p => [[1 => 'Range of values: '],$widgets->{value_at_min},[1 => '...'],$widgets->{value_at_max}] ],
+          [ p => [[1 => 'Weigth: '],$widgets->{weight}] ],
+          ['hr'],
           button(value => "Store"),
           [1 => ' '],
           button(value => "Cancel")
