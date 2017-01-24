@@ -20,11 +20,11 @@ sub as_text {
 *title = *as_text;
 
 sub HTML_list {
-    my (undef, $objs, %arg) = @_;
-    my ($uri, $edit) = ($arg{uri}, $arg{edit});
+    my (undef, $objs, %args) = @_;
+    my ($uri, $edit) = ($args{uri}, $args{edit});
     my %data;
     for my $link (@$objs) {
-        my $li = item($link->pressure->title, $link->id, %arg, ref => 'this link');
+        my $li = item($link->pressure->title, $link->id, %args, ref => 'this link');
         push @{$data{$link->activity->title}}, [li => $li];
     }
     my @li;
@@ -36,7 +36,7 @@ sub HTML_list {
 }
 
 sub HTML_form {
-    my ($self, $attributes, $values, %arg) = @_;
+    my ($self, $attributes, $values, %args) = @_;
 
     my @form;
 
@@ -50,10 +50,10 @@ sub HTML_form {
     }
 
     my $activity = drop_down(name => 'activity', 
-                             objs => [$arg{schema}->resultset('Activity')->all], 
+                             objs => [$args{schema}->resultset('Activity')->all], 
                              selected => $values->{activity});
     my $pressure = drop_down(name => 'pressure', 
-                             objs => [$arg{schema}->resultset('Pressure')->all], 
+                             objs => [$args{schema}->resultset('Pressure')->all], 
                              selected => $values->{pressure});
 
     my $range = text_input(

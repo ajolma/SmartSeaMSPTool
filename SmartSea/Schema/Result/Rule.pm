@@ -13,71 +13,77 @@ use SmartSea::Rules;
 my %attributes = (
     reduce => {
         i => 4,
-        type => 'checkbox',
+        input => 'checkbox',
         cue => 'Rule removes allocation/value',
     },
     r_plan => {
         i => 5,
-        type => 'lookup',
+        input => 'lookup',
         class => 'Plan',
         allow_null => 1
     },
     r_use => {
         i => 6,
-        type => 'lookup',
+        input => 'lookup',
         class => 'Use',
         allow_null => 1
     },
     r_layer => {
         i => 7,
-        type => 'lookup',
+        input => 'lookup',
         class => 'Layer',
         allow_null => 1
     },
     r_dataset => {
         i => 8,
-        type => 'lookup',
+        input => 'lookup',
         class => 'Dataset',
         objs => {path => {'!=',undef}},
         allow_null => 1
     },
     op => {
         i => 9,
-        type => 'lookup',
+        input => 'lookup',
         class => 'Op',
         allow_null => 1
     },
     value => {
         i => 10,
-        type => 'text'
+        input => 'text',
+        type => 'double'
     },
     min_value => {
         i => 11,
-        type => 'text'
+        input => 'text',
+        type => 'double'
     },
     max_value => {
         i => 12,
-        type => 'text'
+        input => 'text',
+        type => 'double'
     },
     my_index => {
         i => 13,
-        type => 'spinner'
+        input => 'spinner'
     },
     value_type => {
         i => 14,
-        type => 'text'
+        input => 'text',
     },
     value_at_min => {
         i => 15,
-        type => 'text'
+        input => 'text',
+        type => 'double'
     },
     value_at_max => {
         i => 16,
-        type => 'text'
+        input => 'text',
+        type => 'double'
     },
     weight => {
         i => 17,
-        type => 'text'
+        input => 'text',
+        type => 'double'
     }
     );
 
@@ -103,11 +109,50 @@ __PACKAGE__->belongs_to(r_dataset => 'SmartSea::Schema::Result::Dataset');
 
 __PACKAGE__->belongs_to(op => 'SmartSea::Schema::Result::Op');
 
+sub get_object {
+    my ($class, %args) = @_;
+    my $oid = shift @{$args{oids}};
+    if (@{$args{oids}}) {
+        say STDERR "Too long oid list: @{$args{oids}}";
+        return undef;
+    }
+    my $obj;
+    eval {
+        $obj = $args{schema}->resultset('Rule')->single({id => $oid});
+    };
+    say STDERR "Error: $@" if $@;
+    return $obj;
+}
+
+sub create_col_data {
+    my $class = shift;
+    my %col_data;
+    for my $parameters (@_) {
+        for my $col (qw/plan2use2layer cookie my_index r_dataset/) { # or r_plan, r_use, r_layer (or is that r_pul?)
+            $col_data{$col} //= $parameters->{$col};
+            say STDERR "create rule: $col => $parameters->{$col}" if defined $parameters->{$col};
+        }
+    }
+    return \%col_data;
+}
+
+sub update_col_data {
+    my ($class, $parameters) = @_;
+    my %col_data;
+    for my $col (keys %attributes) {
+        next unless defined $parameters->{$col};
+        my $type = $attributes{$col}{type} // '';
+        $parameters->{$col} = undef if $type eq 'double' && $parameters->{$col} eq '';
+        $col_data{$col} = $parameters->{$col};
+    }
+    return \%col_data;
+}
+
 sub values {
     my ($self) = @_;
     my %values;
     for my $key (keys %attributes) {
-        if ($attributes{$key}{type} eq 'lookup') {
+        if ($attributes{$key}{input} eq 'lookup') {
             my $foreign = $self->$key;
             $values{$key} = $self->$key->id if $foreign;
         } else {
@@ -118,7 +163,7 @@ sub values {
 }
 
 sub as_text {
-    my ($self, %arg) = @_;
+    my ($self, %args) = @_;
     return $self->r_dataset ? $self->r_dataset->long_name : 'error' if $self->plan2use2layer->layer->id == 1;
     my $text;
     $text = $self->reduce ? "- If " : "+ If ";
@@ -139,7 +184,7 @@ sub as_text {
     }
     return $text." (true)" unless $self->op;
     $text .= " ".$self->op->op;
-    $text .= " ".$self->value if $arg{include_value};
+    $text .= " ".$self->value if $args{include_value};
     return $text;
 }
 
@@ -160,9 +205,18 @@ sub as_hashref_for_json {
 }
 
 sub HTML_div {
-    my ($self, $attributes, $oids, %arg) = @_;
-    my @l = ([li => [b => 'Rule']]);
-    for my $a ('id', sort {$attributes{$a}{i} <=> $attributes{$b}{i}} keys %attributes) {
+    my ($self, $attributes, %args) = @_;
+    my @l;
+    my $sequential = $self->plan2use2layer->rule_class eq 'sequentially';
+    my @cols;
+    if ($sequential) {
+        @cols = (qw/r_plan r_use r_layer r_dataset reduce op value min_value max_value my_index/);
+    } else {
+        @cols = (qw/r_plan r_use r_layer r_dataset min_value max_value value_at_min value_at_max weight/);
+    }
+    push @l, ([li => [b => 'Rule']]) unless $args{plan};
+    #for my $a ('id', sort {$attributes{$a}{i} <=> $attributes{$b}{i}} keys %attributes) {
+    for my $a ('id', @cols) {
         my $v = $self->$a // '';
         if (ref $v) {
             for my $b (qw/title name data op id/) {
@@ -174,19 +228,24 @@ sub HTML_div {
         }
         push @l, [li => "$a: ".$v];
     }
-    push @l, [li => a(url => "$arg{uri}?edit", link => 'edit')] if $arg{edit};
-    return [div => $attributes, [ul => \@l]];
+    #push @l, [li => a(url => "$args{uri}?edit", link => 'edit')] if $args{edit};
+    return [ li => [0 => 'Rule:'], [ul => \@l] ] if $args{named_item};
+    return [ div => $attributes, [ul => \@l] ];
 }
 
 sub HTML_form {
-    my ($self, $attributes, $values, $oids, %arg) = @_;
-    # todo: arg.fixed to render some attributes to unchangeable (mainly plan, use, layer
-
+    my ($self, $attributes, $values, %args) = @_;
+    # todo: args.fixed to render some attributes to unchangeable (mainly plan, use, layer
+    my $pul = $self->plan2use2layer;
+    my $plan = $pul->plan2use->plan;
+    my $use = $pul->plan2use->use;
+    my $layer = $pul->layer;
+    
     my @form;
-
+    
     if ($self and blessed($self) and $self->isa('SmartSea::Schema::Result::Rule')) {
         for my $key (keys %attributes) {
-            next unless $self->$key;
+            next unless defined $self->$key;
             next if defined $values->{$key};
             $values->{$key} = ref($self->$key) ? $self->$key->id : $self->$key;
         }
@@ -194,9 +253,10 @@ sub HTML_form {
     }
     push @form, [input => {type => 'hidden', name => 'cookie', value => 'default'}];
     
-    my $widgets = widgets(\%attributes, $values, $arg{schema});
+    my $widgets = widgets(\%attributes, $values, $args{schema});
 
     push (@form,
+          [ p => $plan->title.'.'.$use->title.'.'.$layer->title],
           [ p => 'Spatial dataset for this Rule:' ],
           [ p => [[1 => 'plan: '],$widgets->{r_plan}] ],
           [ p => [[1 => 'use: '],$widgets->{r_use}] ],
@@ -204,14 +264,20 @@ sub HTML_form {
           [ p => 'or' ],
           [ p => [[1 => 'dataset: '],$widgets->{r_dataset}] ],
           [ p => [[1 => 'Range of data values: '],$widgets->{min_value},[1 => '...'],$widgets->{max_value}] ],
-          ['hr'],[ p => 'If a part of a sequentially applied set of rules (output is binary).' ],
-          [ p => $widgets->{reduce} ],
-          [ p => [[1 => 'Operator and threshold value: '],$widgets->{op},$widgets->{value}] ],
-          [ p => [[1 => 'Index in sequence: '],$widgets->{my_index}] ],
-          [ p => [[1 => 'Type of value: '],$widgets->{value_type}] ],
-          ['hr'],[ p => 'If a part of a weighted, multiplied set of rules (output is float).' ],
-          [ p => [[1 => 'Range of values: '],$widgets->{value_at_min},[1 => '...'],$widgets->{value_at_max}] ],
-          [ p => [[1 => 'Weigth: '],$widgets->{weight}] ],
+          ['hr']);
+    if ($pul->rule_class eq 'sequentially') {
+        push (@form,
+              [ p => $widgets->{reduce} ],
+              [ p => [[1 => 'Operator and threshold value: '],$widgets->{op},$widgets->{value}] ],
+              [ p => [[1 => 'Index in sequence: '],$widgets->{my_index}] ],
+              [ p => [[1 => 'Type of value: '],$widgets->{value_type}] ]);
+    } else {
+        push (@form,
+              [ p => [[1 => 'Range of values: '],$widgets->{value_at_min},
+                      [1 => '...'],$widgets->{value_at_max}] ],
+              [ p => [[1 => 'Weigth: '],$widgets->{weight}] ]);
+    }
+    push (@form,
           ['hr'],
           button(value => "Store"),
           [1 => ' '],
@@ -221,13 +287,19 @@ sub HTML_form {
 }
 
 sub HTML_list {
-    my (undef, $objs, %arg) = @_;
+    my (undef, $objs, %args) = @_;
     my %data;
     my %plans;
     my %uses;
     my %layers;
+    my $sequential = $args{rule_class} eq 'sequentially';
     for my $rule (sort {$a->my_index <=> $b->my_index} @$objs) {
-        my $li = item($rule->as_text(include_value => 1)." (".$rule->my_index.")", $rule->id, %arg, ref => 'this rule');
+        my $li;
+        if ($sequential) {
+            $li = item($rule->as_text(include_value => 1)." (".$rule->my_index.")", $rule->id, %args, ref => 'this rule');
+        } else {
+            $li = item($rule->r_dataset->title, $rule->id, %args, ref => 'this rule');
+        }
         my $plan2use2layer = $rule->plan2use2layer;
         my $plan2use = $plan2use2layer->plan2use;
         my $plan = $plan2use->plan;
@@ -243,7 +315,7 @@ sub HTML_list {
         my $plan = (keys %plans)[0];
         my $use = (keys %uses)[0];
         my $layer = (keys %layers)[0];
-        push @li, [li => [0 => 'Rules:'],[ol => \@{$data{$plan}{$use}{$layer}}]];
+        push @li, @{$data{$plan}{$use}{$layer}};
     } else {
         for my $plan (sort keys %data) {
             my @l;
@@ -257,8 +329,17 @@ sub HTML_list {
             push @li, [li => [[b => $plan], [ul => \@l]]];
         }
     }
-    push @li, [li => a(link => 'add rule', url => $arg{uri}.'/new')] if $arg{edit};
-    return [ul => \@li];
+
+    if ($args{edit}) {
+        my @objs = $args{schema}->resultset('Dataset')->search({path => { '!=', undef }});
+        my $drop_down = drop_down(name => 'r_dataset', objs => \@objs);
+        push @li, [li => [$drop_down, [0 => ' '],
+                          button(value => 'Add', name => 'rule')]];
+    }
+    
+    my $ret = [ul => \@li];
+    return [ ul => [ [li => 'Rules'], $ret ]] if $args{named_list};
+    return $ret;
 }
 
 sub operand {

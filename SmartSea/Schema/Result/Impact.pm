@@ -13,12 +13,12 @@ __PACKAGE__->belongs_to(activity2pressure => 'SmartSea::Schema::Result::Activity
 __PACKAGE__->belongs_to(ecosystem_component => 'SmartSea::Schema::Result::EcosystemComponent');
 
 sub HTML_list {
-    my (undef, $objs, %arg) = @_;
-    my ($uri, $edit) = ($arg{uri}, $arg{edit});
+    my (undef, $objs, %args) = @_;
+    my ($uri, $edit) = ($args{uri}, $args{edit});
     my %data;
     for my $impact (@$objs) {
         my $t = $impact->activity2pressure->title;
-        my $li = item($t, $impact->id, %arg, ref => 'this impact');
+        my $li = item($t, $impact->id, %args, ref => 'this impact');
         $data{$impact->ecosystem_component->title}{$t} = [li => $li];
     }
     my @li;
@@ -34,7 +34,7 @@ sub HTML_list {
 }
 
 sub HTML_div {
-    my ($self, $attributes, $oids, %arg) = @_;
+    my ($self, $attributes, %args) = @_;
     my @l = ([li => 'Impact']);
     for my $a (qw/id activity2pressure ecosystem_component strength belief/) {
         my $v = $self->$a // '';
@@ -52,7 +52,7 @@ sub HTML_div {
 }
 
 sub HTML_form {
-    my ($self, $attributes, $values, %arg) = @_;
+    my ($self, $attributes, $values, %args) = @_;
 
     my @form;
 
@@ -66,10 +66,10 @@ sub HTML_form {
     }
 
     my $activity2pressure = drop_down(name => 'activity2pressure', 
-                                      objs => [$arg{schema}->resultset('Activity2Pressure')->all], 
+                                      objs => [$args{schema}->resultset('Activity2Pressure')->all], 
                                       selected => $values->{activity2pressure});
     my $ecosystem_component = drop_down(name => 'ecosystem_component', 
-                                        obj => [$arg{schema}->resultset('EcosystemComponent')->all], 
+                                        obj => [$args{schema}->resultset('EcosystemComponent')->all], 
                                         selected => $values->{ecosystem_component});
     
     my $strength = text_input(

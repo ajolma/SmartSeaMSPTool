@@ -12,18 +12,48 @@ __PACKAGE__->set_primary_key('id');
 __PACKAGE__->has_many(plan2use => 'SmartSea::Schema::Result::Plan2Use', 'plan');
 __PACKAGE__->many_to_many(uses => 'plan2use', 'use');
 
+sub create_col_data {
+    my ($class, $parameters) = @_;
+    my %col_data;
+    for my $col (qw/title/) {
+        $col_data{$col} = $parameters->{$col};
+    }
+    return \%col_data;
+}
+
+sub update_col_data {
+    my ($class, $parameters) = @_;
+    my %col_data;
+    for my $col (qw/title/) {
+        $col_data{$col} = $parameters->{$col};
+    }
+    return \%col_data;
+}
+
+sub get_object {
+    my ($class, %args) = @_;
+    my $oid = shift @{$args{oids}};
+    return SmartSea::Schema::Result::Use->get_object(%args) if @{$args{oids}};
+    my $obj;
+    eval {
+        $obj = $args{schema}->resultset('Plan')->single({id => $oid});
+    };
+    say STDERR "Error: $@" if $@;
+    return $obj;
+}
+
 sub HTML_list {
-    my (undef, $objs, %arg) = @_;
+    my (undef, $objs, %args) = @_;
     my %data;
     my %li;
     for my $plan (@$objs) {
         my $p = $plan->title;
-        $li{plan}{$p} = item([b => $p], $plan->id, %arg, ref => 'this plan');
+        $li{plan}{$p} = item([b => $p], $plan->id, %args, ref => 'this plan');
         for my $use ($plan->uses) {
             my $u = $use->title;
             $data{$p}{$u} = 1;
             my $id = $plan->id.'/'.$use->id;
-            $li{$p}{$u} = item($u, $id, %arg, action => 'None', ref => 'this use from this plan');
+            $li{$p}{$u} = item($u, $id, %args, action => 'None');
         }
     }
     my @li;
@@ -36,13 +66,19 @@ sub HTML_list {
         push @item, [ul => \@l] if @l;
         push @li, [li => \@item];
     }
-    my $action = $arg{action} eq 'Delete' ? 'create' : 'add';
-    push @li, [li => a(link => "$action plan", url => $arg{uri}.'/new')] if $arg{edit};
+
+    if ($args{edit}) {
+        my $title = text_input(name => 'title');
+        push @li, [li => [$title, 
+                          [0 => ' '],
+                          button(value => 'Create', name => 'plan')]];
+    }
+
     return [ul => \@li];
 }
 
 sub HTML_div {
-    my ($self, $attributes, $oids, %arg) = @_;
+    my ($self, $attributes, %args) = @_;
     my @l = ([li => [b => 'Plan']]);
     for my $a (qw/id title/) {
         my $v = $self->$a // '';
@@ -56,29 +92,33 @@ sub HTML_div {
         }
         push @l, [li => "$a: ".$v];
     }
-    my @div = ([ul => \@l]);
     my $associated_class = 'SmartSea::Schema::Result::Use';
-    $arg{action} = 'Remove';
-    if (@$oids) {
-        my $oid = shift @$oids;
-        if (not defined $oid) {
-            push @div, $associated_class->HTML_list([$self->uses]);
-            push @div, [div => 'add here a form for adding an existing use into this plan'];
-        } else {
-            push @div, $self->uses->single({'use.id' => $oid})->HTML_div({}, $oids, %arg, plan => $self->id);
-        }
+    if (my $oid = shift @{$args{oids}}) {
+        push @l, $self->uses->single({'use.id' => $oid})->HTML_div({}, %args, plan => $self->id, named_item => 'Use');
     } else {
-        push @div, $associated_class->HTML_list([$self->uses], %arg, plan => $self->id);
+        if ($args{parameters}{request} eq 'add') { # add use
+            my $use = $args{schema}->resultset('Use')->single({ id => $args{parameters}{use} });
+            eval {
+                $self->add_to_uses($use);
+            };
+        } elsif ($args{parameters}{request} eq 'remove') { # add use
+            my $use = $args{schema}->resultset('Use')->single({ id => $args{parameters}{remove} });
+            eval {
+                $self->remove_from_uses($use);
+            };
+        }
+        $args{action} = 'Remove';
+        push @l, $associated_class->HTML_list([$self->uses], %args, plan => $self->id, named_item => 'Uses');
     }
-    return [div => $attributes, @div];
+    return [div => $attributes, [ul => \@l]];
 }
 
 sub HTML_form {
-    my ($self, $attributes, $values, $oids, %arg) = @_;
+    my ($self, $attributes, $values, %args) = @_;
 
-    if (@$oids) {
-        my $oid = shift @$oids;
-        return $self->uses->single({'use.id' => $oid})->HTML_form($attributes, undef, $oids, %arg);
+    if (my $oid = shift @{$args{oids}}) {
+        $args{plan} = $self->id;
+        return $self->uses->single({'use.id' => $oid})->HTML_form($attributes, undef, %args);
     }
 
     my @form;

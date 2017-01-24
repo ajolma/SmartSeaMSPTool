@@ -101,7 +101,7 @@ sub long_name {
 *title = *long_name;
 
 sub HTML_div {
-    my ($self, $attributes, $oids, %arg) = @_;
+    my ($self, $attributes, %args) = @_;
 
     my @div = ([h2 => $self->name]);
     
@@ -110,11 +110,11 @@ sub HTML_div {
         if ($self->path =~ /^PG:/) {
             my $dsn = $self->path;
             $dsn =~ s/^PG://;
-            $info = `ogrinfo -so PG:"dbname=$arg{dbname} user='$arg{user}' password='$arg{pass}'" '$dsn'`;
+            $info = `ogrinfo -so PG:"dbname=$args{dbname} user='$args{user}' password='$args{pass}'" '$dsn'`;
             $info =~ s/user='(.*?)'/user='xxx'/;
             $info =~ s/password='(.*?)'/password='xxx'/;
         } else {
-            my $path = $arg{data_path}.'/'.$self->path;
+            my $path = $args{data_path}.'/'.$self->path;
             my @info = `gdalinfo $path`;
             my $table;
             for (@info) {
@@ -149,19 +149,19 @@ sub HTML_div {
     my $rel = $self->is_a_part_of;
     if ($rel) {
         push @div, [h3 => "'".$self->name."' is a part of '".$rel->name."'"];
-        push @div, $rel->HTML_div({}, [], %arg);
+        push @div, $rel->HTML_div({}, [], %args);
     }
     $rel = $self->is_derived_from;
     if ($rel) {
         push @div, [h3 => "'".$self->name."' is derived from '".$rel->name."'"];
-        push @div, $rel->HTML_div({}, [], %arg);
+        push @div, $rel->HTML_div({}, [], %args);
     }
 
     return [div => $attributes, @div];
 }
 
 sub HTML_form {
-    my ($self, $attributes, $values, %arg) = @_;
+    my ($self, $attributes, $values, %args) = @_;
 
     my @form;
 
@@ -174,7 +174,7 @@ sub HTML_form {
         push @form, [input => {type => 'hidden', name => 'id', value => $self->id}];
     }
 
-    my $widgets = widgets(\%attributes, $values, $arg{schema});
+    my $widgets = widgets(\%attributes, $values, $args{schema});
 
     for my $key (sort {$attributes{$a}{i} <=> $attributes{$b}{i}} keys %attributes) {
         push @form, [ p => [[1 => "$key: "], $widgets->{$key}] ];
@@ -188,7 +188,7 @@ sub HTML_form {
 }
 
 sub li {
-    my ($all, $parent, $id, %arg) = @_;
+    my ($all, $parent, $id, %args) = @_;
     my @li;
     for my $set (@$all) {
         my $sid = $set->id;
@@ -197,9 +197,9 @@ sub li {
         } else {
             next unless $parent->{$sid} && $parent->{$sid} == $id;
         }
-        my $li = item($set->name, $set->id, %arg, ref => 'this dataset');
+        my $li = item($set->name, $set->id, %args, ref => 'this dataset');
         my @item = @$li;
-        my @l = li($all, $parent, $sid, %arg);
+        my @l = li($all, $parent, $sid, %args);
         push @item, [ul => \@l] if @l;
         push @li, [li => \@item];
     }
@@ -207,7 +207,7 @@ sub li {
 }
 
 sub tree {
-    my ($objs, %arg) = @_;
+    my ($objs, %args) = @_;
     my %parent;
     my @all;
     for my $set (sort {$a->name cmp $b->name} @$objs) {
@@ -215,13 +215,13 @@ sub tree {
         $parent{$set->id} = $rel->id if $rel;
         push @all, $set;
     }
-    return li(\@all, \%parent, undef, %arg);
+    return li(\@all, \%parent, undef, %args);
 }
 
 sub HTML_list {
-    my (undef, $objs, %arg) = @_;
-    my ($uri, $edit) = ($arg{uri}, $arg{edit});
-    my @li = tree($objs, %arg);
+    my (undef, $objs, %args) = @_;
+    my ($uri, $edit) = ($args{uri}, $args{edit});
+    my @li = tree($objs, %args);
     push @li, [li => a(link => 'add', url => $uri.'/new')] if $edit;
     return [ul => \@li];
 }

@@ -91,13 +91,13 @@ sub call {
         [ul => [
              [li => a(link => 'plans', url => $uri.'browser/plans')],
              [li => a(link => 'uses', url => $uri.'browser/uses')],
-             [li => a(link => 'layers', url => $uri.'browser/layers')],
              [li => a(link => 'activities', url => $uri.'browser/activities')],
-             [li => a(link => 'activity -> pressure links', url  => $uri.'browser/activity2pressure')],
-             [li => a(link => 'ecosystem components', url => $uri.'browser/ecosystem_components')],
+             [li => a(link => 'layers', url => $uri.'browser/layers')],
              [li => a(link => 'rules', url  => $uri.'browser/rules')],
              [li => a(link => 'datasets', url  => $uri.'browser/datasets')],
              [li => a(link => 'impacts', url  => $uri.'browser/impacts')],
+             [li => a(link => 'ecosystem components', url => $uri.'browser/ecosystem_components')],
+             [li => a(link => 'activity -> pressure links', url  => $uri.'browser/activity2pressure')],
          ]
         ],
         [li => a(link => 'impact_network', url  => $uri.'impact_network')],
@@ -117,17 +117,18 @@ sub plans {
     for my $plan ($schema->resultset('Plan')->search($search, {order_by => {-desc => 'title'}})) {
         my @uses;
         for my $use ($plan->uses(undef, {order_by => 'id'})) {
+            my $plan2use = $self->{schema}->
+                resultset('Plan2Use')->
+                single({plan => $plan->id, use => $use->id});
             my @layers;
-            for my $layer ($use->layers(undef, {order_by => {-desc => 'id'}})) {
+            for my $layer ($plan2use->layers(undef, {order_by => {-desc => 'id'}})) {
+                my $pul = $self->{schema}->
+                    resultset('Plan2Use2Layer')->
+                    single({plan2use => $plan2use->id, layer => $layer->id});
                 my @rules;
-                for my $rule ($schema->resultset('Rule')->search(
+                for my $rule ($pul->rules(
                                   {
-                                      -and => [
-                                           -or => [plan => $plan->id, plan => {'=' => undef}],
-                                           use => $use->id,
-                                           layer => $layer->id,
-                                           cookie => DEFAULT
-                                          ]
+                                      cookie => DEFAULT
                                   },
                                   {
                                       order_by => { -asc => 'my_index' }
@@ -251,7 +252,7 @@ sub object_editor {
     $config->{empty_is_null} //= [];
 
     my %parameters; # <request> => what, key => value
-    ($parameters{request}) = $oids =~ /([a-z]+)$/ // '';
+    $parameters{request} = $1 if $oids =~ /([a-z]+)$/;
 
     my $uri = $self->{uri};
     $uri =~ s/$oids$//;
@@ -259,7 +260,6 @@ sub object_editor {
     $oids =~ s/\?.*//;
     my @oids = split /\//, $oids;
     shift @oids;
-    my $oid = shift(@oids) // '';
     
     # $self->{parameters} is a multivalue hash
     # we may have both object => command and object => id
@@ -270,7 +270,11 @@ sub object_editor {
             for my $request (keys %$config) {
                 if ($value eq $config->{$request}) {
                     $parameters{request} = $request;
-                    $parameters{$request} = $key;
+                    if ($request eq 'delete') {
+                        $parameters{id} = $key;
+                    } else {
+                        $parameters{$request} = $key;
+                    }
                     $done = 1;
                     last;
                 }
@@ -289,114 +293,123 @@ sub object_editor {
     for my $col (keys %{$config->{defaults}}) {
         $parameters{$col} //= $config->{defaults}{$col};
     }
+    $parameters{request} //= '';
 
-    $oid ||= $parameters{id} //= '';
-    delete $parameters{id};
-
-    say STDERR "class=$class, oids=$oids (@oids), oid=$oid";
+    say STDERR "class=$class, oids=$oids (@oids)";
     for my $p (sort keys %parameters) {
-        say STDERR "$p => $parameters{$p}";
+        say STDERR "$p => ".(defined($parameters{$p})?$parameters{$p}:'undef');
     }
 
-    my %arg = (parameters => \%parameters);
+    my %args = (parameters => \%parameters);
     for my $key (qw/uri schema edit dbname user pass data_path/) {
-        $arg{$key} = $self->{$key};
+        $args{$key} = $self->{$key};
     }
 
-    my %primary_columns = map {$_ => 1} $class->primary_columns;
     my $rs = $self->{schema}->resultset($class =~ /(\w+)$/);
     my @body;
-    my $obj;
-    if ($oid =~ /^\d+$/) {
-        my $pk = { id => $oid };
-        $pk->{cookie} = DEFAULT if $primary_columns{cookie};
+    # to make jQuery happy:
+    my $header = { 'Access-Control-Allow-Origin' => $self->{origin},
+                   'Access-Control-Allow-Credentials' => 'true' };
+    if ($parameters{request} eq 'create' and $self->{edit}) {
         eval {
-            $obj = $rs->single($pk);
+            $rs->create($class->create_col_data(\%parameters));
         };
-        push @body, [p => "Error: $@"] if $@;
-    }
-    if ($obj) {
-        say STDERR "obj = $obj";
-        if ($parameters{request} eq 'delete' and $self->{edit}) {
-            if (@oids) {
-                push @body, [p => "Request to delete an associated object declined for now. Sorry."];
-            } else {
-                eval {
-                    $obj->delete;
-                };
-                if ($@) {
-                    push @body, [p => 'Error: '.$@];
-                }
-            }
-        } elsif ($parameters{request} eq 'modify') {
-            # to make jQuery happy:
-            my $header = { 'Access-Control-Allow-Origin' => $self->{origin},
-                           'Access-Control-Allow-Credentials' => 'true' };
-            # only modify if $self->{cookie} ne default
-            return http_status($header, 403) if $self->{cookie} eq DEFAULT; # forbidden 
-            my $cols = $obj->values;
-            $cols->{value} = $parameters{value};
-            $cols->{id} = $obj->id;
-            $cols->{cookie} = $self->{cookie};
-            my $a = ['current_timestamp'];
-            $cols->{made} = \$a;
-            eval {
-                $obj = $rs->update_or_new($cols, {key => 'primary'});
-                $obj->insert if !$obj->in_storage;
-            };
-            say STDERR "error: $@" if $@;
-            return http_status($header, 500) if $@;
-            return json200($header, {object => $obj->as_hashref_for_json});
-        } elsif ($parameters{request} eq 'store' and $self->{edit}) {
-            eval {
-                $obj->update(\%parameters);
-            };
-            if ($@ or not $obj) {
-                push @body, (
-                    [p => 'Error: '.$@],
-                    $obj->HTML_form({ action => $uri, method => 'POST' }, \%parameters, [], %arg)
-                );
-                return html200({}, SmartSea::HTML->new(html => [body => \@body])->html);
-            }
-        } elsif ($parameters{request} eq 'edit' and $self->{edit}) {
-            $uri =~ s/\?edit$//;
-            push @body, $obj->HTML_form({ action => $uri, method => 'POST' }, {}, \@oids, %arg);
-            return html200({}, SmartSea::HTML->new(html => [body => \@body])->html);
-        } else {
-            # todo: wrap to form if edit
-            my $div = $obj->HTML_div({}, \@oids, %arg);
-            $div = [form => { action => $arg{uri}, method => 'POST' }, $div] if $arg{edit};
-            push @body, $div;
-            push @body, a(link => 'up', url => $uri);
+        say STDERR "error: $@" if $@;
+        return http_status($header, 500) if $@;
+    } elsif ($parameters{request} eq 'new' and $self->{edit}) {
+        $args{oids} = [@oids];
+        push @body, $class->HTML_form({ action => $uri, method => 'POST' }, \%parameters, %args);
+        return html200({}, SmartSea::HTML->new(html => [body => \@body])->html);
+    } elsif ($parameters{request} eq 'delete' and $self->{edit}) {
+        $args{oids} = [@oids, $parameters{id}];
+        my $obj = $class->get_object(%args);
+        eval {
+            $obj->delete;
+        };
+        if ($@) {
+            push @body, [p => 'Error: '.$@];
+        }
+        $args{oids} = [$oids[0]];
+        $obj = $class->get_object(%args);
+        $args{oids} = [@oids];
+        shift @{$args{oids}};
+        my $div = $obj->HTML_div({}, %args);
+        push @body, $div;
+        pop @oids;
+        push @body, a(link => 'up', url => $uri.'/'.join('/',@oids));
+        return html200({}, SmartSea::HTML->new(html => [body => \@body])->html);
+    } elsif ($parameters{request} eq 'modify') {
+        $args{oids} = [@oids];
+        my $obj = $class->get_object(%args);
+        # only modify if $self->{cookie} ne default
+        return http_status($header, 403) if $self->{cookie} eq DEFAULT; # forbidden 
+        my $cols = $obj->values;
+        $cols->{value} = $parameters{value};
+        $cols->{id} = $obj->id;
+        $cols->{cookie} = $self->{cookie};
+        my $a = ['current_timestamp'];
+        $cols->{made} = \$a;
+        eval {
+            $obj = $rs->update_or_new($cols, {key => 'primary'});
+            $obj->insert if !$obj->in_storage;
+        };
+        say STDERR "error: $@" if $@;
+        return http_status($header, 500) if $@;
+        return json200($header, {object => $obj->as_hashref_for_json});
+    } elsif ($parameters{request} eq 'store' and $self->{edit}) {
+        $args{oids} = [@oids];
+        my $obj = $class->get_object(%args);
+        return http_status($header, 400) unless $obj;
+        eval {
+            $obj->update($obj->update_col_data(\%parameters));
+        };
+        if ($@) {
+            $args{oids} = [@oids];
+            shift @{$args{oids}};
+            push @body, (
+                [p => 'Error: '.$@],
+                $obj->HTML_form({ action => $uri, method => 'POST' }, \%parameters, %args)
+            );
             return html200({}, SmartSea::HTML->new(html => [body => \@body])->html);
         }
-    } else {
-        if ($parameters{request} eq 'new' and $self->{edit}) {
-            push @body, $class->HTML_form({ action => $uri, method => 'POST' }, \%parameters, [], %arg);
-            return html200({}, SmartSea::HTML->new(html => [body => \@body])->html);
-        } elsif ($parameters{request} eq 'store' and $self->{edit}) {
-            eval {
-                $obj = $rs->create(\%parameters);
-            };
-            if ($@ or not $obj) {
-                push @body, (
-                    [p => 'Error: '.$@],
-                    $class->HTML_form({ action => $uri, method => 'POST' }, \%parameters, [], %arg)
-                );
-                return html200({}, SmartSea::HTML->new(html => [body => \@body])->html);
-            }
-        }
+        $args{oids} = [$oids[0]];
+        $obj = $class->get_object(%args);
+        $args{oids} = [@oids];
+        shift @{$args{oids}};
+        my $div = $obj->HTML_div({}, %args);
+        push @body, $div;
+        pop @oids;
+        push @body, a(link => 'up', url => $uri.'/'.join('/',@oids));
+        return html200({}, SmartSea::HTML->new(html => [body => \@body])->html);
+    } elsif ($parameters{request} eq 'edit' and $self->{edit}) {
+        $args{oids} = [@oids];
+        my $obj = $class->get_object(%args);
+        $uri =~ s/\?edit$//;
+        push @body, $obj->HTML_form({ action => $uri, method => 'POST' }, {}, %args);
+        return html200({}, SmartSea::HTML->new(html => [body => \@body])->html);
+    } elsif (@oids) {
+        $args{oids} = [$oids[0]];
+        my $obj = $class->get_object(%args);
+        $args{oids} = [@oids];
+        shift @{$args{oids}};
+        my $div = $obj->HTML_div({}, %args);
+        $div = [form => { action => $args{uri}, method => 'POST' }, $div] if $args{edit};
+        push @body, $div;
+        pop @oids;
+        push @body, a(link => 'up', url => $uri.'/'.join('/',@oids));
+        return html200({}, SmartSea::HTML->new(html => [body => \@body])->html);
     }
     my $objs;
+    my %primary_columns = map {$_ => 1} $class->primary_columns;
     if (not $primary_columns{cookie}) {
         $objs = [$rs->all];
     } else {
         $objs = [$rs->search({cookie => 'default'})]
     }
-    my $list = $class->HTML_list($objs, %arg, action => 'Delete');
+    my $list = $class->HTML_list($objs, %args, action => 'Delete');
     $list = [form => { action => $uri, method => 'POST' }, $list] if $self->{edit};
     push @body, $list;
-    $uri =~ s/\/\w+$//;
+    $uri =~ s/\/\w+\/\w+$//;
     push @body, ([1 => ' '], a(link => 'up', url => $uri));
     return html200({}, SmartSea::HTML->new(html => [body => \@body])->html);
 }

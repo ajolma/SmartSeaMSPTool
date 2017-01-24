@@ -14,9 +14,21 @@ __PACKAGE__->many_to_many(pressures => 'activity2pressure', 'pressure');
 __PACKAGE__->has_many(use2activity => 'SmartSea::Schema::Result::Use2Activity', 'use');
 __PACKAGE__->many_to_many(activities => 'use2activity', 'activity');
 
+sub get_object {
+    my ($class, %args) = @_;
+    my $oid = shift @{$args{oids}};
+    $oid =~ s/^\w+://;
+    return SmartSea::Schema::Result::Pressure->get_object(%args) if @{$args{oids}};
+    my $obj;
+    eval {
+        $obj = $args{schema}->resultset('Activity')->single({id => $oid});
+    };
+    say STDERR "Error: $@" if $@;
+    return $obj;
+}
+
 sub HTML_list {
-    my (undef, $objs, %arg) = @_;
-    my ($uri, $edit) = ($arg{uri}, $arg{edit});
+    my (undef, $objs, %args) = @_;
     my %data;
     my %li;
     my %has;
@@ -24,14 +36,14 @@ sub HTML_list {
         my $a = $act->title;
         my $id = $act->id;
         $has{$id} = 1;
-        $li{act}{$a} = item([b => $a], "activity:$id", %arg, ref => 'this activity');
+        $li{act}{$a} = item([b => $a], "activity:$id", %args, ref => 'this activity');
         my @refs = $act->activity2pressure;
         for my $ref (@refs) {
             my $pressure = $ref->pressure;
             my $p = $pressure->title;
             $data{$a}{$p} = 1;
             my $id = $act->id.'/'.$pressure->id;
-            $li{$a}{$p} = item($p, $id, %arg, ref => 'this pressure from this activity');
+            $li{$a}{$p} = item($p, $id, %args, action => 'None');
         }
     }
     my @li;
@@ -45,9 +57,9 @@ sub HTML_list {
         push @li, [li => \@item];
     }
 
-    if ($edit) {
+    if ($args{edit} && $args{use} && !$args{plan}) {
         my @objs;
-        for my $obj ($arg{schema}->resultset('Activity')->all) {
+        for my $obj ($args{schema}->resultset('Activity')->all) {
             next if $has{$obj->id};
             push @objs, $obj;
         }
@@ -58,14 +70,15 @@ sub HTML_list {
     }
 
     my $ret = [ul => \@li];
-    return [ ul => [ [li => 'Activities'], $ret ]] if $arg{named_list};
-    return [ li => [ [0 => 'Activities'], $ret ]] if $arg{named_item};
+    return [ ul => [ [li => 'Activities'], $ret ]] if $args{named_list};
+    return [ li => [ [0 => 'Activities:'], $ret ]] if $args{named_item};
     return $ret;
 }
 
 sub HTML_div {
-    my ($self, $attributes, $oids, %arg) = @_;
-    my @l = ([li => 'Activity']);
+    my ($self, $attributes, %args) = @_;
+    my @l;
+    push @l, [li => 'Activity'] unless $args{use};
     for my $a (qw/id title/) {
         my $v = $self->$a // '';
         if (ref $v) {
@@ -78,24 +91,19 @@ sub HTML_div {
         }
         push @l, [li => "$a: ".$v];
     }
-    my @div = ([ul => \@l]);
     my $associated_class = 'SmartSea::Schema::Result::Pressure';
-    if (@$oids) {
-        my $oid = shift @$oids;
-        if (not defined $oid) {
-            push @div, $associated_class->HTML_list([$self->pressures], %arg, activity => $self->id);
-            push @div, [div => 'add here a form for adding an existing pressure into this activity'];
-        } else {
-            push @div, $self->pressures->single({'pressure.id' => $oid})->HTML_div({}, $oids, %arg);
-        }
+    if (my $oid = shift @{$args{oids}}) {
+        push @l, $self->pressures->single({'pressure.id' => $oid})->HTML_div({}, %args);
     } else {
-        push @div, $associated_class->HTML_list([$self->pressures], %arg, activity => $self->id);
+        push @l, $associated_class->HTML_list([$self->pressures], %args, activity => $self->id);
     }
-    return [div => $attributes, @div];
+    my $ret = [ul => \@l];
+    return [ li => [0 => 'Activity:'], $ret ] if $args{named_item};
+    return [ div => $attributes, $ret ];
 }
 
 sub HTML_form {
-    my ($self, $attributes, $values, %arg) = @_;
+    my ($self, $attributes, $values, %args) = @_;
 
     my @form;
 

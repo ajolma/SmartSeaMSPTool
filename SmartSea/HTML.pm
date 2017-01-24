@@ -100,9 +100,8 @@ sub item {
     return $i[0] if $arg{action} eq 'None';
     if ($arg{edit}) {
         #$url .= '?edit';
+        push @i, ([1 => '  '], a(link => "edit", url => $uri."?edit")) if $value eq 'Delete';
         push @i, (
-            #[1 => '  '],
-            #a(link => "edit", url => $url),
             [1 => '  '],
             [input => {
                 type => "submit", 
@@ -118,20 +117,20 @@ sub widgets {
     my %widgets;
     for my $key (keys %$attributes) {
         my $a = $attributes->{$key};
-        if ($a->{type} eq 'text') {
+        if ($a->{input} eq 'text') {
             $widgets{$key} = text_input(
                 name => $key,
                 size => ($a->{size} // 10),
                 value => $values->{$key} // ''
             );
-        } elsif ($a->{type} eq 'textarea') {
+        } elsif ($a->{input} eq 'textarea') {
             $widgets{$key} = textarea(
                 name => $key,
                 rows => $a->{rows},
                 cols => $a->{cols},
                 value => $values->{$key} // ''
             );
-        } elsif ($a->{type} eq 'lookup') {
+        } elsif ($a->{input} eq 'lookup') {
             my $objs;
             if ($a->{objs}) {
                 $objs = [$schema->resultset($a->{class})->search($a->{objs})];
@@ -144,13 +143,13 @@ sub widgets {
                 selected => $values->{$key},
                 allow_null => $a->{allow_null}
             );
-        } elsif ($a->{type} eq 'checkbox') {
+        } elsif ($a->{input} eq 'checkbox') {
             $widgets{$key} = checkbox(
                 name => $key,
                 visual => $a->{cue},
                 checked => $values->{$key}
             );
-        } elsif ($a->{type} eq 'spinner') {
+        } elsif ($a->{input} eq 'spinner') {
             $widgets{$key} = spinner(
                 name => $key,
                 min => $a->{min},

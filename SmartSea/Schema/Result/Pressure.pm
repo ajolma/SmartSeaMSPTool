@@ -27,15 +27,15 @@ sub list_impacts {
 }
 
 sub HTML_list {
-    my (undef, $objs, %arg) = @_;
+    my (undef, $objs, %args) = @_;
     my %data;
     my %li;
     for my $pre (@$objs) {
         my $p = $pre->title;
-        my $ap = $pre->activity2pressure->single({activity => $arg{activity}});
+        my $ap = $pre->activity2pressure->single({activity => $args{activity}});
         
         my $t = [[b => $p],[1 => ", range of impact is ".$range{$ap->range}]];
-        $li{pre}{$p} = item($t, $pre->id, %arg, ref => 'this pressure');
+        $li{pre}{$p} = item($t, $pre->id, %args, ref => 'this pressure');
         
         $li{$p} = list_impacts($ap);
 
@@ -50,12 +50,12 @@ sub HTML_list {
         push @item, [ul => \@l] if @l;
         push @li, [li => \@item];
     }
-    push @li, [li => a(link => 'add pressure', url => $arg{uri}.'/new')] if $arg{edit};
+    push @li, [li => a(link => 'add pressure', url => $args{uri}.'/new')] if $args{edit};
     return [ul => \@li];
 }
 
 sub HTML_div {
-    my ($self, $attributes, $oids, %arg) = @_;
+    my ($self, $attributes, %args) = @_;
     my @l = ([li => 'Pressure']);
     for my $a (qw/id title category/) {
         my $v = $self->$a // '';
@@ -70,7 +70,7 @@ sub HTML_div {
         push @l, [li => "$a: ".$v];
     }
     my @div = ([ul => \@l]);
-    my $ap = $self->activity2pressure->single({activity => $arg{activity}});
+    my $ap = $self->activity2pressure->single({activity => $args{activity}});
     my $impacts = list_impacts($ap);
     if (@$impacts) {
         my @l;

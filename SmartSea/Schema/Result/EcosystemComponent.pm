@@ -17,12 +17,12 @@ sub order {
 }
 
 sub HTML_list {
-    my (undef, $objs, %arg) = @_;
-    my ($uri, $edit) = ($arg{uri}, $arg{edit});
+    my (undef, $objs, %args) = @_;
+    my ($uri, $edit) = ($args{uri}, $args{edit});
     my %li;
     for my $ec (@$objs) {
         my $c = $ec->title;
-        $li{ec}{$c} = item([b => $c], $ec->id, %arg, ref => 'this component');
+        $li{ec}{$c} = item([b => $c], $ec->id, %args, ref => 'this component');
         my @impacts = $ec->impacts;
         for my $impact (@impacts) {
             next unless defined $impact->strength;
@@ -35,7 +35,7 @@ sub HTML_list {
                 $li{$c}{$i} = [[$impact->strength,$impact->belief]];
             }
             #my $id = $ec->id.'/'.$activity->id;
-            #$li{$c}{$i} = item($i, $id, %arg, ref => 'this activity from this component');
+            #$li{$c}{$i} = item($i, $id, %args, ref => 'this activity from this component');
         }
     }
     my @li;
@@ -67,7 +67,7 @@ sub HTML_list {
 }
 
 sub HTML_div {
-    my ($self, $attributes, $oids, %arg) = @_;
+    my ($self, $attributes, %args) = @_;
     my @l = ([li => 'Ecosystem component']);
     for my $a (qw/id title/) {
         my $v = $self->$a // '';
