@@ -1669,6 +1669,16 @@ GRANT ALL ON TABLE layers TO smartsea;
 
 
 --
+-- Name: layers_id_seq; Type: ACL; Schema: tool; Owner: ajolma
+--
+
+REVOKE ALL ON SEQUENCE layers_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE layers_id_seq FROM ajolma;
+GRANT ALL ON SEQUENCE layers_id_seq TO ajolma;
+GRANT ALL ON SEQUENCE layers_id_seq TO smartsea;
+
+
+--
 -- Name: ops; Type: ACL; Schema: tool; Owner: ajolma
 --
 
@@ -1810,6 +1820,16 @@ REVOKE ALL ON TABLE uses FROM ajolma;
 GRANT ALL ON TABLE uses TO ajolma;
 GRANT SELECT ON TABLE uses TO PUBLIC;
 GRANT ALL ON TABLE uses TO smartsea;
+
+
+--
+-- Name: uses_id_seq; Type: ACL; Schema: tool; Owner: ajolma
+--
+
+REVOKE ALL ON SEQUENCE uses_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE uses_id_seq FROM ajolma;
+GRANT ALL ON SEQUENCE uses_id_seq TO ajolma;
+GRANT ALL ON SEQUENCE uses_id_seq TO smartsea;
 
 
 --
