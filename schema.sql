@@ -730,18 +730,25 @@ CREATE TABLE rules (
     r_dataset integer,
     min_value double precision,
     max_value double precision,
-    my_index integer,
+    my_index integer DEFAULT 1 NOT NULL,
     value_type text,
-    cookie text NOT NULL,
+    cookie text DEFAULT 'default'::text NOT NULL,
     made timestamp with time zone,
     value_at_min double precision DEFAULT 0,
     value_at_max double precision DEFAULT 1,
     weight double precision DEFAULT 1,
-    plan2use2layer integer
+    plan2use2layer integer NOT NULL
 );
 
 
 ALTER TABLE tool.rules OWNER TO ajolma;
+
+--
+-- Name: COLUMN rules.value; Type: COMMENT; Schema: tool; Owner: ajolma
+--
+
+COMMENT ON COLUMN rules.value IS 'threshold';
+
 
 --
 -- Name: COLUMN rules.value_at_min; Type: COMMENT; Schema: tool; Owner: ajolma
@@ -1703,6 +1710,16 @@ GRANT ALL ON SEQUENCE plan2use2layer_id_seq TO smartsea;
 
 
 --
+-- Name: plan2use_id_seq; Type: ACL; Schema: tool; Owner: ajolma
+--
+
+REVOKE ALL ON SEQUENCE plan2use_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE plan2use_id_seq FROM ajolma;
+GRANT ALL ON SEQUENCE plan2use_id_seq TO ajolma;
+GRANT ALL ON SEQUENCE plan2use_id_seq TO smartsea;
+
+
+--
 -- Name: plans; Type: ACL; Schema: tool; Owner: ajolma
 --
 
@@ -1711,6 +1728,16 @@ REVOKE ALL ON TABLE plans FROM ajolma;
 GRANT ALL ON TABLE plans TO ajolma;
 GRANT SELECT ON TABLE plans TO PUBLIC;
 GRANT ALL ON TABLE plans TO smartsea;
+
+
+--
+-- Name: plans_id_seq; Type: ACL; Schema: tool; Owner: ajolma
+--
+
+REVOKE ALL ON SEQUENCE plans_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE plans_id_seq FROM ajolma;
+GRANT ALL ON SEQUENCE plans_id_seq TO ajolma;
+GRANT ALL ON SEQUENCE plans_id_seq TO smartsea;
 
 
 --
@@ -1762,6 +1789,16 @@ REVOKE ALL ON TABLE use2activity FROM PUBLIC;
 REVOKE ALL ON TABLE use2activity FROM ajolma;
 GRANT ALL ON TABLE use2activity TO ajolma;
 GRANT ALL ON TABLE use2activity TO smartsea;
+
+
+--
+-- Name: use2activity_id_seq; Type: ACL; Schema: tool; Owner: ajolma
+--
+
+REVOKE ALL ON SEQUENCE use2activity_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE use2activity_id_seq FROM ajolma;
+GRANT ALL ON SEQUENCE use2activity_id_seq TO ajolma;
+GRANT ALL ON SEQUENCE use2activity_id_seq TO smartsea;
 
 
 --
