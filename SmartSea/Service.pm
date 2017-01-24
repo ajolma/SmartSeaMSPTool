@@ -253,10 +253,7 @@ sub object_editor {
 
     my %parameters; # <request> => what, key => value
     $parameters{request} = $1 if $oids =~ /([a-z]+)$/;
-
-    my $uri = $self->{uri};
-    $uri =~ s/$oids$//;
-    
+   
     $oids =~ s/\?.*//;
     my @oids = split /\//, $oids;
     shift @oids;
@@ -304,6 +301,8 @@ sub object_editor {
     for my $key (qw/uri schema edit dbname user pass data_path/) {
         $args{$key} = $self->{$key};
     }
+    $args{base_uri} = $self->{uri};
+    $args{base_uri} =~ s/$oids$//;
 
     my $rs = $self->{schema}->resultset($class =~ /(\w+)$/);
     my @body;
@@ -318,7 +317,7 @@ sub object_editor {
         return http_status($header, 500) if $@;
     } elsif ($parameters{request} eq 'new' and $self->{edit}) {
         $args{oids} = [@oids];
-        push @body, $class->HTML_form({ action => $uri, method => 'POST' }, \%parameters, %args);
+        push @body, $class->HTML_form({ action => $args{base_uri}, method => 'POST' }, \%parameters, %args);
         return html200({}, SmartSea::HTML->new(html => [body => \@body])->html);
     } elsif ($parameters{request} eq 'delete' and $self->{edit}) {
         $args{oids} = [@oids, $parameters{id}];
@@ -329,15 +328,7 @@ sub object_editor {
         if ($@) {
             push @body, [p => 'Error: '.$@];
         }
-        $args{oids} = [$oids[0]];
-        $obj = $class->get_object(%args);
-        $args{oids} = [@oids];
-        shift @{$args{oids}};
-        my $div = $obj->HTML_div({}, %args);
-        push @body, $div;
-        pop @oids;
-        push @body, a(link => 'up', url => $uri.'/'.join('/',@oids));
-        return html200({}, SmartSea::HTML->new(html => [body => \@body])->html);
+        return object_div($class, \@body, \@oids, %args);
     } elsif ($parameters{request} eq 'modify') {
         $args{oids} = [@oids];
         my $obj = $class->get_object(%args);
@@ -368,36 +359,18 @@ sub object_editor {
             shift @{$args{oids}};
             push @body, (
                 [p => 'Error: '.$@],
-                $obj->HTML_form({ action => $uri, method => 'POST' }, \%parameters, %args)
+                $obj->HTML_form({ action => $args{uri}, method => 'POST' }, \%parameters, %args)
             );
             return html200({}, SmartSea::HTML->new(html => [body => \@body])->html);
         }
-        $args{oids} = [$oids[0]];
-        $obj = $class->get_object(%args);
-        $args{oids} = [@oids];
-        shift @{$args{oids}};
-        my $div = $obj->HTML_div({}, %args);
-        push @body, $div;
-        pop @oids;
-        push @body, a(link => 'up', url => $uri.'/'.join('/',@oids));
-        return html200({}, SmartSea::HTML->new(html => [body => \@body])->html);
+        return object_div($class, \@body, \@oids, %args);
     } elsif ($parameters{request} eq 'edit' and $self->{edit}) {
         $args{oids} = [@oids];
         my $obj = $class->get_object(%args);
-        $uri =~ s/\?edit$//;
-        push @body, $obj->HTML_form({ action => $uri, method => 'POST' }, {}, %args);
+        push @body, $obj->HTML_form({ action => $args{uri}, method => 'POST' }, {}, %args);
         return html200({}, SmartSea::HTML->new(html => [body => \@body])->html);
     } elsif (@oids) {
-        $args{oids} = [$oids[0]];
-        my $obj = $class->get_object(%args);
-        $args{oids} = [@oids];
-        shift @{$args{oids}};
-        my $div = $obj->HTML_div({}, %args);
-        $div = [form => { action => $args{uri}, method => 'POST' }, $div] if $args{edit};
-        push @body, $div;
-        pop @oids;
-        push @body, a(link => 'up', url => $uri.'/'.join('/',@oids));
-        return html200({}, SmartSea::HTML->new(html => [body => \@body])->html);
+        return object_div($class, \@body, \@oids, %args);
     }
     my $objs;
     my %primary_columns = map {$_ => 1} $class->primary_columns;
@@ -407,11 +380,25 @@ sub object_editor {
         $objs = [$rs->search({cookie => 'default'})]
     }
     my $list = $class->HTML_list($objs, %args, action => 'Delete');
-    $list = [form => { action => $uri, method => 'POST' }, $list] if $self->{edit};
+    $list = [form => { action => $args{uri}, method => 'POST' }, $list] if $self->{edit};
     push @body, $list;
-    $uri =~ s/\/\w+\/\w+$//;
-    push @body, ([1 => ' '], a(link => 'up', url => $uri));
+    $args{base_uri} =~ s/\/\w+\/\w+$//;
+    push @body, ([1 => ' '], a(link => 'up', url => $args{base_uri}));
     return html200({}, SmartSea::HTML->new(html => [body => \@body])->html);
+}
+
+sub object_div {
+    my ($class, $body, $oids, %args) = @_;
+    $args{oids} = [$oids->[0]];
+    my $obj = $class->get_object(%args);
+    $args{oids} = [@$oids];
+    shift @{$args{oids}};
+    my $div = $obj->HTML_div({}, %args);
+    $div = [form => { action => $args{uri}, method => 'POST' }, $div] if $args{edit};
+    push @$body, $div;
+    pop @$oids;
+    push @$body, a(link => 'up', url => $args{base_uri}.'/'.join('/',@$oids));
+    return html200({}, SmartSea::HTML->new(html => [body => $body])->html);
 }
 
 sub pressure_table {

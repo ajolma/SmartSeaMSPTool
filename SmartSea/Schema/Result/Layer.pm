@@ -3,6 +3,7 @@ use strict;
 use warnings;
 use 5.010000;
 use base qw/DBIx::Class::Core/;
+use Scalar::Util 'blessed';
 use SmartSea::Core qw(:all);
 use SmartSea::HTML qw(:all);
 
@@ -11,6 +12,24 @@ __PACKAGE__->add_columns(qw/ id title /);
 __PACKAGE__->set_primary_key('id');
 __PACKAGE__->has_many(plan2use2layer => 'SmartSea::Schema::Result::Plan2Use2Layer', 'layer');
 __PACKAGE__->many_to_many(plan2uses => 'plan2use2layer', 'plan2use');
+
+sub create_col_data {
+    my ($class, $parameters) = @_;
+    my %col_data;
+    for my $col (qw/title/) {
+        $col_data{$col} = $parameters->{$col};
+    }
+    return \%col_data;
+}
+
+sub update_col_data {
+    my ($class, $parameters) = @_;
+    my %col_data;
+    for my $col (qw/title/) {
+        $col_data{$col} = $parameters->{$col};
+    }
+    return \%col_data;
+}
 
 sub get_object {
     my ($class, %args) = @_;
@@ -48,14 +67,21 @@ sub HTML_list {
     }
 
     if ($args{edit}) {
-        my @objs;
-        for my $obj ($args{schema}->resultset('Layer')->all) {
-            next if $has{$obj->id};
-            push @objs, $obj;
-        }
-        if (@objs) {
-            my $drop_down = drop_down(name => 'layer', objs => \@objs);
-            push @li, [li => [$drop_down, [0 => ' '], button(value => 'Add', name => 'layer')]];
+        if ($args{plan}) {
+            my @objs;
+            for my $obj ($args{schema}->resultset('Layer')->all) {
+                next if $has{$obj->id};
+                push @objs, $obj;
+            }
+            if (@objs) {
+                my $drop_down = drop_down(name => 'layer', objs => \@objs);
+                push @li, [li => [$drop_down, [0 => ' '], button(value => 'Add', name => 'layer')]];
+            }
+        } else {
+            my $title = text_input(name => 'title');
+            push @li, [li => [$title, 
+                              [0 => ' '],
+                              button(value => 'Create', name => 'layer')]];
         }
     }
 
@@ -145,8 +171,32 @@ sub HTML_form {
             single({plan2use => $args{plan2use}, layer => $self->id});
         my $rule = $args{schema}->resultset('Rule')->single({id => $oid});
         $args{rule_class} = $pul->rule_class->title;
-        $rule->HTML_form($attributes, undef, %args);
+        return $rule->HTML_form($attributes, undef, %args);
     }
+
+    my @form;
+
+    if ($self and blessed($self) and $self->isa('SmartSea::Schema::Result::Layer')) {
+        for my $key (qw/title/) {
+            next unless $self->$key;
+            next if defined $values->{$key};
+            $values->{$key} = ref($self->$key) ? $self->$key->id : $self->$key;
+        }
+        push @form, [input => {type => 'hidden', name => 'id', value => $self->id}];
+    }
+
+    my $title = text_input(
+        name => 'title',
+        size => 15,
+        value => $values->{title} // ''
+    );
+
+    push @form, (
+        [ p => [[1 => 'title: '],$title] ],
+        button(value => "Store")
+    );
+
+    return [form => $attributes, @form];
 }
 
 1;

@@ -108,7 +108,7 @@ sub HTML_div {
             };
         }
         $args{action} = 'Remove';
-        push @l, $associated_class->HTML_list([$self->uses], %args, plan => $self->id, named_item => 'Uses');
+        push @l, $associated_class->HTML_list([$self->uses], %args, plan => $self->id, named_item => 1);
     }
     return [div => $attributes, [ul => \@l]];
 }

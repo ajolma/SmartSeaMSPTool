@@ -42,7 +42,7 @@ sub HTML_list {
             my $pressure = $ref->pressure;
             my $p = $pressure->title;
             $data{$a}{$p} = 1;
-            my $id = $act->id.'/'.$pressure->id;
+            my $id = 'activity:'.$act->id.'/'.$pressure->id;
             $li{$a}{$p} = item($p, $id, %args, action => 'None');
         }
     }
@@ -91,11 +91,11 @@ sub HTML_div {
         }
         push @l, [li => "$a: ".$v];
     }
-    my $associated_class = 'SmartSea::Schema::Result::Pressure';
     if (my $oid = shift @{$args{oids}}) {
-        push @l, $self->pressures->single({'pressure.id' => $oid})->HTML_div({}, %args);
+        push @l, $self->pressures->single({'pressure.id' => $oid})->HTML_div({}, %args, activity => $self->id, named_item => 1);
     } else {
-        push @l, $associated_class->HTML_list([$self->pressures], %args, activity => $self->id);
+        $args{action} = $args{use} ? 'None' : 'Remove';
+        push @l, SmartSea::Schema::Result::Pressure->HTML_list([$self->pressures], %args, activity => $self->id, named_item => 1);
     }
     my $ret = [ul => \@l];
     return [ li => [0 => 'Activity:'], $ret ] if $args{named_item};

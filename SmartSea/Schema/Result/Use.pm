@@ -18,6 +18,24 @@ __PACKAGE__->many_to_many(activities => 'use2activity', 'activity');
 
 __PACKAGE__->belongs_to(current_allocation => 'SmartSea::Schema::Result::Dataset');
 
+sub create_col_data {
+    my ($class, $parameters) = @_;
+    my %col_data;
+    for my $col (qw/title/) {
+        $col_data{$col} = $parameters->{$col};
+    }
+    return \%col_data;
+}
+
+sub update_col_data {
+    my ($class, $parameters) = @_;
+    my %col_data;
+    for my $col (qw/title/) {
+        $col_data{$col} = $parameters->{$col};
+    }
+    return \%col_data;
+}
+
 sub get_object {
     my ($class, %args) = @_;
     my $oid = shift @{$args{oids}};
@@ -77,26 +95,34 @@ sub HTML_list {
             push @a, [li => $li{$use}{activity}{$activity}];
         }
         my @item = @{$li{$use}{0}};
-        my @s1 = (li => [[0=>'Layers'],[ul=>\@l]]);
-        my @s2 = (li => [[0=>'Activities'],[ul=>\@a]]);
-        my @s = (\@s1, \@s2);
+        my @s;
+        push @s, [li => [[0=>'Layers'],[ul=>\@l]]] if @l;
+        push @s, [li => [[0=>'Activities'],[ul=>\@a]]] if @a;
         push @item, [ul => \@s];
         push @li, [li => \@item];
     }
 
     if ($args{edit}) {
-        my @objs;
-        for my $obj ($args{schema}->resultset('Use')->all) {
-            next if $has{$obj->id};
-            push @objs, $obj;
-        }
-        if (@objs) {
-            my $drop_down = drop_down(name => 'use', objs => \@objs);
-            push @li, [li => [$drop_down, [0 => ' '], button(value => 'Add', name => 'use')]];
+        if ($args{plan}) {
+            my @objs;
+            for my $obj ($args{schema}->resultset('Use')->all) {
+                next if $has{$obj->id};
+                push @objs, $obj;
+            }
+            if (@objs) {
+                my $drop_down = drop_down(name => 'use', objs => \@objs);
+                push @li, [li => [$drop_down, [0 => ' '], button(value => 'Add', name => 'use')]];
+            }
+        } else {
+            my $title = text_input(name => 'title');
+            push @li, [li => [$title, 
+                              [0 => ' '],
+                              button(value => 'Create', name => 'use')]];
         }
     }
+
     my $ret = [ul => \@li];
-    return [ li => [0 => $args{named_item}], $ret ] if $args{named_item};
+    return [ li => [0 => 'Uses:'], $ret ] if $args{named_item};
     return $ret;
 }
 

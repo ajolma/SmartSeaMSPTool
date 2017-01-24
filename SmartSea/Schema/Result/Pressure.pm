@@ -30,8 +30,10 @@ sub HTML_list {
     my (undef, $objs, %args) = @_;
     my %data;
     my %li;
+    my %has;
     for my $pre (@$objs) {
         my $p = $pre->title;
+        $has{$pre->id} = 1;
         my $ap = $pre->activity2pressure->single({activity => $args{activity}});
         
         my $t = [[b => $p],[1 => ", range of impact is ".$range{$ap->range}]];
@@ -46,17 +48,32 @@ sub HTML_list {
         for my $impact (@{$li{$pressure}}) {
             push @l, [li => $impact];
         }
-        my @item = @{$li{pre}{$pressure}};
+        my @item = ($li{pre}{$pressure});
         push @item, [ul => \@l] if @l;
         push @li, [li => \@item];
     }
-    push @li, [li => a(link => 'add pressure', url => $args{uri}.'/new')] if $args{edit};
-    return [ul => \@li];
+
+    if ($args{edit} && $args{activity} && !$args{use}) {
+        my @objs;
+        for my $obj ($args{schema}->resultset('Pressure')->all) {
+            next if $has{$obj->id};
+            push @objs, $obj;
+        }
+        if (@objs) {
+            my $drop_down = drop_down(name => 'pressure', objs => \@objs);
+            push @li, [li => [$drop_down, [0 => ' '], button(value => 'Add', name => 'pressure')]];
+        }
+    }
+    
+    my $ret = [ul => \@li];
+    return [ li => [ [0 => 'Pressures:'], $ret ]] if $args{named_item};
+    return $ret;
 }
 
 sub HTML_div {
     my ($self, $attributes, %args) = @_;
-    my @l = ([li => 'Pressure']);
+    my @l;
+    push @l, [li => 'Activity'] unless $args{activity};
     for my $a (qw/id title category/) {
         my $v = $self->$a // '';
         if (ref $v) {
@@ -69,17 +86,18 @@ sub HTML_div {
         }
         push @l, [li => "$a: ".$v];
     }
-    my @div = ([ul => \@l]);
     my $ap = $self->activity2pressure->single({activity => $args{activity}});
     my $impacts = list_impacts($ap);
     if (@$impacts) {
-        my @l;
+        my @l2;
         for my $impact (@$impacts) {
-            push @l, [li => $impact];
+            push @l2, [li => $impact];
         }
-        push @div, [p => "Range of impact is ".$range{$ap->range}.'.'], [ul => \@l];
+        push @l, [li => [p => "Range of impact is ".$range{$ap->range}.'.'], [ul => \@l2]];
     }
-    return [div => $attributes, @div];
+    my $ret = [ul => \@l];
+    return [ li => [0 => 'Pressure:'], $ret ] if $args{named_item};
+    return $ret;
 }
 
 1;
