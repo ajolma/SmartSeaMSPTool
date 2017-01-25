@@ -92,25 +92,34 @@ sub HTML_div {
         }
         push @l, [li => "$a: ".$v];
     }
-    my $associated_class = 'SmartSea::Schema::Result::Use';
+    $args{plan} = $self->id;
+    $args{named_item} = 1;
+    my $error;
     if (my $oid = shift @{$args{oids}}) {
-        push @l, $self->uses->single({'use.id' => $oid})->HTML_div({}, %args, plan => $self->id, named_item => 'Use');
+        push @l, $self->uses->single({'use.id' => $oid})->HTML_div({}, %args);
     } else {
-        if ($args{parameters}{request} eq 'add') { # add use
+        if ($args{parameters}{request} eq 'add') {
             my $use = $args{schema}->resultset('Use')->single({ id => $args{parameters}{use} });
             eval {
                 $self->add_to_uses($use);
             };
-        } elsif ($args{parameters}{request} eq 'remove') { # add use
+            $error = $@;
+            say STDERR $@ if $@;
+        } elsif ($args{parameters}{request} eq 'remove') {
             my $use = $args{schema}->resultset('Use')->single({ id => $args{parameters}{remove} });
             eval {
                 $self->remove_from_uses($use);
             };
+            $error = $@;
+            say STDERR $@ if $@;
         }
         $args{action} = 'Remove';
-        push @l, $associated_class->HTML_list([$self->uses], %args, plan => $self->id, named_item => 1);
+        push @l, SmartSea::Schema::Result::Use->HTML_list([$self->uses], %args);
     }
-    return [div => $attributes, [ul => \@l]];
+    my @content;
+    push @content, [0 => $error] if $error;
+    push @content, [ul => \@l];
+    return [div => $attributes, @content];
 }
 
 sub HTML_form {

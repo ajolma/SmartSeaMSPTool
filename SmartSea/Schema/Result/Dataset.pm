@@ -10,66 +10,66 @@ use SmartSea::HTML qw(:all);
 my %attributes = (
         name => {
             i => 1,
-            type => 'text',
+            input => 'text',
             size => 20,
         },
         custodian => {
             i => 2,
-            type => 'lookup',
+            input => 'lookup',
             class => 'Organization',
             allow_null => 1
         },
         contact => {
             i => 3,
-            type => 'text',
+            input => 'text',
             size => 20,
         },
         descr => {
             i => 4,
-            type => 'textarea'
+            input => 'textarea'
         },
         data_model => {
             i => 5,
-            type => 'lookup',
+            input => 'lookup',
             class => 'DataModel',
             allow_null => 1
         },
         is_a_part_of => {
             i => 6,
-            type => 'lookup',
+            input => 'lookup',
             class => 'Dataset',
             allow_null => 1
         },
         is_derived_from => {
             i => 7,
-            type => 'lookup',
+            input => 'lookup',
             class => 'Dataset',
             allow_null => 1
         },
         license => {
             i => 8,
-            type => 'lookup',
+            input => 'lookup',
             class => 'License',
             allow_null => 1
         },
         attribution => {
             i => 9,
-            type => 'text',
+            input => 'text',
             size => 40,
         },
         disclaimer => {
             i => 10,
-            type => 'text',
+            input => 'text',
             size => 80,
         },
         path => {
             i => 11,
-            type => 'text',
+            input => 'text',
             size => 30,
         },
         unit => {
             i => 12,
-            type => 'lookup',
+            input => 'lookup',
             class => 'Unit',
             allow_null => 1
         }
@@ -84,6 +84,35 @@ __PACKAGE__->belongs_to(is_a_part_of => 'SmartSea::Schema::Result::Dataset');
 __PACKAGE__->belongs_to(is_derived_from => 'SmartSea::Schema::Result::Dataset');
 __PACKAGE__->belongs_to(license => 'SmartSea::Schema::Result::License');
 __PACKAGE__->belongs_to(unit => 'SmartSea::Schema::Result::Unit');
+
+sub create_col_data {
+    my ($class, $parameters) = @_;
+    my %col_data;
+    for my $col (keys %attributes) {
+        $col_data{$col} = $parameters->{$col};
+    }
+    return \%col_data;
+}
+
+sub update_col_data {
+    my ($class, $parameters) = @_;
+    my %col_data;
+    for my $col (keys %attributes) {
+        $col_data{$col} = $parameters->{$col};
+    }
+    return \%col_data;
+}
+
+sub get_object {
+    my ($class, %args) = @_;
+    my $oid = shift @{$args{oids}};
+    my $obj;
+    eval {
+        $obj = $args{schema}->resultset('Dataset')->single({id => $oid});
+    };
+    say STDERR "Error: $@" if $@;
+    return $obj;
+}
 
 sub long_name {
     my ($self) = @_;
@@ -149,12 +178,12 @@ sub HTML_div {
     my $rel = $self->is_a_part_of;
     if ($rel) {
         push @div, [h3 => "'".$self->name."' is a part of '".$rel->name."'"];
-        push @div, $rel->HTML_div({}, [], %args);
+        push @div, $rel->HTML_div({}, %args);
     }
     $rel = $self->is_derived_from;
     if ($rel) {
         push @div, [h3 => "'".$self->name."' is derived from '".$rel->name."'"];
-        push @div, $rel->HTML_div({}, [], %args);
+        push @div, $rel->HTML_div({}, %args);
     }
 
     return [div => $attributes, @div];
@@ -165,6 +194,7 @@ sub HTML_form {
 
     my @form;
 
+    my $new = 1;
     if ($self and blessed($self) and $self->isa('SmartSea::Schema::Result::Dataset')) {
         for my $key (keys %attributes) {
             next unless $self->$key;
@@ -172,6 +202,7 @@ sub HTML_form {
             $values->{$key} = ref($self->$key) ? $self->$key->id : $self->$key;
         }
         push @form, [input => {type => 'hidden', name => 'id', value => $self->id}];
+        $new = 0;
     }
 
     my $widgets = widgets(\%attributes, $values, $args{schema});
@@ -180,7 +211,7 @@ sub HTML_form {
         push @form, [ p => [[1 => "$key: "], $widgets->{$key}] ];
     }
 
-    push @form, button(value => "Store");
+    push @form, button(value => $new ? "Create" : "Store");
     push @form, [1 => ' '];
     push @form, button(value => "Cancel");
 

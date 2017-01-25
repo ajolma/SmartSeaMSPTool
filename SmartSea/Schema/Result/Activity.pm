@@ -91,11 +91,12 @@ sub HTML_div {
         }
         push @l, [li => "$a: ".$v];
     }
+    $args{activity} = $self->id;
     if (my $oid = shift @{$args{oids}}) {
-        push @l, $self->pressures->single({'pressure.id' => $oid})->HTML_div({}, %args, activity => $self->id, named_item => 1);
+        push @l, $self->pressures->single({'pressure.id' => $oid})->HTML_div({}, %args, named_item => 1);
     } else {
         $args{action} = $args{use} ? 'None' : 'Remove';
-        push @l, SmartSea::Schema::Result::Pressure->HTML_list([$self->pressures], %args, activity => $self->id, named_item => 1);
+        push @l, SmartSea::Schema::Result::Pressure->HTML_list([$self->pressures], %args, named_item => 1);
     }
     my $ret = [ul => \@l];
     return [ li => [0 => 'Activity:'], $ret ] if $args{named_item};

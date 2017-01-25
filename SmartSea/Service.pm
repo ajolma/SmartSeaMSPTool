@@ -43,47 +43,38 @@ sub call {
     for my $key (sort keys %$env) {
         #say STDERR "$key => $env->{$key}";
     }
-    #say STDERR 'http://'.$env->{HTTP_HOST};
-    my $r = $self->{uri};
-    $r =~ s/^.*core?//;
-    say STDERR $r;
-
-    my $class = 'SmartSea::Schema::Result::';
-    if ($r =~ /browser/) {
-        $r =~ s/^.*browser?//;
-        say STDERR $r;
-        my ($c) = $r =~ /\/(\w+)/;
-        $c //= '';
-        $r =~ s/\/(\w+)//;
-        say STDERR $r;
-        for ($c) {
-            return $self->object_editor($class.'Plan', $r, {}) if /plans/;
-            return $self->object_editor($class.'Use', $r, {}) if /uses/;
-            return $self->object_editor($class.'Layer', $r, {}) if /layers/;
-            return $self->object_editor($class.'Activity', $r, {}) if /activities/;
-            return $self->object_editor($class.'EcosystemComponent', $r, {}) if /ecosystem_components/;
-            return $self->object_editor($class.'Rule', $r, 
-                                        { empty_is_null => [qw/value min_value max_value value_type/], 
-                                          defaults => {reduce=>1}
-                                        }) if /rules/;
-            return $self->object_editor($class.'Dataset', $r, 
-                                        { empty_is_null => [qw/contact desc attribution disclaimer path/] }
-                ) if /datasets/;
-            return $self->object_editor($class.'Activity2Pressure', $r, {}) if /activity2pressure/;
-            return $self->object_editor($class.'Impact', $r, {}) if /impacts/;
+    my @path = split /\//, $self->{uri};
+    say STDERR "@path";
+    my @base;
+    while (@path) {
+        my $step =shift @path;
+        say STDERR $step;
+        push @base, $step;
+        return $self->plans(\@path) if $step eq 'plans';
+        return $self->impact_network(\@path) if $step eq 'impact_network';
+        return $self->pressure_table(\@path) if $step eq 'pressure_table';
+        if ($step eq 'browser') {
+            $step = shift(@path) // '';
+            push @base, $step;
+            $self->{base_uri} = join('/', @base);
+            my $class = 'SmartSea::Schema::Result::';
+            return $self->object_editor($class.'Plan', \@path) if $step eq 'plans';
+            return $self->object_editor($class.'Use', \@path) if $step eq 'uses';
+            return $self->object_editor($class.'Activity', \@path) if $step eq 'activities';
+            return $self->object_editor($class.'Layer', \@path) if $step eq 'layers';
+            return $self->object_editor($class.'Dataset', \@path) if $step eq 'datasets';
+            return $self->object_editor($class.'Impact', \@path) if $step eq 'impacts';
+            return $self->object_editor($class.'EcosystemComponent', \@path) if $step eq 'ecosystem_components';
+            return $self->object_editor($class.'Activity2Pressure', \@path) if $step eq 'activity2pressure';
             last;
         }
     }
-    
-    for ($r) {
-        return $self->plans($1) if /plans([\/\d]*)$/;
-        return $self->impact_network() if /impact_network$/;
-        return $self->pressure_table($1) if /pressure_table([\/\?\w]*)$/;
-        last;
+    @path = split /\//, $self->{uri};
+    my $uri = '';
+    for my $step (@path) {
+        $uri .= "$step/";
+        last if $step eq 'core' or $step eq 'core_auth';
     }
-
-    my $uri = $env->{REQUEST_URI};
-    $uri .= '/' unless $uri =~ /\/$/;
     my @l;
     push @l, (
         [li => a(link => 'plans', url  => $uri.'plans')],
@@ -93,7 +84,6 @@ sub call {
              [li => a(link => 'uses', url => $uri.'browser/uses')],
              [li => a(link => 'activities', url => $uri.'browser/activities')],
              [li => a(link => 'layers', url => $uri.'browser/layers')],
-             [li => a(link => 'rules', url  => $uri.'browser/rules')],
              [li => a(link => 'datasets', url  => $uri.'browser/datasets')],
              [li => a(link => 'impacts', url  => $uri.'browser/impacts')],
              [li => a(link => 'ecosystem components', url => $uri.'browser/ecosystem_components')],
@@ -108,9 +98,8 @@ sub call {
 
 sub plans {
     my ($self, $oids) = @_;
-    my @oids = split /\//, $oids;
-    shift @oids;
-    my $plan_id = shift @oids;
+    say STDERR "@$oids";
+    my $plan_id = shift @$oids;
     my $schema = $self->{schema};
     my @plans;
     my $search = defined $plan_id ? {id => $plan_id}: undef;
@@ -230,7 +219,7 @@ sub impact_network {
 }
 
 sub object_editor {
-    my ($self, $class, $oids, $config) = @_;
+    my ($self, $class, $oids) = @_;
 
     # oids is what's after the base in URI, 
     # a list of object ids separated by / and possibly /new or ?edit in the end
@@ -241,6 +230,9 @@ sub object_editor {
     #         defaults => parameters will be set to the value unless in self->parameters
     # 'NULL' parameters will be converted to undef, 
 
+    say STDERR "uri=$self->{uri}, class=$class, oids=(@$oids)";
+
+    my $config = {};
     $config->{create} //= 'Create';
     $config->{add} //= 'Add';
     $config->{delete} //= 'Delete';
@@ -248,15 +240,13 @@ sub object_editor {
     $config->{store} //= 'Store';
     $config->{modify} //= 'Modify';
     $config->{update} //= 'Update';
-    $config->{defaults} //= {};
-    $config->{empty_is_null} //= [];
 
     my %parameters; # <request> => what, key => value
-    $parameters{request} = $1 if $oids =~ /([a-z]+)$/;
    
-    $oids =~ s/\?.*//;
-    my @oids = split /\//, $oids;
-    shift @oids;
+    if (@$oids && $oids->[$#$oids] =~ /([a-z]+)$/) {
+        $parameters{request} = $1;
+        $oids->[$#$oids] =~ s/\?[a-z]+$//;
+    }
     
     # $self->{parameters} is a multivalue hash
     # we may have both object => command and object => id
@@ -284,25 +274,16 @@ sub object_editor {
             }
         }
     }
-    for my $col (@{$config->{empty_is_null}}) {
-        $parameters{$col} = undef if exists $parameters{$col} && $parameters{$col} eq '';
-    }
-    for my $col (keys %{$config->{defaults}}) {
-        $parameters{$col} //= $config->{defaults}{$col};
-    }
     $parameters{request} //= '';
 
-    say STDERR "class=$class, oids=$oids (@oids)";
     for my $p (sort keys %parameters) {
         say STDERR "$p => ".(defined($parameters{$p})?$parameters{$p}:'undef');
     }
 
     my %args = (parameters => \%parameters);
-    for my $key (qw/uri schema edit dbname user pass data_path/) {
+    for my $key (qw/uri base_uri schema edit dbname user pass data_path/) {
         $args{$key} = $self->{$key};
     }
-    $args{base_uri} = $self->{uri};
-    $args{base_uri} =~ s/$oids$//;
 
     my $rs = $self->{schema}->resultset($class =~ /(\w+)$/);
     my @body;
@@ -314,13 +295,13 @@ sub object_editor {
             $rs->create($class->create_col_data(\%parameters));
         };
         say STDERR "error: $@" if $@;
-        return http_status($header, 500) if $@;
+        push @body, [0 => $@] if $@;
     } elsif ($parameters{request} eq 'new' and $self->{edit}) {
-        $args{oids} = [@oids];
-        push @body, $class->HTML_form({ action => $args{base_uri}, method => 'POST' }, \%parameters, %args);
+        $args{oids} = [@$oids];
+        push @body, $class->HTML_form({ action => $args{uri}, method => 'POST' }, \%parameters, %args);
         return html200({}, SmartSea::HTML->new(html => [body => \@body])->html);
     } elsif ($parameters{request} eq 'delete' and $self->{edit}) {
-        $args{oids} = [@oids, $parameters{id}];
+        $args{oids} = [@$oids, $parameters{id}];
         my $obj = $class->get_object(%args);
         eval {
             $obj->delete;
@@ -328,9 +309,9 @@ sub object_editor {
         if ($@) {
             push @body, [p => 'Error: '.$@];
         }
-        return object_div($class, \@body, \@oids, %args);
+        return object_div($class, \@body, $oids, %args) if @$oids;
     } elsif ($parameters{request} eq 'modify') {
-        $args{oids} = [@oids];
+        $args{oids} = [@$oids];
         my $obj = $class->get_object(%args);
         # only modify if $self->{cookie} ne default
         return http_status($header, 403) if $self->{cookie} eq DEFAULT; # forbidden 
@@ -348,14 +329,15 @@ sub object_editor {
         return http_status($header, 500) if $@;
         return json200($header, {object => $obj->as_hashref_for_json});
     } elsif ($parameters{request} eq 'store' and $self->{edit}) {
-        $args{oids} = [@oids];
+        #$args{oids} = [@$oids, $parameters{id}]; # if pop below
+        $args{oids} = [@$oids];
         my $obj = $class->get_object(%args);
         return http_status($header, 400) unless $obj;
         eval {
             $obj->update($obj->update_col_data(\%parameters));
         };
         if ($@) {
-            $args{oids} = [@oids];
+            $args{oids} = [@$oids];
             shift @{$args{oids}};
             push @body, (
                 [p => 'Error: '.$@],
@@ -363,14 +345,16 @@ sub object_editor {
             );
             return html200({}, SmartSea::HTML->new(html => [body => \@body])->html);
         }
-        return object_div($class, \@body, \@oids, %args);
+        return object_div($class, \@body, $oids, %args);
     } elsif ($parameters{request} eq 'edit' and $self->{edit}) {
-        $args{oids} = [@oids];
+        $args{oids} = [@$oids];
         my $obj = $class->get_object(%args);
-        push @body, $obj->HTML_form({ action => $args{uri}, method => 'POST' }, {}, %args);
+        #pop @$oids;
+        my $path = @$oids ? '/'.join('/',@$oids) : '';
+        push @body, $obj->HTML_form({ action => $args{base_uri}.$path, method => 'POST' }, {}, %args);
         return html200({}, SmartSea::HTML->new(html => [body => \@body])->html);
-    } elsif (@oids) {
-        return object_div($class, \@body, \@oids, %args);
+    } elsif (@$oids) {
+        return object_div($class, \@body, $oids, %args);
     }
     my $objs;
     my %primary_columns = map {$_ => 1} $class->primary_columns;
@@ -382,8 +366,9 @@ sub object_editor {
     my $list = $class->HTML_list($objs, %args, action => 'Delete');
     $list = [form => { action => $args{uri}, method => 'POST' }, $list] if $self->{edit};
     push @body, $list;
-    $args{base_uri} =~ s/\/\w+\/\w+$//;
-    push @body, ([1 => ' '], a(link => 'up', url => $args{base_uri}));
+    my @path = split /\//, $self->{uri};
+    pop @path;
+    push @body, ([1 => ' '], a(link => 'up', url => join('/',@path)));
     return html200({}, SmartSea::HTML->new(html => [body => \@body])->html);
 }
 
@@ -397,7 +382,8 @@ sub object_div {
     $div = [form => { action => $args{uri}, method => 'POST' }, $div] if $args{edit};
     push @$body, $div;
     pop @$oids;
-    push @$body, a(link => 'up', url => $args{base_uri}.'/'.join('/',@$oids));
+    my $path = @$oids ? '/'.join('/',@$oids) : '';
+    push @$body, a(link => 'up', url => $args{base_uri}.$path);
     return html200({}, SmartSea::HTML->new(html => [body => $body])->html);
 }
 

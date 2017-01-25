@@ -62,7 +62,7 @@ sub HTML_list {
             push @li, [li => $li{ec}{$c}];
         }
     }
-    push @li, [li => a(link => 'add use', url => $uri.'/new')] if $edit;
+    #push @li, [li => a(link => 'add use', url => $uri.'/new')] if $edit;
     return [ul => \@li];
 }
 

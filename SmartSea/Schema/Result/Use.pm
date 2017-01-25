@@ -64,7 +64,6 @@ sub HTML_list {
         my $u = $use->title;
         $has{$use->id} = 1;
         my $ref = 'this use';
-        $ref .= ' from this plan' if $args{plan};
         $li{$u}{0} = item([b => $u], $use->id, %args, ref => $ref);
         if ($args{plan}) {
             my $plan2use = $args{schema}->
@@ -128,6 +127,7 @@ sub HTML_list {
 
 sub HTML_div {
     my ($self, $attributes, %args) = @_;
+    my $error;
     my @l;
     push @l, ([li => [b => 'Use']]) unless $args{plan};
     for my $a (qw/id title current_allocation/) {
@@ -151,7 +151,7 @@ sub HTML_div {
                     resultset('Plan2Use')->
                     single({plan => $args{plan}, use => $self->id});
                 $args{plan2use} = $plan2use->id;
-                push @l, $plan2use->layers->single({'layer.id' => $oid})->HTML_div({}, %args, named_item => 'Layer');
+                push @l, $plan2use->layers->single({'layer.id' => $oid})->HTML_div({}, %args, named_item => 1);
             }
         } elsif ($oid =~ /activity/) {
             $oid =~ s/activity://;
@@ -171,6 +171,7 @@ sub HTML_div {
                     eval {
                         $plan2use->add_to_layers($layer);
                     };
+                    $error = $@;
                     say STDERR $@ if $@;
                 }
             } elsif ($args{parameters}{add} eq 'activity') {
@@ -178,6 +179,7 @@ sub HTML_div {
                 eval {
                     $self->add_to_activities($activity);
                 };
+                $error = $@;
                 say STDERR $@ if $@;
             }
         } elsif ($args{parameters}{request} eq 'remove') {
@@ -189,12 +191,20 @@ sub HTML_div {
                         resultset('Plan2Use')->
                         single({plan => $args{plan}, use => $self->id});
                     my $layer = $args{schema}->resultset('Layer')->single({ id => $remove });
-                    $plan2use->remove_from_layers($layer);
+                    eval {
+                        $plan2use->remove_from_layers($layer);
+                    };
+                    $error = $@;
+                    say STDERR $@ if $@;
                 }
             } elsif ($remove =~ /activity/) {
                 $remove =~ s/activity://;
                 my $activity = $args{schema}->resultset('Activity')->single({ id => $remove });
-                $self->remove_from_activities($activity);
+                eval {
+                    $self->remove_from_activities($activity);
+                };
+                $error = $@;
+                say STDERR $@ if $@;
             }
         }
         $args{action} = 'Remove';
@@ -208,8 +218,13 @@ sub HTML_div {
         $args{use} = $self->id;
         push @l, SmartSea::Schema::Result::Activity->HTML_list([$self->activities], %args, named_item => '1');
     }
-    return [ li => [0 => 'Use:'], [ul => \@l] ] if $args{named_item};
-    return [ div => $attributes, [ul => \@l] ];
+
+    my @content;
+    push @content, [0 => $error] if $error;
+    push @content, [ul => \@l];
+
+    return [ li => [0 => 'Use:'], @content ] if $args{named_item};
+    return [ div => $attributes, @content ];
 }
 
 sub HTML_form {
