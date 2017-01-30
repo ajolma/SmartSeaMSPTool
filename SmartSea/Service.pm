@@ -63,9 +63,9 @@ sub call {
             return $self->object_editor($class.'Activity', \@path) if $step eq 'activities';
             return $self->object_editor($class.'Layer', \@path) if $step eq 'layers';
             return $self->object_editor($class.'Dataset', \@path) if $step eq 'datasets';
+            return $self->object_editor($class.'Pressure', \@path) if $step eq 'pressures';
             return $self->object_editor($class.'Impact', \@path) if $step eq 'impacts';
             return $self->object_editor($class.'EcosystemComponent', \@path) if $step eq 'ecosystem_components';
-            return $self->object_editor($class.'Activity2Pressure', \@path) if $step eq 'activity2pressure';
             last;
         }
     }
@@ -85,9 +85,9 @@ sub call {
              [li => a(link => 'activities', url => $uri.'browser/activities')],
              [li => a(link => 'layers', url => $uri.'browser/layers')],
              [li => a(link => 'datasets', url  => $uri.'browser/datasets')],
+             [li => a(link => 'pressures', url  => $uri.'browser/pressures')],
              [li => a(link => 'impacts', url  => $uri.'browser/impacts')],
-             [li => a(link => 'ecosystem components', url => $uri.'browser/ecosystem_components')],
-             [li => a(link => 'activity -> pressure links', url  => $uri.'browser/activity2pressure')],
+             [li => a(link => 'ecosystem components', url => $uri.'browser/ecosystem_components')]
          ]
         ],
         [li => a(link => 'impact_network', url  => $uri.'impact_network')],
@@ -167,52 +167,20 @@ sub impact_network {
 
     my %elements = (nodes => [], edges => []);
 
-    my $activities = $self->{schema}->resultset('Activity');
-    my $pressures = $self->{schema}->resultset('Pressure');
-    my $aps = $self->{schema}->resultset('Activity2Pressure');
-    my $components = $self->{schema}->resultset('EcosystemComponent');
-    my $impacts = $self->{schema}->resultset('Impact');
-
-    my @activities = $activities->search(undef, {order_by => ['me.id']});
-    my @pressures = $pressures->search(undef, {order_by => ['me.id']});
-    my @aps = $aps->search(undef, {order_by => ['me.id']});
-    my @components = $components->search(undef, {order_by => ['me.id']});
-    my @impacts = $impacts->search(undef, {order_by => ['me.id']});
-
-    for my $activity (@activities) {
+    for my $activity ($self->{schema}->resultset('Activity')->all) {
         push @{$elements{nodes}}, { data => { id => 'a'.$activity->id, name => $activity->title }};
+        for my $pressure ($activity->pressures) {
+            push @{$elements{edges}}, { data => { 
+                source => 'a'.$activity->id, 
+                target => 'p'.$pressure->id }};
+            my $ap = $self->{schema}->resultset('Activity2Pressure')->
+                single({activity => $activity->id, pressure => $pressure->id});
+            for my $impacts ($ap->impacts) {
+            }
+        }
     }
-    for my $pressure (@pressures) {
+    for my $pressure ($self->{schema}->resultset('Pressure')->all) {
         push @{$elements{nodes}}, { data => { id => 'p'.$pressure->id, name => $pressure->title }};
-    }
-    for my $ap (@aps) {
-        push @{$elements{nodes}}, { data => { id => 'ap'.$ap->id, name => 'ap'.$ap->id }};
-    }
-    for my $component (@components) {
-        push @{$elements{nodes}}, { data => { id => 'c'.$component->id, name => $component->title }};
-    }
-    for my $impact (@impacts) {
-        push @{$elements{nodes}}, { data => { id => 'i'.$impact->id, name => 'i'.$impact->id }};
-    }
-
-    # activity, pressure -> ap
-    for my $ap (@aps) {
-        push @{$elements{edges}}, { data => { 
-            source => 'a'.$ap->activity->id, 
-            target => 'ap'.$ap->id }};
-        push @{$elements{edges}}, { data => { 
-            source => 'p'.$ap->pressure->id, 
-            target => 'ap'.$ap->id }};
-    }
-
-    # ap, component -> impact
-    for my $impact (@impacts) {
-        push @{$elements{edges}}, { data => { 
-            source => 'ap'.$impact->activity2pressure->id, 
-            target => 'i'.$impact->id }};
-        push @{$elements{edges}}, { data => { 
-            source => 'c'.$impact->ecosystem_component->id, 
-            target => 'i'.$impact->id }};
     }
 
     return json200({}, \%elements);
@@ -245,7 +213,11 @@ sub object_editor {
    
     if (@$oids && $oids->[$#$oids] =~ /([a-z]+)$/) {
         $parameters{request} = $1;
-        $oids->[$#$oids] =~ s/\?[a-z]+$//;
+        if ($oids->[$#$oids] =~ /\?/) {
+            $oids->[$#$oids] =~ s/\?([a-z]+)$//;
+        } else {
+            pop @$oids;
+        }
     }
     
     # $self->{parameters} is a multivalue hash
@@ -297,8 +269,8 @@ sub object_editor {
         say STDERR "error: $@" if $@;
         push @body, [0 => $@] if $@;
     } elsif ($parameters{request} eq 'new' and $self->{edit}) {
-        $args{oids} = [@$oids];
-        push @body, $class->HTML_form({ action => $args{uri}, method => 'POST' }, \%parameters, %args);
+        my $path = @$oids ? '/'.join('/',@$oids) : '';
+        push @body, $class->HTML_form({ action => $args{base_uri}.$path, method => 'POST' }, \%parameters, %args);
         return html200({}, SmartSea::HTML->new(html => [body => \@body])->html);
     } elsif ($parameters{request} eq 'delete' and $self->{edit}) {
         $args{oids} = [@$oids, $parameters{id}];

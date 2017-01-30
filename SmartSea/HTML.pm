@@ -3,6 +3,7 @@ use strict;
 use warnings;
 use HTML::Entities;
 use Geo::OGC::Service;
+use SmartSea::Core qw/:all/;
 require Exporter;
 our @ISA = qw(Exporter Geo::OGC::Service::XMLWriter);
 our @EXPORT_OK = qw(a button checkbox text_input textarea drop_down item widgets);
@@ -59,6 +60,7 @@ sub textarea {
 }
 sub drop_down {
     my (%arg) = @_;
+    warn_unknowns(\%arg, qw/name values visuals selected allow_null objs/);
     my $name = $arg{name} // '';
     my $values = $arg{values};
     my $visuals = $arg{visuals} // {};

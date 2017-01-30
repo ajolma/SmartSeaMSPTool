@@ -14,11 +14,29 @@ __PACKAGE__->many_to_many(pressures => 'activity2pressure', 'pressure');
 __PACKAGE__->has_many(use2activity => 'SmartSea::Schema::Result::Use2Activity', 'use');
 __PACKAGE__->many_to_many(activities => 'use2activity', 'activity');
 
+sub create_col_data {
+    my ($class, $parameters) = @_;
+    my %col_data;
+    for my $col (qw/title/) {
+        $col_data{$col} = $parameters->{$col};
+    }
+    return \%col_data;
+}
+
+sub update_col_data {
+    my ($class, $parameters) = @_;
+    my %col_data;
+    for my $col (qw/title/) {
+        $col_data{$col} = $parameters->{$col};
+    }
+    return \%col_data;
+}
+
 sub get_object {
     my ($class, %args) = @_;
     my $oid = shift @{$args{oids}};
-    $oid =~ s/^\w+://;
     return SmartSea::Schema::Result::Pressure->get_object(%args) if @{$args{oids}};
+    $oid =~ s/^\w+://;
     my $obj;
     eval {
         $obj = $args{schema}->resultset('Activity')->single({id => $oid});
@@ -108,6 +126,8 @@ sub HTML_form {
 
     my @form;
 
+    my $button_value;
+
     if ($self and blessed($self) and $self->isa('SmartSea::Schema::Result::Activity')) {
         for my $key (qw/title/) {
             next unless $self->$key;
@@ -115,6 +135,9 @@ sub HTML_form {
             $values->{$key} = ref($self->$key) ? $self->$key->id : $self->$key;
         }
         push @form, [input => {type => 'hidden', name => 'id', value => $self->id}];
+        $button_value = 'Store';
+    } else {
+        $button_value = 'Create';
     }
 
     my $title = text_input(
@@ -125,7 +148,7 @@ sub HTML_form {
 
     push @form, (
         [ p => [[1 => 'title: '],$title] ],
-        button(value => "Store")
+        button(value => $button_value)
     );
 
     return [form => $attributes, @form];

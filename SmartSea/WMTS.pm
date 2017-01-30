@@ -30,11 +30,6 @@ sub new {
 
     my $ct = Geo::GDAL::ColorTable->new();
 
-    # outside is 0, completely transparent
-    $ct->Color(0, [0,0,0,0]);
-    # no data is 1, black
-    $ct->Color(1, [0,0,0,255]);
-
     # value is from 0 to 100
     my $max_value = 100;
     # from white to green
@@ -42,7 +37,14 @@ sub new {
     for my $value (0..$max_value) {
         my $c = int(255-255/$max_value*$value);
         @color = ($c,255,$c,255);
-        $ct->Color(2+$value, @color);
+        $ct->Color($value, @color);
+    }
+    $ct->Color(0, [0,0,0,0]); # outside
+    $ct->Color(101, [0,0,0,0]); # no data
+    my $i = 0;
+    for my $c ($ct->ColorTable) {
+        say "$i @$c";
+        ++$i;
     }
     $self->{value_color_table} = $ct;
 
@@ -51,6 +53,11 @@ sub new {
     $ct->Color(1, [85,255,255,255]); # current use
     $ct->Color(2, [255,66,61,255]); # new allocation
     $self->{allocation_color_table} = $ct;
+
+    # red to green (suitability)
+    # R = (255 * (100 - n)) / 100
+    # G = (255 * n) / 100 
+    # B = 0
 
     return bless $self, $class;
 }
@@ -103,6 +110,8 @@ sub process {
                                      '-projwin', $tile->projwin,
                                      '-a_ullr', $tile->projwin] );
 
+    my $mask = $dataset->Band(1)->Piddle; # 0 / 1
+
     # the client asks for plan_use_layer_rule_rule_...
     # rules are those rules that the client wishes to be active
     # no rules = all rules?
@@ -118,6 +127,26 @@ sub process {
         cookie => $self->{cookie}, 
         trail => $trail
     });
+
+    $self->{log} = '';
+
+    my $y = $rules->compute($tile, $self); # sequential: 0 or 1, multiplicative: 0 to 1, additive: 0 to max
+    if ($rules->{class}->title =~ /^seq/) {
+        $y += 1;
+        $y->inplace->setbadtoval(0);
+        # 0 = no data, 1 = rules say no, 2 = rules say yes
+        $dataset->Band(1)->ColorTable($self->{allocation_color_table});
+    } else {
+        $y *= 100;
+        $self->{log} .= "\noutput: min=".$y->min." max=".$y->max;
+        say STDERR $self->{log};
+        $y->inplace->setbadtoval(101);
+        # 0 = rules say bad ... 1 = rules say good, 101 no data
+        $dataset->Band(1)->ColorTable($self->{value_color_table});
+    }
+    $y *= $mask;
+    $dataset->Band(1)->Piddle(byte $y);
+    return $dataset;
 
     if ($rules->layer->title eq 'Value') {
         # compute, returns bad, 0..100

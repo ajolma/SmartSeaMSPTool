@@ -10,7 +10,7 @@ use constant DEFAULT => 'default'; # not user changed object, used for cookie at
 
 require Exporter;
 our @ISA = qw(Exporter);
-our @EXPORT_OK = qw(common_responses html200 json200 http_status parse_integer DEFAULT); 
+our @EXPORT_OK = qw(common_responses html200 json200 http_status parse_integer DEFAULT warn_unknowns); 
 our %EXPORT_TAGS = (all => \@EXPORT_OK);
 
 sub common_responses {
@@ -85,6 +85,14 @@ sub http_status {
             [%header,
              'Content-Length' => 21], 
             ['Internal Server Error']] if $status == 500;
+}
+
+sub warn_unknowns {
+    my $arg = shift;
+    my %known = map {$_ => 1} @_;
+    for my $key (keys %$arg) {
+        warn "unknown named argument: $key" unless $known{$key};
+    }
 }
 
 sub parse_integer {

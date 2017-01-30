@@ -342,8 +342,57 @@ sub HTML_list {
     return $ret;
 }
 
+sub apply {
+    my ($self, $y, $method, $tile, $config) = @_;
+
+    # the operand (x)
+    my $x = $self->operand($config, $tile);
+    my $x_min = $self->min_value;
+    my $x_max = $self->max_value;
+
+    my $w = $self->weight;
+
+    # output is y
+    my $y_min = $self->value_at_min;
+    my $y_max = $self->value_at_max;
+
+    if ($method =~ /^mult/) {
+
+        $config->{log} .= "\n".$self->r_dataset->path;
+        $config->{log} .= "\n"."x min=".$x->min." max=".$x->max;
+        $config->{log} .= "\n"."y min=".$y->min." max=".$y->max;
+        $config->{log} .= "\n  $w * ($y_min + (\$x-$x_min)*($y_max-$y_min)/($x_max-$x_min))";
+        $y *= $w * ($y_min + ($x-$x_min)*($y_max-$y_min)/($x_max-$x_min));
+        $config->{log} .= "\n"."min=".$y->min." max=".$y->max;
+
+    } elsif ($method =~ /^add/) {
+
+        $y += $w * ($y_min + ($x-$x_min)*($y_max-$y_min)/($x_max-$x_min));
+
+    } elsif ($method =~ /^seq/) {
+        
+        # if $rule->reduce then deallocate where the rule is true
+        my $val = $self->reduce ? 0 : 1;
+
+        # the default is to compare the spatial operand to 1
+        my $op = $self->op ? $self->op->op : '==';
+        my $value = $self->value // 1;
+        
+        if (defined $x) {
+            if ($op eq '<=')    { $y->where($x <= $value) .= $val; } 
+            elsif ($op eq '<')  { $y->where($x <  $value) .= $val; }
+            elsif ($op eq '>=') { $y->where($x >= $value) .= $val; }
+            elsif ($op eq '>')  { $y->where($x >  $value) .= $val; }
+            elsif ($op eq '==') { $y->where($x == $value) .= $val; }
+            else                { say STDERR "rule is a no-op: ",$self->as_text(include_value => 1); }
+        }   
+        else                    { $y .= $val; }
+
+    }
+}
+
 sub operand {
-    my ($self, $config, $use, $tile) = @_;
+    my ($self, $config, $tile) = @_;
     if ($self->r_layer) {
         # we need the rules associated with the 2nd plan.use.layer
         my $plan = $self->r_plan ? $self->r_plan : $self->plan;

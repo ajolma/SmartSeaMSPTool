@@ -3,6 +3,7 @@ use strict;
 use warnings;
 use 5.010000;
 use base qw/DBIx::Class::Core/;
+use Scalar::Util 'blessed';
 use SmartSea::HTML qw(:all);
 use SmartSea::Impact qw(:all);
 
@@ -82,6 +83,33 @@ sub HTML_div {
         push @l, [li => "$a: ".$v];
     }
     return [div => $attributes, [ul => \@l]];
+}
+
+sub HTML_form {
+    my ($self, $attributes, $values, %args) = @_;
+
+    my @form;
+
+    if ($self and blessed($self) and $self->isa('SmartSea::Schema::Result::EcosystemComponent')) {
+        for my $key (qw/title/) {
+            next unless $self->$key;
+            next if defined $values->{$key};
+            $values->{$key} = ref($self->$key) ? $self->$key->id : $self->$key;
+        }
+        push @form, [input => {type => 'hidden', name => 'id', value => $self->id}];
+    }
+
+    my $title = text_input(
+        name => 'title',
+        size => 10,
+        value => $values->{title} // ''
+    );
+
+    push @form, (
+        [ p => [[1 => 'Title: '],$title] ],
+        button(value => "Store")
+    );
+    return [form => $attributes, @form];
 }
 
 1;

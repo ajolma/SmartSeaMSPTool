@@ -12,6 +12,18 @@ __PACKAGE__->set_primary_key('id');
 __PACKAGE__->belongs_to(activity2pressure => 'SmartSea::Schema::Result::Activity2Pressure');
 __PACKAGE__->belongs_to(ecosystem_component => 'SmartSea::Schema::Result::EcosystemComponent');
 
+sub get_object {
+    my ($class, %args) = @_;
+    my $oid = shift @{$args{oids}};
+    return SmartSea::Schema::Result::Use->get_object(%args) if @{$args{oids}};
+    my $obj;
+    eval {
+        $obj = $args{schema}->resultset('Impact')->single({id => $oid});
+    };
+    say STDERR "Error: $@" if $@;
+    return $obj;
+}
+
 sub HTML_list {
     my (undef, $objs, %args) = @_;
     my ($uri, $edit) = ($args{uri}, $args{edit});
@@ -69,7 +81,7 @@ sub HTML_form {
                                       objs => [$args{schema}->resultset('Activity2Pressure')->all], 
                                       selected => $values->{activity2pressure});
     my $ecosystem_component = drop_down(name => 'ecosystem_component', 
-                                        obj => [$args{schema}->resultset('EcosystemComponent')->all], 
+                                        objs => [$args{schema}->resultset('EcosystemComponent')->all], 
                                         selected => $values->{ecosystem_component});
     
     my $strength = text_input(

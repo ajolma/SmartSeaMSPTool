@@ -15,13 +15,17 @@ use SmartSea::Core qw(:all);
 sub new {
     my ($class, $args) = @_; # must give schema, cookie, and trail
     my $trail = $args->{trail};
+    my $schema = $args->{schema};
     my $id;
     ($trail, $id) = parse_integer($trail);
-    my $plan = $args->{schema}->resultset('Plan')->single({ id => $id });
+    my $plan = $schema->resultset('Plan')->single({ id => $id });
     ($trail, $id) = parse_integer($trail);
-    my $use = $args->{schema}->resultset('Use')->single({ id => $id });
+    my $use = $schema->resultset('Use')->single({ id => $id });
     ($trail, $id) = parse_integer($trail);
-    my $layer = $args->{schema}->resultset('Layer')->single({ id => $id });
+    my $layer = $schema->resultset('Layer')->single({ id => $id });
+    
+    my $plan2use = $schema->resultset('Plan2Use')->single({plan => $plan->id, use => $use->id});
+    my $pul = $schema->resultset('Plan2Use2Layer')->single({plan2use => $plan2use->id, layer => $layer->id});
 
     my @rules;
     # rule list is optional
@@ -32,7 +36,7 @@ sub new {
             # there may be default rule and a modified rule denoted with a cookie
             # prefer the one with our cookie
             my $rule;
-            for my $r ($args->{schema}->resultset('Rule')->search({ id => $id })) {
+            for my $r ($schema->resultset('Rule')->search({ id => $id })) {
                 if ($r->cookie eq $args->{cookie}) {
                     $rule = $r;
                     last;
@@ -44,15 +48,9 @@ sub new {
             push @rules, $rule;
         }
     } else {
+        
         my %rules;
-        for my $rule ($args->{schema}->resultset('Rule')->search(
-                          { plan => $plan->id,
-                            use => $use->id,
-                            layer => $layer->id,
-                            -or => [ cookie => DEFAULT,
-                                     cookie => $args->{cookie}]
-                          })) {
-            
+        for my $rule ($pul->rules) {
             # prefer id/cookie pair to id/default, they have the same id
             if (exists $rules{$rule->id}) {
                 $rules{$rule->id} = $rule if $rule->cookie eq $args->{cookie};
@@ -64,7 +62,7 @@ sub new {
             push @rules, $rules{$i};
         }
     }
-    my $self = {rules => \@rules, plan => $plan, use => $use, layer => $layer};
+    my $self = {rules => \@rules, plan => $plan, use => $use, layer => $layer, class => $pul->rule_class};
     return bless $self, $class;
 }
 
@@ -93,6 +91,24 @@ sub has_rules {
     return @{$self->{rules}} > 0;
 }
 
+sub compute {
+    my ($self, $tile, $config) = @_;
+
+    my $result = zeroes($tile->tile);
+
+    my $method = $self->{class}->title;
+
+    if ($method =~ /^seq/ || $method =~ /^mult/) {
+        $result += 1; # 
+    }
+
+    for my $rule ($self->rules) {
+        $rule->apply($result, $method, $tile, $config);
+    }
+
+    return $result;
+}
+
 sub compute_allocation {
     my ($self, $config, $tile) = @_;
 
@@ -111,7 +127,7 @@ sub compute_allocation {
         my $value = $rule->value // 1;
 
         # the operand
-        my $tmp = $rule->operand($config, $self->{use}, $tile);
+        my $tmp = $rule->operand($config, $tile);
 
         if (defined $tmp) {
             if ($op eq '<=')    { $result->where($tmp <= $value) .= $val; } 
@@ -155,7 +171,7 @@ sub compute_value {
         #my $op = $rule->op ? $rule->op->op : '==';
 
         # the operand
-        my $tmp = double($rule->operand($config, $self->{use}, $tile));
+        my $tmp = double($rule->operand($config, $tile));
 
         # scale values from 0 to 100
         my $min = $rule->min_value;

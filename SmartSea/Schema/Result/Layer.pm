@@ -93,40 +93,18 @@ sub HTML_list {
 
 sub HTML_div {
     my ($self, $attributes, %args) = @_;
-    my @l;
-    push @l, ([li => [b => 'Layer']]) unless $args{plan};
-    for my $a (qw/id title/) {
-        my $v = $self->$a // '';
-        if (ref $v) {
-            for my $b (qw/title name data op id/) {
-                if ($v->can($b)) {
-                    $v = $v->$b;
-                    last;
-                }
-            }
-        }
-        push @l, [li => "$a: ".$v];
-    }
 
     my $pul = $args{plan2use} ? $args{schema}->
         resultset('Plan2Use2Layer')->
         single({plan2use => $args{plan2use}, layer => $self->id}) : undef;
 
-    push @l, [li => "Rule class: ".$pul->rule_class->title] if $pul;
-    
-    if (my $oid = shift @{$args{oids}}) {
-        $args{named_item} = 'Rule';
-        push @l, $args{schema}->resultset('Rule')->single({id => $oid})->HTML_div({}, %args);
-    } elsif ($pul) {
-        
-        my @rules;
-
+    if ($pul) {
         if ($args{parameters}{request} eq 'update') {
             eval {
                 $pul->update({rule_class => $args{parameters}{rule_class} });
             };
         } elsif ($args{parameters}{request} eq 'add') {
-            @rules = $pul->rules->search({'me.cookie' => DEFAULT});
+            my @rules = $pul->rules->search({'me.cookie' => DEFAULT});
             my $index = (scalar(@rules) // 0)+1;
             eval {
                 $args{schema}->resultset('Rule')->create(
@@ -143,8 +121,29 @@ sub HTML_div {
             };
             say STDERR "error: $@" if $@;
         }
-        @rules = $pul->rules->search({'me.cookie' => DEFAULT});
+    }
 
+    my @l;
+    push @l, ([li => [b => 'Layer']]) unless $args{plan};
+    for my $a (qw/id title/) {
+        my $v = $self->$a // '';
+        if (ref $v) {
+            for my $b (qw/title name data op id/) {
+                if ($v->can($b)) {
+                    $v = $v->$b;
+                    last;
+                }
+            }
+        }
+        push @l, [li => "$a: ".$v];
+    }
+    push @l, [li => "Rule class: ".$pul->rule_class->title] if $pul;
+    
+    if (my $oid = shift @{$args{oids}}) {
+        $args{named_item} = 'Rule';
+        push @l, $args{schema}->resultset('Rule')->single({id => $oid})->HTML_div({}, %args);
+    } elsif ($pul) {
+        my @rules = $pul->rules->search({'me.cookie' => DEFAULT});
         my $rule_class = $pul->rule_class;
         push @l, [ li => 
                    [0 => "Rules are applied "], 
