@@ -272,7 +272,7 @@ SET search_path = tool, pg_catalog;
 CREATE TABLE activities (
     id integer NOT NULL,
     title text NOT NULL,
-    "order" integer
+    "order" integer DEFAULT 1 NOT NULL
 );
 
 
@@ -1594,6 +1594,16 @@ REVOKE ALL ON TABLE activities FROM PUBLIC;
 REVOKE ALL ON TABLE activities FROM ajolma;
 GRANT ALL ON TABLE activities TO ajolma;
 GRANT ALL ON TABLE activities TO smartsea;
+
+
+--
+-- Name: activities_id_seq; Type: ACL; Schema: tool; Owner: ajolma
+--
+
+REVOKE ALL ON SEQUENCE activities_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE activities_id_seq FROM ajolma;
+GRANT ALL ON SEQUENCE activities_id_seq TO ajolma;
+GRANT ALL ON SEQUENCE activities_id_seq TO smartsea;
 
 
 --
