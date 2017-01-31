@@ -58,6 +58,25 @@ function createLayer(template, projection) {
             })
         })];
     }
+    if (template.bg && template.bg == 'test') {
+        return [new ol.layer.Tile({
+            opacity: 1,
+            extent: projection.extent,
+            source: new ol.source.WMTS({
+                url: 'http://' + server + '/WMTS',
+                layer: 'suomi',
+                matrixSet: 'ETRS-TM35FIN',
+                format: 'image/png',
+                projection: projection.projection,
+                tileGrid: new ol.tilegrid.WMTS({
+                    origin: ol.extent.getTopLeft(projection.extent),
+                    resolutions: projection.resolutions,
+                    matrixIds: projection.matrixIds
+                }),
+                style: 'default'
+            })
+        })];
+    }
     if (template.wmts) {
         return new ol.layer.Tile({
             opacity: 0.6,

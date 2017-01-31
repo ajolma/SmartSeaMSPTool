@@ -103,6 +103,7 @@ function MSPView(model, elements, id) {
         self.buildPlans();
     });
     self.model.planChanged.attach(function(sender, args) {
+        self.elements.plans.val(args.plan.id);
         self.buildPlan(args.plan);
     });
     self.model.newLayerList.attach(function(sender, args) {
@@ -256,18 +257,20 @@ MSPView.prototype = {
             var item;
             if (layer.title == 'Value')
                 item = rule.title;
-            else
+            else {
+                var attr = {
+                    type:"checkbox",
+                    use: layer.use,
+                    layer: layer.id,
+                    rule:rule.id
+                };
+                if (rule.active) attr.checked = "checked";
                 item = element(
                     'input', 
-                    {
-                        type:"checkbox",
-                        use: layer.use,
-                        layer: layer.id,
-                        rule:rule.id,
-                        checked:"checked"
-                    }, 
+                    attr, 
                     element('a', {id:"rule", rule:rule.id}, rule.title+' '+rule.value)
                 );
+            }
             self.elements.rules.append(item);
             rule.active = true;
             self.elements.rules.append(element('br'));

@@ -7,7 +7,7 @@ use Scalar::Util 'blessed';
 use SmartSea::HTML qw(:all);
 
 __PACKAGE__->table('tool.uses');
-__PACKAGE__->add_columns(qw/ id title current_allocation /);
+__PACKAGE__->add_columns(qw/ id title /);
 __PACKAGE__->set_primary_key('id');
 
 __PACKAGE__->has_many(plan2use => 'SmartSea::Schema::Result::Plan2Use', 'use');
@@ -15,8 +15,6 @@ __PACKAGE__->many_to_many(plans => 'plan2use', 'plan');
 
 __PACKAGE__->has_many(use2activity => 'SmartSea::Schema::Result::Use2Activity', 'use');
 __PACKAGE__->many_to_many(activities => 'use2activity', 'activity');
-
-__PACKAGE__->belongs_to(current_allocation => 'SmartSea::Schema::Result::Dataset');
 
 sub create_col_data {
     my ($class, $parameters) = @_;
@@ -130,7 +128,7 @@ sub HTML_div {
     my $error;
     my @l;
     push @l, ([li => [b => 'Use']]) unless $args{plan};
-    for my $a (qw/id title current_allocation/) {
+    for my $a (qw/id title /) {
         my $v = $self->$a // '';
         if (ref $v) {
             for my $b (qw/title name data op id/) {

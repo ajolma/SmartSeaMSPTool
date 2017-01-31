@@ -28,36 +28,29 @@ sub new {
         Name => "$dsn user='$self->{user}' password='$self->{pass}'",
         Type => 'Vector');
 
-    my $ct = Geo::GDAL::ColorTable->new();
+    $self->{Suomi} = Geo::GDAL::Open(
+        Name => "Pg:dbname=suomi user='ajolma' password='ajolma'",
+        Type => 'Vector');
 
-    # value is from 0 to 100
-    my $max_value = 100;
-    # from white to green
-    my @color = (255,255,255,255);
-    for my $value (0..$max_value) {
-        my $c = int(255-255/$max_value*$value);
-        @color = ($c,255,$c,255);
-        $ct->Color($value, @color);
-    }
-    $ct->Color(0, [0,0,0,0]); # outside
-    $ct->Color(101, [0,0,0,0]); # no data
-    my $i = 0;
-    for my $c ($ct->ColorTable) {
-        say "$i @$c";
-        ++$i;
-    }
-    $self->{value_color_table} = $ct;
+    my $ct = Geo::GDAL::ColorTable->new();
+    $self->{red_and_green} = $ct;
+    $ct->Color(0, [255,0,0,255]);
+    $ct->Color(1, [0,255,0,255]);
+    $ct->Color(255, [0,0,0,0]);
 
     $ct = Geo::GDAL::ColorTable->new();
-    $ct->Color(0, [0,0,0,0]); # no data or no allocation
-    $ct->Color(1, [85,255,255,255]); # current use
-    $ct->Color(2, [255,66,61,255]); # new allocation
-    $self->{allocation_color_table} = $ct;
+    $self->{red_to_green} = $ct;
+    for my $value (0..100) {
+        $ct->Color($value, [255*(100-$value)/100,255*$value/100,0,255]);
+    }
+    $ct->Color(255, [0,0,0,0]);
 
-    # red to green (suitability)
-    # R = (255 * (100 - n)) / 100
-    # G = (255 * n) / 100 
-    # B = 0
+    $ct = Geo::GDAL::ColorTable->new();
+    $self->{suomi_colortable} = $ct;
+    $ct->Color(0, [255,255,255,255]);
+    $ct->Color(1, [180,180,180,255]);
+    $ct->Color(2, [150,150,150,255]);
+    $ct->Color(3, [10,10,10,255]);
 
     return bless $self, $class;
 }
@@ -72,7 +65,7 @@ sub config {
             Resolutions => "9..19",
             SRS => "EPSG:3067",
             BoundingBox => $config->{BoundingBox3067},
-            file => "/home/ajolma/data/SmartSea/smartsea-mask.tiff",
+            file => "/home/ajolma/data/SmartSea/mask.tiff",
             ext => "png"
         },
         {
@@ -81,7 +74,7 @@ sub config {
             Resolutions => "9..19",
             SRS => "EPSG:3067",
             BoundingBox => $config->{BoundingBox3067},
-            file => "/home/ajolma/data/SmartSea/smartsea-mask.tiff",
+            file => "/home/ajolma/data/SmartSea/mask.tiff",
             ext => "png"
         }
         );
@@ -102,15 +95,51 @@ sub process {
     # params is a hash of WM(T)S parameters
     #say STDERR "@_";
 
+    if ($params->{layer} eq 'suomi') {
+
+        #for my $key (sort keys %$params) {
+        #    say STDERR "$key $params->{$key}";
+        #}
+        
+        # use $params->{style} ?
+
+        my ($w, $h) = $tile->tile;
+        my $ds = Geo::GDAL::Driver('GTiff')->
+            Create(Name => "/vsimem/suomi.tiff", Width => $w, Height => $h);
+        my ($minx, $maxy, $maxx, $miny) = $tile->projwin;
+
+        my $scale = ($maxx-$minx)/256; # m/pixel
+        my $tolerance;
+        for my $x (1000,100,50) {
+            if ($scale > $x) {
+                $tolerance = $x;
+            }
+        }
+        $tolerance //= '';
+        my $layer = 'maat'.$tolerance;
+
+        $ds->GeoTransform($minx, ($maxx-$minx)/$w, 0, $maxy, 0, ($miny-$maxy)/$h);
+        $ds->SpatialReference(Geo::OSR::SpatialReference->new(EPSG=>3067));
+        $ds->Band(1)->ColorTable($self->{suomi_colortable});
+        $self->{Suomi}->Rasterize($ds, [-burn => 1, -l => 'f_l1_3067']);
+        $self->{Suomi}->Rasterize($ds, [-burn => 2, -l => $layer]);
+        $self->{Suomi}->Rasterize($ds, [-burn => 3, -l => 'maakunnat_rajat']);
+        $self->{Suomi}->Rasterize($ds, [-burn => 3, -l => 'eez_rajat']);
+
+        # Cache-Control should be only max-age=seconds something
+        return $ds;
+    }
+
     # a 0/1 mask of the planning area
-    $dataset = Geo::GDAL::Open("$self->{data_path}/smartsea-mask.tiff");
+    $dataset = Geo::GDAL::Open("$self->{data_path}/mask.tiff");
     $dataset = $dataset->Translate( "/vsimem/tmp.tiff", 
                                     ['-ot' => 'Byte', '-of' => 'GTiff', '-r' => 'nearest' , 
                                      '-outsize' , $tile->tile,
                                      '-projwin', $tile->projwin,
-                                     '-a_ullr', $tile->projwin] );
+                                     '-a_ullr', $tile->projwin]);
 
     my $mask = $dataset->Band(1)->Piddle; # 0 / 1
+    say STDERR "min=",$mask->min." max=".$mask->max;
 
     # the client asks for plan_use_layer_rule_rule_...
     # rules are those rules that the client wishes to be active
@@ -131,20 +160,19 @@ sub process {
     $self->{log} = '';
 
     my $y = $rules->compute($tile, $self); # sequential: 0 or 1, multiplicative: 0 to 1, additive: 0 to max
-    if ($rules->{class}->title =~ /^seq/) {
-        $y += 1;
-        $y->inplace->setbadtoval(0);
-        # 0 = no data, 1 = rules say no, 2 = rules say yes
-        $dataset->Band(1)->ColorTable($self->{allocation_color_table});
-    } else {
-        $y *= 100;
-        $self->{log} .= "\noutput: min=".$y->min." max=".$y->max;
-        say STDERR $self->{log};
-        $y->inplace->setbadtoval(101);
-        # 0 = rules say bad ... 1 = rules say good, 101 no data
-        $dataset->Band(1)->ColorTable($self->{value_color_table});
+    $y->inplace->copybad($mask);
+    unless ($mask->min eq 'BAD') {
+        $y->inplace->setbadtoval(255);
+        if ($rules->{class}->title =~ /^seq/) {     
+            $dataset->Band(1)->ColorTable($self->{red_and_green});
+        } else {
+            $y *= 100;
+            $self->{log} .= "\noutput: min=".$y->min." max=".$y->max;
+            say STDERR $self->{log};
+            $dataset->Band(1)->ColorTable($self->{red_to_green});
+        }
+        $y->where($mask == 0) .= 255;
     }
-    $y *= $mask;
     $dataset->Band(1)->Piddle(byte $y);
     return $dataset;
 

@@ -62,6 +62,7 @@ sub call {
             return $self->object_editor($class.'Use', \@path) if $step eq 'uses';
             return $self->object_editor($class.'Activity', \@path) if $step eq 'activities';
             return $self->object_editor($class.'Layer', \@path) if $step eq 'layers';
+            return $self->object_editor($class.'Rule', \@path) if $step eq 'rules';
             return $self->object_editor($class.'Dataset', \@path) if $step eq 'datasets';
             return $self->object_editor($class.'Pressure', \@path) if $step eq 'pressures';
             return $self->object_editor($class.'Impact', \@path) if $step eq 'impacts';
@@ -256,6 +257,7 @@ sub object_editor {
     for my $key (qw/uri base_uri schema edit dbname user pass data_path/) {
         $args{$key} = $self->{$key};
     }
+    $args{cookie} = DEFAULT;
 
     my $rs = $self->{schema}->resultset($class =~ /(\w+)$/);
     my @body;
@@ -283,13 +285,14 @@ sub object_editor {
         }
         return object_div($class, \@body, $oids, %args) if @$oids;
     } elsif ($parameters{request} eq 'modify') {
-        $args{oids} = [@$oids];
-        my $obj = $class->get_object(%args);
-        # only modify if $self->{cookie} ne default
         return http_status($header, 403) if $self->{cookie} eq DEFAULT; # forbidden 
+        $args{oids} = [@$oids];
+        $args{cookie} = $self->{cookie};
+        my $obj = $class->get_object(%args);
         my $cols = $obj->values;
         $cols->{value} = $parameters{value};
         $cols->{id} = $obj->id;
+        $cols->{plan2use2layer} = $obj->plan2use2layer->id;
         $cols->{cookie} = $self->{cookie};
         my $a = ['current_timestamp'];
         $cols->{made} = \$a;

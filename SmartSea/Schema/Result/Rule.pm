@@ -117,8 +117,9 @@ sub get_object {
         return undef;
     }
     my $obj;
+    say STDERR "get rule $oid, $args{cookie}";
     eval {
-        $obj = $args{schema}->resultset('Rule')->single({id => $oid});
+        $obj = $args{schema}->resultset('Rule')->single({id => $oid, cookie => $args{cookie}});
     };
     say STDERR "Error: $@" if $@;
     return $obj;
@@ -207,7 +208,7 @@ sub as_hashref_for_json {
 sub HTML_div {
     my ($self, $attributes, %args) = @_;
     my @l;
-    my $sequential = $self->plan2use2layer->rule_class eq 'sequentially';
+    my $sequential = $self->plan2use2layer->rule_class->title =~ /^sequential/;
     my @cols;
     if ($sequential) {
         @cols = (qw/r_plan r_use r_layer r_dataset reduce op value min_value max_value my_index/);

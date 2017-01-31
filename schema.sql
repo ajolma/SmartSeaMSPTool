@@ -825,8 +825,7 @@ ALTER SEQUENCE use2activity_id_seq OWNED BY use2activity.id;
 
 CREATE TABLE uses (
     id integer NOT NULL,
-    title text NOT NULL,
-    current_allocation integer
+    title text NOT NULL
 );
 
 
@@ -1490,14 +1489,6 @@ ALTER TABLE ONLY use2activity
 
 ALTER TABLE ONLY plan2use2layer
     ADD CONSTRAINT use2layer_layer_fkey FOREIGN KEY (layer) REFERENCES layers(id);
-
-
---
--- Name: uses_current_allocation_fkey; Type: FK CONSTRAINT; Schema: tool; Owner: ajolma
---
-
-ALTER TABLE ONLY uses
-    ADD CONSTRAINT uses_current_allocation_fkey FOREIGN KEY (current_allocation) REFERENCES data.datasets(id);
 
 
 --
