@@ -101,7 +101,8 @@ sub HTML_div {
     if ($pul) {
         if ($args{parameters}{request} eq 'update') {
             eval {
-                $pul->update({rule_class => $args{parameters}{rule_class} });
+                $pul->update({rule_class => $args{parameters}{rule_class}, 
+                              additive_max => $args{parameters}{additive_max} });
             };
         } elsif ($args{parameters}{request} eq 'add') {
             my @rules = $pul->rules->search({'me.cookie' => DEFAULT});
@@ -137,25 +138,38 @@ sub HTML_div {
         }
         push @l, [li => "$a: ".$v];
     }
-    push @l, [li => "Rule class: ".$pul->rule_class->title] if $pul;
+
+    my $rule_class = $pul ? $pul->rule_class : undef;
+    push @l, [li => "Rule class: ".$rule_class->title] if $pul;
+    push @l, [li => "Max value: ".$pul->additive_max] if $pul && $rule_class->title =~ /^add/;
     
     if (my $oid = shift @{$args{oids}}) {
         $args{named_item} = 'Rule';
         push @l, $args{schema}->resultset('Rule')->single({id => $oid})->HTML_div({}, %args);
     } elsif ($pul) {
         my @rules = $pul->rules->search({'me.cookie' => DEFAULT});
-        my $rule_class = $pul->rule_class;
-        push @l, [ li => 
-                   [0 => "Rules are applied "], 
-                   drop_down(name => 'rule_class',
-                             objs => [$args{schema}->
-                                      resultset('RuleClass')->all], 
-                             selected => $rule_class->id),
-                   button(value => 'Update', name => 'pul') ];
+
+        my @items = (
+            [0 => "Rules are "], 
+            drop_down(name => 'rule_class',
+                      objs => [$args{schema}->
+                               resultset('RuleClass')->all], 
+                      selected => $rule_class->id)
+            );
+        if ($rule_class->title =~ /^add/) {
+            push @items, (
+                [0 => " Max value is "], 
+                text_input(name => 'additive_max',
+                           value => $pul->additive_max)
+            );
+        } else {
+            push @items, [input => {type => 'hidden', name => 'additive_max', value => $pul->additive_max}];
+        }
+        push @l, [ li => @items, [0 => " "], button(value => 'Update', name => 'pul') ];
         
         $args{pul} = $pul->id;
         $args{action} = 'Delete';
-        $args{rule_class} = $pul->rule_class->title;
+        $args{rule_class} = $rule_class->title;
         push @l, SmartSea::Schema::Result::Rule->HTML_list(\@rules, %args, named_list => 1);
     }
     return [ li => [0 => 'Layer:'], [ul => \@l] ] if $args{named_item};

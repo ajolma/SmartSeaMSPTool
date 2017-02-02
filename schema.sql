@@ -560,7 +560,8 @@ CREATE TABLE plan2use2layer (
     plan2use integer NOT NULL,
     layer integer NOT NULL,
     id integer NOT NULL,
-    rule_class integer DEFAULT 1 NOT NULL
+    rule_class integer DEFAULT 1 NOT NULL,
+    additive_max double precision DEFAULT 1 NOT NULL
 );
 
 

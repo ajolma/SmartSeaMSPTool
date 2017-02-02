@@ -339,6 +339,7 @@ sub HTML_list {
     }
     
     my $ret = [ul => \@li];
+    $ret = [ol => \@li] if $args{rule_class} =~ /^seq/;
     return [ ul => [ [li => 'Rules'], $ret ]] if $args{named_list};
     return $ret;
 }

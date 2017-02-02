@@ -62,7 +62,13 @@ sub new {
             push @rules, $rules{$i};
         }
     }
-    my $self = {rules => \@rules, plan => $plan, use => $use, layer => $layer, class => $pul->rule_class};
+    my $self = { rules => \@rules, 
+                 plan => $plan, 
+                 use => $use, 
+                 layer => $layer, 
+                 class => $pul->rule_class,
+                 max => $pul->additive_max
+    };
     return bless $self, $class;
 }
 
@@ -104,6 +110,11 @@ sub compute {
 
     for my $rule ($self->rules) {
         $rule->apply($result, $method, $tile, $config);
+    }
+
+    if ($method =~ /^add/) {
+        $result /= $self->max;
+        $result->where($result > 1) .= 1;
     }
 
     return $result;

@@ -7,6 +7,7 @@ use Carp;
 use Encode qw(decode encode);
 use JSON;
 use DBI;
+use Imager::Color;
 use Geo::GDAL;
 use PDL;
 use Geo::OGC::Service;
@@ -33,20 +34,32 @@ sub new {
         Type => 'Vector');
 
     my $ct = Geo::GDAL::ColorTable->new();
-    $self->{red_and_green} = $ct;
+    $self->{palette}{red_and_green} = $ct;
     $ct->Color(0, [255,0,0,255]);
     $ct->Color(1, [0,255,0,255]);
     $ct->Color(255, [0,0,0,0]);
 
     $ct = Geo::GDAL::ColorTable->new();
-    $self->{red_to_green} = $ct;
+    $self->{palette}{red_to_green} = $ct;
     for my $value (0..100) {
         $ct->Color($value, [255*(100-$value)/100,255*$value/100,0,255]);
     }
     $ct->Color(255, [0,0,0,0]);
 
     $ct = Geo::GDAL::ColorTable->new();
-    $self->{suomi_colortable} = $ct;
+    $self->{palette}{to_green} = $ct;
+    for my $value (0..100) {
+        my $hsv = Imager::Color->new(
+            hsv => [ 120, $value/100, $value/100 ]
+            );
+        my @rgb = $hsv->rgba;
+        $rgb[3] = 255*$value/100;
+        $ct->Color($value, \@rgb);
+    }
+    $ct->Color(255, [0,0,0,0]);
+
+    $ct = Geo::GDAL::ColorTable->new();
+    $self->{palette}{suomi_colortable} = $ct;
     $ct->Color(0, [255,255,255,255]);
     $ct->Color(1, [180,180,180,255]);
     $ct->Color(2, [150,150,150,255]);
@@ -91,6 +104,9 @@ sub config {
 sub process {
     my ($self, $dataset, $tile, $server) = @_;
     my $params = $server->{parameters};
+
+    #say STDERR "style = $params->{style}";
+
     # $dataset is undef since we serve_arbitrary_layers
     # params is a hash of WM(T)S parameters
     #say STDERR "@_";
@@ -120,7 +136,7 @@ sub process {
 
         $ds->GeoTransform($minx, ($maxx-$minx)/$w, 0, $maxy, 0, ($miny-$maxy)/$h);
         $ds->SpatialReference(Geo::OSR::SpatialReference->new(EPSG=>3067));
-        $ds->Band(1)->ColorTable($self->{suomi_colortable});
+        $ds->Band(1)->ColorTable($self->{palette}{suomi_colortable});
         $self->{Suomi}->Rasterize($ds, [-burn => 1, -l => 'f_l1_3067']);
         $self->{Suomi}->Rasterize($ds, [-burn => 2, -l => $layer]);
         $self->{Suomi}->Rasterize($ds, [-burn => 3, -l => 'maakunnat_rajat']);
@@ -139,7 +155,7 @@ sub process {
                                      '-a_ullr', $tile->projwin]);
 
     my $mask = $dataset->Band(1)->Piddle; # 0 / 1
-    say STDERR "min=",$mask->min." max=".$mask->max;
+    #say STDERR "min=",$mask->min." max=".$mask->max;
 
     # the client asks for plan_use_layer_rule_rule_...
     # rules are those rules that the client wishes to be active
@@ -164,15 +180,19 @@ sub process {
     unless ($mask->min eq 'BAD') {
         $y->inplace->setbadtoval(255);
         if ($rules->{class}->title =~ /^seq/) {     
-            $dataset->Band(1)->ColorTable($self->{red_and_green});
+            $y *= 100;
         } else {
             $y *= 100;
-            $self->{log} .= "\noutput: min=".$y->min." max=".$y->max;
-            say STDERR $self->{log};
-            $dataset->Band(1)->ColorTable($self->{red_to_green});
+            #$self->{log} .= "\noutput: min=".$y->min." max=".$y->max;
+            #say STDERR $self->{log};
         }
         $y->where($mask == 0) .= 255;
     }
+
+    my $palette = 'to_green';
+    $palette = $params->{style} if exists $self->{palette}{$params->{style}};
+
+    $dataset->Band(1)->ColorTable($self->{palette}{$palette});
     $dataset->Band(1)->Piddle(byte $y);
     return $dataset;
 

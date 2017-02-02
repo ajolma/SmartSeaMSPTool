@@ -57,7 +57,11 @@ DAMAGE.
         view: model.proj.view
     });
     model.map.addControl(new ol.control.ScaleLine());
-    $.each(createLayer({bg: config.bg}, model.proj), function(i, layer) {
+    var bg = config.bg;
+    var regex = /bg=(\w+)/;
+    var x = regex.exec(window.location.href);
+    if (x && x[1]) bg = x[1];
+    $.each(createLayer({bg: bg}, model.proj), function(i, layer) {
         model.map.addLayer(layer);
     });
 
