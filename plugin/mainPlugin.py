@@ -14,9 +14,19 @@ class SmartSea:
     self.iface = iface
     self.plugin_dir = QFileInfo(QgsApplication.qgisUserDbFilePath()).path() + \
         "/python/plugins/smartsea/"
+    s = QSettings()
+    self.server = s.value("smartsea/server", "http://localhost:5000/core")
+    self.wmts = s.value("smartsea/wmts", "http://localhost:5000/WMS")
+    # download plans here?
+    # fail init and report if no connection?
+    # provide a way to set these?
 
   def initGui(self):
-    # self.dialog = uic.loadUi(self.plugin_dir+"topcons.ui")
+    self.dialog = uic.loadUi(self.plugin_dir+"dialog.ui")
+
+    QObject.connect(
+        self.dialog.findChild(QPushButton, "DownloadPushButton"), 
+        SIGNAL("clicked()"), self.load_plans)
     
     # create action that will start plugin configuration
     self.action = QAction(QIcon(self.plugin_dir+"icon.png"), "SmartSea", self.iface.mainWindow())
@@ -35,16 +45,53 @@ class SmartSea:
     self.iface.removeToolBarIcon(self.action)
 
   def run(self):
-    root = QgsProject.instance().layerTreeRoot()
+    self.dialog.show()
 
-    print "Here I am!"
-    print "Get the data..."
-    # need to ask which plan
-    url = "http://localhost:5000/core/plans/3"
+  def load_plans(self):
+    print "Get the plans tree..."
+    # the URL needs to come somewhere configurable
+    url = self.server + "/plans"
+    response = urllib.urlopen(url)
+    data = json.loads(response.read())
+    # create a tree from data
+    treeView = self.dialog.findChild(QTreeView, "treeView")
+    model = QStandardItemModel()
+    model.setHorizontalHeaderLabels(['plans'])
+    
+    for plan in data:
+      planItem = QStandardItem(plan["title"])
+      for use in plan["uses"]:
+        useItem = QStandardItem(use["title"])
+        planItem.appendRow(useItem)
+        for layer in use["layers"]:
+          layerItem = QStandardItem(layer["title"])
+          useItem.appendRow(layerItem)
+          if (layer["rules"]):
+            for rule in layer["rules"]:
+              ruleItem = QStandardItem(rule["title"])
+              layerItem.appendRow(ruleItem)
+          
+      model.appendRow(planItem)
+          
+    treeView.setModel(model)
+    treeView.show()
+
+  def load(self):
+    root = QgsProject.instance().layerTreeRoot()
+    
+    url = self.server+"/plans/3"
     response = urllib.urlopen(url)
     data = json.loads(response.read())
 
-    urlWithParams = 'url=http://localhost:5000/WMS&styles=&format=image/png&crs=EPSG:3067&tileDimensions=256;256&layers='
+    styles = ''
+    epsg = 3067
+    frmt = 'image/png'
+    url = 'url='+self.wmts+ \
+          '&styles='+styles+ \
+          '&format='+frmt+ \
+          '&crs=EPSG:'+epsg+ \
+          '&tileDimensions=256;256'+ \
+          '&layers='
 
     for plan in data:
       print plan["title"]
