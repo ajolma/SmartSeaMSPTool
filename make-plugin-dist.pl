@@ -14,8 +14,8 @@ while (<$fh>) {
 }
 close $fh;
 
-my $zip_dir = lc($data{name}).'-'.$data{version};
-my $zip_file = $zip_dir.'.zip';
+my $zip_dir = lc($data{name});
+my $zip_file = lc($data{name}).'.'.$data{version}.'.zip';
 
 my $download_url = 'http://localhost';
 my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) =
@@ -37,7 +37,7 @@ my $xml = << "END_XML";
         <version>$data{version}</version>
         <trusted>True</trusted>
         <qgis_minimum_version>$data{qgisMinimumVersion}</qgis_minimum_version>
-        <qgis_maximum_version></qgis_maximum_version>
+        <qgis_maximum_version>2.99</qgis_maximum_version>
         <homepage><![CDATA[$data{homepage}]]></homepage>
         <file_name>$zip_file</file_name>
         <icon>icon.png</icon>
@@ -65,26 +65,29 @@ open($fh, ">", "plugin.xml")
 print $fh $xml;
 close $fh;
 
-mkdir "smartsea-0.0.1";
+mkdir $zip_dir;
 
 my @plugin_files = qw/icon.png __init__.py mainPlugin.py metadata.txt dialog.ui/;
 
 for my $f (@plugin_files) {
-    copy("plugin/$f", "smartsea-0.0.1/$f");
+    copy("plugin/$f", "$zip_dir/$f");
 }
 
 my $zip = Archive::Zip->new();
 
 # Add a directory
-my $dir_member = $zip->addDirectory('smartsea-0.0.1/');
+$zip->addDirectory($zip_dir);
+for my $f (@plugin_files) {
+    $zip->addFile("$zip_dir/$f");
+}
 
 # Save the Zip file
-unless ( $zip->writeToFileNamed('smartsea-0.0.1.zip') == AZ_OK ) {
+unless ( $zip->writeToFileNamed($zip_file) == AZ_OK ) {
     die 'write error';
 }
 
 for my $f (@plugin_files) {
-    unlink("smartsea-0.0.1/$f");
+    unlink("$zip_dir/$f");
 }
 
-rmdir "smartsea-0.0.1";
+rmdir $zip_dir;
