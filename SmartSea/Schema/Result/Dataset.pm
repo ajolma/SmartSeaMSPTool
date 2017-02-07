@@ -251,10 +251,47 @@ sub tree {
 
 sub HTML_list {
     my (undef, $objs, %args) = @_;
-    my ($uri, $edit) = ($args{uri}, $args{edit});
-    my @li = tree($objs, %args);
-    push @li, [li => a(link => 'add', url => $uri.'/new')] if $edit;
-    return [ul => \@li];
+
+    my @li;
+    my %has;
+    if ($args{plan}) {
+        my %li;
+        for my $dataset (@$objs) {
+            my $u = $dataset->title;
+            $has{$dataset->id} = 1;
+            my $ref = 'this dataset';
+            $li{$u} = item([b => $u], 'dataset:'.$dataset->id, %args, ref => $ref);
+        }
+        for my $dataset (sort keys %li) {
+            push @li, [li => $li{$dataset}];
+        }
+    } else {
+        @li = tree($objs, %args);
+    }
+
+    if ($args{edit}) {
+        if ($args{plan}) {
+            my @objs;
+            for my $obj ($args{schema}->resultset('Dataset')->all) {
+                next unless $obj->path;
+                next if $has{$obj->id};
+                push @objs, $obj;
+            }
+            if (@objs) {
+                my $drop_down = drop_down(name => 'dataset', objs => \@objs);
+                push @li, [li => [$drop_down, [0 => ' '], button(value => 'Add', name => 'dataset')]];
+            }
+        } else {
+            my $title = text_input(name => 'title');
+            push @li, [li => [$title, 
+                              [0 => ' '],
+                              button(value => 'Create', name => 'dataset')]];
+        }
+    }
+    
+    my $ret = [ul => \@li];
+    return [ li => [0 => 'Datasets:'], $ret ] if $args{named_item};
+    return $ret;
 }
 
 1;

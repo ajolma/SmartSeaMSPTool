@@ -62,7 +62,7 @@ sub HTML_list {
         my $u = $use->title;
         $has{$use->id} = 1;
         my $ref = 'this use';
-        $li{$u}{0} = item([b => $u], $use->id, %args, ref => $ref);
+        $li{$u}{0} = item([b => $u], 'use:'.$use->id, %args, ref => $ref);
         if ($args{plan}) {
             my $plan2use = $args{schema}->
                 resultset('Plan2Use')->

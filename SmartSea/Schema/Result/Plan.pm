@@ -11,6 +11,8 @@ __PACKAGE__->add_columns(qw/ id title /);
 __PACKAGE__->set_primary_key('id');
 __PACKAGE__->has_many(plan2use => 'SmartSea::Schema::Result::Plan2Use', 'plan');
 __PACKAGE__->many_to_many(uses => 'plan2use', 'use');
+__PACKAGE__->has_many(plan2dataset => 'SmartSea::Schema::Result::Plan2Dataset', 'plan');
+__PACKAGE__->many_to_many(datasets => 'plan2dataset', 'dataset');
 
 sub create_col_data {
     my ($class, $parameters) = @_;
@@ -33,7 +35,15 @@ sub update_col_data {
 sub get_object {
     my ($class, %args) = @_;
     my $oid = shift @{$args{oids}};
-    return SmartSea::Schema::Result::Use->get_object(%args) if @{$args{oids}};
+    if (@{$args{oids}}) {
+        if ($args{oids}->[0] =~ /use/) {
+            $args{oids}->[0] =~ s/use://;
+            return SmartSea::Schema::Result::Use->get_object(%args);
+        } elsif ($args{oids}->[0] =~ /dataset/) {
+            $args{oids}->[0] =~ s/dataset://;
+            return SmartSea::Schema::Result::Dataset->get_object(%args);
+        }
+    }
     my $obj;
     eval {
         $obj = $args{schema}->resultset('Plan')->single({id => $oid});
@@ -51,16 +61,25 @@ sub HTML_list {
         $li{plan}{$p} = item([b => $p], $plan->id, %args, ref => 'this plan');
         for my $use ($plan->uses) {
             my $u = $use->title;
-            $data{$p}{$u} = 1;
-            my $id = $plan->id.'/'.$use->id;
-            $li{$p}{$u} = item($u, $id, %args, action => 'None');
+            $data{$p}{uses}{$u} = 1;
+            my $id = $plan->id.'/use:'.$use->id;
+            $li{$p}{uses}{$u} = item($u, $id, %args, action => 'None');
+        }
+        for my $dataset ($plan->datasets) {
+            my $u = $dataset->title;
+            $data{$p}{datasets}{$u} = 1;
+            my $id = $plan->id.'/dataset:'.$dataset->id;
+            $li{$p}{datasets}{$u} = item($u, $id, %args, action => 'None');
         }
     }
     my @li;
     for my $plan (sort keys %{$li{plan}}) {
         my @l;
-        for my $use (sort keys %{$data{$plan}}) {
-            push @l, [li => $li{$plan}{$use}];
+        for my $use (sort keys %{$data{$plan}{uses}}) {
+            push @l, [li => $li{$plan}{uses}{$use}];
+        }
+        for my $dataset (sort keys %{$data{$plan}{datasets}}) {
+            push @l, [li => $li{$plan}{datasets}{$dataset}];
         }
         my @item = @{$li{plan}{$plan}};
         push @item, [ul => \@l] if @l;
@@ -96,25 +115,50 @@ sub HTML_div {
     $args{named_item} = 1;
     my $error;
     if (my $oid = shift @{$args{oids}}) {
-        push @l, $self->uses->single({'use.id' => $oid})->HTML_div({}, %args);
+        if ($oid =~ /use/) {
+            $oid =~ s/use://;
+            push @l, $self->uses->single({'use.id' => $oid})->HTML_div({}, %args);
+        } elsif ($oid =~ /dataset/) {
+            $oid =~ s/dataset://;
+            push @l, $self->datasets->single({'dataset.id' => $oid})->HTML_div({}, %args);
+        }
     } else {
         if ($args{parameters}{request} eq 'add') {
-            my $use = $args{schema}->resultset('Use')->single({ id => $args{parameters}{use} });
-            eval {
-                $self->add_to_uses($use);
-            };
-            $error = $@;
-            say STDERR $@ if $@;
+            if ($args{parameters}{add} eq 'use') {
+                my $use = $args{schema}->resultset('Use')->single({ id => $args{parameters}{use} });
+                eval {
+                    $self->add_to_uses($use);
+                };
+                $error = $@;
+                say STDERR $@ if $@;
+            } elsif ($args{parameters}{add} eq 'dataset') {
+                my $dataset = $args{schema}->resultset('Dataset')->single({ id => $args{parameters}{dataset} });
+                eval {
+                    $self->add_to_datasets($dataset);
+                };
+                $error = $@;
+                say STDERR $@ if $@;
+            }
         } elsif ($args{parameters}{request} eq 'remove') {
-            my $use = $args{schema}->resultset('Use')->single({ id => $args{parameters}{remove} });
-            eval {
-                $self->remove_from_uses($use);
-            };
-            $error = $@;
-            say STDERR $@ if $@;
+            if ($args{parameters}{remove} =~ /^use:(\d+)/) {
+                my $use = $args{schema}->resultset('Use')->single({ id => $1 });
+                eval {
+                    $self->remove_from_uses($use);
+                };
+                $error = $@;
+                say STDERR $@ if $@;
+            } elsif ($args{parameters}{remove} =~ /^dataset:(\d+)/) {
+                my $dataset = $args{schema}->resultset('Dataset')->single({ id => $1 });
+                eval {
+                    $self->remove_from_datasets($dataset);
+                };
+                $error = $@;
+                say STDERR $@ if $@;
+            }
         }
         $args{action} = 'Remove';
         push @l, SmartSea::Schema::Result::Use->HTML_list([$self->uses], %args);
+        push @l, SmartSea::Schema::Result::Dataset->HTML_list([$self->datasets], %args);
     }
     my @content;
     push @content, [0 => $error] if $error;

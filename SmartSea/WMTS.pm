@@ -71,9 +71,11 @@ sub new {
 sub config {
     my ($self, $config) = @_;
 
+    # QGIS asks for capabilities and does not load unadvertised layers
+
     my @tilesets = (
         {
-            Layers => "3_3_3_1_26",
+            Layers => "3_3_1",
             Format => "image/png",
             Resolutions => "9..19",
             SRS => "EPSG:3067",
@@ -82,7 +84,16 @@ sub config {
             ext => "png"
         },
         {
-            Layers => "3_3_3",
+            Layers => "3_3_2",
+            Format => "image/png",
+            Resolutions => "9..19",
+            SRS => "EPSG:3067",
+            BoundingBox => $config->{BoundingBox3067},
+            file => "/home/ajolma/data/SmartSea/mask.tiff",
+            ext => "png"
+        },
+        {
+            Layers => "dataset_14",
             Format => "image/png",
             Resolutions => "9..19",
             SRS => "EPSG:3067",
@@ -110,8 +121,38 @@ sub process {
     # $dataset is undef since we serve_arbitrary_layers
     # params is a hash of WM(T)S parameters
     #say STDERR "@_";
+    
+    # WMTS clients ask for layer
+    # WMS clients ask for layers
 
-    if ($params->{layer} eq 'suomi') {
+    my $want = $params->{layer} // $params->{layers};
+
+    if ($want =~ /^dataset_(\d)/) {
+        my ($w, $h) = $tile->tile;
+        my $ds = Geo::GDAL::Driver('GTiff')->
+            Create(Name => "/vsimem/suomi.tiff", Width => $w, Height => $h);
+        my ($minx, $maxy, $maxx, $miny) = $tile->projwin;
+
+        my $scale = ($maxx-$minx)/256; # m/pixel
+        my $tolerance;
+        for my $x (1000,100,50) {
+            if ($scale > $x) {
+                $tolerance = $x;
+            }
+        }
+        $tolerance //= '';
+        my $layer = 'maat'.$tolerance;
+
+        $ds->GeoTransform($minx, ($maxx-$minx)/$w, 0, $maxy, 0, ($miny-$maxy)/$h);
+        $ds->SpatialReference(Geo::OSR::SpatialReference->new(EPSG=>3067));
+        $ds->Band(1)->ColorTable($self->{palette}{suomi_colortable});
+        $self->{Suomi}->Rasterize($ds, [-burn => 1, -l => 'f_l1_3067']);
+
+        # Cache-Control should be only max-age=seconds something
+        return $ds;
+    }
+
+    if ($want eq 'suomi') {
 
         #for my $key (sort keys %$params) {
         #    say STDERR "$key $params->{$key}";
@@ -161,8 +202,6 @@ sub process {
     # rules are those rules that the client wishes to be active
     # no rules = all rules?
 
-    my $trail = $params->{layer} // $params->{layers};
-
     my $cookies = $server->{request}->cookies;
     $self->{cookie} = $cookies->{SmartSea} // 'default';
     #say STDERR "cookie: $self->{cookie}";
@@ -170,7 +209,7 @@ sub process {
     my $rules = SmartSea::Rules->new({
         schema => $self->{schema}, 
         cookie => $self->{cookie}, 
-        trail => $trail
+        trail => $want
     });
 
     $self->{log} = '';
@@ -190,7 +229,7 @@ sub process {
     }
 
     my $palette = 'to_green';
-    $palette = $params->{style} if exists $self->{palette}{$params->{style}};
+    $palette = $params->{style} if $params->{style} && exists $self->{palette}{$params->{style}};
 
     $dataset->Band(1)->ColorTable($self->{palette}{$palette});
     $dataset->Band(1)->Piddle(byte $y);

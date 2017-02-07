@@ -129,7 +129,11 @@ sub plans {
             }
             push @uses, {title => $use->title, id => $use->id, plan => $plan->id, layers => \@layers};
         }
-        push @plans, {title => $plan->title, id => $plan->id, uses => \@uses};
+        my @datasets;
+        for my $dataset ($plan->datasets(undef)) {
+            push @datasets, {title => $dataset->title, id => $dataset->id, plan => $plan->id};
+        }
+        push @plans, {title => $plan->title, id => $plan->id, uses => \@uses, datasets => \@datasets};
     }
 
     # This is the first request made by the App, thus set the cookie
