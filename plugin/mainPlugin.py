@@ -83,29 +83,19 @@ class SmartSea:
       data = json.loads(response.read())
       # create a tree from data
       for plan in data:
-        planItem = QStandardItem(plan["title"])
-        planItem.setData("plan",Qt.UserRole+2)
-        planItem.setData(plan["id"],Qt.UserRole+3)
+        planItem = self.item(plan, "plan")
         for use in plan["uses"]:
-          useItem = QStandardItem(use["title"])
-          useItem.setData("use",Qt.UserRole+2)
-          useItem.setData(use["id"],Qt.UserRole+3)
+          useItem = self.item(use, "use")
           planItem.appendRow(useItem)
           for layer in use["layers"]:
-            layerItem = QStandardItem(layer["title"])
-            layerItem.setData("layer",Qt.UserRole+2)
-            layerItem.setData(layer["id"],Qt.UserRole+3)
+            layerItem = self.item(layer, "layer")
             useItem.appendRow(layerItem)
             if (layer["rules"]):
               for rule in layer["rules"]:
-                ruleItem = QStandardItem(rule["title"])
-                ruleItem.setData("rule",Qt.UserRole+2)
-                ruleItem.setData(rule["id"],Qt.UserRole+3)
+                ruleItem = self.item(rule, "rule")
                 layerItem.appendRow(ruleItem)
         for dataset in plan["datasets"]:
-          datasetItem = QStandardItem(dataset["title"])
-          datasetItem.setData("dataset",Qt.UserRole+2)
-          datasetItem.setData(dataset["id"],Qt.UserRole+3)
+          datasetItem = self.item(dataset, "dataset")
           planItem.appendRow(datasetItem)
           
         self.model.appendRow(planItem)
@@ -176,4 +166,9 @@ class SmartSea:
 
     else:
       print "loading "+klass+"s not yet implemented"
-      
+
+  def item(self, obj, klass):
+    item = QStandardItem(obj["title"])
+    item.setData(klass,Qt.UserRole+2)
+    item.setData(obj["id"],Qt.UserRole+3)
+    return item
