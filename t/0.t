@@ -8,7 +8,7 @@ use_ok('SmartSea::Schema');
 
 my ($name,$path,$suffix) = fileparse($0, 'pl', 't');
 
-my ($tables, $deps, $indexes) = read_postgresql_dump($path.'../../schema.sql');
+my ($tables, $deps, $indexes) = read_postgresql_dump($path.'../schema.sql');
 my $schemas = create_sqlite_schemas($tables, $deps, $indexes);
 
 for my $schema (keys %$schemas) {
