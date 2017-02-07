@@ -1,0 +1,16 @@
+requires 'Modern::Perl';
+requires 'File::Copy';
+requires 'Archive::Zip';
+requires 'Plack::Component';
+requires 'Plack::App::File';
+requires 'Geo::GDAL';
+requires 'PDL';
+requires 'JSON';
+requires 'DBI';
+requires 'Data::Dumper';
+requires 'Data::GUID';
+requires 'HTML::Entities';
+requires 'Geo::OGC::Service';
+requires 'DBIx::Class';
+requires 'DBIx::Class::Schema';
+requires 'Test::More';

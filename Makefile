@@ -14,3 +14,6 @@ smartsea.0.0.1.zip:
 
 plugin.xml:
 	perl make-plugin-dist.pl
+
+test:
+	prove -I.
