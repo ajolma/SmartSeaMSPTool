@@ -69,8 +69,8 @@ sub drop_down {
     if ($arg{objs}) {
         my %objs;
         for my $obj (@{$arg{objs}}) {
-            $objs{$obj->id} = $obj->title;
-            $visuals->{$obj->id} = $obj->title;
+            $objs{$obj->id} = $obj->name;
+            $visuals->{$obj->id} = $obj->name;
         }
         $values = [sort {$objs{$a} cmp $objs{$b}} keys %objs];
         unshift @$values, 'NULL' if $arg{allow_null};
@@ -94,10 +94,10 @@ sub spinner {
                       value => $arg{value}}];
 }
 sub item {
-    my ($title, $id, %arg) = @_;
-    return ref($title) ? [$title] : [[0 => $title]] unless $arg{uri};
+    my ($name, $id, %arg) = @_;
+    return ref($name) ? [$name] : [[0 => $name]] unless $arg{uri};
     my $uri = $arg{uri}.'/'.$id;
-    my @i = (a(link => $title, url => $uri));
+    my @i = (a(link => $name, url => $uri));
     my $value = $arg{action} // 'Delete';
     return $i[0] if $arg{action} eq 'None';
     if ($arg{edit}) {

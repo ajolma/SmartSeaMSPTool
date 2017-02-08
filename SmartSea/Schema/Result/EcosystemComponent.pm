@@ -8,7 +8,7 @@ use SmartSea::HTML qw(:all);
 use SmartSea::Impact qw(:all);
 
 __PACKAGE__->table('tool.ecosystem_components');
-__PACKAGE__->add_columns(qw/ id title /);
+__PACKAGE__->add_columns(qw/ id name /);
 __PACKAGE__->set_primary_key('id');
 __PACKAGE__->has_many(impacts => 'SmartSea::Schema::Result::Impact', 'ecosystem_component');
 
@@ -22,14 +22,14 @@ sub HTML_list {
     my ($uri, $edit) = ($args{uri}, $args{edit});
     my %li;
     for my $ec (@$objs) {
-        my $c = $ec->title;
+        my $c = $ec->name;
         $li{ec}{$c} = item([b => $c], $ec->id, %args, ref => 'this component');
         my @impacts = $ec->impacts;
         for my $impact (@impacts) {
             next unless defined $impact->strength;
             next unless defined $impact->belief;
             my $activity = $impact->activity2pressure->activity;
-            my $i = $activity->title;
+            my $i = $activity->name;
             if (exists $li{$c}{$i}) {
                 push @{$li{$c}{$i}}, [$impact->strength,$impact->belief];
             } else {
@@ -70,10 +70,10 @@ sub HTML_list {
 sub HTML_div {
     my ($self, $attributes, %args) = @_;
     my @l = ([li => 'Ecosystem component']);
-    for my $a (qw/id title/) {
+    for my $a (qw/id name/) {
         my $v = $self->$a // '';
         if (ref $v) {
-            for my $b (qw/title name data op id/) {
+            for my $b (qw/name data id/) {
                 if ($v->can($b)) {
                     $v = $v->$b;
                     last;
@@ -91,7 +91,7 @@ sub HTML_form {
     my @form;
 
     if ($self and blessed($self) and $self->isa('SmartSea::Schema::Result::EcosystemComponent')) {
-        for my $key (qw/title/) {
+        for my $key (qw/name/) {
             next unless $self->$key;
             next if defined $values->{$key};
             $values->{$key} = ref($self->$key) ? $self->$key->id : $self->$key;
@@ -99,14 +99,14 @@ sub HTML_form {
         push @form, [input => {type => 'hidden', name => 'id', value => $self->id}];
     }
 
-    my $title = text_input(
-        name => 'title',
+    my $name = text_input(
+        name => 'name',
         size => 10,
-        value => $values->{title} // ''
+        value => $values->{name} // ''
     );
 
     push @form, (
-        [ p => [[1 => 'Title: '],$title] ],
+        [ p => [[1 => 'Name: '],$name] ],
         button(value => "Store")
     );
     return [form => $attributes, @form];

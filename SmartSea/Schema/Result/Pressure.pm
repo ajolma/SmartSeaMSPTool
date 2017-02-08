@@ -8,7 +8,7 @@ use SmartSea::HTML qw(:all);
 use SmartSea::Impact qw(:all);
 
 __PACKAGE__->table('tool.pressures');
-__PACKAGE__->add_columns(qw/ id order title category /);
+__PACKAGE__->add_columns(qw/ id order name category /);
 __PACKAGE__->set_primary_key('id');
 __PACKAGE__->has_many(activity2pressure => 'SmartSea::Schema::Result::Activity2Pressure', 'pressure');
 __PACKAGE__->many_to_many(activities => 'activity2pressure', 'activity');
@@ -32,7 +32,7 @@ sub HTML_list {
     my %li;
     my %has;
     for my $p (@$objs) {
-        my $t = $p->title;
+        my $t = $p->name;
         $has{$p->id} = 1;
         if ($args{activity}) {
             my $ap = $p->activity2pressure->single({activity => $args{activity}});
@@ -70,10 +70,10 @@ sub HTML_div {
     my ($self, $attributes, %args) = @_;
     my @l;
     push @l, [li => 'Activity'] unless $args{activity};
-    for my $a (qw/id title category/) {
+    for my $a (qw/id name category/) {
         my $v = $self->$a // '';
         if (ref $v) {
-            for my $b (qw/title name data op id/) {
+            for my $b (qw/id name data/) {
                 if ($v->can($b)) {
                     $v = $v->$b;
                     last;
@@ -91,10 +91,10 @@ sub HTML_div {
         my %ec;
         for my $ap ($self->activity2pressure->all) {
             my $a = $ap->activity->id;
-            $a{$ap->activity->title} = $a;
+            $a{$ap->activity->name} = $a;
             for my $i ($ap->impacts) {
                 next if $i->strength == 0;
-                my $t = $i->ecosystem_component->title;
+                my $t = $i->ecosystem_component->name;
                 $ec{$t}{$a} = 1;
             }
         }
@@ -128,7 +128,7 @@ sub HTML_form {
     my @form;
 
     if ($self and blessed($self) and $self->isa('SmartSea::Schema::Result::Pressure')) {
-        for my $key (qw/title category/) {
+        for my $key (qw/name category/) {
             next unless $self->$key;
             next if defined $values->{$key};
             $values->{$key} = ref($self->$key) ? $self->$key->id : $self->$key;
@@ -136,10 +136,10 @@ sub HTML_form {
         push @form, [input => {type => 'hidden', name => 'id', value => $self->id}];
     }
 
-    my $title = text_input(
-        name => 'title',
+    my $name = text_input(
+        name => 'name',
         size => 10,
-        value => $values->{title} // ''
+        value => $values->{name} // ''
     );
 
     my $category = drop_down(name => 'category', 
@@ -147,7 +147,7 @@ sub HTML_form {
                              selected => $values->{category});
 
     push @form, (
-        [ p => [[1 => 'Title: '],$title] ],
+        [ p => [[1 => 'Name: '],$name] ],
         [ p => [[1 => 'Category: '],$category] ],
         button(value => "Store")
     );

@@ -218,7 +218,7 @@ sub process {
     $y->inplace->copybad($mask);
     unless ($mask->min eq 'BAD') {
         $y->inplace->setbadtoval(255);
-        if ($rules->{class}->title =~ /^seq/) {     
+        if ($rules->{class}->name =~ /^seq/) {     
             $y *= 100;
         } else {
             $y *= 100;
@@ -235,7 +235,7 @@ sub process {
     $dataset->Band(1)->Piddle(byte $y);
     return $dataset;
 
-    if ($rules->layer->title eq 'Value') {
+    if ($rules->layer->name eq 'Value') {
         # compute, returns bad, 0..100
         my $value = $rules->compute_value($self, $tile);
         $value->inplace->setbadtoval(-1);

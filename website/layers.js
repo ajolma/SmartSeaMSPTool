@@ -84,7 +84,7 @@ function createLayer(template, projection) {
             visible: false,
             source: new ol.source.WMTS({
                 url: 'http://' + server + '/WMTS',
-                layer: template.name,
+                layer: template.wmts,
                 matrixSet: 'ETRS-TM35FIN',
                 format: 'image/png',
                 projection: projection.projection,

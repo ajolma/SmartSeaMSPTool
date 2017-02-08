@@ -137,6 +137,14 @@ class SmartSea:
     def load_layer(self):
         treeView = self.dialog.findChild(QTreeView, "treeView")
         l = treeView.selectedIndexes()
+        if (len(l) == 0):
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Information)
+            msg.setText("Please select a plan or a dataset.")
+            msg.setWindowTitle("Error")
+            msg.setStandardButtons(QMessageBox.Ok)
+            msg.exec_()
+            return
         name = l[0].data()
         print name
         # what is it
@@ -161,16 +169,17 @@ class SmartSea:
                 response = urllib.urlopen(url)
                 data = json.loads(response.read())
                 for plan in data:
-                    print plan["title"]
-                    g = root.addGroup(plan["title"])
+                    print plan["name"]
+                    g = root.addGroup(plan["name"])
                     for use in plan["uses"]:
-                        g2 = g.addGroup(use["title"])
+                        g2 = g.addGroup(use["name"])
                         for layer in use["layers"]:
                             s = str(plan["id"])+"_"+str(use["id"])+"_"+str(layer["id"])
                             # rules?
-                            l = QgsRasterLayer(wmts+s, layer["title"], 'wms')
+                            l = QgsRasterLayer(wmts+s, layer["name"], 'wms')
                             if not l.isValid():
-                                print "Layer failed to load: "+wmts+s
+                                print "Layer failed to load, partial "+wmts+s+\
+                                    " is the layer advertised?"
                             else:
                                 print "Layer ok!"
                                 QgsMapLayerRegistry.instance().addMapLayer(l, False)
@@ -184,7 +193,7 @@ class SmartSea:
             layer = wmts+'dataset_'+str(id)
             l = QgsRasterLayer(layer, name, 'wms')
             if not l.isValid():
-                print "Layer failed to load: "+layer
+                print "Layer failed to load, partial "+layer+" is the layer advertised?"
             else:
                 print "Layer ok!"
                 QgsMapLayerRegistry.instance().addMapLayer(l, False)
@@ -196,7 +205,7 @@ class SmartSea:
             print "loading "+klass+"s not yet implemented"
 
     def item(self, obj, klass):
-        item = QStandardItem(obj["title"])
+        item = QStandardItem(obj["name"])
         item.setData(klass,Qt.UserRole+2)
         item.setData(obj["id"],Qt.UserRole+3)
         return item

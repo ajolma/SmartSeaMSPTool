@@ -29,9 +29,9 @@ sub HTML_list {
     my ($uri, $edit) = ($args{uri}, $args{edit});
     my %data;
     for my $impact (@$objs) {
-        my $t = $impact->activity2pressure->title;
+        my $t = $impact->activity2pressure->name;
         my $li = item($t, $impact->id, %args, ref => 'this impact');
-        $data{$impact->ecosystem_component->title}{$t} = [li => $li];
+        $data{$impact->ecosystem_component->name}{$t} = [li => $li];
     }
     my @li;
     for my $component (sort keys %data) {
@@ -51,7 +51,7 @@ sub HTML_div {
     for my $a (qw/id activity2pressure ecosystem_component strength belief/) {
         my $v = $self->$a // '';
         if (ref $v) {
-            for my $b (qw/title name data op id/) {
+            for my $b (qw/id name data/) {
                 if ($v->can($b)) {
                     $v = $v->$b;
                     last;

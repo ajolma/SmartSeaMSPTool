@@ -275,7 +275,7 @@ SET search_path = tool, pg_catalog;
 
 CREATE TABLE activities (
     id integer NOT NULL,
-    title text NOT NULL,
+    name text NOT NULL,
     "order" integer DEFAULT 1 NOT NULL
 );
 
@@ -351,7 +351,7 @@ ALTER SEQUENCE activity2impact_type_id_seq OWNED BY activity2pressure.id;
 
 CREATE TABLE ecosystem_components (
     id integer NOT NULL,
-    title text NOT NULL
+    name text NOT NULL
 );
 
 
@@ -421,7 +421,7 @@ COMMENT ON COLUMN impacts.belief IS '1 to 3';
 CREATE TABLE pressures (
     id integer NOT NULL,
     category integer NOT NULL,
-    title text NOT NULL,
+    name text NOT NULL,
     "order" integer
 );
 
@@ -483,7 +483,7 @@ ALTER SEQUENCE impacts_id_seq1 OWNED BY impacts.id;
 
 CREATE TABLE layers (
     id integer NOT NULL,
-    title text NOT NULL
+    name text NOT NULL
 );
 
 
@@ -516,7 +516,7 @@ ALTER SEQUENCE layers_id_seq OWNED BY layers.id;
 
 CREATE TABLE ops (
     id integer NOT NULL,
-    op text NOT NULL
+    name text NOT NULL
 );
 
 
@@ -667,7 +667,7 @@ ALTER SEQUENCE plan2use_id_seq OWNED BY plan2use.id;
 
 CREATE TABLE plans (
     id integer NOT NULL,
-    title text NOT NULL,
+    name text NOT NULL,
     schema text
 );
 
@@ -701,7 +701,7 @@ ALTER SEQUENCE plans_id_seq OWNED BY plans.id;
 
 CREATE TABLE pressure_categories (
     id integer NOT NULL,
-    title text NOT NULL
+    name text NOT NULL
 );
 
 
@@ -741,7 +741,7 @@ ALTER SEQUENCE pressures_id_seq OWNED BY pressure_categories.id;
 
 CREATE TABLE rule_classes (
     id integer NOT NULL,
-    title text NOT NULL
+    name text NOT NULL
 );
 
 
@@ -878,7 +878,7 @@ ALTER SEQUENCE use2activity_id_seq OWNED BY use2activity.id;
 
 CREATE TABLE uses (
     id integer NOT NULL,
-    title text NOT NULL
+    name text NOT NULL
 );
 
 
@@ -1216,7 +1216,7 @@ ALTER TABLE ONLY impacts
 --
 
 ALTER TABLE ONLY pressures
-    ADD CONSTRAINT impacts_title_key UNIQUE (title);
+    ADD CONSTRAINT impacts_title_key UNIQUE (name);
 
 
 --
@@ -1224,7 +1224,7 @@ ALTER TABLE ONLY pressures
 --
 
 ALTER TABLE ONLY layers
-    ADD CONSTRAINT layers_data_key UNIQUE (title);
+    ADD CONSTRAINT layers_data_key UNIQUE (name);
 
 
 --
@@ -1304,7 +1304,7 @@ ALTER TABLE ONLY plans
 --
 
 ALTER TABLE ONLY plans
-    ADD CONSTRAINT plans_title_key UNIQUE (title);
+    ADD CONSTRAINT plans_title_key UNIQUE (name);
 
 
 --
@@ -1320,7 +1320,7 @@ ALTER TABLE ONLY pressure_categories
 --
 
 ALTER TABLE ONLY pressure_categories
-    ADD CONSTRAINT pressures_title_key UNIQUE (title);
+    ADD CONSTRAINT pressures_title_key UNIQUE (name);
 
 
 --
@@ -1368,7 +1368,7 @@ ALTER TABLE ONLY uses
 --
 
 ALTER TABLE ONLY uses
-    ADD CONSTRAINT uses_title_key UNIQUE (title);
+    ADD CONSTRAINT uses_title_key UNIQUE (name);
 
 
 SET search_path = data, pg_catalog;

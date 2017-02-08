@@ -104,7 +104,7 @@ sub plans {
     my $schema = $self->{schema};
     my @plans;
     my $search = defined $plan_id ? {id => $plan_id}: undef;
-    for my $plan ($schema->resultset('Plan')->search($search, {order_by => {-desc => 'title'}})) {
+    for my $plan ($schema->resultset('Plan')->search($search, {order_by => {-desc => 'name'}})) {
         my @uses;
         for my $use ($plan->uses(undef, {order_by => 'id'})) {
             my $plan2use = $self->{schema}->
@@ -125,15 +125,15 @@ sub plans {
                                   })) {
                     push @rules, $rule->as_hashref_for_json
                 }
-                push @layers, {title => $layer->title, id => $layer->id, use => $use->id, rules => \@rules};
+                push @layers, {name => $layer->name, id => $layer->id, use => $use->id, rules => \@rules};
             }
-            push @uses, {title => $use->title, id => $use->id, plan => $plan->id, layers => \@layers};
+            push @uses, {name => $use->name, id => $use->id, plan => $plan->id, layers => \@layers};
         }
         my @datasets;
         for my $dataset ($plan->datasets(undef)) {
-            push @datasets, {title => $dataset->title, id => $dataset->id, plan => $plan->id};
+            push @datasets, {name => $dataset->name, id => $dataset->id, plan => $plan->id};
         }
-        push @plans, {title => $plan->title, id => $plan->id, uses => \@uses, datasets => \@datasets};
+        push @plans, {name => $plan->name, id => $plan->id, uses => \@uses, datasets => \@datasets};
     }
 
     # This is the first request made by the App, thus set the cookie
@@ -173,7 +173,7 @@ sub impact_network {
     my %elements = (nodes => [], edges => []);
 
     for my $activity ($self->{schema}->resultset('Activity')->all) {
-        push @{$elements{nodes}}, { data => { id => 'a'.$activity->id, name => $activity->title }};
+        push @{$elements{nodes}}, { data => { id => 'a'.$activity->id, name => $activity->name }};
         for my $pressure ($activity->pressures) {
             push @{$elements{edges}}, { data => { 
                 source => 'a'.$activity->id, 
@@ -185,7 +185,7 @@ sub impact_network {
         }
     }
     for my $pressure ($self->{schema}->resultset('Pressure')->all) {
-        push @{$elements{nodes}}, { data => { id => 'p'.$pressure->id, name => $pressure->title }};
+        push @{$elements{nodes}}, { data => { id => 'p'.$pressure->id, name => $pressure->name }};
     }
 
     return json200({}, \%elements);
@@ -376,42 +376,42 @@ sub pressure_table {
     my %pressures;
     my %cats;
     for my $pressure ($pressures->all) {
-        $pressures{$pressure->title} = $pressure->order;
-        $id{pressures}{$pressure->title} = $pressure->id;
-        $cats{$pressure->title} = $pressure->category->title;
+        $pressures{$pressure->name} = $pressure->order;
+        $id{pressures}{$pressure->name} = $pressure->id;
+        $cats{$pressure->name} = $pressure->category->name;
     }
     my $activities = $self->{schema}->resultset('Activity');
     my %activities;
-    my %title;
+    my %name;
     for my $activity ($activities->all) {
-        $activities{$activity->title} = $activity->order;
-        $id{activities}{$activity->title} = $activity->id;
-        $title{$activity->title} = $activity->title.'('.$activity->order.')';
+        $activities{$activity->name} = $activity->order;
+        $id{activities}{$activity->name} = $activity->id;
+        $name{$activity->name} = $activity->name.'('.$activity->order.')';
     }
     my $components = $self->{schema}->resultset('EcosystemComponent');
     my %components;
     for my $component ($components->all) {
-        $components{$component->title} = $component->order;
-        $id{components}{$component->title} = $component->id;
+        $components{$component->name} = $component->order;
+        $id{components}{$component->name} = $component->id;
     }
 
     for my $pressure ($pressures->all) {
         for my $activity ($activities->all) {
             my $key = 'range_'.$pressure->id.'_'.$activity->id;
-            $title{$key} = $pressure->title.' '.$activity->title;
+            $name{$key} = $pressure->name.' '.$activity->name;
 
             my $ap = $edits{aps}->single({pressure => $pressure->id, activity => $activity->id});
-            $title{$pressure->title}{$activity->title} = $activity->title; #.' '.$ap->id if $ap;
+            $name{$pressure->name}{$activity->name} = $activity->name; #.' '.$ap->id if $ap;
         }
     }
 
     my %attrs;
     my %ranges;
     for my $ap ($edits{aps}->all) {
-        $ranges{$ap->pressure->title}{$ap->activity->title} = $ap->range;
+        $ranges{$ap->pressure->name}{$ap->activity->name} = $ap->range;
         my $key = 'range_'.$ap->pressure->id.'_'.$ap->activity->id;
         $attrs{$key} = $ap->range;
-        $id{activity2pressure}{$ap->pressure->title}{$ap->activity->title} = $ap->id;
+        $id{activity2pressure}{$ap->pressure->name}{$ap->activity->name} = $ap->id;
     }
     my %impacts;
     for my $impact ($edits{impacts}->all) {
@@ -419,14 +419,14 @@ sub pressure_table {
         my $p = $ap->pressure;
         my $a = $ap->activity;
         my $e = $impact->ecosystem_component;
-        my $title = $p->title.'+'.$a->title.' -> '.$e->title;
-        $impacts{$p->title}{$a->title}{$e->title} = [$impact->strength,$impact->belief];
+        my $name = $p->name.'+'.$a->name.' -> '.$e->name;
+        $impacts{$p->name}{$a->name}{$e->name} = [$impact->strength,$impact->belief];
         my $key = 'strength_'.$ap->id.'_'.$e->id;
         $attrs{$key} = $impact->strength;
-        $title{$key} = $title;
+        $name{$key} = $name;
         $key = 'belief_'.$ap->id.'_'.$e->id;
         $attrs{$key} = $impact->belief;
-        $title{$key} = $title;
+        $name{$key} = $name;
     }
     
     #for my $key (sort $self->{parameters}->keys) {
@@ -491,14 +491,14 @@ sub pressure_table {
         }
 
         for my $ap ($edits{aps}->all) {
-            $ranges{$ap->pressure->title}{$ap->activity->title} = $ap->range;
+            $ranges{$ap->pressure->name}{$ap->activity->name} = $ap->range;
         }
         for my $impact ($edits{impacts}->all) {
             my $ap = $impact->activity2pressure;
             my $p = $ap->pressure;
             my $a = $ap->activity;
             my $e = $impact->ecosystem_component;
-            $impacts{$p->title}{$a->title}{$e->title} = [$impact->strength,$impact->belief];
+            $impacts{$p->name}{$a->name}{$e->name} = [$impact->strength,$impact->belief];
         }
     }
     
@@ -536,7 +536,7 @@ sub pressure_table {
         my @td = ([td => {rowspan => $#activities+1}, $pressure]);
         for my $activity (@activities) {
             my $color = $c ? '#cccccc' : '#ffffff';
-            push @td, [td => {bgcolor=>$color}, $title{$pressure}{$activity}];
+            push @td, [td => {bgcolor=>$color}, $name{$pressure}{$activity}];
 
             my $idp = $id{pressures}{$pressure};
             my $ida = $id{activities}{$activity};

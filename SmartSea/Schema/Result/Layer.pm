@@ -8,7 +8,7 @@ use SmartSea::Core qw(:all);
 use SmartSea::HTML qw(:all);
 
 __PACKAGE__->table('tool.layers');
-__PACKAGE__->add_columns(qw/ id title /);
+__PACKAGE__->add_columns(qw/ id name /);
 __PACKAGE__->set_primary_key('id');
 __PACKAGE__->has_many(plan2use2layer => 'SmartSea::Schema::Result::Plan2Use2Layer', 'layer');
 __PACKAGE__->many_to_many(plan2uses => 'plan2use2layer', 'plan2use');
@@ -16,7 +16,7 @@ __PACKAGE__->many_to_many(plan2uses => 'plan2use2layer', 'plan2use');
 sub create_col_data {
     my ($class, $parameters) = @_;
     my %col_data;
-    for my $col (qw/title/) {
+    for my $col (qw/name/) {
         $col_data{$col} = $parameters->{$col};
     }
     return \%col_data;
@@ -25,7 +25,7 @@ sub create_col_data {
 sub update_col_data {
     my ($class, $parameters) = @_;
     my %col_data;
-    for my $col (qw/title/) {
+    for my $col (qw/name/) {
         $col_data{$col} = $parameters->{$col};
     }
     return \%col_data;
@@ -49,7 +49,7 @@ sub HTML_list {
     my %li;
     my %has;
     for my $layer (@$objs) {
-        my $u = $layer->title;
+        my $u = $layer->name;
         my $id = $layer->id;
         $has{$id} = 1;
         $li{$u}{0} = item([b => $u], "layer:$id", %args, ref => 'this layer');
@@ -78,8 +78,8 @@ sub HTML_list {
                 push @li, [li => [$drop_down, [0 => ' '], button(value => 'Add', name => 'layer')]];
             }
         } else {
-            my $title = text_input(name => 'title');
-            push @li, [li => [$title, 
+            my $name = text_input(name => 'name');
+            push @li, [li => [$name, 
                               [0 => ' '],
                               button(value => 'Create', name => 'layer')]];
         }
@@ -126,10 +126,10 @@ sub HTML_div {
 
     my @l;
     push @l, ([li => [b => 'Layer']]) unless $args{plan};
-    for my $a (qw/id title/) {
+    for my $a (qw/id name/) {
         my $v = $self->$a // '';
         if (ref $v) {
-            for my $b (qw/title name data op id/) {
+            for my $b (qw/id name data/) {
                 if ($v->can($b)) {
                     $v = $v->$b;
                     last;
@@ -140,8 +140,8 @@ sub HTML_div {
     }
 
     my $rule_class = $pul ? $pul->rule_class : undef;
-    push @l, [li => "Rule class: ".$rule_class->title] if $pul;
-    push @l, [li => "Max value: ".$pul->additive_max] if $pul && $rule_class->title =~ /^add/;
+    push @l, [li => "Rule class: ".$rule_class->name] if $pul;
+    push @l, [li => "Max value: ".$pul->additive_max] if $pul && $rule_class->name =~ /^add/;
     
     if (my $oid = shift @{$args{oids}}) {
         $args{named_item} = 'Rule';
@@ -156,7 +156,7 @@ sub HTML_div {
                                resultset('RuleClass')->all], 
                       selected => $rule_class->id)
             );
-        if ($rule_class->title =~ /^add/) {
+        if ($rule_class->name =~ /^add/) {
             push @items, (
                 [0 => " Max value is "], 
                 text_input(name => 'additive_max',
@@ -169,7 +169,7 @@ sub HTML_div {
         
         $args{pul} = $pul->id;
         $args{action} = 'Delete';
-        $args{rule_class} = $rule_class->title;
+        $args{rule_class} = $rule_class->name;
         push @l, SmartSea::Schema::Result::Rule->HTML_list(\@rules, %args, named_list => 1);
     }
     return [ li => [0 => 'Layer:'], [ul => \@l] ] if $args{named_item};
@@ -183,14 +183,14 @@ sub HTML_form {
             resultset('Plan2Use2Layer')->
             single({plan2use => $args{plan2use}, layer => $self->id});
         my $rule = $args{schema}->resultset('Rule')->single({id => $oid});
-        $args{rule_class} = $pul->rule_class->title;
+        $args{rule_class} = $pul->rule_class->name;
         return $rule->HTML_form($attributes, undef, %args);
     }
 
     my @form;
 
     if ($self and blessed($self) and $self->isa('SmartSea::Schema::Result::Layer')) {
-        for my $key (qw/title/) {
+        for my $key (qw/name/) {
             next unless $self->$key;
             next if defined $values->{$key};
             $values->{$key} = ref($self->$key) ? $self->$key->id : $self->$key;
@@ -198,14 +198,14 @@ sub HTML_form {
         push @form, [input => {type => 'hidden', name => 'id', value => $self->id}];
     }
 
-    my $title = text_input(
-        name => 'title',
+    my $name = text_input(
+        name => 'name',
         size => 15,
-        value => $values->{title} // ''
+        value => $values->{name} // ''
     );
 
     push @form, (
-        [ p => [[1 => 'title: '],$title] ],
+        [ p => [[1 => 'name: '],$name] ],
         button(value => "Store")
     );
 

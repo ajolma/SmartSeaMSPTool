@@ -7,7 +7,7 @@ use Scalar::Util 'blessed';
 use SmartSea::HTML qw(:all);
 
 __PACKAGE__->table('tool.plans');
-__PACKAGE__->add_columns(qw/ id title /);
+__PACKAGE__->add_columns(qw/ id name /);
 __PACKAGE__->set_primary_key('id');
 __PACKAGE__->has_many(plan2use => 'SmartSea::Schema::Result::Plan2Use', 'plan');
 __PACKAGE__->many_to_many(uses => 'plan2use', 'use');
@@ -17,7 +17,7 @@ __PACKAGE__->many_to_many(datasets => 'plan2dataset', 'dataset');
 sub create_col_data {
     my ($class, $parameters) = @_;
     my %col_data;
-    for my $col (qw/title/) {
+    for my $col (qw/name/) {
         $col_data{$col} = $parameters->{$col};
     }
     return \%col_data;
@@ -26,7 +26,7 @@ sub create_col_data {
 sub update_col_data {
     my ($class, $parameters) = @_;
     my %col_data;
-    for my $col (qw/title/) {
+    for my $col (qw/name/) {
         $col_data{$col} = $parameters->{$col};
     }
     return \%col_data;
@@ -57,16 +57,16 @@ sub HTML_list {
     my %data;
     my %li;
     for my $plan (@$objs) {
-        my $p = $plan->title;
+        my $p = $plan->name;
         $li{plan}{$p} = item([b => $p], $plan->id, %args, ref => 'this plan');
         for my $use ($plan->uses) {
-            my $u = $use->title;
+            my $u = $use->name;
             $data{$p}{uses}{$u} = 1;
             my $id = $plan->id.'/use:'.$use->id;
             $li{$p}{uses}{$u} = item($u, $id, %args, action => 'None');
         }
         for my $dataset ($plan->datasets) {
-            my $u = $dataset->title;
+            my $u = $dataset->name;
             $data{$p}{datasets}{$u} = 1;
             my $id = $plan->id.'/dataset:'.$dataset->id;
             $li{$p}{datasets}{$u} = item($u, $id, %args, action => 'None');
@@ -87,8 +87,8 @@ sub HTML_list {
     }
 
     if ($args{edit}) {
-        my $title = text_input(name => 'title');
-        push @li, [li => [$title, 
+        my $name = text_input(name => 'name');
+        push @li, [li => [$name, 
                           [0 => ' '],
                           button(value => 'Create', name => 'plan')]];
     }
@@ -99,10 +99,10 @@ sub HTML_list {
 sub HTML_div {
     my ($self, $attributes, %args) = @_;
     my @l = ([li => [b => 'Plan']]);
-    for my $a (qw/id title/) {
+    for my $a (qw/id name/) {
         my $v = $self->$a // '';
         if (ref $v) {
-            for my $b (qw/title name data op id/) {
+            for my $b (qw/id name data/) {
                 if ($v->can($b)) {
                     $v = $v->$b;
                     last;
@@ -177,7 +177,7 @@ sub HTML_form {
     my @form;
 
     if ($self and blessed($self) and $self->isa('SmartSea::Schema::Result::Plan')) {
-        for my $key (qw/title/) {
+        for my $key (qw/name/) {
             next unless $self->$key;
             next if defined $values->{$key};
             $values->{$key} = ref($self->$key) ? $self->$key->id : $self->$key;
@@ -185,14 +185,14 @@ sub HTML_form {
         push @form, [input => {type => 'hidden', name => 'id', value => $self->id}];
     }
 
-    my $title = text_input(
-        name => 'title',
+    my $name = text_input(
+        name => 'name',
         size => 15,
-        value => $values->{title} // ''
+        value => $values->{name} // ''
     );
 
     push @form, (
-        [ p => [[1 => 'title: '],$title] ],
+        [ p => [[1 => 'name: '],$name] ],
         button(value => "Store")
     );
 

@@ -34,7 +34,7 @@ sub impacts_list {
     my @impacts;
     for my $impact (sort {$b->strength*10+$b->belief <=> $a->strength*10+$a->belief} $self->impacts) {
         my $ec = $impact->ecosystem_component;
-        my $c = $ec->title;
+        my $c = $ec->name;
         my $strength = $strength{$impact->strength};
         my $belief = $belief{$impact->belief};
         push @impacts, [li => "impact on $c is $strength, $belief."];
@@ -44,17 +44,17 @@ sub impacts_list {
 
 sub as_text {
     my ($self) = @_;
-    return $self->activity->title . ' - ' . $self->pressure->title;
+    return $self->activity->name . ' - ' . $self->pressure->name;
 }
-*title = *as_text;
+*name = *as_text;
 
 sub HTML_list {
     my (undef, $objs, %args) = @_;
     my ($uri, $edit) = ($args{uri}, $args{edit});
     my %data;
     for my $link (@$objs) {
-        my $li = item($link->pressure->title, $link->id, %args, ref => 'this link');
-        push @{$data{$link->activity->title}}, [li => $li];
+        my $li = item($link->pressure->name, $link->id, %args, ref => 'this link');
+        push @{$data{$link->activity->name}}, [li => $li];
     }
     my @li;
     for my $activity (sort keys %data) {
@@ -71,7 +71,7 @@ sub HTML_div {
     for my $a (qw/id activity pressure range/) {
         my $v = $self->$a // '';
         if (ref $v) {
-            for my $b (qw/title name data op id/) {
+            for my $b (qw/id name data/) {
                 if ($v->can($b)) {
                     $v = $v->$b;
                     last;

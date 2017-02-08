@@ -169,22 +169,22 @@ sub as_text {
     my $text;
     $text = $self->reduce ? "- If " : "+ If ";
     my $u = '';
-    $u = $self->r_use->title if $self->r_use && $self->r_use->title ne $self->use->title;
+    $u = $self->r_use->name if $self->r_use && $self->r_use->name ne $self->use->name;
     if (!$self->r_layer) {
-    } elsif ($self->r_layer->title eq 'Value') {
+    } elsif ($self->r_layer->name eq 'Value') {
         $u = "for ".$u if $u;
-        $text .= $self->r_layer->title.$u;
-    } elsif ($self->r_layer->title eq 'Allocation') {
+        $text .= $self->r_layer->name.$u;
+    } elsif ($self->r_layer->name eq 'Allocation') {
         $u = "of ".$u if $u;
-        $text .= $self->r_layer->title.$u;
-        $text .= $self->r_plan ? " in plan".$self->r_plan->title : " of this plan";
+        $text .= $self->r_layer->name.$u;
+        $text .= $self->r_plan ? " in plan".$self->r_plan->name : " of this plan";
     } # else?
     if ($self->r_dataset) {
         #$text .= $self->r_dataset->long_name;
         $text .= $self->r_dataset->name;
     }
     return $text." (true)" unless $self->op;
-    $text .= " ".$self->op->op;
+    $text .= " ".$self->op->name;
     $text .= " ".$self->value if $args{include_value};
     return $text;
 }
@@ -193,7 +193,7 @@ sub as_hashref_for_json {
     my ($self) = @_;
     my $desc = $self->r_dataset ? $self->r_dataset->descr : '';
     return {
-        title => $self->as_text(include_value => 0), 
+        name => $self->as_text(include_value => 0), 
         id => $self->id, 
         active => JSON::true, 
         index => $self->my_index,
@@ -208,7 +208,7 @@ sub as_hashref_for_json {
 sub HTML_div {
     my ($self, $attributes, %args) = @_;
     my @l;
-    my $sequential = $self->plan2use2layer->rule_class->title =~ /^sequential/;
+    my $sequential = $self->plan2use2layer->rule_class->name =~ /^sequential/;
     my @cols;
     if ($sequential) {
         @cols = (qw/r_plan r_use r_layer r_dataset reduce op value min_value max_value my_index/);
@@ -220,7 +220,7 @@ sub HTML_div {
     for my $a ('id', @cols) {
         my $v = $self->$a // '';
         if (ref $v) {
-            for my $b (qw/title name data op id/) {
+            for my $b (qw/id name data/) {
                 if ($v->can($b)) {
                     $v = $v->$b;
                     last;
@@ -257,7 +257,7 @@ sub HTML_form {
     my $widgets = widgets(\%attributes, $values, $args{schema});
 
     push (@form,
-          [ p => $plan->title.'.'.$use->title.'.'.$layer->title],
+          [ p => $plan->name.'.'.$use->name.'.'.$layer->name],
           [ p => 'Spatial dataset for this Rule:' ],
           [ p => [[1 => 'plan: '],$widgets->{r_plan}] ],
           [ p => [[1 => 'use: '],$widgets->{r_use}] ],
@@ -299,17 +299,17 @@ sub HTML_list {
         if ($sequential) {
             $li = item($rule->as_text(include_value => 1)." (".$rule->my_index.")", $rule->id, %args, ref => 'this rule');
         } else {
-            $li = item($rule->r_dataset->title, $rule->id, %args, ref => 'this rule');
+            $li = item($rule->r_dataset->name, $rule->id, %args, ref => 'this rule');
         }
         my $plan2use2layer = $rule->plan2use2layer;
         my $plan2use = $plan2use2layer->plan2use;
         my $plan = $plan2use->plan;
         my $use = $plan2use->use;
         my $layer = $plan2use2layer->layer;
-        $plans{$plan->title} = 1;
-        $uses{$use->title} = 1;
-        $layers{$layer->title} = 1;
-        push @{$data{$plan->title}{$use->title}{$layer->title}}, [li => $li];
+        $plans{$plan->name} = 1;
+        $uses{$use->name} = 1;
+        $layers{$layer->name} = 1;
+        push @{$data{$plan->name}{$use->name}{$layer->name}}, [li => $li];
     }
     my @li;
     if (keys %plans == 1 && keys %uses == 1 && keys %layers == 1) {
@@ -377,7 +377,7 @@ sub apply {
         my $val = $self->reduce ? 0 : 1;
 
         # the default is to compare the spatial operand to 1
-        my $op = $self->op ? $self->op->op : '==';
+        my $op = $self->op ? $self->op->name : '==';
         my $value = $self->value // 1;
         
         if (defined $x) {
@@ -404,9 +404,9 @@ sub operand {
 
         my $rules = SmartSea::Rules->new($config->{schema}, $plan, $use, $self->r_layer);
 
-        say STDERR $plan->title,".",$use->title,".",$self->r_layer->title," did not return any rules" unless $rules->rules;
+        say STDERR $plan->name,".",$use->name,".",$self->r_layer->name," did not return any rules" unless $rules->rules;
         
-        if ($self->r_layer->title eq 'Allocation') {
+        if ($self->r_layer->name eq 'Allocation') {
             return $rules->compute_allocation($config, $tile);
         } else {
             return $rules->compute_value($config, $tile);

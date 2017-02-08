@@ -25,7 +25,7 @@ my $data_schema  = SmartSea::Schema->connect('dbi:SQLite:data.db');
 my $tool_schema  = SmartSea::Schema->connect('dbi:SQLite:tool.db');
 
 my $plan_rs = $tool_schema->resultset('Plan');
-can_ok($plan_rs->result_class, qw/id title uses datasets/);
+can_ok($plan_rs->result_class, qw/id name uses datasets/);
 
 unlink "data.db";
 unlink "tool.db";

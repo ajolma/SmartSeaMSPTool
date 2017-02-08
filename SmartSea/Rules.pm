@@ -102,7 +102,7 @@ sub compute {
 
     my $result = zeroes($tile->tile);
 
-    my $method = $self->{class}->title;
+    my $method = $self->{class}->name;
 
     if ($method =~ /^seq/ || $method =~ /^mult/) {
         $result += 1; # 
@@ -134,7 +134,7 @@ sub compute_allocation {
         my $val = $rule->reduce ? 0 : 2;
 
         # the default is to compare the spatial operand to 1
-        my $op = $rule->op ? $rule->op->op : '==';
+        my $op = $rule->op ? $rule->op->name : '==';
         my $value = $rule->value // 1;
 
         # the operand

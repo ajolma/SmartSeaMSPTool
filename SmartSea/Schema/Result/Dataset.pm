@@ -127,7 +127,6 @@ sub long_name {
     }
     return $name;
 }
-*title = *long_name;
 
 sub HTML_div {
     my ($self, $attributes, %args) = @_;
@@ -257,7 +256,7 @@ sub HTML_list {
     if ($args{plan}) {
         my %li;
         for my $dataset (@$objs) {
-            my $u = $dataset->title;
+            my $u = $dataset->long_name;
             $has{$dataset->id} = 1;
             my $ref = 'this dataset';
             $li{$u} = item([b => $u], 'dataset:'.$dataset->id, %args, ref => $ref);
@@ -282,8 +281,8 @@ sub HTML_list {
                 push @li, [li => [$drop_down, [0 => ' '], button(value => 'Add', name => 'dataset')]];
             }
         } else {
-            my $title = text_input(name => 'title');
-            push @li, [li => [$title, 
+            my $name = text_input(name => 'name');
+            push @li, [li => [$name, 
                               [0 => ' '],
                               button(value => 'Create', name => 'dataset')]];
         }

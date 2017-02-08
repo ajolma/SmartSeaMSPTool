@@ -7,7 +7,7 @@ use Scalar::Util 'blessed';
 use SmartSea::HTML qw(:all);
 
 __PACKAGE__->table('tool.activities');
-__PACKAGE__->add_columns(qw/ id order title /);
+__PACKAGE__->add_columns(qw/ id order name /);
 __PACKAGE__->set_primary_key('id');
 __PACKAGE__->has_many(activity2pressure => 'SmartSea::Schema::Result::Activity2Pressure', 'activity');
 __PACKAGE__->many_to_many(pressures => 'activity2pressure', 'pressure');
@@ -17,7 +17,7 @@ __PACKAGE__->many_to_many(activities => 'use2activity', 'activity');
 sub create_col_data {
     my ($class, $parameters) = @_;
     my %col_data;
-    for my $col (qw/title/) {
+    for my $col (qw/name/) {
         $col_data{$col} = $parameters->{$col};
     }
     return \%col_data;
@@ -26,7 +26,7 @@ sub create_col_data {
 sub update_col_data {
     my ($class, $parameters) = @_;
     my %col_data;
-    for my $col (qw/title/) {
+    for my $col (qw/name/) {
         $col_data{$col} = $parameters->{$col};
     }
     return \%col_data;
@@ -51,14 +51,14 @@ sub HTML_list {
     my %li;
     my %has;
     for my $act (@$objs) {
-        my $a = $act->title;
+        my $a = $act->name;
         my $id = $act->id;
         $has{$id} = 1;
         $li{act}{$a} = item([b => $a], "activity:$id", %args, ref => 'this activity');
         my @refs = $act->activity2pressure;
         for my $ref (@refs) {
             my $pressure = $ref->pressure;
-            my $p = $pressure->title;
+            my $p = $pressure->name;
             $data{$a}{$p} = 1;
             my $id = 'activity:'.$act->id.'/'.$pressure->id;
             $li{$a}{$p} = item($p, $id, %args, action => 'None');
@@ -97,10 +97,10 @@ sub HTML_div {
     my ($self, $attributes, %args) = @_;
     my @l;
     push @l, [li => 'Activity'] unless $args{use};
-    for my $a (qw/id title/) {
+    for my $a (qw/id name/) {
         my $v = $self->$a // '';
         if (ref $v) {
-            for my $b (qw/title name data op id/) {
+            for my $b (qw/id name data/) {
                 if ($v->can($b)) {
                     $v = $v->$b;
                     last;
@@ -129,7 +129,7 @@ sub HTML_form {
     my $button_value;
 
     if ($self and blessed($self) and $self->isa('SmartSea::Schema::Result::Activity')) {
-        for my $key (qw/title/) {
+        for my $key (qw/name/) {
             next unless $self->$key;
             next if defined $values->{$key};
             $values->{$key} = ref($self->$key) ? $self->$key->id : $self->$key;
@@ -140,14 +140,14 @@ sub HTML_form {
         $button_value = 'Create';
     }
 
-    my $title = text_input(
-        name => 'title',
+    my $name = text_input(
+        name => 'name',
         size => 15,
-        value => $values->{title} // ''
+        value => $values->{name} // ''
     );
 
     push @form, (
-        [ p => [[1 => 'title: '],$title] ],
+        [ p => [[1 => 'name: '],$name] ],
         button(value => $button_value)
     );
 

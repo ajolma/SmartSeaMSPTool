@@ -64,9 +64,9 @@ function MSPView(model, elements, id) {
             var uses = self.model.plan.uses;
             var ul = self.elements.layers.children();
             for (var i = 0; i < ul.length; ++i) {
-                var n = $(ul[i]).children().attr('title');
+                var n = $(ul[i]).children().attr('name');
                 for (var j = 0; j < uses.length; ++j) {
-                    if (n == uses[j].title) {
+                    if (n == uses[j].name) {
                         newOrder.push(uses[j]);
                         break;
                     }
@@ -146,7 +146,7 @@ MSPView.prototype = {
     buildPlans: function() {
         var self = this;
         $.each(self.model.plans, function(i, plan) {
-            self.elements.plans.append(element('option',{value:plan.id},plan.title));
+            self.elements.plans.append(element('option',{value:plan.id},plan.name));
         });
     },
     buildPlan: function(plan) {
@@ -159,13 +159,13 @@ MSPView.prototype = {
     },
     usesItem: function(use) {
         var b = element('button', {class:"visible", type:'button'}, '&rtrif;');
-        var cb = element('label', {title:use.title}, b+' '+use.title);
+        var cb = element('label', {title:use.name}, b+' '+use.name);
         var callbacks = [];
         var subs = '';
         $.each(use.layers.reverse(), function(j, layer) {
             var attr = { type: "checkbox", class: "visible"+layer.index };
             var id = 'l'+use.id+'_'+layer.id;
-            var lt = element('div', { id: id, style: 'display:inline;' }, layer.title+'<br/>');
+            var lt = element('div', { id: id, style: 'display:inline;' }, layer.name+'<br/>');
             callbacks.push({ selector: '#'+id, use: use.id, layer: layer.id });
             subs += element('input', attr, lt);
             attr = { class:"opacity"+layer.index, type:"range", min:"0", max:"1", step:"0.01" };
@@ -255,8 +255,8 @@ MSPView.prototype = {
         var layer = self.model.layer;
         $.each(layer.rules, function(i, rule) {
             var item;
-            if (layer.title == 'Value')
-                item = rule.title;
+            if (layer.name == 'Value')
+                item = rule.name;
             else {
                 var attr = {
                     type:"checkbox",
@@ -268,7 +268,7 @@ MSPView.prototype = {
                 item = element(
                     'input', 
                     attr, 
-                    element('a', {id:"rule", rule:rule.id}, rule.title+' '+rule.value)
+                    element('a', {id:"rule", rule:rule.id}, rule.name+' '+rule.value)
                 );
             }
             self.elements.rules.append(item);
@@ -298,11 +298,10 @@ MSPView.prototype = {
                 }
             });
             var rule = self.model.ruleInEdit;
-            var title = rule.title;
-            title = title
+            var html = rule.name;
+            html = html
                 .replace(/^- If/, "Do not allocate if")
                 .replace(/==/, "equals:");
-            var html = title;
             if (rule.type == 'int') {
                 html += element('p',{},element('input', {id:"rule-editor"}));
             } else if (rule.type == 'double') {
@@ -468,19 +467,18 @@ MSP.prototype = {
             use.index = self.plan.uses.length - 1 - i;
             $.each(use.layers.reverse(), function(j, layer) {
                 layer.index = use.layers.length - 1 - j;
-                layer.wmts = true;
                 if (layer.object) self.map.removeLayer(layer.object);
                 if (boot) {
                     // initial boot or new plan
-                    var name = self.plan.id + '_' + use.id + '_' + layer.id;
-                    if (layer.title === 'Allocation') {
+                    var wmts = self.plan.id + '_' + use.id + '_' + layer.id;
+                    if (layer.name === 'Allocation') {
                         // add rules
                         $.each(layer.rules, function(i, rule) {
-                            if (rule.active) name += '_'+rule.id;
+                            if (rule.active) wmts += '_'+rule.id;
                         });
                         if (layer.object) layer.object = null;
                     }
-                    layer.name = name;
+                    layer.wmts = wmts;
                 }
                 if (!layer.object) layer.object = createLayer(layer, self.proj);
                 layer.object.on('change:visible', function () {
