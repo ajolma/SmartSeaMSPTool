@@ -36,8 +36,8 @@ class SmartSea:
     # create action that will start plugin configuration
     self.action = QAction(QIcon(self.plugin_dir+"icon.png"), "SmartSea", self.iface.mainWindow())
     self.action.setObjectName("SmartSea")
-    #self.action.setWhatsThis("Open TOPCONS dialog box")
-    #self.action.setStatusTip("Open TOPCONS dialog box")
+    self.action.setWhatsThis("Open SmartSea dialog box")
+    self.action.setStatusTip("Open SmartSea dialog box")
     QObject.connect(self.action, SIGNAL("triggered()"), self.run)
 
     # add toolbar button and menu item
@@ -57,7 +57,10 @@ class SmartSea:
   def configure(self):
     print "Set the service URLs..."
     dialog = uic.loadUi(self.plugin_dir+"configure.ui")
-    print dialog
+    QObject.connect(
+        dialog.findChild(QPushButton, "testPushButton"), 
+        SIGNAL("clicked()"), self.test_connection)
+    self.configure = dialog
     dialog.setModal(1);
     server = dialog.findChild(QLineEdit, "serverLineEdit")
     server.setText(self.server)
@@ -70,7 +73,30 @@ class SmartSea:
       self.wmts = wmts.text()
       s.setValue("smartsea/wmts", self.wmts)
       self.fill_tree()
-      
+
+  def test_connection(self):
+    dialog = self.configure
+    server = dialog.findChild(QLineEdit, "serverLineEdit")
+    server.text()
+    wmts = dialog.findChild(QLineEdit, "wmtsLineEdit")
+    wmts.text()
+    try:
+      response = urllib.urlopen(server.text())
+      response = urllib.urlopen(wmts.text())
+      connectionOk = 1
+    except:
+      connectionOk = 0
+
+    msg = QMessageBox()
+    msg.setIcon(QMessageBox.Information)
+    if (connectionOk):
+      msg.setText("Connection OK")
+    else:
+      msg.setText("Connection FAILED")
+      # error message into msg.setDetailedText()?
+    msg.setWindowTitle("Connection test")
+    msg.setStandardButtons(QMessageBox.Ok)
+    msg.exec_()
 
   def fill_tree(self):
     treeView = self.dialog.findChild(QTreeView, "treeView")

@@ -36,7 +36,7 @@
          <item>
           <widget class="QPushButton" name="loadPushButton">
            <property name="text">
-            <string>Load layer</string>
+            <string>Load layer(s)</string>
            </property>
           </widget>
          </item>
