@@ -1,6 +1,6 @@
 requires 'Modern::Perl';
 requires 'File::Copy';
-requires 'ExtUtils::ParseXS';
+requires 'ExtUtils::ParseXS', '3.01';
 requires 'Data::Dumper';
 requires 'Data::GUID';
 requires 'Test::More';
