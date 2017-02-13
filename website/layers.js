@@ -65,7 +65,7 @@ function createLayer(template, projection) {
             source: new ol.source.WMTS({
                 url: 'http://' + server + '/WMTS',
                 layer: 'suomi',
-                matrixSet: 'ETRS-TM35FIN',
+                matrixSet: projection.matrixSet,
                 format: 'image/png',
                 projection: projection.projection,
                 tileGrid: new ol.tilegrid.WMTS({
@@ -85,7 +85,7 @@ function createLayer(template, projection) {
             source: new ol.source.WMTS({
                 url: 'http://' + server + '/WMTS',
                 layer: template.wmts,
-                matrixSet: 'ETRS-TM35FIN',
+                matrixSet: projection.matrixSet,
                 format: 'image/png',
                 projection: projection.projection,
                 tileGrid: new ol.tilegrid.WMTS({

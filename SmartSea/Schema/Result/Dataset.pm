@@ -142,7 +142,7 @@ sub HTML_div {
             $info =~ s/user='(.*?)'/user='xxx'/;
             $info =~ s/password='(.*?)'/password='xxx'/;
         } else {
-            my $path = $args{data_path}.'/'.$self->path;
+            my $path = $args{data_dir}.'/'.$self->path;
             my @info = `gdalinfo $path`;
             my $table;
             for (@info) {

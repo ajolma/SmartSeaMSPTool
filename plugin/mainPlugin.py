@@ -179,7 +179,7 @@ class SmartSea:
                             l = QgsRasterLayer(wmts+s, layer["name"], 'wms')
                             if not l.isValid():
                                 print "Layer failed to load, partial "+wmts+s+\
-                                    " is the layer advertised?"
+                                    ". Is the layer advertised?"
                             else:
                                 print "Layer ok!"
                                 QgsMapLayerRegistry.instance().addMapLayer(l, False)
@@ -193,7 +193,7 @@ class SmartSea:
             layer = wmts+'dataset_'+str(id)
             l = QgsRasterLayer(layer, name, 'wms')
             if not l.isValid():
-                print "Layer failed to load, partial "+layer+" is the layer advertised?"
+                print "Layer failed to load, partial "+layer+". Is the layer advertised?"
             else:
                 print "Layer ok!"
                 QgsMapLayerRegistry.instance().addMapLayer(l, False)

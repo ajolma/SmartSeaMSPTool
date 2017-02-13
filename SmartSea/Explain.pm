@@ -18,7 +18,7 @@ sub new {
     $self = Plack::Component->new($self);
     my $dsn = "dbi:Pg:dbname=$self->{dbname}";
     $self->{schema} = SmartSea::Schema->connect($dsn, $self->{user}, $self->{pass}, {});
-    $self->{mask} = Geo::GDAL::Open("$self->{data_path}/mask.tiff");
+    $self->{mask} = Geo::GDAL::Open("$self->{data_dir}/mask.tiff");
     return bless $self, $class;
 }
 

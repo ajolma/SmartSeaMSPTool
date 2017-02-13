@@ -43,6 +43,18 @@ DAMAGE.
         rule_dialog: "#rule-dialog"
     });
     var controller = new MSPController(model, view);
+
+    var regex = /bg=(\w+)/;
+    var x = regex.exec(window.location.href);
+    if (x && x[1]) {
+        config.bg = x[1];
+        if (config.bg == "osm") {
+            config.epsg = 3857;
+            config.matrixSet = 'EPSG:3857';
+            config.center = [2671763, 8960514];
+            config.zoom = 6;
+        }
+    }
         
     model.proj = projection(config);
 
@@ -57,11 +69,7 @@ DAMAGE.
         view: model.proj.view
     });
     model.map.addControl(new ol.control.ScaleLine());
-    var bg = config.bg;
-    var regex = /bg=(\w+)/;
-    var x = regex.exec(window.location.href);
-    if (x && x[1]) bg = x[1];
-    $.each(createLayer({bg: bg}, model.proj), function(i, layer) {
+    $.each(createLayer({bg: config.bg}, model.proj), function(i, layer) {
         model.map.addLayer(layer);
     });
 

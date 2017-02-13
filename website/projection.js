@@ -37,6 +37,7 @@ function projection(options) {
     }
     var proj = {
         projection: p,
+        matrixSet: options.matrixSet,
         view: new ol.View({
             projection: p, // needed at least for 3067, not for 3857
             center: options.center,

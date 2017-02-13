@@ -72,36 +72,42 @@ sub config {
     my ($self, $config) = @_;
 
     # QGIS asks for capabilities and does not load unadvertised layers
-
-    my @tilesets = (
-        {
-            Layers => "3_3_1",
-            Format => "image/png",
-            Resolutions => "9..19",
-            SRS => "EPSG:3067",
-            BoundingBox => $config->{BoundingBox3067},
-            file => "/home/ajolma/data/SmartSea/mask.tiff",
-            ext => "png"
-        },
-        {
-            Layers => "3_3_2",
-            Format => "image/png",
-            Resolutions => "9..19",
-            SRS => "EPSG:3067",
-            BoundingBox => $config->{BoundingBox3067},
-            file => "/home/ajolma/data/SmartSea/mask.tiff",
-            ext => "png"
-        },
-        {
-            Layers => "dataset_14",
-            Format => "image/png",
-            Resolutions => "9..19",
-            SRS => "EPSG:3067",
-            BoundingBox => $config->{BoundingBox3067},
-            file => "/home/ajolma/data/SmartSea/mask.tiff",
-            ext => "png"
+    
+    my @tilesets;
+    for my $plan ($self->{schema}->resultset('Plan')->all()) {
+        my @uses;
+        for my $use ($plan->uses) {
+            my $plan2use = $self->{schema}->
+                resultset('Plan2Use')->
+                single({plan => $plan->id, use => $use->id});
+            my @layers;
+            for my $layer ($plan2use->layers) {
+                my $pul = $self->{schema}->
+                    resultset('Plan2Use2Layer')->
+                    single({plan2use => $plan2use->id, layer => $layer->id});
+                push @tilesets, {
+                    Layers => $plan->id."_".$use->id."_".$layer->id,
+                    Format => "image/png",
+                    Resolutions => "9..19",
+                    SRS => "EPSG:3067",
+                    BoundingBox => $config->{BoundingBox3067},
+                    file => "/home/ajolma/data/SmartSea/mask.tiff",
+                    ext => "png"
+                };
+            }
         }
-        );
+        for my $dataset ($plan->datasets(undef)) {
+            push @tilesets, {
+                    Layers => "dataset_".$dataset->id,
+                    Format => "image/png",
+                    Resolutions => "9..19",
+                    SRS => "EPSG:3067",
+                    BoundingBox => $config->{BoundingBox3067},
+                    file => "/home/ajolma/data/SmartSea/mask.tiff",
+                    ext => "png"
+                };
+        }
+    }
 
     for my $protocol (qw/TMS WMS WMTS/) {
         $config->{$protocol}->{TileSets} = \@tilesets;
@@ -116,40 +122,62 @@ sub process {
     my ($self, $dataset, $tile, $server) = @_;
     my $params = $server->{parameters};
 
-    #say STDERR "style = $params->{style}";
+    my @t = $tile->tile;
+    my @pw = $tile->projwin;
+    #say STDERR "$params->{tilematrixset}, @t, @pw";
 
-    # $dataset is undef since we serve_arbitrary_layers
-    # params is a hash of WM(T)S parameters
-    #say STDERR "@_";
-    
     # WMTS clients ask for layer
     # WMS clients ask for layers
 
     my $want = $params->{layer} // $params->{layers};
+    say STDERR $want;
 
-    if ($want =~ /^dataset_(\d)/) {
-        my ($w, $h) = $tile->tile;
-        my $ds = Geo::GDAL::Driver('GTiff')->
-            Create(Name => "/vsimem/suomi.tiff", Width => $w, Height => $h);
-        my ($minx, $maxy, $maxx, $miny) = $tile->projwin;
+    # the client asks for plan_use_layer_rule_rule_...
+    # rules are those rules that the client wishes to be active
+    # no rules = all rules?
 
-        my $scale = ($maxx-$minx)/256; # m/pixel
-        my $tolerance;
-        for my $x (1000,100,50) {
-            if ($scale > $x) {
-                $tolerance = $x;
-            }
+    $self->{cookie} = $server->{request}->cookies->{SmartSea} // 'default';
+    
+    my $rules = SmartSea::Rules->new({
+        tilematrixset => $params->{tilematrixset},
+        tile => $tile,
+        schema => $self->{schema},
+        data_dir => $self->{data_dir},
+        GDALVectorDataset => $self->{GDALVectorDataset},
+        cookie => $self->{cookie}, 
+        trail => $want
+    });
+
+    if ($rules->{dataset}) {
+        my $dataset = mask($rules);
+        my $mask = $dataset->Band->Piddle; # 0 / 1
+        
+        my $y;
+        eval {
+            $y = Geo::GDAL::Open($self->{data_dir}.'/'.$rules->{dataset}->path)
+                ->Translate( "/vsimem/tmp.tiff", 
+                             [ -of => 'GTiff', 
+                               -r => 'nearest' , 
+                               -outsize , $tile->tile,
+                               -projwin, $tile->projwin ])
+                ->Band
+                ->Piddle;
+        };
+        # need conversion from data range to palette indexes
+        $y->inplace->copybad($mask);
+        unless ($mask->min eq 'BAD') {
+            $y->inplace->setbadtoval(255);
+            $y /= 1000;
+            $y->where($y > 100) .= 100;
+            $y->where($y < 0) .= 0;
+            $y->where($mask == 0) .= 255;
         }
-        $tolerance //= '';
-        my $layer = 'maat'.$tolerance;
-
-        $ds->GeoTransform($minx, ($maxx-$minx)/$w, 0, $maxy, 0, ($miny-$maxy)/$h);
-        $ds->SpatialReference(Geo::OSR::SpatialReference->new(EPSG=>3067));
-        $ds->Band(1)->ColorTable($self->{palette}{suomi_colortable});
-        $self->{Suomi}->Rasterize($ds, [-burn => 1, -l => 'f_l1_3067']);
+        
+        $dataset->Band->Piddle(byte $y);
+        $dataset->Band->ColorTable($self->{palette}{to_green});
 
         # Cache-Control should be only max-age=seconds something
-        return $ds;
+        return $dataset;
     }
 
     if ($want eq 'suomi') {
@@ -187,30 +215,21 @@ sub process {
         return $ds;
     }
 
+    unless ($rules->{layer}) {
+        my ($w, $h) = $tile->tile;
+        my $ds = Geo::GDAL::Driver('GTiff')->
+            Create(Name => "/vsimem/suomi.tiff", Width => $w, Height => $h);
+        my ($minx, $maxy, $maxx, $miny) = $tile->projwin;
+        $ds->GeoTransform($minx, ($maxx-$minx)/$w, 0, $maxy, 0, ($miny-$maxy)/$h);
+        $ds->SpatialReference(Geo::OSR::SpatialReference->new(EPSG=>3067));
+        return $ds;
+    }
+
     # a 0/1 mask of the planning area
-    $dataset = Geo::GDAL::Open("$self->{data_path}/mask.tiff");
-    $dataset = $dataset->Translate( "/vsimem/tmp.tiff", 
-                                    ['-ot' => 'Byte', '-of' => 'GTiff', '-r' => 'nearest' , 
-                                     '-outsize' , $tile->tile,
-                                     '-projwin', $tile->projwin,
-                                     '-a_ullr', $tile->projwin]);
+    $dataset = mask($rules);
 
     my $mask = $dataset->Band(1)->Piddle; # 0 / 1
     #say STDERR "min=",$mask->min." max=".$mask->max;
-
-    # the client asks for plan_use_layer_rule_rule_...
-    # rules are those rules that the client wishes to be active
-    # no rules = all rules?
-
-    my $cookies = $server->{request}->cookies;
-    $self->{cookie} = $cookies->{SmartSea} // 'default';
-    #say STDERR "cookie: $self->{cookie}";
-    
-    my $rules = SmartSea::Rules->new({
-        schema => $self->{schema}, 
-        cookie => $self->{cookie}, 
-        trail => $want
-    });
 
     $self->{log} = '';
 
@@ -233,29 +252,35 @@ sub process {
 
     $dataset->Band(1)->ColorTable($self->{palette}{$palette});
     $dataset->Band(1)->Piddle(byte $y);
+  
     return $dataset;
+}
 
-    if ($rules->layer->name eq 'Value') {
-        # compute, returns bad, 0..100
-        my $value = $rules->compute_value($self, $tile);
-        $value->inplace->setbadtoval(-1);
-        my $mask = $dataset->Band(1)->Piddle; # 0 / 1
-        $mask *= ($value + 2);
-        $dataset->Band(1)->Piddle(byte $mask);
-        # set color table
-        $dataset->Band(1)->ColorTable($self->{value_color_table});
-        return $dataset;
+sub mask {
+    my $rules = shift;
+    my $tile = $rules->{tile};
+    my $dataset = Geo::GDAL::Open("$rules->{data_dir}/mask.tiff");
+    if ($rules->{tilematrixset} eq 'ETRS-TM35FIN') {
+        $dataset = $dataset->Translate( 
+            "/vsimem/tmp.tiff", 
+            [ -ot => 'Byte', 
+              -of => 'GTiff', 
+              -r => 'nearest' , 
+              -outsize => $tile->tile,
+              -projwin => $tile->projwin,
+              -a_ullr => $tile->projwin ]);
     } else {
-        # compute, returns 0, 1, 2
-        my $allocation = $rules->compute_allocation($self, $tile);
-        $allocation->inplace->setbadtoval(0);
-        my $mask = $dataset->Band(1)->Piddle; # 0 / 1
-        $mask *= $allocation;
-        $dataset->Band(1)->Piddle(byte $mask);
-        # set color table
-        $dataset->Band(1)->ColorTable($self->{allocation_color_table});
-        return $dataset;
+        my $e = $tile->extent;
+        $dataset = $dataset->Warp( 
+            "/vsimem/tmp.tiff", 
+            [ -ot => 'Byte', 
+              -of => 'GTiff', 
+              -r => 'near' ,
+              -t_srs => $rules->{tilematrixset},
+              -te => @$e,
+              -ts => $tile->tile] );
     }
+    return $dataset;
 }
 
 1;

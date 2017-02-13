@@ -13,19 +13,33 @@ use SmartSea::Core qw(:all);
 # trail = plan use layer [rule*]
 
 sub new {
-    my ($class, $args) = @_; # must give schema, cookie, and trail
-    my $trail = $args->{trail};
-    my $schema = $args->{schema};
+    my ($class, $self) = @_; # must give schema, cookie, and trail
+    my $trail = $self->{trail};
+    my $schema = $self->{schema};
     my $id;
     ($trail, $id) = parse_integer($trail);
+    if ($id eq '') {
+        return bless $self, $class;
+    }
+    
     my $plan = $schema->resultset('Plan')->single({ id => $id });
     ($trail, $id) = parse_integer($trail);
+    
+    if ($id == 0) {
+        ($trail, $id) = parse_integer($trail);
+        $self->{dataset} = $schema->resultset('Dataset')->single({ id => $id });
+        return bless $self, $class;
+    }
+    
     my $use = $schema->resultset('Use')->single({ id => $id });
     ($trail, $id) = parse_integer($trail);
     my $layer = $schema->resultset('Layer')->single({ id => $id });
-    
+
     my $plan2use = $schema->resultset('Plan2Use')->single({plan => $plan->id, use => $use->id});
     my $pul = $schema->resultset('Plan2Use2Layer')->single({plan2use => $plan2use->id, layer => $layer->id});
+    $self->{pul} = $pul;
+    $self->{class} = $pul->rule_class;
+    $self->{max} = $pul->additive_max;
 
     my @rules;
     # rule list is optional
@@ -37,7 +51,7 @@ sub new {
             # prefer the one with our cookie
             my $rule;
             for my $r ($schema->resultset('Rule')->search({ id => $id })) {
-                if ($r->cookie eq $args->{cookie}) {
+                if ($r->cookie eq $self->{cookie}) {
                     $rule = $r;
                     last;
                 }
@@ -47,13 +61,12 @@ sub new {
             # and that the $rule->layer->id is the same?
             push @rules, $rule;
         }
-    } else {
-        
+    } elsif ($self->{pul}) {
         my %rules;
-        for my $rule ($pul->rules) {
+        for my $rule ($self->{pul}->rules) {
             # prefer id/cookie pair to id/default, they have the same id
             if (exists $rules{$rule->id}) {
-                $rules{$rule->id} = $rule if $rule->cookie eq $args->{cookie};
+                $rules{$rule->id} = $rule if $rule->cookie eq $self->{cookie};
             } else {
                 $rules{$rule->id} = $rule;
             }
@@ -62,13 +75,12 @@ sub new {
             push @rules, $rules{$i};
         }
     }
-    my $self = { rules => \@rules, 
-                 plan => $plan, 
-                 use => $use, 
-                 layer => $layer, 
-                 class => $pul->rule_class,
-                 max => $pul->additive_max
-    };
+    
+    $self->{plan} = $plan;
+    $self->{use} = $use;
+    $self->{layer} = $layer;
+    $self->{rules} = \@rules;
+    
     return bless $self, $class;
 }
 
@@ -98,9 +110,9 @@ sub has_rules {
 }
 
 sub compute {
-    my ($self, $tile, $config) = @_;
+    my ($self) = @_;
 
-    my $result = zeroes($tile->tile);
+    my $result = zeroes($self->{tile}->tile);
 
     my $method = $self->{class}->name;
 
@@ -109,7 +121,7 @@ sub compute {
     }
 
     for my $rule ($self->rules) {
-        $rule->apply($result, $method, $tile, $config);
+        $rule->apply($method, $result, $self);
     }
 
     if ($method =~ /^add/) {
@@ -121,10 +133,10 @@ sub compute {
 }
 
 sub compute_allocation {
-    my ($self, $config, $tile) = @_;
+    my ($self) = @_;
 
     # default is to allocate all
-    my $result = zeroes($tile->tile) + 2;
+    my $result = zeroes($self->{tile}->tile) + 2;
 
     for my $rule ($self->rules) {
 
@@ -138,7 +150,7 @@ sub compute_allocation {
         my $value = $rule->value // 1;
 
         # the operand
-        my $tmp = $rule->operand($config, $tile);
+        my $tmp = $rule->operand($self);
 
         if (defined $tmp) {
             if ($op eq '<=')    { $result->where($tmp <= $value) .= $val; } 
@@ -156,16 +168,16 @@ sub compute_allocation {
     # TODO: how to deal with deallocations?
     my $current = $self->use->current_allocation;
     $current = $current->path if $current;
-    $result->where(dataset($config, $tile, $current) > 0) .= 1 if $current;
+    $result->where(dataset($current, $self) > 0) .= 1 if $current;
 
     return $result;
 }
 
 sub compute_value {
-    my ($self, $config, $tile) = @_;
+    my ($self) = @_;
 
     # default is no value
-    my $result = zeroes($tile->tile);
+    my $result = zeroes($self->{tile}->tile);
     return $result unless @{$self->{rules}};
 
     # apply rules
@@ -182,7 +194,7 @@ sub compute_value {
         #my $op = $rule->op ? $rule->op->op : '==';
 
         # the operand
-        my $tmp = double($rule->operand($config, $tile));
+        my $tmp = double($rule->operand($self));
 
         # scale values from 0 to 100
         my $min = $rule->min_value;

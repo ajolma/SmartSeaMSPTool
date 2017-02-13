@@ -146,7 +146,8 @@ MSPView.prototype = {
     buildPlans: function() {
         var self = this;
         $.each(self.model.plans, function(i, plan) {
-            self.elements.plans.append(element('option',{value:plan.id},plan.name));
+            if (plan.datasets.length == 0)
+                self.elements.plans.append(element('option',{value:plan.id},plan.name));
         });
     },
     buildPlan: function(plan) {
@@ -450,13 +451,34 @@ MSP.prototype = {
         self.plan = null;
         self.use = null;
         self.layer = null;
+        // remove extra use
+        if (self.plan) {
+        }
+        var datasets;
         $.each(self.plans, function(i, plan) {
             if (id == plan.id) self.plan = plan;
+            if (plan.datasets.length > 0) datasets = plan;
             $.each(plan.uses, function(i, use) {
                 $.each(use.layers, function(j, layer) {
                     if (layer.object) self.map.removeLayer(layer.object);
                 });
             });
+        });
+        // add datasets as an extra use
+        var layers = [];
+        $.each(datasets.datasets, function(i, dataset) {
+            layers.push({
+                name:dataset.name,
+                use:0,
+                id:dataset.id,
+                rules:[]
+            });
+        });
+        self.plan.uses.push({
+            name:"Data",
+            plan:self.plan.id,
+            id:0,
+            layers:layers
         });
         if (self.plan) self.planChanged.notify({ plan: self.plan });
     },

@@ -258,7 +258,7 @@ sub object_editor {
     }
 
     my %args = (parameters => \%parameters);
-    for my $key (qw/uri base_uri schema edit dbname user pass data_path/) {
+    for my $key (qw/uri base_uri schema edit dbname user pass data_dir/) {
         $args{$key} = $self->{$key};
     }
     $args{cookie} = DEFAULT;

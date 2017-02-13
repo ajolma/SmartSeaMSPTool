@@ -345,10 +345,10 @@ sub HTML_list {
 }
 
 sub apply {
-    my ($self, $y, $method, $tile, $config) = @_;
+    my ($self, $method, $y, $rules) = @_;
 
     # the operand (x)
-    my $x = $self->operand($config, $tile);
+    my $x = $self->operand($rules);
     my $x_min = $self->min_value;
     my $x_max = $self->max_value;
 
@@ -360,12 +360,12 @@ sub apply {
 
     if ($method =~ /^mult/) {
 
-        $config->{log} .= "\n".$self->r_dataset->path;
-        $config->{log} .= "\n"."x min=".$x->min." max=".$x->max;
-        $config->{log} .= "\n"."y min=".$y->min." max=".$y->max;
-        $config->{log} .= "\n  $w * ($y_min + (\$x-$x_min)*($y_max-$y_min)/($x_max-$x_min))";
+        #$config->{log} .= "\n".$self->r_dataset->path;
+        #$config->{log} .= "\n"."x min=".$x->min." max=".$x->max;
+        #$config->{log} .= "\n"."y min=".$y->min." max=".$y->max;
+        #$config->{log} .= "\n  $w * ($y_min + (\$x-$x_min)*($y_max-$y_min)/($x_max-$x_min))";
         $y *= $w * ($y_min + ($x-$x_min)*($y_max-$y_min)/($x_max-$x_min));
-        $config->{log} .= "\n"."min=".$y->min." max=".$y->max;
+        #$config->{log} .= "\n"."min=".$y->min." max=".$y->max;
 
     } elsif ($method =~ /^add/) {
 
@@ -394,7 +394,7 @@ sub apply {
 }
 
 sub operand {
-    my ($self, $config, $tile) = @_;
+    my ($self, $rules) = @_;
     if ($self->r_layer) {
         # we need the rules associated with the 2nd plan.use.layer
         my $plan = $self->r_plan ? $self->r_plan : $self->plan;
@@ -402,44 +402,66 @@ sub operand {
             
         # TODO: how to avoid circular references?
 
-        my $rules = SmartSea::Rules->new($config->{schema}, $plan, $use, $self->r_layer);
+        my $rules = SmartSea::Rules->new($rules->{schema}, $plan, $use, $self->r_layer);
 
         say STDERR $plan->name,".",$use->name,".",$self->r_layer->name," did not return any rules" unless $rules->rules;
         
         if ($self->r_layer->name eq 'Allocation') {
-            return $rules->compute_allocation($config, $tile);
+            return $rules->compute_allocation($rules);
         } else {
-            return $rules->compute_value($config, $tile);
+            return $rules->compute_value($rules);
         }
     } elsif ($self->r_dataset) {
-        return dataset($config, $tile, $self->r_dataset->path);
+        return dataset($self->r_dataset->path, $rules);
     }
     return undef;
 }
 
 sub dataset {
-    my ($config, $tile, $path) = @_;
+    my ($path, $rules) = @_;
+    
+    my $tile = $rules->{tile};
 
     if ($path =~ /^PG:/) {
+        
         $path =~ s/^PG://;
-
         my ($w, $h) = $tile->tile;
         my $ds = Geo::GDAL::Driver('GTiff')->Create(Name => "/vsimem/r.tiff", Width => $w, Height => $h);
         my ($minx, $maxy, $maxx, $miny) = $tile->projwin;
         $ds->GeoTransform($minx, ($maxx-$minx)/$w, 0, $maxy, 0, ($miny-$maxy)/$h);
-        $ds->SpatialReference(Geo::OSR::SpatialReference->new(EPSG=>3067));
-        $config->{GDALVectorDataset}->Rasterize($ds, [-burn => 1, -l => $path]);
+        $ds->SpatialReference(Geo::OSR::SpatialReference->new(EPSG=>3067)); # fixme, from tilematrixset
+        $rules->{GDALVectorDataset}->Rasterize($ds, [-burn => 1, -l => $path]);
         return $ds->Band(1)->Piddle;
         
     } else {
+        
         my $b;
         eval {
-            $b = Geo::GDAL::Open("$config->{data_path}/$path")
-                ->Translate( "/vsimem/tmp.tiff", 
-                             ['-of' => 'GTiff', '-r' => 'nearest' , 
-                              '-outsize' , $tile->tile,
-                              '-projwin', $tile->projwin] )
-                ->Band(1);
+
+            if ($rules->{tilematrixset} eq 'ETRS-TM35FIN') {
+            
+                $b = Geo::GDAL::Open("$rules->{data_dir}/$path")
+                    ->Translate( "/vsimem/tmp.tiff", 
+                                 [ -of => 'GTiff',
+                                   -r => 'nearest',
+                                   -outsize , $tile->tile,
+                                   -projwin, $tile->projwin ])
+                    ->Band(1);
+
+            } else {
+
+                my $e = $tile->extent;
+                $b = Geo::GDAL::Open("$rules->{data_dir}/$path")
+                    ->Warp( "/vsimem/tmp.tiff", 
+                            [ -ot => 'Byte', 
+                              -of => 'GTiff', 
+                              -r => 'near' ,
+                              -t_srs => $rules->{tilematrixset},
+                              -te => @$e,
+                              -ts => $tile->tile ])
+                    ->Band(1);
+            }
+            
         };
         my $pdl;
         if ($@) {
