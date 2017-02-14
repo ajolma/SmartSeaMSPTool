@@ -186,8 +186,9 @@ MSPView.prototype = {
             self.elements.layers.append(item.element);
             $.each(item.callbacks, function(i, callback) {
                 $(callback.selector).click(function() {
-                    self.model.unselectLayer();
-                    self.model.selectLayer(callback.use, callback.layer);
+                    var was_selected = self.model.unselectLayer();
+                    if (was_selected.use != callback.use || was_selected.layer != callback.layer)
+                        self.model.selectLayer(callback.use, callback.layer);
                 });
             });
         });
@@ -538,6 +539,7 @@ MSP.prototype = {
         self.use = null;
         self.layer = null;
         if (unselect) self.layerUnselected.notify({ use: use, layer: layer });
+        return {use: use, layer: layer};
     },
     applyToRuleInEdit: function(value) {
         var self = this;

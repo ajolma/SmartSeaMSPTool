@@ -10,6 +10,7 @@ use DBI;
 use Imager::Color;
 use Geo::GDAL;
 use PDL;
+use PDL::NiceSlice;
 use Geo::OGC::Service;
 use DBI;
 
@@ -131,7 +132,6 @@ sub process {
     # WMS clients ask for layers
 
     my $want = $params->{layer} // $params->{layers};
-    say STDERR $want;
 
     # the client asks for plan_use_layer_rule_rule_...
     # rules are those rules that the client wishes to be active
@@ -208,6 +208,8 @@ sub process {
         $self->{Suomi}->Rasterize($ds, [-burn => 3, -l => 'maakunnat_rajat']);
         $self->{Suomi}->Rasterize($ds, [-burn => 3, -l => 'eez_rajat']);
 
+        say STDERR $want;
+
         # Cache-Control should be only max-age=seconds something
         return $ds;
     }
@@ -219,6 +221,7 @@ sub process {
         my ($minx, $maxy, $maxx, $miny) = $tile->projwin;
         $ds->GeoTransform($minx, ($maxx-$minx)/$w, 0, $maxy, 0, ($miny-$maxy)/$h);
         $ds->SpatialReference(Geo::OSR::SpatialReference->new(EPSG=>3067));
+        say STDERR "no layer";
         return $ds;
     }
 
@@ -249,6 +252,8 @@ sub process {
 
     $dataset->Band(1)->ColorTable($self->{palette}{$palette});
     $dataset->Band(1)->Piddle(byte $y);
+
+    say STDERR $want," ",$params->{tilematrixset};
   
     return $dataset;
 }

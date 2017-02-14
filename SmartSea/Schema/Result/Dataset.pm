@@ -6,6 +6,8 @@ use base qw/DBIx::Class::Core/;
 use Scalar::Util 'blessed';
 use SmartSea::Core;
 use SmartSea::HTML qw(:all);
+use PDL;
+use PDL::NiceSlice;
 
 my %attributes = (
         name => {
@@ -180,6 +182,8 @@ sub HTML_div {
                        url => $self->license->url)]] if $self->license;
     push @l, [li => [[b => "attribution"],[1 => " = ".$self->attribution]]] if $self->attribution;
     push @l, [li => [[b => "data model"],[1 => " = ".$self->data_model->name]]] if $self->data_model;
+    push @l, [li => [[b => "minimum"],[1 => " = ".$self->min_value]]] if defined $self->min_value;
+    push @l, [li => [[b => "maximum"],[1 => " = ".$self->max_value]]] if defined $self->max_value;
     push @l, [li => [[b => "unit"],[1 => " = ".$self->unit->name]]] if $self->unit;
     push @l, [li => [[b => "path"],[1 => " = ".$self->path]]] if $self->path;
     push @div, [ul => \@l] if @l;
@@ -216,7 +220,7 @@ sub HTML_form {
         }
         
         for my $key (keys %attributes) {
-            next unless $self->$key;
+            next unless defined $self->$key;
             next if defined $values->{$key};
             $values->{$key} = ref($self->$key) ? $self->$key->id : $self->$key;
         }
@@ -367,8 +371,7 @@ sub Piddle {
                 my $e = $tile->extent;
                 $b = Geo::GDAL::Open("$rules->{data_dir}/$path")
                     ->Warp( "/vsimem/tmp.tiff", 
-                            [ -ot => 'Byte', 
-                              -of => 'GTiff', 
+                            [ -of => 'GTiff', 
                               -r => 'near' ,
                               -t_srs => $rules->{tilematrixset},
                               -te => @$e,
@@ -383,6 +386,7 @@ sub Piddle {
             $pdl = $pdl->setbadif($pdl == 0);
         } else {
             $pdl = $b->Piddle;
+            
             my $bad = $b->NoDataValue();
         
             # this is a hack
