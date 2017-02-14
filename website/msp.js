@@ -146,7 +146,7 @@ MSPView.prototype = {
     buildPlans: function() {
         var self = this;
         $.each(self.model.plans, function(i, plan) {
-            if (plan.datasets.length == 0)
+            if (plan.id > 0)
                 self.elements.plans.append(element('option',{value:plan.id},plan.name));
         });
     },
@@ -448,16 +448,17 @@ MSP.prototype = {
     },
     changePlan: function(id) {
         var self = this;
+        // remove extra use
+        if (self.plan) {
+            self.plan.uses.pop();
+        }
         self.plan = null;
         self.use = null;
         self.layer = null;
-        // remove extra use
-        if (self.plan) {
-        }
         var datasets;
         $.each(self.plans, function(i, plan) {
             if (id == plan.id) self.plan = plan;
-            if (plan.datasets.length > 0) datasets = plan;
+            if (plan.id == 0) datasets = plan.uses[0];
             $.each(plan.uses, function(i, use) {
                 $.each(use.layers, function(j, layer) {
                     if (layer.object) self.map.removeLayer(layer.object);
@@ -465,21 +466,7 @@ MSP.prototype = {
             });
         });
         // add datasets as an extra use
-        var layers = [];
-        $.each(datasets.datasets, function(i, dataset) {
-            layers.push({
-                name:dataset.name,
-                use:0,
-                id:dataset.id,
-                rules:[]
-            });
-        });
-        self.plan.uses.push({
-            name:"Data",
-            plan:self.plan.id,
-            id:0,
-            layers:layers
-        });
+        self.plan.uses.push(datasets);
         if (self.plan) self.planChanged.notify({ plan: self.plan });
     },
     createLayers: function(boot) {
@@ -542,13 +529,15 @@ MSP.prototype = {
     unselectLayer: function() {
         var self = this;
         var use = null, layer = null;
+        var unselect = 0;
         if (self.use && self.layer) {
             use = self.use.id;
             layer = self.layer.id;
+            unselect = 1;
         }
         self.use = null;
         self.layer = null;
-        if (use && layer) self.layerUnselected.notify({ use: use, layer: layer });
+        if (unselect) self.layerUnselected.notify({ use: use, layer: layer });
     },
     applyToRuleInEdit: function(value) {
         var self = this;

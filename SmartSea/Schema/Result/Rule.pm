@@ -412,79 +412,9 @@ sub operand {
             return $rules->compute_value($rules);
         }
     } elsif ($self->r_dataset) {
-        return dataset($self->r_dataset->path, $rules);
+        return $self->r_dataset->Piddle($rules);
     }
     return undef;
-}
-
-sub dataset {
-    my ($path, $rules) = @_;
-    
-    my $tile = $rules->{tile};
-
-    if ($path =~ /^PG:/) {
-        
-        $path =~ s/^PG://;
-        my ($w, $h) = $tile->tile;
-        my $ds = Geo::GDAL::Driver('GTiff')->Create(Name => "/vsimem/r.tiff", Width => $w, Height => $h);
-        my ($minx, $maxy, $maxx, $miny) = $tile->projwin;
-        $ds->GeoTransform($minx, ($maxx-$minx)/$w, 0, $maxy, 0, ($miny-$maxy)/$h);
-        $ds->SpatialReference(Geo::OSR::SpatialReference->new(EPSG=>3067)); # fixme, from tilematrixset
-        $rules->{GDALVectorDataset}->Rasterize($ds, [-burn => 1, -l => $path]);
-        return $ds->Band(1)->Piddle;
-        
-    } else {
-        
-        my $b;
-        eval {
-
-            if ($rules->{tilematrixset} eq 'ETRS-TM35FIN') {
-            
-                $b = Geo::GDAL::Open("$rules->{data_dir}/$path")
-                    ->Translate( "/vsimem/tmp.tiff", 
-                                 [ -of => 'GTiff',
-                                   -r => 'nearest',
-                                   -outsize , $tile->tile,
-                                   -projwin, $tile->projwin ])
-                    ->Band(1);
-
-            } else {
-
-                my $e = $tile->extent;
-                $b = Geo::GDAL::Open("$rules->{data_dir}/$path")
-                    ->Warp( "/vsimem/tmp.tiff", 
-                            [ -ot => 'Byte', 
-                              -of => 'GTiff', 
-                              -r => 'near' ,
-                              -t_srs => $rules->{tilematrixset},
-                              -te => @$e,
-                              -ts => $tile->tile ])
-                    ->Band(1);
-            }
-            
-        };
-        my $pdl;
-        if ($@) {
-            $pdl = zeroes($tile->tile);
-            $pdl = $pdl->setbadif($pdl == 0);
-        } else {
-            $pdl = $b->Piddle;
-            my $bad = $b->NoDataValue();
-        
-            # this is a hack
-            if (defined $bad) {
-                if ($bad < -1000) {
-                    $pdl = $pdl->setbadif($pdl < -1000);
-                } elsif ($bad > 1000) {
-                    $pdl = $pdl->setbadif($pdl > 1000);
-                } else {
-                    $pdl = $pdl->setbadif($pdl == $bad);
-                }
-            }
-        }
-
-        return $pdl;
-    }
 }
 
 1;

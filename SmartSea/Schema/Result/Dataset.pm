@@ -72,6 +72,16 @@ my %attributes = (
             input => 'lookup',
             class => 'Unit',
             allow_null => 1
+        },
+        min_value => {
+            i => 13,
+            input => 'text',
+            allow_null => 1
+        },
+        max_value => {
+            i => 14,
+            input => 'text',
+            allow_null => 1
         }
     );
 
@@ -195,6 +205,16 @@ sub HTML_form {
 
     my $new = 1;
     if ($self and blessed($self) and $self->isa('SmartSea::Schema::Result::Dataset')) {
+        
+        if ($args{parameters}{compute}) {
+            # min and max
+            # assuming one band
+            my $b = Geo::GDAL::Open($args{data_dir}.'/'.$self->path)->Band;
+            $b->ComputeStatistics(0);
+            $values->{min_value} = $b->GetMinimum;
+            $values->{max_value} = $b->GetMaximum;
+        }
+        
         for my $key (keys %attributes) {
             next unless $self->$key;
             next if defined $values->{$key};
@@ -209,6 +229,10 @@ sub HTML_form {
     for my $key (sort {$attributes{$a}{i} <=> $attributes{$b}{i}} keys %attributes) {
         push @form, [ p => [[1 => "$key: "], $widgets->{$key}] ];
     }
+
+    push @form, button(value => "Compute min & max from dataset");
+    push @form, ['br'];
+    push @form, ['br'];
 
     push @form, button(value => $new ? "Create" : "Store");
     push @form, [1 => ' '];
@@ -291,6 +315,90 @@ sub HTML_list {
     my $ret = [ul => \@li];
     return [ li => [0 => 'Datasets:'], $ret ] if $args{named_item};
     return $ret;
+}
+
+sub Piddle {
+    my ($self, $rules) = @_;
+
+    my $path = $self->path;
+    my $tile = $rules->{tile};
+
+    if ($path =~ /^PG:/) {
+        
+        my ($w, $h) = $tile->tile;
+        my $ds = Geo::GDAL::Driver('GTiff')->Create(Name => "/vsimem/r.tiff", Width => $w, Height => $h);
+        my ($minx, $maxy, $maxx, $miny) = $tile->projwin;
+        $ds->GeoTransform($minx, ($maxx-$minx)/$w, 0, $maxy, 0, ($miny-$maxy)/$h);
+
+        my $epsg;
+        if ($rules->{tilematrixset} eq 'ETRS-TM35FIN') {
+            $epsg = 3067;
+        } else {
+            $epsg = 3857;
+        }
+        
+        $ds->SpatialReference(Geo::OSR::SpatialReference->new(EPSG=>$epsg));
+
+        $path =~ s/^PG://;
+        $path =~ s/\./"."/;
+        $path = '"'.$path.'"';
+        my $sql = "select gid,st_transform(geom,$epsg) as geom from $path";
+        $rules->{GDALVectorDataset}->Rasterize($ds, [-burn => 1, -sql => $sql]);
+        
+        return $ds->Band->Piddle;
+        
+    } else {
+        
+        my $b;
+        eval {
+
+            if ($rules->{tilematrixset} eq 'ETRS-TM35FIN') {
+            
+                $b = Geo::GDAL::Open("$rules->{data_dir}/$path")
+                    ->Translate( "/vsimem/tmp.tiff", 
+                                 [ -of => 'GTiff',
+                                   -r => 'nearest',
+                                   -outsize , $tile->tile,
+                                   -projwin, $tile->projwin ])
+                    ->Band;
+
+            } else {
+
+                my $e = $tile->extent;
+                $b = Geo::GDAL::Open("$rules->{data_dir}/$path")
+                    ->Warp( "/vsimem/tmp.tiff", 
+                            [ -ot => 'Byte', 
+                              -of => 'GTiff', 
+                              -r => 'near' ,
+                              -t_srs => $rules->{tilematrixset},
+                              -te => @$e,
+                              -ts => $tile->tile ])
+                    ->Band;
+            }
+            
+        };
+        my $pdl;
+        if ($@) {
+            $pdl = zeroes($tile->tile);
+            $pdl = $pdl->setbadif($pdl == 0);
+        } else {
+            $pdl = $b->Piddle;
+            my $bad = $b->NoDataValue();
+        
+            # this is a hack
+            if (defined $bad) {
+                if ($bad < -1000) {
+                    $pdl = $pdl->setbadif($pdl < -1000);
+                } elsif ($bad > 1000) {
+                    $pdl = $pdl->setbadif($pdl > 1000);
+                } else {
+                    $pdl = $pdl->setbadif($pdl == $bad);
+                }
+            }
+        }
+
+        return $pdl;
+    }
 }
 
 1;

@@ -11,8 +11,6 @@ __PACKAGE__->add_columns(qw/ id name /);
 __PACKAGE__->set_primary_key('id');
 __PACKAGE__->has_many(plan2use => 'SmartSea::Schema::Result::Plan2Use', 'plan');
 __PACKAGE__->many_to_many(uses => 'plan2use', 'use');
-__PACKAGE__->has_many(plan2dataset => 'SmartSea::Schema::Result::Plan2Dataset', 'plan');
-__PACKAGE__->many_to_many(datasets => 'plan2dataset', 'dataset');
 
 sub create_col_data {
     my ($class, $parameters) = @_;
@@ -65,21 +63,12 @@ sub HTML_list {
             my $id = $plan->id.'/use:'.$use->id;
             $li{$p}{uses}{$u} = item($u, $id, %args, action => 'None');
         }
-        for my $dataset ($plan->datasets) {
-            my $u = $dataset->name;
-            $data{$p}{datasets}{$u} = 1;
-            my $id = $plan->id.'/dataset:'.$dataset->id;
-            $li{$p}{datasets}{$u} = item($u, $id, %args, action => 'None');
-        }
     }
     my @li;
     for my $plan (sort keys %{$li{plan}}) {
         my @l;
         for my $use (sort keys %{$data{$plan}{uses}}) {
             push @l, [li => $li{$plan}{uses}{$use}];
-        }
-        for my $dataset (sort keys %{$data{$plan}{datasets}}) {
-            push @l, [li => $li{$plan}{datasets}{$dataset}];
         }
         my @item = @{$li{plan}{$plan}};
         push @item, [ul => \@l] if @l;

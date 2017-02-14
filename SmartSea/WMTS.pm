@@ -2,7 +2,7 @@ package SmartSea::WMTS;
 use utf8;
 use strict;
 use warnings;
-use 5.010000; # say // and //=
+use 5.010000;
 use Carp;
 use Encode qw(decode encode);
 use JSON;
@@ -87,8 +87,8 @@ sub config {
                     single({plan2use => $plan2use->id, layer => $layer->id});
                 push @tilesets, {
                     Layers => $plan->id."_".$use->id."_".$layer->id,
-                    Format => "image/png",
-                    Resolutions => "9..19",
+                    'Format' => 'image/png',
+                    Resolutions => '9..19',
                     SRS => "EPSG:3067",
                     BoundingBox => $config->{BoundingBox3067},
                     file => "/home/ajolma/data/SmartSea/mask.tiff",
@@ -96,16 +96,17 @@ sub config {
                 };
             }
         }
-        for my $dataset ($plan->datasets(undef)) {
+        for my $dataset ($self->{schema}->resultset('Dataset')->all) {
+            next unless $dataset->path;
             push @tilesets, {
-                    Layers => "dataset_".$dataset->id,
-                    Format => "image/png",
-                    Resolutions => "9..19",
-                    SRS => "EPSG:3067",
-                    BoundingBox => $config->{BoundingBox3067},
-                    file => "/home/ajolma/data/SmartSea/mask.tiff",
-                    ext => "png"
-                };
+                Layers => "dataset_".$dataset->id,
+                "Format" => "image/png",
+                Resolutions => "9..19",
+                SRS => "EPSG:3067",
+                BoundingBox => $config->{BoundingBox3067},
+                file => "/home/ajolma/data/SmartSea/mask.tiff",
+                ext => "png"
+            };
         }
     }
 
@@ -149,30 +150,26 @@ sub process {
     });
 
     if ($rules->{dataset}) {
+        my $min = $rules->{dataset}->min_value // 0;
+        my $max = $rules->{dataset}->max_value // 1;
+        $max = $min + 1 if $max - $min == 0;
         my $dataset = mask($rules);
         my $mask = $dataset->Band->Piddle; # 0 / 1
         
         my $y;
         eval {
-            $y = Geo::GDAL::Open($self->{data_dir}.'/'.$rules->{dataset}->path)
-                ->Translate( "/vsimem/tmp.tiff", 
-                             [ -of => 'GTiff', 
-                               -r => 'nearest' , 
-                               -outsize , $tile->tile,
-                               -projwin, $tile->projwin ])
-                ->Band
-                ->Piddle;
+            $y = $rules->{dataset}->Piddle($rules);
         };
-        # need conversion from data range to palette indexes
+        
         $y->inplace->copybad($mask);
         unless ($mask->min eq 'BAD') {
-            $y->inplace->setbadtoval(255);
-            $y /= 1000;
+            # scale and bound to min .. max => 0 .. 100
+            $y = 100*($y-$min)/($max-$min);
             $y->where($y > 100) .= 100;
             $y->where($y < 0) .= 0;
-            $y->where($mask == 0) .= 255;
         }
-        
+        $y->inplace->setbadtoval(255);
+        $y->where($mask == 0) .= 255;
         $dataset->Band->Piddle(byte $y);
         $dataset->Band->ColorTable($self->{palette}{to_green});
 

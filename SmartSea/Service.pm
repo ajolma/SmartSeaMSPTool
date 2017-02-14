@@ -129,12 +129,15 @@ sub plans {
             }
             push @uses, {name => $use->name, id => $use->id, plan => $plan->id, layers => \@layers};
         }
-        my @datasets;
-        for my $dataset ($plan->datasets(undef)) {
-            push @datasets, {name => $dataset->name, id => $dataset->id, plan => $plan->id};
-        }
-        push @plans, {name => $plan->name, id => $plan->id, uses => \@uses, datasets => \@datasets};
+        push @plans, {name => $plan->name, id => $plan->id, uses => \@uses};
     }
+    # make a "plan" from all real datasets
+    my @datasets;
+    for my $dataset ($schema->resultset('Dataset')->search(undef, {order_by => {-desc => 'name'}})->all) {
+        next unless $dataset->path;
+        push @datasets, {name => $dataset->name, id => $dataset->id, use => 0, rules => []};
+    }
+    push @plans, {name => 'Data', id => 0, uses => [{name => 'Data', id => 0, plan => 0, layers => \@datasets}]};
 
     # This is the first request made by the App, thus set the cookie
     # if there is not one. The cookie is only for the duration the
@@ -229,6 +232,11 @@ sub object_editor {
     # we may have both object => command and object => id
     for my $key (sort keys %{$self->{parameters}}) {
         for my $value ($self->{parameters}->get_all($key)) {
+            if ($key eq 'submit' && $value =~ /^Compute/) {
+                $parameters{request} = 'edit';
+                $parameters{compute} = $value;
+                last;
+            }
             $value = decode utf8 => $value;
             my $done = 0;
             for my $request (keys %$config) {
