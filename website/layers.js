@@ -93,8 +93,7 @@ function createLayer(template, projection) {
                     resolutions: projection.resolutions,
                     matrixIds: projection.matrixIds
                 }),
-                //style: 'default'
-                style: 'to_green'
+                style: template.style
             })
         });
     }

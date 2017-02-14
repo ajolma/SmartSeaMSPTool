@@ -147,7 +147,6 @@ sub HTML_div {
         }
         $args{action} = 'Remove';
         push @l, SmartSea::Schema::Result::Use->HTML_list([$self->uses], %args);
-        push @l, SmartSea::Schema::Result::Dataset->HTML_list([$self->datasets], %args);
     }
     my @content;
     push @content, [0 => $error] if $error;

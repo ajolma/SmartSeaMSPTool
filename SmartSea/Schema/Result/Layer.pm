@@ -101,8 +101,10 @@ sub HTML_div {
     if ($pul) {
         if ($args{parameters}{request} eq 'update') {
             eval {
-                $pul->update({rule_class => $args{parameters}{rule_class}, 
-                              additive_max => $args{parameters}{additive_max} });
+                $pul->update({
+                    style => $args{parameters}{style},
+                    rule_class => $args{parameters}{rule_class},
+                    additive_max => $args{parameters}{additive_max} });
             };
         } elsif ($args{parameters}{request} eq 'add') {
             my @rules = $pul->rules->search({'me.cookie' => DEFAULT});
@@ -150,6 +152,15 @@ sub HTML_div {
         my @rules = $pul->rules->search({'me.cookie' => DEFAULT});
 
         my @items = (
+            [0 => "Color palette is "], 
+            drop_down(name => 'style',
+                      objs => [$args{schema}->
+                               resultset('Style')->all], 
+                      selected => $pul->style->id)
+            );
+        push @l, [ li => @items, [0 => " "], button(value => 'Update', name => 'pul') ];
+
+        @items = (
             [0 => "Rules are "], 
             drop_down(name => 'rule_class',
                       objs => [$args{schema}->

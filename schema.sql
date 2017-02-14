@@ -96,7 +96,8 @@ CREATE TABLE datasets (
     path text,
     unit integer,
     max_value double precision,
-    min_value double precision
+    min_value double precision,
+    style integer NOT NULL
 );
 
 
@@ -567,7 +568,8 @@ CREATE TABLE plan2use2layer (
     layer integer NOT NULL,
     id integer NOT NULL,
     rule_class integer DEFAULT 1 NOT NULL,
-    additive_max double precision DEFAULT 1 NOT NULL
+    additive_max double precision DEFAULT 1 NOT NULL,
+    style integer NOT NULL
 );
 
 
@@ -793,6 +795,39 @@ ALTER SEQUENCE rules_id_seq OWNED BY rules.id;
 
 
 --
+-- Name: styles; Type: TABLE; Schema: tool; Owner: ajolma
+--
+
+CREATE TABLE styles (
+    id integer NOT NULL,
+    name text NOT NULL
+);
+
+
+ALTER TABLE styles OWNER TO ajolma;
+
+--
+-- Name: styles_id_seq; Type: SEQUENCE; Schema: tool; Owner: ajolma
+--
+
+CREATE SEQUENCE styles_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE styles_id_seq OWNER TO ajolma;
+
+--
+-- Name: styles_id_seq; Type: SEQUENCE OWNED BY; Schema: tool; Owner: ajolma
+--
+
+ALTER SEQUENCE styles_id_seq OWNED BY styles.id;
+
+
+--
 -- Name: use2activity; Type: TABLE; Schema: tool; Owner: ajolma
 --
 
@@ -994,6 +1029,13 @@ ALTER TABLE ONLY rule_classes ALTER COLUMN id SET DEFAULT nextval('rule_classes_
 --
 
 ALTER TABLE ONLY rules ALTER COLUMN id SET DEFAULT nextval('rules_id_seq'::regclass);
+
+
+--
+-- Name: id; Type: DEFAULT; Schema: tool; Owner: ajolma
+--
+
+ALTER TABLE ONLY styles ALTER COLUMN id SET DEFAULT nextval('styles_id_seq'::regclass);
 
 
 --
@@ -1271,6 +1313,14 @@ ALTER TABLE ONLY rules
 
 
 --
+-- Name: styles_pkey; Type: CONSTRAINT; Schema: tool; Owner: ajolma
+--
+
+ALTER TABLE ONLY styles
+    ADD CONSTRAINT styles_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: use2activity_pkey; Type: CONSTRAINT; Schema: tool; Owner: ajolma
 --
 
@@ -1345,6 +1395,14 @@ ALTER TABLE ONLY datasets
 
 
 --
+-- Name: datasets_style_fkey; Type: FK CONSTRAINT; Schema: data; Owner: ajolma
+--
+
+ALTER TABLE ONLY datasets
+    ADD CONSTRAINT datasets_style_fkey FOREIGN KEY (style) REFERENCES tool.styles(id);
+
+
+--
 -- Name: datasets_unit_fkey; Type: FK CONSTRAINT; Schema: data; Owner: ajolma
 --
 
@@ -1408,6 +1466,14 @@ ALTER TABLE ONLY plan2use2layer
 
 ALTER TABLE ONLY plan2use2layer
     ADD CONSTRAINT plan2use2layer_rule_class_fkey FOREIGN KEY (rule_class) REFERENCES rule_classes(id);
+
+
+--
+-- Name: plan2use2layer_style_fkey; Type: FK CONSTRAINT; Schema: tool; Owner: ajolma
+--
+
+ALTER TABLE ONLY plan2use2layer
+    ADD CONSTRAINT plan2use2layer_style_fkey FOREIGN KEY (style) REFERENCES styles(id);
 
 
 --
@@ -1797,6 +1863,26 @@ REVOKE ALL ON SEQUENCE rules_id_seq FROM PUBLIC;
 REVOKE ALL ON SEQUENCE rules_id_seq FROM ajolma;
 GRANT ALL ON SEQUENCE rules_id_seq TO ajolma;
 GRANT ALL ON SEQUENCE rules_id_seq TO smartsea;
+
+
+--
+-- Name: styles; Type: ACL; Schema: tool; Owner: ajolma
+--
+
+REVOKE ALL ON TABLE styles FROM PUBLIC;
+REVOKE ALL ON TABLE styles FROM ajolma;
+GRANT ALL ON TABLE styles TO ajolma;
+GRANT ALL ON TABLE styles TO smartsea;
+
+
+--
+-- Name: styles_id_seq; Type: ACL; Schema: tool; Owner: ajolma
+--
+
+REVOKE ALL ON SEQUENCE styles_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE styles_id_seq FROM ajolma;
+GRANT ALL ON SEQUENCE styles_id_seq TO ajolma;
+GRANT ALL ON SEQUENCE styles_id_seq TO smartsea;
 
 
 --

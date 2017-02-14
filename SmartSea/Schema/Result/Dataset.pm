@@ -10,81 +10,86 @@ use PDL;
 use PDL::NiceSlice;
 
 my %attributes = (
-        name => {
-            i => 1,
-            input => 'text',
-            size => 20,
-        },
-        custodian => {
-            i => 2,
-            input => 'lookup',
-            class => 'Organization',
-            allow_null => 1
-        },
-        contact => {
-            i => 3,
-            input => 'text',
-            size => 20,
-        },
-        descr => {
-            i => 4,
-            input => 'textarea'
-        },
-        data_model => {
-            i => 5,
-            input => 'lookup',
-            class => 'DataModel',
-            allow_null => 1
-        },
-        is_a_part_of => {
-            i => 6,
-            input => 'lookup',
-            class => 'Dataset',
-            allow_null => 1
-        },
-        is_derived_from => {
-            i => 7,
-            input => 'lookup',
-            class => 'Dataset',
-            allow_null => 1
-        },
-        license => {
-            i => 8,
-            input => 'lookup',
-            class => 'License',
-            allow_null => 1
-        },
-        attribution => {
-            i => 9,
-            input => 'text',
-            size => 40,
-        },
-        disclaimer => {
-            i => 10,
-            input => 'text',
-            size => 80,
-        },
-        path => {
-            i => 11,
-            input => 'text',
-            size => 30,
-        },
-        unit => {
-            i => 12,
-            input => 'lookup',
-            class => 'Unit',
-            allow_null => 1
-        },
-        min_value => {
-            i => 13,
-            input => 'text',
-            allow_null => 1
-        },
-        max_value => {
-            i => 14,
-            input => 'text',
-            allow_null => 1
-        }
+    name => {
+        i => 1,
+        input => 'text',
+        size => 20,
+    },
+    custodian => {
+        i => 2,
+        input => 'lookup',
+        class => 'Organization',
+        allow_null => 1
+    },
+    contact => {
+        i => 3,
+        input => 'text',
+        size => 20,
+    },
+    descr => {
+        i => 4,
+        input => 'textarea'
+    },
+    data_model => {
+        i => 5,
+        input => 'lookup',
+        class => 'DataModel',
+        allow_null => 1
+    },
+    is_a_part_of => {
+        i => 6,
+        input => 'lookup',
+        class => 'Dataset',
+        allow_null => 1
+    },
+    is_derived_from => {
+        i => 7,
+        input => 'lookup',
+        class => 'Dataset',
+        allow_null => 1
+    },
+    license => {
+        i => 8,
+        input => 'lookup',
+        class => 'License',
+        allow_null => 1
+    },
+    attribution => {
+        i => 9,
+        input => 'text',
+        size => 40,
+    },
+    disclaimer => {
+        i => 10,
+        input => 'text',
+        size => 80,
+    },
+    path => {
+        i => 11,
+        input => 'text',
+        size => 30,
+    },
+    unit => {
+        i => 12,
+        input => 'lookup',
+        class => 'Unit',
+        allow_null => 1
+    },
+    min_value => {
+        i => 13,
+        input => 'text',
+        allow_null => 1
+    },
+    max_value => {
+        i => 14,
+        input => 'text',
+        allow_null => 1
+    },
+    style => {
+        i => 15,
+        input => 'lookup',
+        class => 'Style'
+    }
     );
 
 __PACKAGE__->table('data.datasets');
@@ -96,6 +101,7 @@ __PACKAGE__->belongs_to(is_a_part_of => 'SmartSea::Schema::Result::Dataset');
 __PACKAGE__->belongs_to(is_derived_from => 'SmartSea::Schema::Result::Dataset');
 __PACKAGE__->belongs_to(license => 'SmartSea::Schema::Result::License');
 __PACKAGE__->belongs_to(unit => 'SmartSea::Schema::Result::Unit');
+__PACKAGE__->belongs_to(style => 'SmartSea::Schema::Result::Style');
 
 sub create_col_data {
     my ($class, $parameters) = @_;
@@ -139,6 +145,7 @@ sub long_name {
     }
     return $name;
 }
+*lineage = *long_name;
 
 sub HTML_div {
     my ($self, $attributes, %args) = @_;
@@ -186,6 +193,7 @@ sub HTML_div {
     push @l, [li => [[b => "maximum"],[1 => " = ".$self->max_value]]] if defined $self->max_value;
     push @l, [li => [[b => "unit"],[1 => " = ".$self->unit->name]]] if $self->unit;
     push @l, [li => [[b => "path"],[1 => " = ".$self->path]]] if $self->path;
+    push @l, [li => [[b => "style"],[1 => " = ".$self->style->name]]] if $self->style;
     push @div, [ul => \@l] if @l;
 
     my $rel = $self->is_a_part_of;

@@ -64,13 +64,9 @@ function MSPView(model, elements, id) {
             var uses = self.model.plan.uses;
             var ul = self.elements.layers.children();
             for (var i = 0; i < ul.length; ++i) {
-                var n = $(ul[i]).children().attr('name');
-                for (var j = 0; j < uses.length; ++j) {
-                    if (n == uses[j].name) {
-                        newOrder.push(uses[j]);
-                        break;
-                    }
-                }
+                var n = ul[i].id;
+                n = n.replace(/use/, '');
+                newOrder.push(n);
             }
             self.newLayerOrder.notify({ order : newOrder });
         }
@@ -241,7 +237,9 @@ MSPView.prototype = {
         var use = this.model.use.id;
         var layer = this.model.layer.id;
         $("#l"+use+'_'+layer).css("background-color","yellow");
-        if (layer == 3) 
+        if (use == 0) {
+            this.elements.rule_info.html("");
+        } else if (layer == 3) 
             this.elements.rule_info.html("Default is to allocate.");
         else 
             this.elements.rule_info.html("Default is no value.");
@@ -253,30 +251,33 @@ MSPView.prototype = {
     fillRulesPanel: function(layer) {
         var self = this;
         self.elements.rules.empty();
-        if (!self.model.layer) return;
         var layer = self.model.layer;
-        $.each(layer.rules, function(i, rule) {
-            var item;
-            if (layer.name == 'Value')
-                item = rule.name;
-            else {
-                var attr = {
-                    type:"checkbox",
-                    use: layer.use,
-                    layer: layer.id,
-                    rule:rule.id
-                };
-                if (rule.active) attr.checked = "checked";
-                item = element(
-                    'input', 
-                    attr, 
-                    element('a', {id:"rule", rule:rule.id}, rule.name+' '+rule.value)
-                );
-            }
-            self.elements.rules.append(item);
-            rule.active = true;
-            self.elements.rules.append(element('br'));
-        });
+        if (!layer) return;
+        if (layer.descr)
+            self.elements.rules.append(layer.descr);
+        else
+            $.each(layer.rules, function(i, rule) {
+                var item;
+                if (layer.name == 'Value')
+                    item = rule.name;
+                else {
+                    var attr = {
+                        type:"checkbox",
+                        use: layer.use,
+                        layer: layer.id,
+                        rule:rule.id
+                    };
+                    if (rule.active) attr.checked = "checked";
+                    item = element(
+                        'input', 
+                        attr, 
+                        element('a', {id:"rule", rule:rule.id}, rule.name+' '+rule.value)
+                    );
+                }
+                self.elements.rules.append(item);
+                rule.active = true;
+                self.elements.rules.append(element('br'));
+            });
         $(self.id.rules+" :checkbox").change(function() {
             // todo: send message rule activity changed
             var rule_id = $(this).attr('rule');
@@ -451,7 +452,12 @@ MSP.prototype = {
         var self = this;
         // remove extra use
         if (self.plan) {
-            self.plan.uses.pop();
+            var newUses = [];
+            for (var i = 0; i < this.plan.uses.length; ++i) {
+                if (this.plan.uses[i].id != 0)
+                    newUses.push(this.plan.uses[i]);
+            }
+            this.plan.uses = newUses;
         }
         self.plan = null;
         self.use = null;
@@ -505,7 +511,11 @@ MSP.prototype = {
     },
     setLayerOrder: function(order) {
         this.removeSite();
-        this.plan.uses = order;
+        var newUses = [];
+        for (var i = 0; i < order.length; ++i) {
+            newUses.push(this.plan.uses[order[i]]);
+        }
+        this.plan.uses = newUses;
         this.createLayers(false);
         this.addSite();
     },

@@ -125,7 +125,12 @@ sub plans {
                                   })) {
                     push @rules, $rule->as_hashref_for_json
                 }
-                push @layers, {name => $layer->name, id => $layer->id, use => $use->id, rules => \@rules};
+                push @layers, {
+                    name => $layer->name,
+                    style => $pul->style->name,
+                    id => $layer->id, 
+                    use => $use->id, 
+                    rules => \@rules};
             }
             push @uses, {name => $use->name, id => $use->id, plan => $plan->id, layers => \@layers};
         }
@@ -135,7 +140,13 @@ sub plans {
     my @datasets;
     for my $dataset ($schema->resultset('Dataset')->search(undef, {order_by => {-desc => 'name'}})->all) {
         next unless $dataset->path;
-        push @datasets, {name => $dataset->name, id => $dataset->id, use => 0, rules => []};
+        push @datasets, {
+            name => $dataset->name, 
+            descr => $dataset->lineage,
+            style => $dataset->style->name,
+            id => $dataset->id, 
+            use => 0, 
+            rules => []};
     }
     push @plans, {name => 'Data', id => 0, uses => [{name => 'Data', id => 0, plan => 0, layers => \@datasets}]};
 

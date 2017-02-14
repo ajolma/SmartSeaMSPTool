@@ -41,6 +41,12 @@ sub new {
     $ct->Color(255, [0,0,0,0]);
 
     $ct = Geo::GDAL::ColorTable->new();
+    $self->{palette}{green} = $ct;
+    $ct->Color(0, [0,0,0,0]);
+    $ct->Color(1, [0,255,0,255]);
+    $ct->Color(255, [0,0,0,0]);
+
+    $ct = Geo::GDAL::ColorTable->new();
     $self->{palette}{red_to_green} = $ct;
     for my $value (0..100) {
         $ct->Color($value, [255*(100-$value)/100,255*$value/100,0,255]);
@@ -48,13 +54,50 @@ sub new {
     $ct->Color(255, [0,0,0,0]);
 
     $ct = Geo::GDAL::ColorTable->new();
-    $self->{palette}{to_green} = $ct;
+    $self->{palette}{transparent_to_green} = $ct;
     for my $value (0..100) {
         my $hsv = Imager::Color->new(
             hsv => [ 120, $value/100, $value/100 ]
             );
         my @rgb = $hsv->rgba;
         $rgb[3] = 255*$value/100;
+        $ct->Color($value, \@rgb);
+    }
+    $ct->Color(255, [0,0,0,0]);
+
+    $ct = Geo::GDAL::ColorTable->new();
+    $self->{palette}{transparent_to_black} = $ct;
+    for my $value (0..100) {
+        my $hsv = Imager::Color->new(
+            hsv => [ 0, 0, (100-$value)/100 ]
+            );
+        my @rgb = $hsv->rgba;
+        $rgb[3] = 255*$value/100;
+        $ct->Color($value, \@rgb);
+    }
+    $ct->Color(255, [0,0,0,0]);
+
+    $ct = Geo::GDAL::ColorTable->new();
+    $self->{palette}{white_to_black} = $ct;
+    for my $value (0..100) {
+        my $hsv = Imager::Color->new(
+            hsv => [ 0, 0, (100-$value)/100 ]
+            );
+        my @rgb = $hsv->rgba;
+        $rgb[3] = 255;
+        $ct->Color($value, \@rgb);
+    }
+    $ct->Color(255, [0,0,0,0]);
+
+    $ct = Geo::GDAL::ColorTable->new();
+    $self->{palette}{water_depth} = $ct;
+    for my $value (0..100) {
+        my $hsv = Imager::Color->new(
+            hsv => [ 182+(237-182)*$value/100, 1, 1 ]
+            );
+        my @rgb = $hsv->rgba;
+        say STDERR "$value: @rgb";
+        $rgb[3] = 255;
         $ct->Color($value, \@rgb);
     }
     $ct->Color(255, [0,0,0,0]);
@@ -138,6 +181,10 @@ sub process {
     # no rules = all rules?
 
     $self->{cookie} = $server->{request}->cookies->{SmartSea} // 'default';
+
+    my $style = $params->{style};
+    $style =~ s/-/_/g;
+    $style = 'white_to_black' unless exists $self->{palette}{$style};
     
     my $rules = SmartSea::Rules->new({
         tilematrixset => $params->{tilematrixset},
@@ -171,7 +218,10 @@ sub process {
         $y->inplace->setbadtoval(255);
         $y->where($mask == 0) .= 255;
         $dataset->Band->Piddle(byte $y);
-        $dataset->Band->ColorTable($self->{palette}{to_green});
+
+        say STDERR "style=$style";
+        
+        $dataset->Band->ColorTable($self->{palette}{$style});
 
         # Cache-Control should be only max-age=seconds something
         return $dataset;
@@ -236,7 +286,7 @@ sub process {
     my $y = $rules->compute($tile, $self); # sequential: 0 or 1, multiplicative: 0 to 1, additive: 0 to max
     $y->inplace->copybad($mask);
     unless ($mask->min eq 'BAD') {
-        $y->inplace->setbadtoval(255);
+        
         if ($rules->{class}->name =~ /^seq/) {     
             $y *= 100;
         } else {
@@ -244,13 +294,12 @@ sub process {
             #$self->{log} .= "\noutput: min=".$y->min." max=".$y->max;
             #say STDERR $self->{log};
         }
-        $y->where($mask == 0) .= 255;
+        
     }
+    $y->inplace->setbadtoval(255);
+    $y->where($mask == 0) .= 255;
 
-    my $palette = 'to_green';
-    $palette = $params->{style} if $params->{style} && exists $self->{palette}{$params->{style}};
-
-    $dataset->Band(1)->ColorTable($self->{palette}{$palette});
+    $dataset->Band(1)->ColorTable($self->{palette}{$style});
     $dataset->Band(1)->Piddle(byte $y);
 
     say STDERR $want," ",$params->{tilematrixset};
