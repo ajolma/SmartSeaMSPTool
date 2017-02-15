@@ -37,7 +37,8 @@ DAMAGE.
         rules: $("#rules"),
         rule_dialog: $("#rule-dialog"),
         site_type: $('#site-type'),
-        site_info: $('#site-info')
+        site_info: $('#site-info'),
+        color_scale: $('#color-scale')
     }, {
         rules: "#rules",
         rule_dialog: "#rule-dialog"

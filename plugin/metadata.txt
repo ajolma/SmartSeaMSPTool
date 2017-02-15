@@ -2,7 +2,7 @@
 name=SmartSea
 qgisMinimumVersion=2.0
 description=Marine spatial planning toolbox
-version=0.0.1
+version=0.0.4
 author=Ari Jolma
 email=ari.jolma@gmail.com
 

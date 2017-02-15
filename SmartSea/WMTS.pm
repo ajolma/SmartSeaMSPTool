@@ -31,7 +31,7 @@ sub new {
         Type => 'Vector');
 
     $self->{Suomi} = Geo::GDAL::Open(
-        Name => "Pg:dbname=suomi user='ajolma' password='ajolma'",
+        Name => "Pg:dbname=suomi user='ajolma' password='ajolma'", # fixme remove user here
         Type => 'Vector');
 
     # colortable values are 0..100 and 255 for transparent (out) 
@@ -136,7 +136,7 @@ sub config {
                     Resolutions => '9..19',
                     SRS => "EPSG:3067",
                     BoundingBox => $config->{BoundingBox3067},
-                    file => "/home/ajolma/data/SmartSea/mask.tiff",
+                    file => "/home/ajolma/data/SmartSea/mask.tiff", # fixme wrong path
                     ext => "png"
                 };
             }
@@ -149,7 +149,7 @@ sub config {
                 Resolutions => "9..19",
                 SRS => "EPSG:3067",
                 BoundingBox => $config->{BoundingBox3067},
-                file => "/home/ajolma/data/SmartSea/mask.tiff",
+                file => "/home/ajolma/data/SmartSea/mask.tiff", #fixme wrong path
                 ext => "png"
             };
         }

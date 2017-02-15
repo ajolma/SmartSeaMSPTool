@@ -17,8 +17,8 @@ class SmartSea:
                           "/python/plugins/smartsea/"
     
         s = QSettings()
-        self.server = s.value("smartsea/server", "http://localhost:5000/core")
-        self.wmts = s.value("smartsea/wmts", "http://localhost:5000/WMS")
+        self.server = s.value("smartsea/server", "http://msp.smartsea.fmi.fi/Starman/core")
+        self.wmts = s.value("smartsea/wmts", "http://msp.smartsea.fmi.fi/Starman/WMS")
     
         # provide a way to set these?
         

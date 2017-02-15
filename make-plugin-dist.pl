@@ -17,7 +17,9 @@ close $fh;
 my $zip_dir = lc($data{name});
 my $zip_file = lc($data{name}).'.'.$data{version}.'.zip';
 
-my $download_url = 'http://localhost';
+unlink $zip_file;
+
+my $download_url = 'http://msp.smartsea.fmi.fi/plugin';
 my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) =
     localtime();
 $mon++;
@@ -67,7 +69,7 @@ close $fh;
 
 mkdir $zip_dir;
 
-my @plugin_files = qw/icon.png __init__.py mainPlugin.py metadata.txt dialog.ui/;
+my @plugin_files = qw/icon.png __init__.py mainPlugin.py metadata.txt dialog.ui configure.ui/;
 
 for my $f (@plugin_files) {
     copy("plugin/$f", "$zip_dir/$f");

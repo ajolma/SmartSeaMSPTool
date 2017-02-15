@@ -235,11 +235,12 @@ MSPView.prototype = {
     selectLayer: function() {
         if (!this.model.use || !this.model.layer) return;
         var use = this.model.use.id;
-        var layer = this.model.layer.id;
-        $("#l"+use+'_'+layer).css("background-color","yellow");
+        var layer = this.model.layer;
+        $("#l"+use+'_'+layer.id).css("background-color","yellow");
+        this.elements.color_scale.html("Colors are "+layer.style);
         if (use == 0) {
             this.elements.rule_info.html("");
-        } else if (layer == 3) 
+        } else if (layer.id == 3) 
             this.elements.rule_info.html("Default is to allocate.");
         else 
             this.elements.rule_info.html("Default is no value.");
