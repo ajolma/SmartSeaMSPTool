@@ -34,16 +34,18 @@ sub new {
         Name => "Pg:dbname=suomi user='ajolma' password='ajolma'",
         Type => 'Vector');
 
+    # colortable values are 0..100 and 255 for transparent (out) 
+
     my $ct = Geo::GDAL::ColorTable->new();
     $self->{palette}{red_and_green} = $ct;
     $ct->Color(0, [255,0,0,255]);
-    $ct->Color(1, [0,255,0,255]);
+    $ct->Color(100, [0,255,0,255]);
     $ct->Color(255, [0,0,0,0]);
 
     $ct = Geo::GDAL::ColorTable->new();
     $self->{palette}{green} = $ct;
     $ct->Color(0, [0,0,0,0]);
-    $ct->Color(1, [0,255,0,255]);
+    $ct->Color(100, [0,255,0,255]);
     $ct->Color(255, [0,0,0,0]);
 
     $ct = Geo::GDAL::ColorTable->new();
@@ -96,14 +98,13 @@ sub new {
             hsv => [ 182+(237-182)*$value/100, 1, 1 ]
             );
         my @rgb = $hsv->rgba;
-        say STDERR "$value: @rgb";
         $rgb[3] = 255;
         $ct->Color($value, \@rgb);
     }
     $ct->Color(255, [0,0,0,0]);
 
     $ct = Geo::GDAL::ColorTable->new();
-    $self->{palette}{suomi_colortable} = $ct;
+    $self->{palette}{suomi} = $ct;
     $ct->Color(0, [255,255,255,255]);
     $ct->Color(1, [180,180,180,255]);
     $ct->Color(2, [150,150,150,255]);
@@ -143,7 +144,7 @@ sub config {
         for my $dataset ($self->{schema}->resultset('Dataset')->all) {
             next unless $dataset->path;
             push @tilesets, {
-                Layers => "dataset_".$dataset->id,
+                Layers => "0_0_".$dataset->id,
                 "Format" => "image/png",
                 Resolutions => "9..19",
                 SRS => "EPSG:3067",
@@ -167,13 +168,38 @@ sub process {
     my ($self, $dataset, $tile, $server) = @_;
     my $params = $server->{parameters};
 
+    # WMTS clients ask for layer and specify tilematrixset
+    # WMS clients ask for layers and specify srs
+    my $epsg;
+    if ($params->{tilematrixset}) {
+        if ($params->{tilematrixset} eq 'ETRS-TM35FIN') {
+            $epsg = 3067;
+        } else {
+            ($epsg) = $params->{tilematrixset} =~ /EPSG:(\d+)/;
+        }
+    } elsif ($params->{srs}) {
+        ($epsg) = $params->{srs} =~ /EPSG:(\d+)/;
+    }
+    
+    unless ($epsg) {
+        my ($w, $h) = $tile->tile;
+        my $ds = Geo::GDAL::Driver('GTiff')->Create(
+            Name => "/vsimem/r.tiff", Width => $w, Height => $h);
+        my ($minx, $maxy, $maxx, $miny) = $tile->projwin;
+        $ds->GeoTransform($minx, ($maxx-$minx)/$w, 0, $maxy, 0, ($miny-$maxy)/$h);
+        $ds->SpatialReference(Geo::OSR::SpatialReference->new(EPSG=>$epsg));
+        say STDERR "NO EPSG!";
+        return $ds;
+    }
+
+    for my $key (sort keys %$params) {
+        #say STDERR "$key => ",($params->{$key} // 'undef');
+    }
+    
     my @t = $tile->tile;
     my @pw = $tile->projwin;
-    #say STDERR "$params->{tilematrixset}, @t, @pw";
-
-    # WMTS clients ask for layer
-    # WMS clients ask for layers
-
+    #say STDERR "@pw";
+    
     my $want = $params->{layer} // $params->{layers};
 
     # the client asks for plan_use_layer_rule_rule_...
@@ -182,12 +208,12 @@ sub process {
 
     $self->{cookie} = $server->{request}->cookies->{SmartSea} // 'default';
 
-    my $style = $params->{style};
+    my $style = $params->{style} // 'white_to_black';
     $style =~ s/-/_/g;
     $style = 'white_to_black' unless exists $self->{palette}{$style};
     
     my $rules = SmartSea::Rules->new({
-        tilematrixset => $params->{tilematrixset},
+        epsg => $epsg,
         tile => $tile,
         schema => $self->{schema},
         data_dir => $self->{data_dir},
@@ -219,7 +245,7 @@ sub process {
         $y->where($mask == 0) .= 255;
         $dataset->Band->Piddle(byte $y);
 
-        say STDERR "style=$style";
+        #say STDERR "style=$style";
         
         $dataset->Band->ColorTable($self->{palette}{$style});
 
@@ -252,13 +278,13 @@ sub process {
 
         $ds->GeoTransform($minx, ($maxx-$minx)/$w, 0, $maxy, 0, ($miny-$maxy)/$h);
         $ds->SpatialReference(Geo::OSR::SpatialReference->new(EPSG=>3067));
-        $ds->Band(1)->ColorTable($self->{palette}{suomi_colortable});
+        $ds->Band(1)->ColorTable($self->{palette}{suomi});
         $self->{Suomi}->Rasterize($ds, [-burn => 1, -l => 'f_l1_3067']);
         $self->{Suomi}->Rasterize($ds, [-burn => 2, -l => $layer]);
         $self->{Suomi}->Rasterize($ds, [-burn => 3, -l => 'maakunnat_rajat']);
         $self->{Suomi}->Rasterize($ds, [-burn => 3, -l => 'eez_rajat']);
 
-        say STDERR $want;
+        #say STDERR $want;
 
         # Cache-Control should be only max-age=seconds something
         return $ds;
@@ -276,42 +302,72 @@ sub process {
     }
 
     # a 0/1 mask of the planning area
+    
     $dataset = mask($rules);
 
-    my $mask = $dataset->Band(1)->Piddle; # 0 / 1
-    #say STDERR "min=",$mask->min." max=".$mask->max;
+    my $mask = $dataset->Band->Piddle; # 0 = out / 1 =  in / bad (255) = out
+    $mask->where($mask == 0) .= 255; # 1 or bad
 
-    $self->{log} = '';
+    # colortable values are 0..100 and 255 for transparent (out)
 
-    my $y = $rules->compute($tile, $self); # sequential: 0 or 1, multiplicative: 0 to 1, additive: 0 to max
-    $y->inplace->copybad($mask);
-    unless ($mask->min eq 'BAD') {
+    my $debug = 0;
+
+    if ($mask->min eq 'BAD') {
+
+        $dataset->Band->Piddle($mask);
         
-        if ($rules->{class}->name =~ /^seq/) {     
-            $y *= 100;
-        } else {
-            $y *= 100;
-            #$self->{log} .= "\noutput: min=".$y->min." max=".$y->max;
-            #say STDERR $self->{log};
+    } else {
+
+        my $y = $rules->compute($debug);
+        if ($debug) {
+            say STDERR 
+                "result counts 0:",count($y, 0, $tile->tile),
+                " 1:",count($y, 1, $tile->tile);
         }
+    
+        $y->inplace->copybad($mask);
+
+        if ($debug) {
+            say STDERR 
+                "result counts 0:",count($y, 0, $tile->tile),
+                " 1:",count($y, 1, $tile->tile),
+                " 255:",count($y, 255, $tile->tile);
+        }
+
+        # y is, if sequential: 0 or 1, multiplicative: 0 to 1, additive: 0 to max
+        $y *= 100;
+
+        $y->where($mask == 0) .= 255;
+        if ($debug) {
+            my @stats = stats($y); # 3 and 4 are min and max
+            my $ones = count($y, 100, $tile->tile);
+            say STDERR "masked result min=$stats[3], max=$stats[4] count=$ones";
+        }
+        $y->inplace->setbadtoval(255);
+
+        $dataset->Band->Piddle(byte $y);
         
     }
-    $y->inplace->setbadtoval(255);
-    $y->where($mask == 0) .= 255;
 
-    $dataset->Band(1)->ColorTable($self->{palette}{$style});
-    $dataset->Band(1)->Piddle(byte $y);
+    $dataset->Band->ColorTable($self->{palette}{$style});
 
-    say STDERR $want," ",$params->{tilematrixset};
-  
+    # Cache-Control must be 'no-cache, no-store, must-revalidate'
+    # since rules may change
     return $dataset;
+}
+
+sub count {
+    my ($x, $val, @size) = @_;
+    my $ones = zeroes(@size);
+    $ones->where($x == $val) .= 1;
+    return $ones->sum;
 }
 
 sub mask {
     my $rules = shift;
     my $tile = $rules->{tile};
     my $dataset = Geo::GDAL::Open("$rules->{data_dir}/mask.tiff");
-    if ($rules->{tilematrixset} eq 'ETRS-TM35FIN') {
+    if ($rules->{epsg} == 3067) {
         $dataset = $dataset->Translate( 
             "/vsimem/tmp.tiff", 
             [ -ot => 'Byte', 
@@ -327,7 +383,7 @@ sub mask {
             [ -ot => 'Byte', 
               -of => 'GTiff', 
               -r => 'near' ,
-              -t_srs => $rules->{tilematrixset},
+              -t_srs => 'EPSG:'.$rules->{epsg},
               -te => @$e,
               -ts => $tile->tile] );
     }

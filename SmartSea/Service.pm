@@ -51,6 +51,7 @@ sub call {
         say STDERR $step;
         push @base, $step;
         return $self->plans(\@path) if $step eq 'plans';
+        return $self->plans(\@path) if $step eq 'layers';
         return $self->impact_network(\@path) if $step eq 'impact_network';
         return $self->pressure_table(\@path) if $step eq 'pressure_table';
         if ($step eq 'browser') {
@@ -79,6 +80,7 @@ sub call {
     my @l;
     push @l, (
         [li => a(link => 'plans', url  => $uri.'plans')],
+        [li => a(link => 'layers', url  => $uri.'layers')],
         [li => [0 => 'browsers']],
         [ul => [
              [li => a(link => 'plans', url => $uri.'browser/plans')],
@@ -100,18 +102,23 @@ sub call {
 sub plans {
     my ($self, $oids) = @_;
     say STDERR "@$oids";
-    my $plan_id = shift @$oids;
+    my @ids = split(/_/, shift @$oids);
+    my $plan_id = shift @ids;
+    my $use_id = shift @ids;
+    my $layer_id = shift @ids;
     my $schema = $self->{schema};
     my @plans;
     my $search = defined $plan_id ? {id => $plan_id}: undef;
     for my $plan ($schema->resultset('Plan')->search($search, {order_by => {-desc => 'name'}})) {
         my @uses;
-        for my $use ($plan->uses(undef, {order_by => 'id'})) {
+        $search = defined $use_id ? {id => $use_id}: undef;
+        for my $use ($plan->uses($search, {order_by => 'id'})) {
             my $plan2use = $self->{schema}->
                 resultset('Plan2Use')->
                 single({plan => $plan->id, use => $use->id});
             my @layers;
-            for my $layer ($plan2use->layers(undef, {order_by => {-desc => 'id'}})) {
+            $search = defined $layer_id ? {layer => $layer_id}: undef;
+            for my $layer ($plan2use->layers($search, {order_by => {-desc => 'id'}})) {
                 my $pul = $self->{schema}->
                     resultset('Plan2Use2Layer')->
                     single({plan2use => $plan2use->id, layer => $layer->id});
@@ -136,19 +143,28 @@ sub plans {
         }
         push @plans, {name => $plan->name, id => $plan->id, uses => \@uses};
     }
-    # make a "plan" from all real datasets
-    my @datasets;
-    for my $dataset ($schema->resultset('Dataset')->search(undef, {order_by => {-desc => 'name'}})->all) {
-        next unless $dataset->path;
-        push @datasets, {
-            name => $dataset->name, 
-            descr => $dataset->lineage,
-            style => $dataset->style->name,
-            id => $dataset->id, 
-            use => 0, 
-            rules => []};
+    if (!defined $plan_id || $plan_id == 0) {
+        # make a "plan" from all real datasets
+        my @datasets;
+        for my $dataset ($schema->resultset('Dataset')->search(
+                             undef, 
+                             {order_by => {-desc => 'name'}})->all) 
+        {
+            next unless $dataset->path;
+            next if defined $layer_id && $dataset->id != $layer_id;
+            push @datasets, {
+                name => $dataset->name, 
+                descr => $dataset->lineage,
+                style => $dataset->style->name,
+                id => $dataset->id, 
+                use => 0, 
+                rules => []};
+        }
+        push @plans, { 
+            name => 'Data', 
+            id => 0, 
+            uses => [{name => 'Data', id => 0, plan => 0, layers => \@datasets}]};
     }
-    push @plans, {name => 'Data', id => 0, uses => [{name => 'Data', id => 0, plan => 0, layers => \@datasets}]};
 
     # This is the first request made by the App, thus set the cookie
     # if there is not one. The cookie is only for the duration the

@@ -345,12 +345,17 @@ sub HTML_list {
 }
 
 sub apply {
-    my ($self, $method, $y, $rules) = @_;
+    my ($self, $method, $y, $rules, $debug) = @_;
 
     # the operand (x)
     my $x = $self->operand($rules);
     my $x_min = $self->min_value;
     my $x_max = $self->max_value;
+
+    if ($debug) {
+        my @stats = stats($x); # 3 and 4 are min and max
+        say STDERR "  operand min=$stats[3], max=$stats[4]";
+    }
 
     my $w = $self->weight;
 
@@ -360,12 +365,7 @@ sub apply {
 
     if ($method =~ /^mult/) {
 
-        #$config->{log} .= "\n".$self->r_dataset->path;
-        #$config->{log} .= "\n"."x min=".$x->min." max=".$x->max;
-        #$config->{log} .= "\n"."y min=".$y->min." max=".$y->max;
-        #$config->{log} .= "\n  $w * ($y_min + (\$x-$x_min)*($y_max-$y_min)/($x_max-$x_min))";
         $y *= $w * ($y_min + ($x-$x_min)*($y_max-$y_min)/($x_max-$x_min));
-        #$config->{log} .= "\n"."min=".$y->min." max=".$y->max;
 
     } elsif ($method =~ /^add/) {
 
@@ -386,7 +386,8 @@ sub apply {
             elsif ($op eq '>=') { $y->where($x >= $value) .= $val; }
             elsif ($op eq '>')  { $y->where($x >  $value) .= $val; }
             elsif ($op eq '==') { $y->where($x == $value) .= $val; }
-            else                { say STDERR "rule is a no-op: ",$self->as_text(include_value => 1); }
+            else                { say STDERR "rule is a no-op: ",
+                                  $self->as_text(include_value => 1); }
         }   
         else                    { $y .= $val; }
 
@@ -404,7 +405,9 @@ sub operand {
 
         my $rules = SmartSea::Rules->new($rules->{schema}, $plan, $use, $self->r_layer);
 
-        say STDERR $plan->name,".",$use->name,".",$self->r_layer->name," did not return any rules" unless $rules->rules;
+        say STDERR 
+            $plan->name,".",$use->name,".",$self->r_layer->name,
+            " did not return any rules" unless $rules->rules;
         
         if ($self->r_layer->name eq 'Allocation') {
             return $rules->compute_allocation($rules);

@@ -110,7 +110,7 @@ sub has_rules {
 }
 
 sub compute {
-    my ($self) = @_;
+    my ($self, $debug) = @_;
 
     my $result = zeroes($self->{tile}->tile);
 
@@ -121,97 +121,19 @@ sub compute {
     }
 
     for my $rule ($self->rules) {
-        $rule->apply($method, $result, $self);
+        if ($debug) {
+            my @stats = stats($result); # 3 and 4 are min and max
+            say STDERR "result now min=$stats[3], max=$stats[4]";
+            my $val = $rule->value // 1;
+            say STDERR $rule->as_text," ",$val;
+        }
+        $rule->apply($method, $result, $self, $debug);
     }
 
     if ($method =~ /^add/) {
         $result /= $self->max;
         $result->where($result > 1) .= 1;
     }
-
-    return $result;
-}
-
-sub compute_allocation {
-    my ($self) = @_;
-
-    # default is to allocate all
-    my $result = zeroes($self->{tile}->tile) + 2;
-
-    for my $rule ($self->rules) {
-
-        # a rule is a spatial rule to allocate or deallocate
-
-        # if $rule->reduce then deallocate where the rule is true
-        my $val = $rule->reduce ? 0 : 2;
-
-        # the default is to compare the spatial operand to 1
-        my $op = $rule->op ? $rule->op->name : '==';
-        my $value = $rule->value // 1;
-
-        # the operand
-        my $tmp = $rule->operand($self);
-
-        if (defined $tmp) {
-            if ($op eq '<=')    { $result->where($tmp <= $value) .= $val; } 
-            elsif ($op eq '<')  { $result->where($tmp <  $value) .= $val; }
-            elsif ($op eq '>=') { $result->where($tmp >= $value) .= $val; }
-            elsif ($op eq '>')  { $result->where($tmp >  $value) .= $val; }
-            elsif ($op eq '==') { $result->where($tmp == $value) .= $val; }
-            else                { say STDERR "rule is a no-op: ",$rule->as_text(include_value => 1); }
-        }   
-        else                    { $result .= $val; }
-        
-    }
-
-    # set current allocation if there is one
-    # TODO: how to deal with deallocations?
-    my $current = $self->use->current_allocation;
-    $current = $current->path if $current;
-    $result->where(dataset($current, $self) > 0) .= 1 if $current;
-
-    return $result;
-}
-
-sub compute_value {
-    my ($self) = @_;
-
-    # default is no value
-    my $result = zeroes($self->{tile}->tile);
-    return $result unless @{$self->{rules}};
-
-    # apply rules
-    for my $rule (@{$self->{rules}}) {
-
-        # a rule is a spatial rule to add value or reduce value
-        my $sign = $rule->reduce ? -1 : 1;
-
-        # the default is to use the value as a weight
-        my $value = $rule->value // 1;
-        $value *= $sign;
-
-        # operator is not used?
-        #my $op = $rule->op ? $rule->op->op : '==';
-
-        # the operand
-        my $tmp = double($rule->operand($self));
-
-        # scale values from 0 to 100
-        my $min = $rule->min_value;
-        my $max = $rule->max_value;
-        $tmp = 100*($tmp-$min)/($max - $min) if $max - $min > 0;
-        $tmp->where($tmp < 0) .= 0;
-        $tmp->where($tmp > 100) .= 100;
-
-        $result += $tmp;
-    }
-
-    # no negative values
-    # how to deal with losses?
-    $result->where($result < 0) .= 0;
-
-    # scale values from 0 to 100 and round to integer values
-    $result = short($result/@{$self->{rules}} + 0.5);
 
     return $result;
 }

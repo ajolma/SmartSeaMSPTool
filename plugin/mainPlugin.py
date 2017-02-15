@@ -109,24 +109,24 @@ class SmartSea:
         try:
             response = urllib.urlopen(url)
             data = json.loads(response.read())
+            print "Response ok"
             # create a tree from data
             for plan in data:
-                planItem = self.item(plan, "plan")
+                print "Got plan "+plan["name"]
+                planItem = self.item("plan", [plan])
                 for use in plan["uses"]:
-                    useItem = self.item(use, "use")
+                    useItem = self.item("use", [plan, use])
                     planItem.appendRow(useItem)
                     for layer in use["layers"]:
-                        layerItem = self.item(layer, "layer")
+                        layerItem = self.item("layer", [plan, use, layer])
                         useItem.appendRow(layerItem)
                         if (layer["rules"]):
                             for rule in layer["rules"]:
-                                ruleItem = self.item(rule, "rule")
+                                ruleItem = self.item("rule", [plan, use, layer, rule])
                                 layerItem.appendRow(ruleItem)
-                for dataset in plan["datasets"]:
-                    datasetItem = self.item(dataset, "dataset")
-                    planItem.appendRow(datasetItem)
           
                 self.model.appendRow(planItem)
+            print "Tree built"
         except:
             item = QStandardItem("Failed to load plans. Please configure.")
             self.model.appendRow(item)
@@ -146,66 +146,62 @@ class SmartSea:
             msg.exec_()
             return
         name = l[0].data()
-        print name
         # what is it
         klass = l[0].data(Qt.UserRole+2)
         # what's the id
         id = l[0].data(Qt.UserRole+3)
+        print "Load "+klass+" "+name+" "+str(id)
         root = QgsProject.instance().layerTreeRoot()
 
-        styles = ''
         epsg = 3067
         frmt = 'image/png'
-        wmts = 'url='+self.wmts+ \
-               '&styles='+styles+ \
-               '&format='+frmt+ \
-               '&crs=EPSG:'+str(epsg)+ \
-               '&tileDimensions=256;256'+ \
-               '&layers='
     
-        if (klass == "plan"):
-            url = self.server+"/plans/"+str(id)
-            try:
-                response = urllib.urlopen(url)
-                data = json.loads(response.read())
-                for plan in data:
-                    print plan["name"]
+        url = self.server+"/"+klass+"s/"+str(id)
+        print "Try "+url
+        try:
+            response = urllib.urlopen(url)
+            data = json.loads(response.read())
+            for plan in data:
+                print plan["name"]
+                if (klass == "plan"):
                     g = root.addGroup(plan["name"])
-                    for use in plan["uses"]:
+                for use in plan["uses"]:
+                    if (klass == "plan"):
                         g2 = g.addGroup(use["name"])
-                        for layer in use["layers"]:
-                            s = str(plan["id"])+"_"+str(use["id"])+"_"+str(layer["id"])
-                            # rules?
-                            l = QgsRasterLayer(wmts+s, layer["name"], 'wms')
-                            if not l.isValid():
-                                print "Layer failed to load, partial "+wmts+s+\
-                                    ". Is the layer advertised?"
-                            else:
-                                print "Layer ok!"
-                                QgsMapLayerRegistry.instance().addMapLayer(l, False)
-                                l2 = g2.addLayer(l)
-                                l2.setVisible(False)
-                                print "there!"
-            except:
-                print "failed: "+url
-        
-        elif (klass == "dataset"):
-            layer = wmts+'dataset_'+str(id)
-            l = QgsRasterLayer(layer, name, 'wms')
-            if not l.isValid():
-                print "Layer failed to load, partial "+layer+". Is the layer advertised?"
-            else:
-                print "Layer ok!"
-                QgsMapLayerRegistry.instance().addMapLayer(l, False)
-                l2 = root.addLayer(l)
-                l2.setVisible(False)
-                print "there!"
+                    for layer in use["layers"]:
+                        s = str(plan["id"])+"_"+str(use["id"])+"_"+str(layer["id"])
+                        # rules?
 
-        else:
-            print "loading "+klass+"s not yet implemented"
+                        wmts = 'url='+self.wmts+ \
+                               '&styles='+layer["style"]+ \
+                               '&format='+frmt+ \
+                               '&crs=EPSG:'+str(epsg)+ \
+                               '&tileDimensions=256;256'+ \
+                               '&layers='
+                            
+                        l = QgsRasterLayer(wmts+s, layer["name"], 'wms')
+                        if not l.isValid():
+                            print "Layer failed to load, partial "+wmts+s+\
+                                  ". Is the layer advertised?"
+                        else:
+                            print "Layer ok!"
+                            QgsMapLayerRegistry.instance().addMapLayer(l, False)
+                            to = root
+                            if (klass == "plan"):
+                                to = g2
+                            l2 = to.addLayer(l)
+                            l2.setVisible(False)
+                            print "Layer added!"
+        except:
+            print "failed: "+url
 
-    def item(self, obj, klass):
+    def item(self, klass, objs):
+        obj = objs[len(objs)-1]
         item = QStandardItem(obj["name"])
         item.setData(klass,Qt.UserRole+2)
-        item.setData(obj["id"],Qt.UserRole+3)
+        ids = []
+        for obj in objs:
+            ids.append(str(obj["id"]))
+        data = "_".join(ids)
+        item.setData(data,Qt.UserRole+3)
         return item

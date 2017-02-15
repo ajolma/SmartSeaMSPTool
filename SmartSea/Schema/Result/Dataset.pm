@@ -340,21 +340,13 @@ sub Piddle {
         my ($w, $h) = $tile->tile;
         my $ds = Geo::GDAL::Driver('GTiff')->Create(Name => "/vsimem/r.tiff", Width => $w, Height => $h);
         my ($minx, $maxy, $maxx, $miny) = $tile->projwin;
-        $ds->GeoTransform($minx, ($maxx-$minx)/$w, 0, $maxy, 0, ($miny-$maxy)/$h);
-
-        my $epsg;
-        if ($rules->{tilematrixset} eq 'ETRS-TM35FIN') {
-            $epsg = 3067;
-        } else {
-            $epsg = 3857;
-        }
-        
-        $ds->SpatialReference(Geo::OSR::SpatialReference->new(EPSG=>$epsg));
+        $ds->GeoTransform($minx, ($maxx-$minx)/$w, 0, $maxy, 0, ($miny-$maxy)/$h);        
+        $ds->SpatialReference(Geo::OSR::SpatialReference->new(EPSG=>$rules->{epsg}));
 
         $path =~ s/^PG://;
         $path =~ s/\./"."/;
         $path = '"'.$path.'"';
-        my $sql = "select gid,st_transform(geom,$epsg) as geom from $path";
+        my $sql = "select gid,st_transform(geom,$rules->{epsg}) as geom from $path";
         $rules->{GDALVectorDataset}->Rasterize($ds, [-burn => 1, -sql => $sql]);
         
         return $ds->Band->Piddle;
@@ -364,7 +356,7 @@ sub Piddle {
         my $b;
         eval {
 
-            if ($rules->{tilematrixset} eq 'ETRS-TM35FIN') {
+            if ($rules->{epsg} == 3067) {
             
                 $b = Geo::GDAL::Open("$rules->{data_dir}/$path")
                     ->Translate( "/vsimem/tmp.tiff", 
@@ -381,7 +373,7 @@ sub Piddle {
                     ->Warp( "/vsimem/tmp.tiff", 
                             [ -of => 'GTiff', 
                               -r => 'near' ,
-                              -t_srs => $rules->{tilematrixset},
+                              -t_srs => 'EPSG:'.$rules->{epsg},
                               -te => @$e,
                               -ts => $tile->tile ])
                     ->Band;
