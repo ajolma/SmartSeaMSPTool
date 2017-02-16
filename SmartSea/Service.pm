@@ -111,7 +111,7 @@ sub plans {
     my $search = defined $plan_id ? {id => $plan_id}: undef;
     for my $plan ($schema->resultset('Plan')->search($search, {order_by => {-desc => 'name'}})) {
         my @uses;
-        $search = defined $use_id ? {id => $use_id}: undef;
+        $search = defined $use_id ? {use => $use_id}: undef;
         for my $use ($plan->uses($search, {order_by => 'id'})) {
             my $plan2use = $self->{schema}->
                 resultset('Plan2Use')->

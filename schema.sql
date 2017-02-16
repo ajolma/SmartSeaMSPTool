@@ -97,7 +97,7 @@ CREATE TABLE datasets (
     unit integer,
     max_value double precision,
     min_value double precision,
-    style integer NOT NULL
+    style integer DEFAULT 2 NOT NULL
 );
 
 

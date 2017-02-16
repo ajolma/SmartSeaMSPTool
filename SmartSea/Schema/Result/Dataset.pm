@@ -78,12 +78,14 @@ my %attributes = (
     min_value => {
         i => 13,
         input => 'text',
-        allow_null => 1
+        allow_null => 1,
+        empty_is_null => 1
     },
     max_value => {
         i => 14,
         input => 'text',
-        allow_null => 1
+        allow_null => 1,
+        empty_is_null => 1
     },
     style => {
         i => 15,
@@ -107,7 +109,7 @@ sub create_col_data {
     my ($class, $parameters) = @_;
     my %col_data;
     for my $col (keys %attributes) {
-        $col_data{$col} = $parameters->{$col};
+        $col_data{$col} = $parameters->{$col} if exists $parameters->{$col};
     }
     return \%col_data;
 }
@@ -116,7 +118,13 @@ sub update_col_data {
     my ($class, $parameters) = @_;
     my %col_data;
     for my $col (keys %attributes) {
-        $col_data{$col} = $parameters->{$col};
+        if (exists $parameters->{$col}) {
+            if ($attributes{$col}{empty_is_null} && $parameters->{$col} eq '') {
+                $col_data{$col} = undef;
+            } else {
+                $col_data{$col} = $parameters->{$col};
+            }
+        }
     }
     return \%col_data;
 }
