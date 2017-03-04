@@ -1,0 +1,233 @@
+{
+    "values": {
+        "inputs": {
+            "harbours": {
+                "values": {
+                    "pos": {
+                        "values": {
+                            "y": 107.0, 
+                            "x": 332.0
+                        }, 
+                        "class": "point"
+                    }, 
+                    "param": {
+                        "values": {
+                            "isAdvanced": false, 
+                            "name": "harbours", 
+                            "shapetype": [
+                                0
+                            ], 
+                            "default": null, 
+                            "value": null, 
+                            "exported": null, 
+                            "hidden": false, 
+                            "optional": false, 
+                            "description": "harbours"
+                        }, 
+                        "class": "processing.core.parameters.ParameterVector"
+                    }
+                }, 
+                "class": "processing.modeler.ModelerAlgorithm.ModelerParameter"
+            }, 
+            "alue": {
+                "values": {
+                    "pos": {
+                        "values": {
+                            "y": 109.0, 
+                            "x": 557.0
+                        }, 
+                        "class": "point"
+                    }, 
+                    "param": {
+                        "values": {
+                            "isAdvanced": false, 
+                            "name": "alue", 
+                            "default": null, 
+                            "hidden": false, 
+                            "optional": false, 
+                            "value": null, 
+                            "description": "alue"
+                        }, 
+                        "class": "processing.core.parameters.ParameterExtent"
+                    }
+                }, 
+                "class": "processing.modeler.ModelerAlgorithm.ModelerParameter"
+            }, 
+            "sea": {
+                "values": {
+                    "pos": {
+                        "values": {
+                            "y": 108.0, 
+                            "x": 97.0
+                        }, 
+                        "class": "point"
+                    }, 
+                    "param": {
+                        "values": {
+                            "isAdvanced": false, 
+                            "name": "sea", 
+                            "showSublayersDialog": true, 
+                            "default": null, 
+                            "value": null, 
+                            "exported": null, 
+                            "hidden": false, 
+                            "optional": false, 
+                            "description": "sea"
+                        }, 
+                        "class": "processing.core.parameters.ParameterRaster"
+                    }
+                }, 
+                "class": "processing.modeler.ModelerAlgorithm.ModelerParameter"
+            }
+        }, 
+        "helpContent": {
+            "ALG_DESC": "Computes the distance along the shortest path to specified locations (harbours) when travelling by the sea."
+        }, 
+        "group": "SmartSea", 
+        "name": "Distance to harbours", 
+        "algs": {
+            "PERLCELLSIZEOFARASTER_1": {
+                "values": {
+                    "name": "PERLCELLSIZEOFARASTER_1", 
+                    "paramsFolded": true, 
+                    "outputs": {}, 
+                    "outputsFolded": true, 
+                    "pos": {
+                        "values": {
+                            "y": 237.0, 
+                            "x": 295.0
+                        }, 
+                        "class": "point"
+                    }, 
+                    "dependencies": [], 
+                    "params": {
+                        "KeepLogOpen": false, 
+                        "Raster": {
+                            "values": {
+                                "name": "sea"
+                            }, 
+                            "class": "processing.modeler.ModelerAlgorithm.ValueFromInput"
+                        }
+                    }, 
+                    "active": true, 
+                    "consoleName": "perl:cellsizeofaraster", 
+                    "description": "Cell size (of a raster)"
+                }, 
+                "class": "processing.modeler.ModelerAlgorithm.Algorithm"
+            }, 
+            "PERLDISTANCETODESTINATIONINRASTER_1": {
+                "values": {
+                    "name": "PERLDISTANCETODESTINATIONINRASTER_1", 
+                    "paramsFolded": true, 
+                    "outputs": {
+                        "Distances": {
+                            "values": {
+                                "description": "dist", 
+                                "pos": {
+                                    "values": {
+                                        "y": 527.0, 
+                                        "x": 427.0
+                                    }, 
+                                    "class": "point"
+                                }
+                            }, 
+                            "class": "processing.modeler.ModelerAlgorithm.ModelerOutput"
+                        }
+                    }, 
+                    "outputsFolded": true, 
+                    "pos": {
+                        "values": {
+                            "y": 428.0, 
+                            "x": 265.0
+                        }, 
+                        "class": "point"
+                    }, 
+                    "dependencies": [], 
+                    "params": {
+                        "KeepLogOpen": true, 
+                        "Space": {
+                            "values": {
+                                "name": "sea"
+                            }, 
+                            "class": "processing.modeler.ModelerAlgorithm.ValueFromInput"
+                        }, 
+                        "Extent": null, 
+                        "Destinations": {
+                            "values": {
+                                "alg": "GDALOGRRASTERIZE_1", 
+                                "output": "OUTPUT"
+                            }, 
+                            "class": "processing.modeler.ModelerAlgorithm.ValueFromOutput"
+                        }
+                    }, 
+                    "active": true, 
+                    "consoleName": "perl:distancetodestinationinraster", 
+                    "description": "Distance to destination (in raster)"
+                }, 
+                "class": "processing.modeler.ModelerAlgorithm.Algorithm"
+            }, 
+            "GDALOGRRASTERIZE_1": {
+                "values": {
+                    "name": "GDALOGRRASTERIZE_1", 
+                    "paramsFolded": true, 
+                    "outputs": {}, 
+                    "outputsFolded": true, 
+                    "pos": {
+                        "values": {
+                            "y": 303.0, 
+                            "x": 567.0
+                        }, 
+                        "class": "point"
+                    }, 
+                    "dependencies": [], 
+                    "params": {
+                        "ZLEVEL": 6, 
+                        "DIMENSIONS": 1, 
+                        "RTYPE": 0, 
+                        "BIGTIFF": 0, 
+                        "BURN": 1.0, 
+                        "COMPRESS": 4, 
+                        "FIELD": null, 
+                        "HEIGHT": {
+                            "values": {
+                                "alg": "PERLCELLSIZEOFARASTER_1", 
+                                "output": "CellSize"
+                            }, 
+                            "class": "processing.modeler.ModelerAlgorithm.ValueFromOutput"
+                        }, 
+                        "WIDTH": {
+                            "values": {
+                                "alg": "PERLCELLSIZEOFARASTER_1", 
+                                "output": "CellSize"
+                            }, 
+                            "class": "processing.modeler.ModelerAlgorithm.ValueFromOutput"
+                        }, 
+                        "TILED": false, 
+                        "RAST_EXT": {
+                            "values": {
+                                "name": "alue"
+                            }, 
+                            "class": "processing.modeler.ModelerAlgorithm.ValueFromInput"
+                        }, 
+                        "JPEGCOMPRESSION": 75, 
+                        "INPUT": {
+                            "values": {
+                                "name": "harbours"
+                            }, 
+                            "class": "processing.modeler.ModelerAlgorithm.ValueFromInput"
+                        }, 
+                        "TFW": false, 
+                        "NO_DATA": "", 
+                        "PREDICTOR": 1, 
+                        "EXTRA": ""
+                    }, 
+                    "active": true, 
+                    "consoleName": "gdalogr:rasterize", 
+                    "description": "Rasterize (vector to raster)"
+                }, 
+                "class": "processing.modeler.ModelerAlgorithm.Algorithm"
+            }
+        }
+    }, 
+    "class": "processing.modeler.ModelerAlgorithm.ModelerAlgorithm"
+}
