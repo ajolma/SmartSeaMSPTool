@@ -29,7 +29,9 @@ sub call {
     my ($self, $env) = @_;
     my $ret = common_responses({}, $env);
     return $ret if $ret;
-    $self->{edit} = 1 if $env->{REMOTE_USER} && $env->{REMOTE_USER} eq 'ajolma';
+    my $user = $env->{REMOTE_USER} // 'guest';
+    $self->{edit} = 1 if $user eq 'ajolma';
+    say STDERR "remote user is $user";
     my $request = Plack::Request->new($env);
     my $cookies = $request->cookies;
     for my $cookie (sort keys %$cookies) {
@@ -44,11 +46,11 @@ sub call {
         #say STDERR "$key => $env->{$key}";
     }
     my @path = split /\//, $self->{uri};
-    say STDERR "@path";
+    say STDERR "path: @path";
     my @base;
     while (@path) {
         my $step =shift @path;
-        say STDERR $step;
+        #say STDERR $step;
         push @base, $step;
         return $self->plans(\@path) if $step eq 'plans';
         return $self->plans(\@path) if $step eq 'layers';
@@ -102,7 +104,7 @@ sub call {
 sub plans {
     my ($self, $oids) = @_;
     say STDERR "@$oids";
-    my @ids = split(/_/, shift @$oids);
+    my @ids = split(/_/, shift @$oids // '');
     my $plan_id = shift @ids;
     my $use_id = shift @ids;
     my $layer_id = shift @ids;

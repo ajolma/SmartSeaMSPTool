@@ -224,9 +224,12 @@ sub HTML_form {
     my @form;
 
     my $new = 1;
+    my $compute = 0;
     if ($self and blessed($self) and $self->isa('SmartSea::Schema::Result::Dataset')) {
+
+        $compute = 1 if $self->path;
         
-        if ($args{parameters}{compute}) {
+        if ($compute && $args{parameters}{compute}) {
             # min and max
             # assuming one band
             my $b = Geo::GDAL::Open($args{data_dir}.'/'.$self->path)->Band;
@@ -250,9 +253,11 @@ sub HTML_form {
         push @form, [ p => [[1 => "$key: "], $widgets->{$key}] ];
     }
 
-    push @form, button(value => "Compute min & max from dataset");
-    push @form, ['br'];
-    push @form, ['br'];
+    if ($compute) {
+        push @form, button(value => "Compute min & max from dataset");
+        push @form, ['br'];
+        push @form, ['br'];
+    }
 
     push @form, button(value => $new ? "Create" : "Store");
     push @form, [1 => ' '];

@@ -233,6 +233,7 @@ sub process {
         eval {
             $y = $rules->{dataset}->Piddle($rules);
         };
+        say STDERR $@ if $@;
         
         $y->inplace->copybad($mask);
         unless ($mask->min eq 'BAD') {
