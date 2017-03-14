@@ -26,80 +26,50 @@ sub call {
     my ($self, $env) = @_;
     my $ret = common_responses({}, $env);
     return $ret if $ret;
+    
     my $request = Plack::Request->new($env);
     my $parameters = $request->parameters;
     for my $key (sort keys %$parameters) {
         my $val = $parameters->{$key} // '';
         #say STDERR "$key => $val";
     }
+    
+    # default is that of data, EPSG:3067, if not it is in srs
+    my $srs = $parameters->{srs} // $parameters->{SRS};
+    ($srs) = $srs =~ /(\d+)/ if $srs;
+
+    my $ct;
+    if ($srs && $srs != 3067) {
+        my $src = Geo::OSR::SpatialReference->new(EPSG => $srs);
+        my $dst = Geo::OSR::SpatialReference->new(EPSG => 3067);
+        $ct = Geo::OSR::CoordinateTransformation->new($src, $dst);
+    }
+    
     my @rules;
     for my $layer ($request->query_parameters->get_all('layer')) {
         push @rules, SmartSea::Rules->new({schema => $self->{schema}, cookie => 'default', trail => $layer});
     }
-
-    my $gt = $self->{mask}->GeoTransform;
+    
     my $report = '';
 
-    if (@rules == 0) {
+    if ($parameters->{wkt}) {
 
-        $report = 'No selected layers';
+        my $polygon = Geo::OGR::Geometry->new(WKT => $parameters->{wkt});
+        $polygon->Transform($ct) if $ct;
+        say STDERR "polygon = ",$polygon->As(Format => 'WKT');
+        $report = $self->make_polygon_report($polygon);
 
-    } elsif ($parameters->{wkt}) {
+    } elsif ($parameters->{easting} && $parameters->{northing}) {
 
-        my $e = $self->{mask}->Extent;
-        my @points = ([$e->[0],$e->[1]], [$e->[0],$e->[3]], [$e->[2],$e->[3]], [$e->[2],$e->[1]]);
-        push @points, $points[0];
-        my $region = Geo::OGR::Geometry->new(GeometryType => 'Polygon', Points => [[@points]]);
-        my ($canvas, $extent, $overview, $cell_area, @clip) = canvas($gt, $parameters->{wkt}, $region);
-        
-        my $a = $canvas->Band()->Piddle();
-        my $s = $self->{mask}->Band()->Piddle(@clip);
-        my $A = sum($a*$s); # cells in polygon
-
-        $report .= 'Following are estimates.<br />' if $overview;
-        $report .= 'The polygon is clipped to the sea area.<br />';
-        $report .= "Size of the selected area: " . int($A*$cell_area+0.5) . " km2";
-        
-        # the idea here would be to compute average values and/or amount of allocated areas
-        # in the polygon area
-        if (0) {
-            my $s;
-            eval {
-                $s = $self->{mask}->Band()->Piddle(@clip);
-            };
-            unless ($@) {
-                $s = $a*($s+1); # adjust land cover values to 1..4
-                my @lc;
-                for my $i (0..3) {
-                    my $result = $a*0;
-                    my $x = $result->where($s == ($i+1));
-                    $x .= 1;
-                    $lc[$i] = int(sum($result)/$A*100);
-                }
-                $report .= "land " . $lc[0] . '%' .
-                    ', shallow ' . $lc[1] . '%' .
-                    ', trans ' . $lc[2] . '%' .
-                    ', deep ' . $lc[3] . '%';
-            } else {
-                $report .= 'no data';
-            }
-        }
+        my $point = [$parameters->{easting},$parameters->{northing}];
+        $point = $ct->TransformPoint(@$point) if $ct;
+        say STDERR "location = @$point";
+        $report = $self->make_point_report($point);
 
     } else {
-
-        my @c = $gt->Inv->Apply([$parameters->{easting}],[$parameters->{northing}]);
-        my $x = int($c[0]->[0]);
-        my $y = int($c[1]->[0]);
-        my $d = 0;
-        my $n = 0;
-        eval {
-            $d = $self->{mask}->Band(1)->ReadTile($x, $y, 1, 1)->[0][0];
-        };
-
-        my %d = (0 => 'Outside of region', 1 => 'Inside of region');
-
-        $report .= $d{$d};
-
+        
+        $report = 'Bad request.';
+        
     }
 
     return json200({ 'Access-Control-Allow-Origin' => $env->{HTTP_ORIGIN},
@@ -108,10 +78,74 @@ sub call {
 
 }
 
+sub make_point_report {
+    my ($self, $point, $ct) = @_;
+    my $gt = $self->{mask}->GeoTransform;
+    my @c = $gt->Inv->Apply([$point->[0]],[$point->[1]]);
+    my $x = int($c[0]->[0]);
+    my $y = int($c[1]->[0]);
+    my $d = 0;
+    my $n = 0;
+    eval {
+        $d = $self->{mask}->Band(1)->ReadTile($x, $y, 1, 1)->[0][0];
+    };
+    my %d = (0 => 'Outside of region', 1 => 'Inside of region');
+    my $report;
+    $report .= $d{$d};
+    return $report;
+}
+
+sub make_polygon_report {
+    my ($self, $polygon) = @_;
+    
+    my $e = $self->{mask}->Extent;
+    my @points = ([$e->[0],$e->[1]], [$e->[0],$e->[3]], [$e->[2],$e->[3]], [$e->[2],$e->[1]]);
+    push @points, $points[0];
+        
+    my $region = Geo::OGR::Geometry->new(GeometryType => 'Polygon', Points => [[@points]]);
+
+    my $gt = $self->{mask}->GeoTransform;
+    my ($canvas, $extent, $overview, $cell_area, @clip) = canvas($gt, $polygon, $region);
+        
+    my $a = $canvas->Band()->Piddle();
+    my $s = $self->{mask}->Band()->Piddle(@clip);
+    my $A = sum($a*$s); # cells in polygon
+
+    my $report = '';
+
+    $report .= 'Following are estimates.<br />' if $overview;
+    $report .= "Sea area in the selection: " . int($A*$cell_area+0.5) . " km2";
+        
+    # the idea here would be to compute average values and/or amount of allocated areas
+    # in the polygon area
+    if (0) {
+        my $s;
+        eval {
+            $s = $self->{mask}->Band()->Piddle(@clip);
+        };
+        unless ($@) {
+            $s = $a*($s+1); # adjust land cover values to 1..4
+            my @lc;
+            for my $i (0..3) {
+                my $result = $a*0;
+                my $x = $result->where($s == ($i+1));
+                $x .= 1;
+                $lc[$i] = int(sum($result)/$A*100);
+            }
+            $report .= "land " . $lc[0] . '%' .
+                ', shallow ' . $lc[1] . '%' .
+                ', trans ' . $lc[2] . '%' .
+                ', deep ' . $lc[3] . '%';
+        } else {
+            $report .= 'no data';
+        }
+    }
+    return $report;
+}
+
 sub canvas {
-    my ($gt, $wkt, $region) = @_;
-    my $g = Geo::OGR::Geometry->new(WKT => $wkt);
-    $g = $g->Intersection($region);
+    my ($gt, $polygon, $region) = @_;
+    my $g = $polygon->Intersection($region);
     my $e = $g->Extent;
     my $inv = $gt->Inv;
     my ($l_col, $u_row) = $inv->Apply($e->[0], $e->[3]);
@@ -142,7 +176,7 @@ sub canvas {
     my $gtx = $gt->[1]*($w/$W); # assuming north up
     my $gty = $gt->[5]*($h/$H); # assuming north up
     $canvas->GeoTransform($ulx, $gtx, 0, $uly, 0, $gty);
-    my $cell_area = abs($gtx * $gty)/1000000.0; # km2
+    my $cell_area = abs($gtx * $gty)/1000000.0; # km2, EPSG 3067 coordinates are in meters
 
     # create a layer, which to draw on the canvas
     my $wkt_ds = Geo::OGR::Driver('Memory')->Create('wkt');

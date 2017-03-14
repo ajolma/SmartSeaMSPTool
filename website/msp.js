@@ -618,6 +618,7 @@ MSP.prototype = {
                 var coordinates = geom.getCoordinates();
                 query += 'easting='+coordinates[0]+'&northing='+coordinates[1];
             }
+            query += '&srs='+self.proj.projection.getCode();
             $.ajax({
                 url: 'http://'+self.server+'/explain?'+query
             }).done(function(data) {

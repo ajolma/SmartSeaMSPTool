@@ -13,14 +13,13 @@ use SmartSea::Core qw(:all);
 # trail = plan use layer [rule*]
 
 sub new {
-    my ($class, $self) = @_; # must give schema, cookie, and trail
+    my ($class, $self) = @_;
     my $trail = $self->{trail};
     my $schema = $self->{schema};
     my $id;
     ($trail, $id) = parse_integer($trail);
-    if ($id eq '') {
-        return bless $self, $class;
-    }
+    
+    return bless $self, $class unless $id;
     
     my $plan = $schema->resultset('Plan')->single({ id => $id });
     ($trail, $id) = parse_integer($trail);
