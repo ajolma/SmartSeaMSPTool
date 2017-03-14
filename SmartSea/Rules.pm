@@ -17,12 +17,13 @@ sub new {
     my $trail = $self->{trail};
     my $schema = $self->{schema};
     my $id;
-    ($trail, $id) = parse_integer($trail);
     
-    return bless $self, $class unless $id;
+    ($trail, $id) = parse_integer($trail); # plan id
+    return bless $self, $class unless defined $id;
     
     my $plan = $schema->resultset('Plan')->single({ id => $id });
-    ($trail, $id) = parse_integer($trail);
+    
+    ($trail, $id) = parse_integer($trail); # use id
     
     if ($id == 0) {
         ($trail, $id) = parse_integer($trail);
