@@ -163,7 +163,7 @@ sub legend {
     
     $color = $image->colorAllocateAlpha(0,0,0,0);
     my $font = gdMediumBoldFont;
-    $font = GD::Font->load('/home/ajolma/Lataukset/X_9x15_LE.gdf');
+    $font = GD::Font->load($self->{images}.'/X_9x15_LE.gdf');
 
     unless (exists $palette->{classes}) {
         # this is for continuous data
