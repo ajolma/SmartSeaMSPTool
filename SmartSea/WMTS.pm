@@ -174,7 +174,7 @@ sub process {
         unless ($mask->min eq 'BAD') {
             # scale and bound to min .. max => 0 .. $classes-1
             --$classes;
-            $y = $classes*($y-$min)/($max-$min); #+0.5;
+            $y = $classes*($y-$min)/($max-$min)+0.5;
             $y->where($y > $classes) .= $classes;
             $y->where($y < 0) .= 0;
         }
