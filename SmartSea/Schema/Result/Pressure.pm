@@ -73,7 +73,7 @@ sub HTML_div {
     for my $a (qw/id name category/) {
         my $v = $self->$a // '';
         if (ref $v) {
-            for my $b (qw/id name data/) {
+            for my $b (qw/name id data/) {
                 if ($v->can($b)) {
                     $v = $v->$b;
                     last;

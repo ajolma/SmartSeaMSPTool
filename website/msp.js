@@ -208,9 +208,15 @@ MSPView.prototype = {
             // show/hide layer and set its transparency
             $.each(use.layers, function(j, layer) {
                 var cb = $('li#use'+use.index+' input.visible'+layer.index);
-                cb.on('change', null, {use:use, layer:layer}, function(event) {
+                cb.change({use:use, layer:layer}, function(event) {
                     $('li#use'+event.data.use.index+' div.opacity'+event.data.layer.index).toggle();
                     event.data.layer.object.setVisible(this.checked);
+                    if (this.checked) {
+                        self.model.unselectLayer();
+                        var use = self.model.plan.uses[event.data.use.index];
+                        var layer = use.layers[event.data.layer.index];
+                        self.model.selectLayer(use.id, layer.id);
+                    }
                 });
                 var slider = $('li#use'+use.index+' input.opacity'+layer.index);
                 if (layer.visible) {
@@ -237,7 +243,8 @@ MSPView.prototype = {
         var use = this.model.use.id;
         var layer = this.model.layer;
         $("#l"+use+'_'+layer.id).css("background-color","yellow");
-        this.elements.color_scale.html("Colors are "+layer.style);
+        //this.elements.color_scale.html("Colors are "+layer.style);
+        this.elements.color_scale.html(element('img',{src:'http://'+self.server+'/core/legend?dataset='+layer.id},''));
         if (use == 0) {
             this.elements.rule_info.html("");
         } else if (layer.id == 3) 
@@ -247,6 +254,7 @@ MSPView.prototype = {
     },
     unselectLayer: function(use, layer) {
         $("#l"+use+'_'+layer).css("background-color","white");
+        this.elements.color_scale.html('');
         this.elements.rules.empty();
     },
     fillRulesPanel: function(layer) {

@@ -51,7 +51,7 @@ sub HTML_div {
     for my $a (qw/id activity2pressure ecosystem_component strength belief/) {
         my $v = $self->$a // '';
         if (ref $v) {
-            for my $b (qw/id name data/) {
+            for my $b (qw/name id data/) {
                 if ($v->can($b)) {
                     $v = $v->$b;
                     last;

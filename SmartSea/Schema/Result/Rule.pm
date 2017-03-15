@@ -220,7 +220,7 @@ sub HTML_div {
     for my $a ('id', @cols) {
         my $v = $self->$a // '';
         if (ref $v) {
-            for my $b (qw/id name data/) {
+            for my $b (qw/name id data/) {
                 if ($v->can($b)) {
                     $v = $v->$b;
                     last;
@@ -340,7 +340,7 @@ sub HTML_list {
     
     my $ret = [ul => \@li];
     $ret = [ol => \@li] if $args{rule_class} =~ /^seq/;
-    return [ ul => [ [li => 'Rules'], $ret ]] if $args{named_list};
+    return [ li => [0 => 'Rules:'], $ret ] if $args{named_list};
     return $ret;
 }
 

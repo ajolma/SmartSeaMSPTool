@@ -12,6 +12,7 @@ use SmartSea::HTML qw(:all);
 use SmartSea::Schema;
 use Data::Dumper;
 use Data::GUID;
+use GD;
 
 use parent qw/Plack::Component/;
 
@@ -56,6 +57,7 @@ sub call {
         return $self->plans(\@path) if $step eq 'layers';
         return $self->impact_network(\@path) if $step eq 'impact_network';
         return $self->pressure_table(\@path) if $step eq 'pressure_table';
+        return $self->legend() if $step =~ /^legend/;
         if ($step eq 'browser') {
             $step = shift(@path) // '';
             push @base, $step;
@@ -99,6 +101,107 @@ sub call {
         [li => a(link => 'pressure table', url  => $uri.'pressure_table')]
     );
     return html200({}, SmartSea::HTML->new(html => [body => [ul => \@l]])->html);
+}
+
+sub legend {
+    my ($self, $oids) = @_;
+
+    my %header;
+    $header{'Content-Type'} //= 'image/png';
+    $header{'Access-Control-Allow-Origin'} //= '*';
+
+    my $dataset = $self->{parameters}{dataset};
+
+    $dataset = $self->{schema}->resultset('Dataset')->single({id => $dataset}) if $dataset;
+
+    unless ($dataset) {
+        my $image = GD::Image->new('/usr/share/icons/cab_view.png');
+        return [ 200, [%header], [$image->png] ];
+    }
+    
+    my $min;
+    my $max;
+    my $unit = '';
+    if (defined $dataset->min_value) {
+        $unit = ' '.$dataset->my_unit->name if $dataset->my_unit;
+        $min = $dataset->min_value;
+        $max = $dataset->max_value;
+    }
+
+    my $fontHeight = 12;
+    my $halfFontHeight = $fontHeight/2;
+    my $imageWidth = 200; # layout.css.right.width
+    my $colorWidth = 50;
+    my $colorHeight = 128;
+    my $imageHeight = $colorHeight+$fontHeight;
+    
+    my $image = GD::Image->new($imageWidth, $imageHeight);
+    
+    my $color = $image->colorAllocateAlpha(255,255,255,0);
+    $image->filledRectangle($colorWidth,0,99,$imageHeight-1+$fontHeight,$color);
+    for my $y (0..$halfFontHeight-1) {
+        $image->line(0,$y,$colorWidth-1,$y,$color);
+    }
+
+    my $style = $dataset->style->name // 'grayscale';
+    $style =~ s/-/_/g;
+    my $palette = {palette => $style};
+    my $classes = $dataset->classes;
+    $palette->{classes} = $classes if defined $classes;
+    $palette = SmartSea::Palette->new($palette);
+    $classes //= 101;
+    $classes = 1 if $classes < 1;
+    
+    for my $y (0..$colorHeight-1) {
+        my $i = $classes-1 - int($y/($colorHeight-1)*($classes-1)+0.5);
+        my $color = $image->colorAllocateAlpha($palette->color($i));
+        $image->line(0, $y+$halfFontHeight, $colorWidth-1, $y+$halfFontHeight, $color);
+    }
+    for my $y ($imageHeight-$halfFontHeight+1..$imageHeight-1) {
+        $image->line(0, $y, $colorWidth-1, $y, $color);
+    }
+    
+    $color = $image->colorAllocateAlpha(0,0,0,0);
+    my $font = gdMediumBoldFont;
+    $font = GD::Font->load('/home/ajolma/Lataukset/X_9x15_LE.gdf');
+
+    unless (exists $palette->{classes}) {
+        # this is for continuous data
+        $image->string($font, $colorWidth, -1, "- $max$unit", $color);
+        $image->string($font, $colorWidth, $imageHeight-$fontHeight-2, "- $min$unit", $color);
+    } else {
+        my $step = int($classes/($colorHeight/$fontHeight)+0.5);
+        $step = 1 if $step < 1;
+        my $d = $dataset->descr;
+        my $c = $classes == 1 ? 0 : ($max - $min) / ($classes - 1);
+        for (my $class = 1; $class <= $classes; $class += $step) {
+            my $y;
+            if ($classes == 1) {
+                $y = int($colorHeight / 2);
+            } elsif ($classes == 2) {
+                $y = int((1 - ($class-0.5)/$classes)*($colorHeight-1));
+            } else {
+                my $n = $classes - 1;
+                my $m = 0.25;
+                $m += 0.75 if $class > 1;
+                $m += $class-2 if $class > 2;
+                $m -= 0.25 if $class == $classes;
+                $y = int((1 - $m/$n)*($colorHeight-1));
+            }
+            my $l;
+            my ($l2) = $d =~ /$class = ([\w, \-]+)/;
+            if ($l2) {
+                $l = $l2;
+            } elsif (defined $min) {
+                $l = sprintf("%.1f", $min + $c*($class-1)) . $unit;
+            } else {
+                $l = $class;
+            }
+            $image->string($font, $colorWidth, $y-1, "- $l", $color);
+        }
+    }
+    
+    return [ 200, [%header], [$image->png] ];
 }
 
 sub plans {
@@ -154,10 +257,16 @@ sub plans {
         {
             next unless $dataset->path;
             next if defined $layer_id && $dataset->id != $layer_id;
+            my $range = '';
+            if (defined $dataset->min_value) {
+                my $u = '';
+                $u = ' '.$dataset->my_unit->name if $dataset->my_unit;
+                $range = ' ('.$dataset->min_value."$u..".$dataset->max_value."$u)";
+            }
             push @datasets, {
                 name => $dataset->name, 
                 descr => $dataset->lineage,
-                style => $dataset->style->name,
+                style => $dataset->style->name.$range,
                 id => $dataset->id, 
                 use => 0, 
                 rules => []};

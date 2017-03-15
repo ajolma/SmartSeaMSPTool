@@ -87,8 +87,14 @@ my %attributes = (
         allow_null => 1,
         empty_is_null => 1
     },
-    style => {
+    classes => {
         i => 15,
+        input => 'text',
+        allow_null => 1,
+        empty_is_null => 1
+    },
+    style => {
+        i => 16,
         input => 'lookup',
         class => 'Style'
     }
@@ -104,6 +110,14 @@ __PACKAGE__->belongs_to(is_derived_from => 'SmartSea::Schema::Result::Dataset');
 __PACKAGE__->belongs_to(license => 'SmartSea::Schema::Result::License');
 __PACKAGE__->belongs_to(unit => 'SmartSea::Schema::Result::Unit');
 __PACKAGE__->belongs_to(style => 'SmartSea::Schema::Result::Style');
+
+sub my_unit {
+    my $self = shift;
+    return $self->unit if defined $self->unit;
+    return $self->is_a_part_of->my_unit if defined $self->is_a_part_of;
+    return $self->is_derived_from->my_unit if defined $self->is_derived_from;
+    return undef;
+}
 
 sub create_col_data {
     my ($class, $parameters) = @_;
@@ -199,6 +213,7 @@ sub HTML_div {
     push @l, [li => [[b => "data model"],[1 => " = ".$self->data_model->name]]] if $self->data_model;
     push @l, [li => [[b => "minimum"],[1 => " = ".$self->min_value]]] if defined $self->min_value;
     push @l, [li => [[b => "maximum"],[1 => " = ".$self->max_value]]] if defined $self->max_value;
+    push @l, [li => [[b => "classes"],[1 => " = ".$self->classes]]] if defined $self->classes;
     push @l, [li => [[b => "unit"],[1 => " = ".$self->unit->name]]] if $self->unit;
     push @l, [li => [[b => "path"],[1 => " = ".$self->path]]] if $self->path;
     push @l, [li => [[b => "style"],[1 => " = ".$self->style->name]]] if $self->style;

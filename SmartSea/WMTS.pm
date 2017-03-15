@@ -12,13 +12,13 @@ use Geo::GDAL;
 use PDL;
 use PDL::NiceSlice;
 use Geo::OGC::Service;
-use DBI;
 
 use SmartSea::Core qw(:all);
 use SmartSea::Schema;
 use SmartSea::Rules;
+use SmartSea::Palette;
 
-binmode STDERR, ":utf8"; 
+binmode STDERR, ":utf8";
 
 sub new {
     my ($class, $self) = @_;
@@ -33,82 +33,6 @@ sub new {
     $self->{Suomi} = Geo::GDAL::Open(
         Name => "Pg:dbname=suomi user='ajolma' password='ajolma'", # fixme remove user here
         Type => 'Vector');
-
-    # colortable values are 0..100 and 255 for transparent (out) 
-
-    my $ct = Geo::GDAL::ColorTable->new();
-    $self->{palette}{red_and_green} = $ct;
-    $ct->Color(0, [255,0,0,255]);
-    $ct->Color(100, [0,255,0,255]);
-    $ct->Color(255, [0,0,0,0]);
-
-    $ct = Geo::GDAL::ColorTable->new();
-    $self->{palette}{green} = $ct;
-    $ct->Color(0, [0,0,0,0]);
-    $ct->Color(100, [0,255,0,255]);
-    $ct->Color(255, [0,0,0,0]);
-
-    $ct = Geo::GDAL::ColorTable->new();
-    $self->{palette}{red_to_green} = $ct;
-    for my $value (0..100) {
-        $ct->Color($value, [255*(100-$value)/100,255*$value/100,0,255]);
-    }
-    $ct->Color(255, [0,0,0,0]);
-
-    $ct = Geo::GDAL::ColorTable->new();
-    $self->{palette}{transparent_to_green} = $ct;
-    for my $value (0..100) {
-        my $hsv = Imager::Color->new(
-            hsv => [ 120, $value/100, $value/100 ]
-            );
-        my @rgb = $hsv->rgba;
-        $rgb[3] = 255*$value/100;
-        $ct->Color($value, \@rgb);
-    }
-    $ct->Color(255, [0,0,0,0]);
-
-    $ct = Geo::GDAL::ColorTable->new();
-    $self->{palette}{transparent_to_black} = $ct;
-    for my $value (0..100) {
-        my $hsv = Imager::Color->new(
-            hsv => [ 0, 0, (100-$value)/100 ]
-            );
-        my @rgb = $hsv->rgba;
-        $rgb[3] = 255*$value/100;
-        $ct->Color($value, \@rgb);
-    }
-    $ct->Color(255, [0,0,0,0]);
-
-    $ct = Geo::GDAL::ColorTable->new();
-    $self->{palette}{white_to_black} = $ct;
-    for my $value (0..100) {
-        my $hsv = Imager::Color->new(
-            hsv => [ 0, 0, (100-$value)/100 ]
-            );
-        my @rgb = $hsv->rgba;
-        $rgb[3] = 255;
-        $ct->Color($value, \@rgb);
-    }
-    $ct->Color(255, [0,0,0,0]);
-
-    $ct = Geo::GDAL::ColorTable->new();
-    $self->{palette}{water_depth} = $ct;
-    for my $value (0..100) {
-        my $hsv = Imager::Color->new(
-            hsv => [ 182+(237-182)*$value/100, 1, 1 ]
-            );
-        my @rgb = $hsv->rgba;
-        $rgb[3] = 255;
-        $ct->Color($value, \@rgb);
-    }
-    $ct->Color(255, [0,0,0,0]);
-
-    $ct = Geo::GDAL::ColorTable->new();
-    $self->{palette}{suomi} = $ct;
-    $ct->Color(0, [255,255,255,255]);
-    $ct->Color(1, [180,180,180,255]);
-    $ct->Color(2, [150,150,150,255]);
-    $ct->Color(3, [10,10,10,255]);
 
     return bless $self, $class;
 }
@@ -208,9 +132,9 @@ sub process {
 
     $self->{cookie} = $server->{request}->cookies->{SmartSea} // 'default';
 
-    my $style = $params->{style} // 'white_to_black';
+    my $style = $params->{style} // 'grayscale';
     $style =~ s/-/_/g;
-    $style = 'white_to_black' unless exists $self->{palette}{$style};
+    $style =~ s/\W.*$//g;
     
     my $rules = SmartSea::Rules->new({
         epsg => $epsg,
@@ -223,9 +147,18 @@ sub process {
     });
 
     if ($rules->{dataset}) {
+        #say STDERR "dataset=".$rules->{dataset}->name;
+        #say STDERR "style=$style";
+
+        my $palette = {palette => $style};
+        my $classes = $rules->{dataset}->classes;
+        $palette->{classes} = $classes if defined $classes;
+        $palette = SmartSea::Palette->new($palette);
+        
         my $min = $rules->{dataset}->min_value // 0;
         my $max = $rules->{dataset}->max_value // 1;
         $max = $min + 1 if $max - $min == 0;
+        
         my $dataset = mask($rules);
         my $mask = $dataset->Band->Piddle; # 0 / 1
         
@@ -236,19 +169,20 @@ sub process {
         say STDERR $@ if $@;
         
         $y->inplace->copybad($mask);
+
+        $classes //= 101;
         unless ($mask->min eq 'BAD') {
-            # scale and bound to min .. max => 0 .. 100
-            $y = 100*($y-$min)/($max-$min);
-            $y->where($y > 100) .= 100;
+            # scale and bound to min .. max => 0 .. $classes-1
+            --$classes;
+            $y = $classes*($y-$min)/($max-$min); #+0.5;
+            $y->where($y > $classes) .= $classes;
             $y->where($y < 0) .= 0;
         }
         $y->inplace->setbadtoval(255);
         $y->where($mask == 0) .= 255;
-        $dataset->Band->Piddle(byte $y);
-
-        #say STDERR "style=$style";
         
-        $dataset->Band->ColorTable($self->{palette}{$style});
+        $dataset->Band->Piddle(byte $y);
+        $dataset->Band->ColorTable($palette->color_table);
 
         # Cache-Control should be only max-age=seconds something
         return $dataset;
