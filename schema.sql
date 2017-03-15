@@ -2,8 +2,8 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 9.5.5
--- Dumped by pg_dump version 9.5.5
+-- Dumped from database version 9.5.6
+-- Dumped by pg_dump version 9.5.6
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -97,11 +97,19 @@ CREATE TABLE datasets (
     unit integer,
     max_value double precision,
     min_value double precision,
-    style integer DEFAULT 2 NOT NULL
+    style integer DEFAULT 2 NOT NULL,
+    classes integer
 );
 
 
 ALTER TABLE datasets OWNER TO ajolma;
+
+--
+-- Name: COLUMN datasets.classes; Type: COMMENT; Schema: data; Owner: ajolma
+--
+
+COMMENT ON COLUMN datasets.classes IS 'Leave to NULL if assumed continuous data';
+
 
 --
 -- Name: datasets_id_seq; Type: SEQUENCE; Schema: data; Owner: ajolma
