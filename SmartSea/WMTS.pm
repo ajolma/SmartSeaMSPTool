@@ -173,6 +173,7 @@ sub process {
         $classes //= 101;
         unless ($mask->min eq 'BAD') {
             # scale and bound to min .. max => 0 .. $classes-1
+            # note that the first and last ranges are half of others
             --$classes;
             $y = $classes*($y-$min)/($max-$min)+0.5;
             $y->where($y > $classes) .= $classes;
