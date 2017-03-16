@@ -110,7 +110,7 @@ sub legend {
     $header{'Content-Type'} //= 'image/png';
     $header{'Access-Control-Allow-Origin'} //= '*';
 
-    my $layer = SmartSea::Rules->new({
+    my $layer = SmartSea::Layer->new({
         schema => $self->{schema},
         trail => $self->{parameters}{layer}});
 

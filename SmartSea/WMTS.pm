@@ -15,7 +15,7 @@ use Geo::OGC::Service;
 
 use SmartSea::Core qw(:all);
 use SmartSea::Schema;
-use SmartSea::Rules;
+use SmartSea::Layer;
 use SmartSea::Palette;
 
 binmode STDERR, ":utf8";
@@ -136,7 +136,7 @@ sub process {
     $style =~ s/-/_/g;
     $style =~ s/\W.*$//g;
     
-    my $layer = SmartSea::Rules->new({
+    my $layer = SmartSea::Layer->new({
         epsg => $epsg,
         tile => $tile,
         schema => $self->{schema},

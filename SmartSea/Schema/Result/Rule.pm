@@ -8,7 +8,7 @@ use PDL;
 
 use SmartSea::Core qw(:all);
 use SmartSea::HTML qw(:all);
-use SmartSea::Rules;
+use SmartSea::Layer;
 
 my %attributes = (
     reduce => {
@@ -403,7 +403,7 @@ sub operand {
             
         # TODO: how to avoid circular references?
 
-        my $rules = SmartSea::Rules->new($rules->{schema}, $plan, $use, $self->r_layer);
+        my $rules = SmartSea::Layer->new($rules->{schema}, $plan, $use, $self->r_layer);
 
         say STDERR 
             $plan->name,".",$use->name,".",$self->r_layer->name,

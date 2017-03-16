@@ -1,4 +1,4 @@
-package SmartSea::Rules;
+package SmartSea::Layer;
 use strict;
 use warnings;
 use 5.010000; # say // and //=
