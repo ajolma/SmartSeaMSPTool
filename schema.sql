@@ -576,12 +576,22 @@ CREATE TABLE plan2use2layer (
     layer integer NOT NULL,
     id integer NOT NULL,
     rule_class integer DEFAULT 1 NOT NULL,
-    additive_max double precision DEFAULT 1 NOT NULL,
-    style integer NOT NULL
+    max_value double precision DEFAULT 1 NOT NULL,
+    style integer NOT NULL,
+    classes integer,
+    min_value double precision,
+    descr text
 );
 
 
 ALTER TABLE plan2use2layer OWNER TO ajolma;
+
+--
+-- Name: TABLE plan2use2layer; Type: COMMENT; Schema: tool; Owner: ajolma
+--
+
+COMMENT ON TABLE plan2use2layer IS 'Has similarities with data.datasets';
+
 
 --
 -- Name: plan2use2layer_id_seq; Type: SEQUENCE; Schema: tool; Owner: ajolma
