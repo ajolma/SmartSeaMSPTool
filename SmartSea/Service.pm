@@ -138,15 +138,11 @@ sub legend {
 
     my $style = $layer->style // 'grayscale';
     $style =~ s/-/_/g;
-    my $palette = {palette => $style};
-    my $classes = $layer->classes;
-    $palette->{classes} = $classes if defined $classes;
-    $palette = SmartSea::Palette->new($palette);
-    $classes //= 101;
-    $classes = 1 if $classes < 1;
-    
+    my $palette = SmartSea::Palette->new({palette => $style, classes => $layer->classes});
+
+    my $nc = $palette->{classes};
     for my $y (0..$colorHeight-1) {
-        my $i = $classes-1 - int($y/($colorHeight-1)*($classes-1)+0.5);
+        my $i = $nc-1 - int($y/($colorHeight-1)*($nc-1)+0.5);
         my $color = $image->colorAllocateAlpha($palette->color($i));
         $image->line(0, $y+$halfFontHeight, $colorWidth-1, $y+$halfFontHeight, $color);
     }
@@ -163,22 +159,22 @@ sub legend {
         $image->string($font, $colorWidth, -1, "- $max$unit", $color);
         $image->string($font, $colorWidth, $imageHeight-$fontHeight-2, "- $min$unit", $color);
     } else {
-        my $step = int($classes/($colorHeight/$fontHeight)+0.5);
+        my $step = int($nc/($colorHeight/$fontHeight)+0.5);
         $step = 1 if $step < 1;
-        my $d = $layer->descr;
-        my $c = $classes == 1 ? 0 : ($max - $min) / ($classes - 1);
-        for (my $class = 1; $class <= $classes; $class += $step) {
+        my $d = $layer->descr // '';
+        my $c = $nc == 1 ? 0 : ($max - $min) / ($nc - 1);
+        for (my $class = 1; $class <= $nc; $class += $step) {
             my $y;
-            if ($classes == 1) {
+            if ($nc == 1) {
                 $y = int($colorHeight / 2);
-            } elsif ($classes == 2) {
-                $y = int((1 - ($class-0.5)/$classes)*($colorHeight-1));
+            } elsif ($nc == 2) {
+                $y = int((1 - ($class-0.5)/$nc)*($colorHeight-1));
             } else {
-                my $n = $classes - 1;
+                my $n = $nc - 1;
                 my $m = 0.25;
                 $m += 0.75 if $class > 1;
                 $m += $class-2 if $class > 2;
-                $m -= 0.25 if $class == $classes;
+                $m -= 0.25 if $class == $nc;
                 $y = int((1 - $m/$n)*($colorHeight-1));
             }
             my $l;

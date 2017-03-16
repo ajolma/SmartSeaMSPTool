@@ -104,6 +104,8 @@ sub process {
     } elsif ($params->{srs}) {
         ($epsg) = $params->{srs} =~ /EPSG:(\d+)/;
     }
+
+    my $debug = $params->{debug};
      
     my @t = $tile->tile;
     my @pw = $tile->projwin;
@@ -188,35 +190,38 @@ sub process {
         return $ds;
     }
 
-    my $palette = {palette => $style};
-    my $classes = $layer->classes;
-    $palette->{classes} = $classes if defined $classes;
-    $palette = SmartSea::Palette->new($palette);
+    my $palette = SmartSea::Palette->new({palette => $style, classes => $layer->classes});
 
     my ($min, $max) = $layer->range;
     
     my $result = $layer->mask();
-    my $mask = $result->Band->Piddle; # 0 = out / 1 =  in / bad (255) = out
+    my $mask = $result->Band->Piddle; # 1 = target area, 0 not
+    $mask->inplace->setvaltobad(0);
 
-    my $y;
-    eval {
-        $y = $layer->compute();
-    };
-    say STDERR $@ if $@;
+    my $y = $layer->compute($debug);
+    $y *= $mask;
 
-    $y->inplace->copybad($mask);
-
-    $classes //= 101;
-    unless ($mask->min eq 'BAD') {
-        # scale and bound to min .. max => 0 .. $classes-1
-        # note that the first and last ranges are half of others
-        --$classes;
-        $y = $classes*($y-$min)/($max-$min)+0.5;
-        $y->where($y > $classes) .= $classes;
+    my $nc = $palette->{classes};
+    if ($nc == 1) {
+        
+        # class = "true", map zero to bad, non-zero to 0
+        
+        $y = $y->setbadif($y == 0);
+        
+        $y->where($y > 0) .= 0;
         $y->where($y < 0) .= 0;
+        
+    } else {
+        
+        # scale and bound to min .. max => 0 .. $nc-1
+        # note that the first and last ranges are half of others
+        --$nc;
+        $y = $nc*($y-$min)/($max-$min)+0.5;
+        $y->where($y > $nc) .= $nc;
+        $y->where($y < 0) .= 0;
+        
     }
 
-    $y->where($mask == 0) .= 255;
     $y->inplace->setbadtoval(255);
 
     $result->Band->Piddle(byte $y);

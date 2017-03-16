@@ -19,12 +19,18 @@ sub new {
     my ($class, $self) = @_; # known arguments: palette, classes (>=1)
 
     $self = {} unless $self;
+    if (defined $self->{classes}) {
+        $self->{classes} = int($self->{classes});
+        $self->{classes} = 2 if $self->{classes} < 2;
+    } else {
+        $self->{classes} = 101;
+    }
     
     $self->{color_table} = Geo::GDAL::ColorTable->new();
-
+    my $n = $self->{classes};
+        
     if ($self->{palette} eq 'inverse_grayscale') { # white to black
 
-        my $n = $self->{classes} ? $self->{classes} : 101;
         my $k = 1/($n-1);
 
         for my $c (0..$n-1) {
@@ -36,7 +42,6 @@ sub new {
         
     } elsif ($self->{palette} eq 'red_to_green') { # hue 0 -> 120
 
-        my $n = $self->{classes} ? $self->{classes} : 101;
         my $k = 120/($n-1);
 
         for my $c (0..$n-1) {
@@ -48,7 +53,6 @@ sub new {
         
     } elsif ($self->{palette} eq 'green_to_red') { # hue 120 -> 0
 
-        my $n = $self->{classes} ? $self->{classes} : 101;
         my $k = 120/($n-1);
 
         for my $c (0..$n-1) {
@@ -60,7 +64,6 @@ sub new {
         
     } elsif ($self->{palette} eq 'water_depth') { # hue 182 -> 237
 
-        my $n = $self->{classes} ? $self->{classes} : 101;
         my $k = 1/($n-1);
 
         for my $c (0..$n-1) {
@@ -72,17 +75,16 @@ sub new {
         
     } elsif ($self->{palette} eq 'green') {
 
-        $self->{classes} = 2;
+        $self->{classes} = 1;
         $self->{color_table}->Color(0, [0,255,0,255]);
 
     } elsif ($self->{palette} eq 'black') {
 
-        $self->{classes} = 2;
+        $self->{classes} = 1;
         $self->{color_table}->Color(0, [0,0,0,255]);
         
     } elsif ($self->{palette} eq 'browns') { # value 1 -> 0.3
 
-        my $n = $self->{classes} ? $self->{classes} : 101;
         my $k = 1/($n-1);
 
         for my $c (0..$n-1) {
@@ -95,7 +97,6 @@ sub new {
     } else { # black to white
         $self->{palette} = 'grayscale';
 
-        my $n = $self->{classes} ? $self->{classes} : 101;
         my $k = 1/($n-1);
 
         for my $c (0..$n-1) {

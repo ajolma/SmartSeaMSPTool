@@ -360,8 +360,8 @@ sub apply {
     my $w = $self->weight;
 
     # output is y
-    my $y_min = $self->value_at_min;
-    my $y_max = $self->value_at_max;
+    my $y_min = $self->value_at_min // 0;
+    my $y_max = $self->value_at_max // 1;
 
     if ($method =~ /^mult/) {
 

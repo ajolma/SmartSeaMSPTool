@@ -26,7 +26,7 @@ sub new {
     #say STDERR "trail: $plan_id, $use_id, $layer_id, @rules";
     return bless $self, $class unless $layer_id;
 
-    if ($plan_id == 0) {
+    if ($use_id == 0) {
         $self->{dataset} = $self->{schema}->resultset('Dataset')->single({ id => $layer_id });
         $self->{duck} = $self->{dataset};
         return bless $self, $class;
@@ -103,14 +103,17 @@ sub range {
     my $min = $self->{duck}->min_value // 0;
     my $max = $self->{duck}->max_value // 1;
     my $unit = $self->{duck}->my_unit ? ' '.$self->{duck}->my_unit->name : '';
-    $max = $min + 1 if $max - $min == 0;
+    $max = $min if $max < $min;
     return ($min, $max, $unit);
 }
 
 sub compute {
     my ($self, $debug) = @_;
 
-    return $self->{dataset}->Piddle($self) if $self->{dataset};
+    if ($self->{dataset}) {
+        my $result = $self->{dataset}->Piddle($self);
+        return $result;
+    }
 
     my $result = zeroes($self->{tile}->tile);
 
@@ -119,15 +122,25 @@ sub compute {
     if ($method =~ /^seq/ || $method =~ /^mult/) {
         $result += 1; # 
     }
-
+    
+    if ($debug) {
+        my @stats = stats($result); # 3 and 4 are min and max
+        say STDERR "Compute: ",$self->{plan}->name,' ',$self->{use}->name,' ',$self->{layer}->name;
+        say STDERR "  result min=$stats[3], max=$stats[4]";
+    }
     for my $rule (@{$self->{rules}}) {
         if ($debug) {
-            my @stats = stats($result); # 3 and 4 are min and max
-            say STDERR "result now min=$stats[3], max=$stats[4]";
             my $val = $rule->value // 1;
-            say STDERR $rule->as_text," ",$val;
+            say STDERR "apply: ",$rule->as_text," ",$val;
         }
         $rule->apply($method, $result, $self, $debug);
+        if ($debug) {
+            my @stats = stats($result); # 3 and 4 are min and max
+            say STDERR "  result min=$stats[3], max=$stats[4]";
+        }
+    }
+    if ($debug) {
+        say STDERR "End compute";
     }
 
     if ($method =~ /^add/) {
