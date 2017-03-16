@@ -136,7 +136,7 @@ sub process {
     $style =~ s/-/_/g;
     $style =~ s/\W.*$//g;
     
-    my $rules = SmartSea::Rules->new({
+    my $layer = SmartSea::Rules->new({
         epsg => $epsg,
         tile => $tile,
         schema => $self->{schema},
@@ -145,49 +145,6 @@ sub process {
         cookie => $self->{cookie}, 
         trail => $want
     });
-
-    if ($rules->{dataset}) {
-        #say STDERR "dataset=".$rules->{dataset}->name;
-        #say STDERR "style=$style";
-
-        my $palette = {palette => $style};
-        my $classes = $rules->{dataset}->classes;
-        $palette->{classes} = $classes if defined $classes;
-        $palette = SmartSea::Palette->new($palette);
-        
-        my $min = $rules->{dataset}->min_value // 0;
-        my $max = $rules->{dataset}->max_value // 1;
-        $max = $min + 1 if $max - $min == 0;
-        
-        my $dataset = mask($rules);
-        my $mask = $dataset->Band->Piddle; # 0 / 1
-        
-        my $y;
-        eval {
-            $y = $rules->{dataset}->Piddle($rules);
-        };
-        say STDERR $@ if $@;
-        
-        $y->inplace->copybad($mask);
-
-        $classes //= 101;
-        unless ($mask->min eq 'BAD') {
-            # scale and bound to min .. max => 0 .. $classes-1
-            # note that the first and last ranges are half of others
-            --$classes;
-            $y = $classes*($y-$min)/($max-$min)+0.5;
-            $y->where($y > $classes) .= $classes;
-            $y->where($y < 0) .= 0;
-        }
-        $y->inplace->setbadtoval(255);
-        $y->where($mask == 0) .= 255;
-        
-        $dataset->Band->Piddle(byte $y);
-        $dataset->Band->ColorTable($palette->color_table);
-
-        # Cache-Control should be only max-age=seconds something
-        return $dataset;
-    }
 
     if ($want eq 'suomi') {
 
@@ -226,7 +183,7 @@ sub process {
         return $ds;
     }
 
-    unless ($rules->{layer}) {
+    unless ($layer->{duck}) {
         my ($w, $h) = $tile->tile;
         my $ds = Geo::GDAL::Driver('GTiff')->
             Create(Name => "/vsimem/suomi.tiff", Width => $w, Height => $h);
@@ -237,59 +194,47 @@ sub process {
         return $ds;
     }
 
-    # a 0/1 mask of the planning area
+    my $palette = {palette => $style};
+    my $classes = $layer->classes;
+    $palette->{classes} = $classes if defined $classes;
+    $palette = SmartSea::Palette->new($palette);
+
+    my ($min, $max) = $layer->range;
     
-    $dataset = mask($rules);
+    my $result = $layer->mask();
+    my $mask = $result->Band->Piddle; # 0 = out / 1 =  in / bad (255) = out
 
-    my $mask = $dataset->Band->Piddle; # 0 = out / 1 =  in / bad (255) = out
-    $mask->where($mask == 0) .= 255; # 1 or bad
+    my $y;
+    eval {
+        $y = $layer->compute();
+    };
+    say STDERR $@ if $@;
 
-    # colortable values are 0..100 and 255 for transparent (out)
+    $y->inplace->copybad($mask);
 
-    my $debug = 0;
-
-    if ($mask->min eq 'BAD') {
-
-        $dataset->Band->Piddle($mask);
-        
-    } else {
-
-        my $y = $rules->compute($debug);
-        if ($debug) {
-            say STDERR 
-                "result counts 0:",count($y, 0, $tile->tile),
-                " 1:",count($y, 1, $tile->tile);
-        }
-    
-        $y->inplace->copybad($mask);
-
-        if ($debug) {
-            say STDERR 
-                "result counts 0:",count($y, 0, $tile->tile),
-                " 1:",count($y, 1, $tile->tile),
-                " 255:",count($y, 255, $tile->tile);
-        }
-
-        # y is, if sequential: 0 or 1, multiplicative: 0 to 1, additive: 0 to max
-        $y *= 100;
-
-        $y->where($mask == 0) .= 255;
-        if ($debug) {
-            my @stats = stats($y); # 3 and 4 are min and max
-            my $ones = count($y, 100, $tile->tile);
-            say STDERR "masked result min=$stats[3], max=$stats[4] count=$ones";
-        }
-        $y->inplace->setbadtoval(255);
-
-        $dataset->Band->Piddle(byte $y);
-        
+    $classes //= 101;
+    unless ($mask->min eq 'BAD') {
+        # scale and bound to min .. max => 0 .. $classes-1
+        # note that the first and last ranges are half of others
+        --$classes;
+        $y = $classes*($y-$min)/($max-$min)+0.5;
+        $y->where($y > $classes) .= $classes;
+        $y->where($y < 0) .= 0;
     }
 
-    $dataset->Band->ColorTable($self->{palette}{$style});
+    $y->where($mask == 0) .= 255;
+    $y->inplace->setbadtoval(255);
 
+    $result->Band->Piddle(byte $y);
+    $result->Band->ColorTable($palette->color_table);
+
+    # if $layer is in fact a dataset
+    # Cache-Control should be only max-age=seconds something
+
+    # else
     # Cache-Control must be 'no-cache, no-store, must-revalidate'
-    # since rules may change
-    return $dataset;
+    # since layer may change
+    return $result;
 }
 
 sub count {
@@ -297,33 +242,6 @@ sub count {
     my $ones = zeroes(@size);
     $ones->where($x == $val) .= 1;
     return $ones->sum;
-}
-
-sub mask {
-    my $rules = shift;
-    my $tile = $rules->{tile};
-    my $dataset = Geo::GDAL::Open("$rules->{data_dir}/mask.tiff");
-    if ($rules->{epsg} == 3067) {
-        $dataset = $dataset->Translate( 
-            "/vsimem/tmp.tiff", 
-            [ -ot => 'Byte', 
-              -of => 'GTiff', 
-              -r => 'nearest' , 
-              -outsize => $tile->tile,
-              -projwin => $tile->projwin,
-              -a_ullr => $tile->projwin ]);
-    } else {
-        my $e = $tile->extent;
-        $dataset = $dataset->Warp( 
-            "/vsimem/tmp.tiff", 
-            [ -ot => 'Byte', 
-              -of => 'GTiff', 
-              -r => 'near' ,
-              -t_srs => 'EPSG:'.$rules->{epsg},
-              -te => @$e,
-              -ts => $tile->tile] );
-    }
-    return $dataset;
 }
 
 1;

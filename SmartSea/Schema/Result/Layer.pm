@@ -100,11 +100,14 @@ sub HTML_div {
 
     if ($pul) {
         if ($args{parameters}{request} eq 'update') {
+            my %update = ();
+            for my $field (qw/style rule_class min_value max_value classes/) {
+                my $val = $args{parameters}{$field};
+                $val = undef if $val eq '';
+                $update{$field} = $val;
+            }
             eval {
-                $pul->update({
-                    style => $args{parameters}{style},
-                    rule_class => $args{parameters}{rule_class},
-                    additive_max => $args{parameters}{additive_max} });
+                $pul->update(\%update);
             };
         } elsif ($args{parameters}{request} eq 'add') {
             my @rules = $pul->rules->search({'me.cookie' => DEFAULT});
@@ -115,15 +118,14 @@ sub HTML_div {
                         $args{parameters}, 
                         {cookie => DEFAULT, plan2use2layer => $pul->id, my_index => $index}));
             };
-            say STDERR "error: $@" if $@;
         } elsif ($args{parameters}{request} eq 'remove') {
             my $remove = $args{parameters}{remove};
             my $rule = $args{schema}->resultset('Rule')->single({ id => $remove });
             eval {
                 $rule->delete;
             };
-            say STDERR "error: $@" if $@;
         }
+        say STDERR "error: $@" if $@;
     }
 
     my @l;
@@ -156,32 +158,31 @@ sub HTML_div {
                 drop_down(name => 'style',
                           objs => [$args{schema}->
                                    resultset('Style')->all], 
-                          selected => $pul->style->id)
-                );
-            push @l, [ li => @items, [0 => " "], button(value => 'Update', name => 'pul') ];
-        } else {
-            push @l, [ li => "Color palette is ".$pul->style->name ];
-        }
-
-        if ($args{edit}) {
-            my @items = (
+                          selected => $pul->style->id),
+                ['br'],
                 [0 => "Rules are "], 
                 drop_down(name => 'rule_class',
                           objs => [$args{schema}->
                                    resultset('RuleClass')->all], 
-                          selected => $rule_class->id)
+                          selected => $rule_class->id),
+                ['br'],
+                [0 => " Min value is "], 
+                text_input(name => 'min_value',
+                           value => $pul->min_value),
+                ['br'],
+                [0 => " Max value is "], 
+                text_input(name => 'max_value',
+                           value => $pul->max_value),
+                ['br'],
+                [0 => " Nr of classes is "], 
+                text_input(name => 'classes',
+                           value => $pul->classes),
+                ['br'],
+                [0 => " "], button(value => 'Update', name => 'pul')
                 );
-            if ($rule_class->name =~ /^add/) {
-                push @items, (
-                    [0 => " Max value is "], 
-                    text_input(name => 'additive_max',
-                               value => $pul->additive_max)
-                );
-            } else {
-                push @items, [input => {type => 'hidden', name => 'additive_max', value => $pul->additive_max}];
-            }
-            push @l, [ li => @items, [0 => " "], button(value => 'Update', name => 'pul') ];
+            push @l, [ li => @items ];
         } else {
+            push @l, [ li => "Color palette is ".$pul->style->name ];
             push @l, [ li => "Rules are ".$rule_class->name ];
         }
         

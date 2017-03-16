@@ -110,23 +110,16 @@ sub legend {
     $header{'Content-Type'} //= 'image/png';
     $header{'Access-Control-Allow-Origin'} //= '*';
 
-    my $dataset = $self->{parameters}{dataset};
+    my $layer = SmartSea::Rules->new({
+        schema => $self->{schema},
+        trail => $self->{parameters}{layer}});
 
-    $dataset = $self->{schema}->resultset('Dataset')->single({id => $dataset}) if $dataset;
-
-    unless ($dataset) {
+    unless ($layer) {
         my $image = GD::Image->new('/usr/share/icons/cab_view.png');
         return [ 200, [%header], [$image->png] ];
     }
     
-    my $min;
-    my $max;
-    my $unit = '';
-    if (defined $dataset->min_value) {
-        $unit = ' '.$dataset->my_unit->name if $dataset->my_unit;
-        $min = $dataset->min_value;
-        $max = $dataset->max_value;
-    }
+    my ($min, $max, $unit) = $layer->range();
 
     my $fontHeight = 12;
     my $halfFontHeight = $fontHeight/2;
@@ -143,10 +136,10 @@ sub legend {
         $image->line(0,$y,$colorWidth-1,$y,$color);
     }
 
-    my $style = $dataset->style->name // 'grayscale';
+    my $style = $layer->style->name // 'grayscale';
     $style =~ s/-/_/g;
     my $palette = {palette => $style};
-    my $classes = $dataset->classes;
+    my $classes = $layer->classes;
     $palette->{classes} = $classes if defined $classes;
     $palette = SmartSea::Palette->new($palette);
     $classes //= 101;
@@ -172,7 +165,7 @@ sub legend {
     } else {
         my $step = int($classes/($colorHeight/$fontHeight)+0.5);
         $step = 1 if $step < 1;
-        my $d = $dataset->descr;
+        my $d = $layer->descr;
         my $c = $classes == 1 ? 0 : ($max - $min) / ($classes - 1);
         for (my $class = 1; $class <= $classes; $class += $step) {
             my $y;

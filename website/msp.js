@@ -240,12 +240,16 @@ MSPView.prototype = {
     },
     selectLayer: function() {
         if (!this.model.use || !this.model.layer) return;
-        var use = this.model.use.id;
+        var plan = this.model.plan;
+        var use = this.model.use;
         var layer = this.model.layer;
-        $("#l"+use+'_'+layer.id).css("background-color","yellow");
+        $("#l"+use.id+'_'+layer.id).css("background-color","yellow");
         //this.elements.color_scale.html("Colors are "+layer.style);
-        this.elements.color_scale.html(element('img',{src:'http://'+self.server+'/core/legend?dataset='+layer.id},''));
-        if (use == 0) {
+        var url = 'http://'+self.server+'/core/legend';
+        this.elements.color_scale.html(
+            element('img',{src:url+'?layer='+plan.id+'_'+use.id+'_'+layer.id},'')
+        );
+        if (use.id == 0) {
             this.elements.rule_info.html("");
         } else if (layer.id == 3) 
             this.elements.rule_info.html("Default is to allocate.");
