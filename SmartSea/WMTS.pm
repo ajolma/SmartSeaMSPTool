@@ -104,8 +104,28 @@ sub process {
     } elsif ($params->{srs}) {
         ($epsg) = $params->{srs} =~ /EPSG:(\d+)/;
     }
+     
+    my @t = $tile->tile;
+    my @pw = $tile->projwin;
     
-    unless ($epsg) {
+    my $want = $params->{layer} // $params->{layers};
+
+    # the client asks for plan_use_layer_rule_rule_...
+    # rules are those rules that the client wishes to be active
+    # no rules = all rules?
+
+    $self->{cookie} = $server->{request}->cookies->{SmartSea} // 'default';
+
+    my $layer = SmartSea::Layer->new({
+        epsg => $epsg,
+        tile => $tile,
+        schema => $self->{schema},
+        data_dir => $self->{data_dir},
+        GDALVectorDataset => $self->{GDALVectorDataset},
+        cookie => $self->{cookie}, 
+        trail => $want});
+
+    unless ($epsg && $layer->{duck}) {
         my ($w, $h) = $tile->tile;
         my $ds = Geo::GDAL::Driver('GTiff')->Create(
             Name => "/vsimem/r.tiff", Width => $w, Height => $h);
@@ -116,36 +136,10 @@ sub process {
         return $ds;
     }
 
-    for my $key (sort keys %$params) {
-        #say STDERR "$key => ",($params->{$key} // 'undef');
-    }
-    
-    my @t = $tile->tile;
-    my @pw = $tile->projwin;
-    #say STDERR "@pw";
-    
-    my $want = $params->{layer} // $params->{layers};
-
-    # the client asks for plan_use_layer_rule_rule_...
-    # rules are those rules that the client wishes to be active
-    # no rules = all rules?
-
-    $self->{cookie} = $server->{request}->cookies->{SmartSea} // 'default';
-
-    my $style = $params->{style} // 'grayscale';
+    my $style = $params->{style} // $layer->style // 'grayscale';
     $style =~ s/-/_/g;
     $style =~ s/\W.*$//g;
     
-    my $layer = SmartSea::Layer->new({
-        epsg => $epsg,
-        tile => $tile,
-        schema => $self->{schema},
-        data_dir => $self->{data_dir},
-        GDALVectorDataset => $self->{GDALVectorDataset},
-        cookie => $self->{cookie}, 
-        trail => $want
-    });
-
     if ($want eq 'suomi') {
 
         #for my $key (sort keys %$params) {

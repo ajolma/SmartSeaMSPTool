@@ -114,7 +114,7 @@ sub legend {
         schema => $self->{schema},
         trail => $self->{parameters}{layer}});
 
-    unless ($layer) {
+    unless ($layer->{duck}) {
         my $image = GD::Image->new('/usr/share/icons/cab_view.png');
         return [ 200, [%header], [$image->png] ];
     }
@@ -136,7 +136,7 @@ sub legend {
         $image->line(0,$y,$colorWidth-1,$y,$color);
     }
 
-    my $style = $layer->style->name // 'grayscale';
+    my $style = $layer->style // 'grayscale';
     $style =~ s/-/_/g;
     my $palette = {palette => $style};
     my $classes = $layer->classes;

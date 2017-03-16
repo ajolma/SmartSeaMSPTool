@@ -22,10 +22,9 @@ use SmartSea::Core qw(:all);
 # may need trail, schema, tile, epsg, data_dir
 sub new {
     my ($class, $self) = @_;
-    my ($plan_id, $use_id, $layer_id, @rules) = split /\D+/, $self->{trail};
-    say STDERR "trail: $plan_id, $use_id, $layer_id, @rules";
-    
-    return bless $self, $class unless $plan_id;
+    my ($plan_id, $use_id, $layer_id, @rules) = split /_/, $self->{trail} // '';
+    #say STDERR "trail: $plan_id, $use_id, $layer_id, @rules";
+    return bless $self, $class unless $layer_id;
 
     if ($plan_id == 0) {
         $self->{dataset} = $self->{schema}->resultset('Dataset')->single({ id => $layer_id });
@@ -82,6 +81,16 @@ sub new {
     }
     
     return bless $self, $class;
+}
+
+sub style {
+    my ($self) = @_;
+    return $self->{duck}->style->name;
+}
+
+sub descr {
+    my ($self) = @_;
+    return $self->{duck}->descr;
 }
 
 sub classes {
