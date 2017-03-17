@@ -24,7 +24,11 @@ sub new {
     my ($class, $self) = @_;
     my $dsn = "dbi:Pg:dbname=$self->{dbname}";
     #$self->{dbh} = DBI->connect($dsn, $self->{user}, $self->{pass}, {});
-    $self->{schema} = SmartSea::Schema->connect($dsn, $self->{user}, $self->{pass}, {});
+    $self->{schema} = SmartSea::Schema->connect(
+        $dsn, 
+        $self->{user}, 
+        $self->{pass}, 
+        { on_connect_do => ['SET search_path TO tool,data,public'] });
     $dsn = "PG:dbname='$self->{dbname}' host='localhost' port='5432'";
     $self->{GDALVectorDataset} = Geo::GDAL::Open(
         Name => "$dsn user='$self->{user}' password='$self->{pass}'",
@@ -192,39 +196,8 @@ sub process {
 
     my $palette = SmartSea::Palette->new({palette => $style, classes => $layer->classes});
 
-    my ($min, $max) = $layer->range;
+    my $result = $layer->compute($palette->{classes}, $debug);
     
-    my $result = $layer->mask();
-    my $mask = $result->Band->Piddle; # 1 = target area, 0 not
-    $mask->inplace->setvaltobad(0);
-
-    my $y = $layer->compute($debug);
-    $y *= $mask;
-
-    my $nc = $palette->{classes};
-    if ($nc == 1) {
-        
-        # class = "true", map zero to bad, non-zero to 0
-        
-        $y = $y->setbadif($y == 0);
-        
-        $y->where($y > 0) .= 0;
-        $y->where($y < 0) .= 0;
-        
-    } else {
-        
-        # scale and bound to min .. max => 0 .. $nc-1
-        # note that the first and last ranges are half of others
-        --$nc;
-        $y = $nc*($y-$min)/($max-$min)+0.5;
-        $y->where($y > $nc) .= $nc;
-        $y->where($y < 0) .= 0;
-        
-    }
-
-    $y->inplace->setbadtoval(255);
-
-    $result->Band->Piddle(byte $y);
     $result->Band->ColorTable($palette->color_table);
 
     # if $layer is in fact a dataset

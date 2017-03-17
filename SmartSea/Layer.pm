@@ -107,12 +107,62 @@ sub range {
     return ($min, $max, $unit);
 }
 
+sub post_process {
+    my ($self, $y, $n_classes, $debug) = @_;
+
+    my $result = $self->mask();
+    my $mask = $result->Band->Piddle; # 1 = target area, 0 not
+    $mask->inplace->setvaltobad(0);
+    
+    if ($debug) {
+        say STDERR "post processing: classes = $n_classes";
+        print STDERR "mask:", $mask;
+    }    
+        
+    $y *= $mask;
+
+    if ($n_classes == 1) {
+
+        # class = "true", map zero to bad, non-zero to 0
+        
+        $y = $y->setbadif($y == 0);
+        
+        $y->where($y > 0) .= 0;
+        $y->where($y < 0) .= 0;
+        
+    } else {
+
+        my ($min, $max) = $self->range;
+        if ($debug) {
+            say STDERR "scale to $min .. $max";
+        }    
+        
+        # scale and bound to min .. max => 0 .. $nc-1
+        # note that the first and last ranges are half of others
+        $y = double $y;
+        --$n_classes;
+        $y = $n_classes*($y-$min)/($max-$min)+0.5;
+        $y->where($y > $n_classes) .= $n_classes;
+        $y->where($y < 0) .= 0;
+        
+    }
+
+    $y->inplace->setbadtoval(255);
+    $result->Band->Piddle(byte $y);
+    return $result
+}
+
 sub compute {
-    my ($self, $debug) = @_;
+    my ($self, $n_classes, $debug) = @_;
 
     if ($self->{dataset}) {
         my $result = $self->{dataset}->Piddle($self);
-        return $result;
+        if ($debug) {
+            my @stats = stats($result); # 3 and 4 are min and max
+            say STDERR "Dataset: ",$self->{dataset}->name;
+            say STDERR "  result min=$stats[3], max=$stats[4]";
+        }
+        return $self->post_process($result, $n_classes, $debug);
     }
 
     my $result = zeroes($self->{tile}->tile);
@@ -148,7 +198,7 @@ sub compute {
         $result->where($result > 1) .= 1;
     }
 
-    return $result;
+    return $self->post_process($result, $n_classes, $debug);
 }
 
 sub mask {

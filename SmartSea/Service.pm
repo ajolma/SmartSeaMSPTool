@@ -22,7 +22,11 @@ sub new {
     my ($class, $self) = @_;
     $self = Plack::Component->new($self);
     my $dsn = "dbi:Pg:dbname=$self->{dbname}";
-    $self->{schema} = SmartSea::Schema->connect($dsn, $self->{user}, $self->{pass}, {});
+    $self->{schema} = SmartSea::Schema->connect(
+        $dsn, 
+        $self->{user}, 
+        $self->{pass}, 
+        { on_connect_do => ['SET search_path TO tool,data,public'] });
     return bless $self, $class;
 }
 

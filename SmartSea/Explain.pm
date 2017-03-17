@@ -11,13 +11,17 @@ use SmartSea::Core qw(:all);
 
 use parent qw/Plack::Component/;
 
-binmode STDERR, ":utf8"; 
+binmode STDERR, ":utf8";
 
 sub new {
     my ($class, $self) = @_;
     $self = Plack::Component->new($self);
     my $dsn = "dbi:Pg:dbname=$self->{dbname}";
-    $self->{schema} = SmartSea::Schema->connect($dsn, $self->{user}, $self->{pass}, {});
+    $self->{schema} = SmartSea::Schema->connect(
+        $dsn, 
+        $self->{user}, 
+        $self->{pass}, 
+        { on_connect_do => ['SET search_path TO tool,data,public'] });
     $self->{mask} = Geo::GDAL::Open("$self->{data_dir}/mask.tiff");
     return bless $self, $class;
 }

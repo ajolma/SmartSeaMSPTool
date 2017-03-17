@@ -100,7 +100,7 @@ my %attributes = (
     }
     );
 
-__PACKAGE__->table('data.datasets');
+__PACKAGE__->table('datasets');
 __PACKAGE__->add_columns('id', keys %attributes);
 __PACKAGE__->set_primary_key('id');
 __PACKAGE__->belongs_to(custodian => 'SmartSea::Schema::Result::Organization');
