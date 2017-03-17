@@ -7,6 +7,7 @@ requires 'Test::Exception';
 requires 'Archive::Zip';
 requires 'JSON';
 requires 'HTML::Entities';
+requires 'Imager::Color';
 requires 'DBI';
 requires 'DBIx::Class';
 requires 'DBIx::Class::Schema';
