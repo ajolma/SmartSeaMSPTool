@@ -7,7 +7,7 @@ use Scalar::Util 'blessed';
 use SmartSea::Core qw(:all);
 use SmartSea::HTML qw(:all);
 
-__PACKAGE__->table('tool.layers');
+__PACKAGE__->table('layers');
 __PACKAGE__->add_columns(qw/ id name /);
 __PACKAGE__->set_primary_key('id');
 __PACKAGE__->has_many(plan2use2layer => 'SmartSea::Schema::Result::Plan2Use2Layer', 'layer');

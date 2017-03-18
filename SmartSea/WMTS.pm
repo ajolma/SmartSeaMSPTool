@@ -22,6 +22,8 @@ binmode STDERR, ":utf8";
 
 sub new {
     my ($class, $self) = @_;
+    $self->{data_dir} .= '/' unless $self->{data_dir} =~ /\/$/;
+    $self->{images} .= '/' unless $self->{images} =~ /\/$/;
     my $dsn = "dbi:Pg:dbname=$self->{dbname}";
     #$self->{dbh} = DBI->connect($dsn, $self->{user}, $self->{pass}, {});
     $self->{schema} = SmartSea::Schema->connect(

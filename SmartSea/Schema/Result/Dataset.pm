@@ -183,7 +183,7 @@ sub HTML_div {
             $info =~ s/user='(.*?)'/user='xxx'/;
             $info =~ s/password='(.*?)'/password='xxx'/;
         } else {
-            my $path = $args{data_dir}.'/'.$self->path;
+            my $path = $args{data_dir}.$self->path;
             my @info = `gdalinfo $path`;
             my $table;
             for (@info) {
@@ -247,7 +247,7 @@ sub HTML_form {
         if ($compute && $args{parameters}{compute}) {
             # min and max
             # assuming one band
-            my $b = Geo::GDAL::Open($args{data_dir}.'/'.$self->path)->Band;
+            my $b = Geo::GDAL::Open($args{data_dir}.$self->path)->Band;
             $b->ComputeStatistics(0);
             $values->{min_value} = $b->GetMinimum;
             $values->{max_value} = $b->GetMaximum;
@@ -386,7 +386,7 @@ sub Piddle {
 
             if ($rules->{epsg} == 3067) {
             
-                $b = Geo::GDAL::Open("$rules->{data_dir}/$path")
+                $b = Geo::GDAL::Open("$rules->{data_dir}$path")
                     ->Translate( "/vsimem/tmp.tiff", 
                                  [ -of => 'GTiff',
                                    -r => 'nearest',
@@ -397,7 +397,7 @@ sub Piddle {
             } else {
 
                 my $e = $tile->extent;
-                $b = Geo::GDAL::Open("$rules->{data_dir}/$path")
+                $b = Geo::GDAL::Open("$rules->{data_dir}$path")
                     ->Warp( "/vsimem/tmp.tiff", 
                             [ -of => 'GTiff', 
                               -r => 'near' ,

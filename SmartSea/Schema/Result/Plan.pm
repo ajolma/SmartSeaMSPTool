@@ -6,7 +6,7 @@ use base qw/DBIx::Class::Core/;
 use Scalar::Util 'blessed';
 use SmartSea::HTML qw(:all);
 
-__PACKAGE__->table('tool.plans');
+__PACKAGE__->table('plans');
 __PACKAGE__->add_columns(qw/ id name /);
 __PACKAGE__->set_primary_key('id');
 __PACKAGE__->has_many(plan2use => 'SmartSea::Schema::Result::Plan2Use', 'plan');

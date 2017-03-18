@@ -4,7 +4,7 @@ use warnings;
 use 5.010000;
 use base qw/DBIx::Class::Core/;
 
-__PACKAGE__->table('tool.plan2use2layer');
+__PACKAGE__->table('plan2use2layer');
 __PACKAGE__->add_columns(qw/ id plan2use layer rule_class min_value max_value classes style descr /);
 __PACKAGE__->set_primary_key(qw/ id /);
 __PACKAGE__->belongs_to(plan2use => 'SmartSea::Schema::Result::Plan2Use');

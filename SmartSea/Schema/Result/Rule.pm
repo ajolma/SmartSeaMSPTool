@@ -95,7 +95,7 @@ my %attributes = (
 # to combine multiple rules, multiply
 # suitability = multiply_all(w_r_1 ... w_r_n)
 
-__PACKAGE__->table('tool.rules');
+__PACKAGE__->table('rules');
 __PACKAGE__->add_columns('id', 'cookie', 'made', 'plan2use2layer', keys %attributes);
 __PACKAGE__->set_primary_key('id', 'cookie');
 
@@ -165,7 +165,9 @@ sub values {
 
 sub as_text {
     my ($self, %args) = @_;
-    return $self->r_dataset ? $self->r_dataset->long_name : 'error' if $self->plan2use2layer->layer->id == 1;
+    if ($self->plan2use2layer->layer->name eq 'Value') {
+        return $self->r_dataset ? $self->r_dataset->long_name : 'error';
+    }
     my $text;
     $text = $self->reduce ? "- If " : "+ If ";
     my $u = '';
@@ -353,8 +355,12 @@ sub apply {
     my $x_max = $self->max_value;
 
     if ($debug) {
-        my @stats = stats($x); # 3 and 4 are min and max
-        say STDERR "  operand min=$stats[3], max=$stats[4]";
+        if ($debug > 1) {
+            print STDERR $x;
+        } else {
+            my @stats = stats($x); # 3 and 4 are min and max
+            say STDERR "  operand min=$stats[3], max=$stats[4]";
+        }
     }
 
     my $w = $self->weight;

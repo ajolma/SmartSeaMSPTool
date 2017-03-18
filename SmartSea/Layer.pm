@@ -204,7 +204,7 @@ sub compute {
 sub mask {
     my $self = shift;
     my $tile = $self->{tile};
-    my $dataset = Geo::GDAL::Open("$self->{data_dir}/mask.tiff");
+    my $dataset = Geo::GDAL::Open($self->{data_dir}.'mask.tiff');
     if ($self->{epsg} == 3067) {
         $dataset = $dataset->Translate( 
             "/vsimem/tmp.tiff", 
