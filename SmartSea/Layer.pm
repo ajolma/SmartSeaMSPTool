@@ -29,63 +29,61 @@ sub new {
     if ($use_id == 0) {
         $self->{dataset} = $self->{schema}->resultset('Dataset')->single({ id => $layer_id });
         $self->{duck} = $self->{dataset};
-        return bless $self, $class;
-    }
-    
-    $self->{plan} = $self->{schema}->resultset('Plan')->single({ id => $plan_id });
-    $self->{use} = $self->{schema}->resultset('Use')->single({ id => $use_id });
-    $self->{layer} = $self->{schema}->resultset('Layer')->single({ id => $layer_id });
-
-    my $plan2use = $self->{schema}->resultset('Plan2Use')->single({
-        plan => $self->{plan}->id, 
-        use => $self->{use}->id
-    });
-    $self->{pul} = $self->{schema}->resultset('Plan2Use2Layer')->single({
-        plan2use => $plan2use->id, 
-        layer => $self->{layer}->id
-    });
-    $self->{duck} = $self->{pul};
-
-    $self->{rules} = [];
-    # rule list is optional
-    if (@rules) {
-        # rule order is defined by the client in this case
-        for my $id (@rules) {
-            # there may be default rule and a modified rule denoted with a cookie
-            # prefer the one with our cookie
-            my $rule;
-            for my $r ($self->{schema}->resultset('Rule')->search({ id => $id })) {
-                if ($r->cookie eq $self->{cookie}) {
-                    $rule = $r;
-                    last;
-                }
-                $rule = $r if $r->cookie eq DEFAULT;
-            }
-            # maybe we should test $rule->plan and $rule->use?
-            # and that the $rule->layer->id is the same?
-            push @{$self->{rules}}, $rule;
-        }
     } else {
-        my %rules;
-        for my $rule ($self->{pul}->rules) {
-            # prefer id/cookie pair to id/default, they have the same id
-            if (exists $rules{$rule->id}) {
-                $rules{$rule->id} = $rule if $rule->cookie eq $self->{cookie};
-            } else {
-                $rules{$rule->id} = $rule;
+        $self->{plan} = $self->{schema}->resultset('Plan')->single({ id => $plan_id });
+        $self->{use} = $self->{schema}->resultset('Use')->single({ id => $use_id });
+        $self->{layer} = $self->{schema}->resultset('Layer')->single({ id => $layer_id });
+
+        my $plan2use = $self->{schema}->resultset('Plan2Use')->single({
+            plan => $self->{plan}->id, 
+            use => $self->{use}->id });
+        $self->{pul} = $self->{schema}->resultset('Plan2Use2Layer')->single({
+            plan2use => $plan2use->id, 
+            layer => $self->{layer}->id });
+        $self->{duck} = $self->{pul};
+
+        $self->{rules} = [];
+        # rule list is optional
+        if (@rules) {
+            # rule order is defined by the client in this case
+            for my $id (@rules) {
+                # there may be default rule and a modified rule denoted with a cookie
+                # prefer the one with our cookie
+                my $rule;
+                for my $r ($self->{schema}->resultset('Rule')->search({ id => $id })) {
+                    if ($r->cookie eq $self->{cookie}) {
+                        $rule = $r;
+                        last;
+                    }
+                    $rule = $r if $r->cookie eq DEFAULT;
+                }
+                # maybe we should test $rule->plan and $rule->use?
+                # and that the $rule->layer->id is the same?
+                push @{$self->{rules}}, $rule;
+            }
+        } else {
+            my %rules;
+            for my $rule ($self->{pul}->rules) {
+                # prefer id/cookie pair to id/default, they have the same id
+                if (exists $rules{$rule->id}) {
+                    $rules{$rule->id} = $rule if $rule->cookie eq $self->{cookie};
+                } else {
+                    $rules{$rule->id} = $rule;
+                }
+            }
+            for my $i (sort {$rules{$a}->my_index <=> $rules{$b}->my_index} keys %rules) {
+                push @{$self->{rules}}, $rules{$i};
             }
         }
-        for my $i (sort {$rules{$a}->my_index <=> $rules{$b}->my_index} keys %rules) {
-            push @{$self->{rules}}, $rules{$i};
-        }
     }
-    
-    return bless $self, $class;
-}
 
-sub style {
-    my ($self) = @_;
-    return $self->{duck}->style->name;
+    my $style = $self->{style} // $self->{duck}->style->name // 'grayscale';
+    $style =~ s/-/_/g;
+    $style =~ s/\W.*$//g;
+    $self->{palette} = SmartSea::Palette->new(
+        {palette => $style, classes => $self->{duck}->classes});
+
+    return bless $self, $class;
 }
 
 sub descr {
@@ -95,7 +93,12 @@ sub descr {
 
 sub classes {
     my ($self) = @_;
-    return $self->{duck}->classes;
+    return $self->{palette}->classes;
+}
+
+sub color {
+    my ($self, $i) = @_;
+    return $self->{palette}->color($i);
 }
 
 sub range {
@@ -149,11 +152,14 @@ sub post_process {
 
     $y->inplace->setbadtoval(255);
     $result->Band->Piddle(byte $y);
+    $result->Band->ColorTable($self->{palette}->color_table);
     return $result
 }
 
 sub compute {
-    my ($self, $n_classes, $debug) = @_;
+    my ($self, $debug) = @_;
+
+    my $n_classes = $self->{palette}{classes};
 
     if ($self->{dataset}) {
         my $result = $self->{dataset}->Piddle($self);

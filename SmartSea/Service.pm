@@ -142,14 +142,10 @@ sub legend {
         $image->line(0,$y,$colorWidth-1,$y,$color);
     }
 
-    my $style = $layer->style // 'grayscale';
-    $style =~ s/-/_/g;
-    my $palette = SmartSea::Palette->new({palette => $style, classes => $layer->classes});
-
-    my $nc = $palette->{classes};
+    my $nc = $layer->classes;
     for my $y (0..$colorHeight-1) {
         my $i = $nc-1 - int($y/($colorHeight-1)*($nc-1)+0.5);
-        my $color = $image->colorAllocateAlpha($palette->color($i));
+        my $color = $image->colorAllocateAlpha($layer->color($i));
         $image->line(0, $y+$halfFontHeight, $colorWidth-1, $y+$halfFontHeight, $color);
     }
     for my $y ($imageHeight-$halfFontHeight+1..$imageHeight-1) {
@@ -160,8 +156,8 @@ sub legend {
     my $font = gdMediumBoldFont;
     $font = GD::Font->load($self->{images}.'/X_9x15_LE.gdf');
 
-    unless (exists $palette->{classes}) {
-        # this is for continuous data
+    unless (defined $nc) {
+        # this is for continuous data; never happens??
         $image->string($font, $colorWidth, -1, "- $max$unit", $color);
         $image->string($font, $colorWidth, $imageHeight-$fontHeight-2, "- $min$unit", $color);
     } else {

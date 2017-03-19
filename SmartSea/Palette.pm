@@ -119,6 +119,7 @@ sub is_discrete { # if not then is_continuous
 
 sub classes {
     my $self = shift;
+    return $self->{classes};
 }
 
 sub color {

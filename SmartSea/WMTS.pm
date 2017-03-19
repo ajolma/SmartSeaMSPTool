@@ -131,7 +131,8 @@ sub process {
         data_dir => $self->{data_dir},
         GDALVectorDataset => $self->{GDALVectorDataset},
         cookie => $self->{cookie}, 
-        trail => $want});
+        trail => $want,
+        style => $params->{style} });
 
     unless ($epsg && $layer->{duck}) {
         my ($w, $h) = $tile->tile;
@@ -143,10 +144,6 @@ sub process {
         say STDERR "NO EPSG!";
         return $ds;
     }
-
-    my $style = $params->{style} // $layer->style // 'grayscale';
-    $style =~ s/-/_/g;
-    $style =~ s/\W.*$//g;
     
     if ($want eq 'suomi') {
 
@@ -196,11 +193,7 @@ sub process {
         return $ds;
     }
 
-    my $palette = SmartSea::Palette->new({palette => $style, classes => $layer->classes});
-
-    my $result = $layer->compute($palette->{classes}, $debug);
-    
-    $result->Band->ColorTable($palette->color_table);
+    my $result = $layer->compute($debug);
 
     # if $layer is in fact a dataset
     # Cache-Control should be only max-age=seconds something

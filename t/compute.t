@@ -96,14 +96,16 @@ my $data_dir = '/vsimem/';
 
 $schema->resultset('Plan')->new({id => 1, name => 'plan'})->insert;
 $schema->resultset('Use')->new({id => 1, name => 'use'})->insert;
-$schema->resultset('Layer')->new({id => 1, name => 'layer_1'})->insert;
-$schema->resultset('Layer')->new({id => 2, name => 'layer_2'})->insert;
+for my $i (1..3) {
+    $schema->resultset('Layer')->new({id => $i, name => 'layer_'.$i})->insert;
+}
 
 $schema->resultset('Plan')->single({id => 1})
     ->create_related('plan2use', {id => 1, plan => 1, 'use' => 1});
 
 my $pul_id = 1; # sequence
 my $rule_id = 1; ## sequence
+my $dataset_id = 1;
 
 my $rule_class_rs = $schema->resultset('RuleClass');
 $rule_class_rs->new({id => 1, name => 'sequential'})->insert;
@@ -134,7 +136,7 @@ test_a_dataset_layer(debug => 0);
 # dataset + visualization = ?
 # pul + visualization =
 # visualization = min_value, max_value, classes, style, descr
-# base class rule = cookie, made, pul
+# base class rule = cookie, made, pul, class
 # rule that uses dataset = + dataset_id
 # rule that uses pul = + pul (is visualization needed?)
 # sequential rule = + reduce, op, value, index
@@ -147,16 +149,49 @@ test_a_dataset_layer(debug => 0);
 
 test_sequential_rules(debug => 0);
 test_multiplicative_rules(debug => 0);
+#test_additive_rules(debug => 2);
 
 done_testing();
+
+sub test_additive_rules {
+    my %args = @_;
+    my $style = $style_rs->single({id=>1}); #grayscale, no meaning here
+
+    my $dataset_1 = make_dataset('Byte', [[1,2,3],[4,5,6],[7,8,9]]);
+    my $dataset_2 = make_dataset('Float64', [[1,2,3],[4,5,6],[7,8,9]]);
+    
+    my $rule_class = $rule_class_rs->single({id=>3}); # multiplicative
+    my $layer = make_layer(
+        1,1,3, 
+        {
+            style => $style, 
+            rule_class => $rule_class, 
+            min_value => 0, 
+            max_value => 12,
+            classes => 4
+        },[{
+            based => { dataset_id => $dataset_1 },
+            data => { x_min => 1, x_max => 10, y_min => 0, y_max => 1, weight => 2 }
+           },{
+            based => { dataset_id => $dataset_2 },
+            data => { x_min => 1, x_max => 10, y_min => 0, y_max => 1, weight => 1 }
+           }]
+        );
+    my $result = $layer->compute($args{debug});
+    
+    my $output = $result->Band->ReadTile;
+    my $exp = [[255,0,0],[1,2,2],[0,0,0]];
+    my $ok = is_deeply($output, $exp, $rule_class->name());
+    print $result->Band->Piddle() if !$ok && $args{debug};
+
+}
 
 sub test_multiplicative_rules {
     my %args = @_;
     my $style = $style_rs->single({id=>1}); #grayscale, no meaning here
 
-    my $dataset_id = 1;
     my $datatype = 'Int32';
-    make_dataset($dataset_id, $datatype, [[1,2,3],[150,160,180],[0,16,17]]);
+    my $dataset_id = make_dataset($datatype, [[1,2,3],[150,160,180],[0,16,17]]);
     
     my $rule_class = $rule_class_rs->single({id=>2}); # multiplicative
     my $layer = make_layer(
@@ -172,13 +207,11 @@ sub test_multiplicative_rules {
             data => { x_min => 1, x_max => 200, y_min => 0, y_max => 1, weight => 2 }
            }]
         );
-    my $palette = SmartSea::Palette->new({palette => $style->name, classes => $layer->classes});
-    my $result = $layer->compute($palette->{classes}, $args{debug});
+    my $result = $layer->compute($args{debug});
     
     my $output = $result->Band->ReadTile;
     my $exp = [[255,0,0],[1,2,2],[0,0,0]];
-    my $ok = is_deeply($output, $exp, 
-                       $rule_class->name()." rules with dataset of $datatype and ".$style->name);
+    my $ok = is_deeply($output, $exp, $rule_class->name()." rules with dataset of $datatype");
     print $result->Band->Piddle() if !$ok && $args{debug};
 
 }
@@ -187,9 +220,8 @@ sub test_sequential_rules {
     my %args = @_;
     my $style = $style_rs->single({id=>1}); #grayscale, no meaning here
     
-    my $dataset_id = 1;
     my $datatype = 'Int32';
-    make_dataset($dataset_id, $datatype, [[1,2,3],[150,160,180],[0,16,17]]);
+    my $dataset_id = make_dataset($datatype, [[1,2,3],[150,160,180],[0,16,17]]);
  
     my $rule_class = $rule_class_rs->single({id=>1}); # sequential
     my $layer = make_layer(
@@ -205,13 +237,11 @@ sub test_sequential_rules {
             data => { reduce => 1, op_id => 1, value => 5.0, index => 1 }
            }]
         );
-    my $palette = SmartSea::Palette->new({palette => $style->name, classes => $layer->classes});
-    my $result = $layer->compute($palette->{classes}, $args{debug});
+    my $result = $layer->compute($args{debug});
 
     my $output = $result->Band->ReadTile;
     my $exp = [[255,1,1],[0,0,0],[1,0,0]];
-    my $ok = is_deeply($output, $exp, 
-                       $rule_class->name()." rules with dataset of $datatype and ".$style->name);
+    my $ok = is_deeply($output, $exp, $rule_class->name()." rules with dataset of $datatype");
     print $result->Band->Piddle() if !$ok && $args{debug};
 }
 
@@ -221,13 +251,12 @@ sub test_a_dataset_layer {
         for my $style ($style_rs->all) {
             for my $classes (undef, 2, 10) {
                 my $v = {range => [0,120], classes => $classes, style_id => $style->id};
-                make_dataset(1, $datatype, [[1,2,3],[150,160,180],[0,16,17]], $v);
+                my $dataset_id = make_dataset($datatype, [[1,2,3],[150,160,180],[0,16,17]], $v);
        
-                #print Geo::GDAL::Open(Name => $data_dir.'test.tiff')->Band->Piddle if $args{debug};
+                print Geo::GDAL::Open(Name => $data_dir.$dataset_id.'.tiff')->Band->Piddle if $args{debug};
                 
-                my $layer = make_layer(0,0,1);
-                my $palette = SmartSea::Palette->new({palette => $style->name, classes => $layer->classes});
-                my $result = $layer->compute($palette->{classes}, 0); #$args{debug});
+                my $layer = make_layer(0,0,$dataset_id);
+                my $result = $layer->compute($args{debug});
                 my $output = $result->Band->ReadTile;
                 
                 my $exp;
@@ -239,8 +268,8 @@ sub test_a_dataset_layer {
                     $exp = [[255,0,0],[9,9,9],[0,1,1]];
                 }
                 my $nclasses = $classes // 'undef';
-                my $ok = is_deeply($output, $exp, "dataset with $nclasses classes, $datatype and ".$style->name);
-                
+                my $ok = is_deeply($output, $exp, "dataset with $nclasses classes, $datatype");
+
                 print $result->Band->Piddle() if !$ok && $args{debug};
                 
             }
@@ -313,7 +342,7 @@ sub add_rule {
 }
 
 sub make_dataset {
-    my ($id, $datatype, $data, $visualization) = @_;
+    my ($datatype, $data, $visualization) = @_;
     # min_value, max_value, classes, style, descr
     $visualization //= {
         range => [undef,undef],
@@ -322,8 +351,8 @@ sub make_dataset {
         descr => undef
     };
     $dataset_rs->update_or_new(
-        {id => $id, 
-         name => "dataset_$id",
+        {id => $dataset_id,
+         name => "dataset_".$dataset_id,
          custodian => '',
          contact => '',
          descr => $visualization->{descr},
@@ -333,7 +362,7 @@ sub make_dataset {
          license => undef,
          attribution => '',
          disclaimer => '',
-         path => $id.'.tiff',
+         path => $dataset_id.'.tiff',
          unit => undef,
          min_value => $visualization->{range}[0],
          max_value => $visualization->{range}[1],
@@ -342,10 +371,12 @@ sub make_dataset {
         }, 
         {key => 'primary'})->insert;
     my $test = Geo::GDAL::Driver('GTiff')->Create(
-        Name => $data_dir."$id.tiff",
+        Name => $data_dir.$dataset_id.".tiff",
         Type => $datatype, 
         Width => $data_wh, 
         Height => $data_wh)->Band;
     $test->Dataset->GeoTransform($x_min,$cell_wh,0, $y_max,0,-$cell_wh);
     $test->WriteTile($data);
+    ++$dataset_id;
+    return $dataset_id-1;
 }
