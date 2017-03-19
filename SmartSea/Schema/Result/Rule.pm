@@ -351,9 +351,7 @@ sub apply {
 
     # the operand (x)
     my $x = $self->operand($rules);
-    my $x_min = $self->min_value;
-    my $x_max = $self->max_value;
-
+    
     if ($debug) {
         if ($debug > 1) {
             print STDERR $x;
@@ -363,21 +361,7 @@ sub apply {
         }
     }
 
-    my $w = $self->weight;
-
-    # output is y
-    my $y_min = $self->value_at_min // 0;
-    my $y_max = $self->value_at_max // 1;
-
-    if ($method =~ /^mult/) {
-
-        $y *= $w * ($y_min + ($x-$x_min)*($y_max-$y_min)/($x_max-$x_min));
-
-    } elsif ($method =~ /^add/) {
-
-        $y += $w * ($y_min + ($x-$x_min)*($y_max-$y_min)/($x_max-$x_min));
-
-    } elsif ($method =~ /^seq/) {
+    if ($method =~ /^seq/) {
         
         # if $rule->reduce then deallocate where the rule is true
         my $val = $self->reduce ? 0 : 1;
@@ -397,6 +381,25 @@ sub apply {
         }   
         else                    { $y .= $val; }
 
+    } else {
+        my $x_min = $self->min_value;
+        my $x_max = $self->max_value;
+        my $y_min = $self->value_at_min // 0;
+        my $y_max = $self->value_at_max // 1;
+        my $w = $self->weight;
+
+        my $kw = $w * ($y_max-$y_min)/($x_max-$x_min);
+        my $c = $w * $y_min - $kw * $x_min;
+
+        if ($method =~ /^mult/) {
+            
+            $y *= $kw * $x + $c;
+            
+        } elsif ($method =~ /^add/) {
+            
+            $y += $kw * $x + $c;
+            
+        }
     }
 }
 

@@ -174,8 +174,8 @@ sub compute {
     }
     
     if ($debug) {
-        my @stats = stats($result); # 3 and 4 are min and max
         say STDERR "Compute: ",$self->{plan}->name,' ',$self->{use}->name,' ',$self->{layer}->name;
+        my @stats = stats($result); # 3 and 4 are min and max
         say STDERR "  result min=$stats[3], max=$stats[4]";
     }
     for my $rule (@{$self->{rules}}) {
@@ -190,6 +190,9 @@ sub compute {
         }
     }
     if ($debug) {
+        if ($debug > 1) {
+            print STDERR $result;
+        }
         say STDERR "End compute";
     }
 

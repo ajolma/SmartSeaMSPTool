@@ -96,9 +96,14 @@ my $data_dir = '/vsimem/';
 
 $schema->resultset('Plan')->new({id => 1, name => 'plan'})->insert;
 $schema->resultset('Use')->new({id => 1, name => 'use'})->insert;
+$schema->resultset('Layer')->new({id => 1, name => 'layer_1'})->insert;
+$schema->resultset('Layer')->new({id => 2, name => 'layer_2'})->insert;
+
 $schema->resultset('Plan')->single({id => 1})
     ->create_related('plan2use', {id => 1, plan => 1, 'use' => 1});
-$schema->resultset('Layer')->new({id => 1, name => 'layer'})->insert;
+
+my $pul_id = 1; # sequence
+my $rule_id = 1; ## sequence
 
 my $rule_class_rs = $schema->resultset('RuleClass');
 $rule_class_rs->new({id => 1, name => 'sequential'})->insert;
@@ -126,63 +131,87 @@ test_a_dataset_layer(debug => 0);
 # test computing a layer
 # there are three methods a layer can be computed
 
-my $debug = 2;
+# dataset + visualization = ?
+# pul + visualization =
+# visualization = min_value, max_value, classes, style, descr
+# base class rule = cookie, made, pul
+# rule that uses dataset = + dataset_id
+# rule that uses pul = + pul (is visualization needed?)
+# sequential rule = + reduce, op, value, index
+#   y = (reduce ? 0 : 1) if x op value
+# multiplicative and additive rule = + x_min, x_max, y_min, y_max, weight
+#   y = w * (y_min + (x-x_min)*(y_max-y_min)/(x_max-x_min))
+#   y = wy_min + (x-x_min)*kw
+#   y = wy_min + kw*x - kwx_min
+#   y = kw*x + c
 
 test_sequential_rules(debug => 0);
+test_multiplicative_rules(debug => 0);
 
 done_testing();
 
+sub test_multiplicative_rules {
+    my %args = @_;
+    my $style = $style_rs->single({id=>1}); #grayscale, no meaning here
+
+    my $dataset_id = 1;
+    my $datatype = 'Int32';
+    make_dataset($dataset_id, $datatype, [[1,2,3],[150,160,180],[0,16,17]]);
+    
+    my $rule_class = $rule_class_rs->single({id=>2}); # multiplicative
+    my $layer = make_layer(
+        1,1,2, 
+        {
+            style => $style, 
+            rule_class => $rule_class, 
+            min_value => 0, 
+            max_value => 2, 
+            classes => 3
+        },[{
+            based => { dataset_id => $dataset_id },
+            data => { x_min => 1, x_max => 200, y_min => 0, y_max => 1, weight => 2 }
+           }]
+        );
+    my $palette = SmartSea::Palette->new({palette => $style->name, classes => $layer->classes});
+    my $result = $layer->compute($palette->{classes}, $args{debug});
+    
+    my $output = $result->Band->ReadTile;
+    my $exp = [[255,0,0],[1,2,2],[0,0,0]];
+    my $ok = is_deeply($output, $exp, 
+                       $rule_class->name()." rules with dataset of $datatype and ".$style->name);
+    print $result->Band->Piddle() if !$ok && $args{debug};
+
+}
+
 sub test_sequential_rules {
     my %args = @_;
-    my $rule_class = $rule_class_rs->single({id=>1}); # sequential
-    my $style = $style_rs->single({id=>1});
+    my $style = $style_rs->single({id=>1}); #grayscale, no meaning here
     
     my $dataset_id = 1;
-    my $classes = undef;
     my $datatype = 'Int32';
-    make_dataset($dataset_id, [0,120], $classes, $datatype, [[1,2,3],[150,160,180],[0,16,17]], $style->id);
-
-    my $pul = 1;
-    
-    my $rule = {
-        id => 1,
-        reduce => 1,
-        r_use => undef,
-        r_layer => undef,
-        r_plan => undef,
-        op => 1, # gte
-        value => 5.0,	
-        r_dataset => $dataset_id,
-        min_value => 0,
-        max_value => 1,
-        my_index => 1,
-        value_type => '',	
-        cookie => '',
-        made => undef,
-        value_at_min => 0,
-        value_at_max => 1,
-        weight => 1,
-        plan2use2layer => $pul
-    };
-    
-    $rule_rs->new($rule)->insert;
-    
+    make_dataset($dataset_id, $datatype, [[1,2,3],[150,160,180],[0,16,17]]);
+ 
+    my $rule_class = $rule_class_rs->single({id=>1}); # sequential
     my $layer = make_layer(
         1,1,1, 
         {
-            pul => $pul,
             style => $style, 
             rule_class => $rule_class, 
             min_value => 0, 
             max_value => 1, 
             classes => 2
-        });
+        },[{
+            based => { dataset_id => $dataset_id },
+            data => { reduce => 1, op_id => 1, value => 5.0, index => 1 }
+           }]
+        );
     my $palette = SmartSea::Palette->new({palette => $style->name, classes => $layer->classes});
     my $result = $layer->compute($palette->{classes}, $args{debug});
 
     my $output = $result->Band->ReadTile;
     my $exp = [[255,1,1],[0,0,0],[1,0,0]];
-    my $ok = is_deeply($output, $exp, $rule_class->name()."rules with dataset of $datatype and ".$style->name);
+    my $ok = is_deeply($output, $exp, 
+                       $rule_class->name()." rules with dataset of $datatype and ".$style->name);
     print $result->Band->Piddle() if !$ok && $args{debug};
 }
 
@@ -191,7 +220,8 @@ sub test_a_dataset_layer {
     for my $datatype (qw/Byte Int16 Int32 Float32 Float64/) {
         for my $style ($style_rs->all) {
             for my $classes (undef, 2, 10) {
-                make_dataset(1, [0,120], $classes, $datatype, [[1,2,3],[150,160,180],[0,16,17]], $style->id);
+                my $v = {range => [0,120], classes => $classes, style_id => $style->id};
+                make_dataset(1, $datatype, [[1,2,3],[150,160,180],[0,16,17]], $v);
        
                 #print Geo::GDAL::Open(Name => $data_dir.'test.tiff')->Band->Piddle if $args{debug};
                 
@@ -220,14 +250,13 @@ sub test_a_dataset_layer {
 }
 
 sub make_layer {
-    my ($plan_id, $use_id, $layer_id, $args) = @_;
+    my ($plan_id, $use_id, $layer_id, $args, $rules) = @_;
     if ($use_id > 0) {
-        $schema->resultset('Layer')->single({id => 1})->create_related
+        $schema->resultset('Layer')->single({id => $layer_id})->create_related
             ( 'plan2use2layer', 
               {
-                  id => $args->{pul},
-                  plan2use => 1, 
-                  layer => $layer_id,
+                  id => $pul_id,
+                  plan2use => 1,
                   rule_class => $args->{rule_class}->id,
                   style => $args->{style}->id,
                   min_value => $args->{min_value},
@@ -235,6 +264,11 @@ sub make_layer {
                   classes => $args->{classes}
               });
     }
+    for my $rule (@$rules) {
+        # $args->{rule_class}->id and $rule->{data} must match...
+        add_rule($pul_id, $rule->{based}, $rule->{data});
+    }
+    ++$pul_id;
     return SmartSea::Layer->new({
         epsg => $epsg,
         tile => $tile,
@@ -245,14 +279,54 @@ sub make_layer {
         trail => $plan_id.'_'.$use_id.'_'.$layer_id});
 }
 
+sub add_rule {
+    my ($pul, $based, $data) = @_;
+    my $rule = {
+        id => $rule_id,
+        min_value => 0,
+        max_value => 1,
+        cookie => '',
+        made => undef,
+        plan2use2layer => $pul
+    };
+    if ($based->{pul}) {
+        $rule->{r_plan} = $based->{pul}{plan_id};
+        $rule->{r_use} = $based->{pul}{use_id};
+        $rule->{r_layer} = $based->{pul}{layer_id};
+    } elsif ($based->{dataset_id}) {
+        $rule->{r_dataset} = $based->{dataset_id};
+    }
+    if ($data->{op_id}) {
+        $rule->{reduce} = $data->{reduce};
+        $rule->{op} = $data->{op_id};
+        $rule->{value} = $data->{value};
+        $rule->{my_index} = $data->{index};
+    } else {
+        $rule->{value_at_min} = $data->{'y_min'};
+        $rule->{value_at_max} = $data->{'y_max'};
+        $rule->{min_value} = $data->{x_min};
+        $rule->{max_value} = $data->{x_max};
+        $rule->{weight} = $data->{weight};
+    }
+    $rule_rs->new($rule)->insert;
+    ++$rule_id;
+}
+
 sub make_dataset {
-    my ($id, $range, $classes, $datatype, $data, $style_id) = @_;
+    my ($id, $datatype, $data, $visualization) = @_;
+    # min_value, max_value, classes, style, descr
+    $visualization //= {
+        range => [undef,undef],
+        classes => undef,
+        style_id => 1,
+        descr => undef
+    };
     $dataset_rs->update_or_new(
         {id => $id, 
          name => "dataset_$id",
          custodian => '',
          contact => '',
-         descr => '',
+         descr => $visualization->{descr},
          data_model => undef,
          is_a_part_of => undef,
          is_derived_from => undef,
@@ -261,10 +335,10 @@ sub make_dataset {
          disclaimer => '',
          path => $id.'.tiff',
          unit => undef,
-         min_value => $range->[0],
-         max_value => $range->[1],
-         classes => $classes,
-         style => $style_id
+         min_value => $visualization->{range}[0],
+         max_value => $visualization->{range}[1],
+         classes => $visualization->{classes},
+         style => $visualization->{style_id}
         }, 
         {key => 'primary'})->insert;
     my $test = Geo::GDAL::Driver('GTiff')->Create(
