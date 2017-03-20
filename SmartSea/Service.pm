@@ -214,12 +214,12 @@ sub plans {
                 single({plan => $plan->id, use => $use->id});
             my @layers;
             $search = defined $layer_id ? {layer => $layer_id}: undef;
-            for my $layer ($plan2use->layers($search, {order_by => {-desc => 'id'}})) {
-                my $pul = $self->{schema}->
-                    resultset('Plan2Use2Layer')->
-                    single({plan2use => $plan2use->id, layer => $layer->id});
+            for my $layer_class ($plan2use->layer_classes($search, {order_by => {-desc => 'id'}})) {
+                my $layer = $self->{schema}->
+                    resultset('Layer')->
+                    single({plan2use => $plan2use->id, layer_class => $layer_class->id});
                 my @rules;
-                for my $rule ($pul->rules(
+                for my $rule ($layer->rules(
                                   {
                                       cookie => DEFAULT
                                   },
@@ -229,9 +229,9 @@ sub plans {
                     push @rules, $rule->as_hashref_for_json
                 }
                 push @layers, {
-                    name => $layer->name,
-                    style => $pul->style->name,
-                    id => $layer->id, 
+                    name => $layer->layer_class->name,
+                    style => $layer->style2->color_scale->name,
+                    id => $layer->layer_class->id, 
                     use => $use->id, 
                     rules => \@rules};
             }
@@ -249,15 +249,15 @@ sub plans {
             next unless $dataset->path;
             next if defined $layer_id && $dataset->id != $layer_id;
             my $range = '';
-            if (defined $dataset->min_value) {
+            if (defined $dataset->style2->min) {
                 my $u = '';
                 $u = ' '.$dataset->my_unit->name if $dataset->my_unit;
-                $range = ' ('.$dataset->min_value."$u..".$dataset->max_value."$u)";
+                $range = ' ('.$dataset->style2->min."$u..".$dataset->style2->max."$u)";
             }
             push @datasets, {
                 name => $dataset->name, 
                 descr => $dataset->lineage,
-                style => $dataset->style->name.$range,
+                style => $dataset->style2->color_scale->name.$range,
                 id => $dataset->id, 
                 use => 0, 
                 rules => []};
@@ -267,6 +267,7 @@ sub plans {
             id => 0, 
             uses => [{name => 'Data', id => 0, plan => 0, layers => \@datasets}]};
     }
+    #print STDERR Dumper \@plans;
 
     # This is the first request made by the App, thus set the cookie
     # if there is not one. The cookie is only for the duration the

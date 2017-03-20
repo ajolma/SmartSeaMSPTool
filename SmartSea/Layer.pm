@@ -19,7 +19,7 @@ use SmartSea::Core qw(:all);
 # layer name is a sequence of integers separated with non-numbers (a trail)
 # trail = plan use layer [rule*]
 
-# may need trail, schema, tile, epsg, data_dir
+# may need trail, schema, tile, epsg, data_dir, style
 sub new {
     my ($class, $self) = @_;
     my ($plan_id, $use_id, $layer_id, @rules) = split /_/, $self->{trail} // '';
@@ -32,14 +32,14 @@ sub new {
     } else {
         $self->{plan} = $self->{schema}->resultset('Plan')->single({ id => $plan_id });
         $self->{use} = $self->{schema}->resultset('Use')->single({ id => $use_id });
-        $self->{layer} = $self->{schema}->resultset('Layer')->single({ id => $layer_id });
+        $self->{layer} = $self->{schema}->resultset('LayerClass')->single({ id => $layer_id });
 
         my $plan2use = $self->{schema}->resultset('Plan2Use')->single({
             plan => $self->{plan}->id, 
             use => $self->{use}->id });
-        $self->{pul} = $self->{schema}->resultset('Plan2Use2Layer')->single({
+        $self->{pul} = $self->{schema}->resultset('Layer')->single({
             plan2use => $plan2use->id, 
-            layer => $self->{layer}->id });
+            layer_class => $self->{layer}->id });
         $self->{duck} = $self->{pul};
 
         $self->{rules} = [];
@@ -77,11 +77,11 @@ sub new {
         }
     }
 
-    my $style = $self->{style} // $self->{duck}->style->name // 'grayscale';
-    $style =~ s/-/_/g;
-    $style =~ s/\W.*$//g;
+    my $color_scale = $self->{style} // $self->{duck}->style2->color_scale->name // 'grayscale';
+    $color_scale =~ s/-/_/g;
+    $color_scale =~ s/\W.*$//g;
     $self->{palette} = SmartSea::Palette->new(
-        {palette => $style, classes => $self->{duck}->classes});
+        {color_scale => $color_scale, classes => $self->{duck}->style2->classes});
 
     return bless $self, $class;
 }
@@ -103,8 +103,8 @@ sub color {
 
 sub range {
     my ($self) = @_;
-    my $min = $self->{duck}->min_value // 0;
-    my $max = $self->{duck}->max_value // 1;
+    my $min = $self->{duck}->style2->min // 0;
+    my $max = $self->{duck}->style2->max // 1;
     my $unit = $self->{duck}->my_unit ? ' '.$self->{duck}->my_unit->name : '';
     $max = $min if $max < $min;
     return ($min, $max, $unit);

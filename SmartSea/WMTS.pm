@@ -56,10 +56,10 @@ sub config {
                 resultset('Plan2Use')->
                 single({plan => $plan->id, use => $use->id});
             my @layers;
-            for my $layer ($plan2use->layers) {
+            for my $layer ($plan2use->layer_classes) {
                 my $pul = $self->{schema}->
-                    resultset('Plan2Use2Layer')->
-                    single({plan2use => $plan2use->id, layer => $layer->id});
+                    resultset('Layer')->
+                    single({plan2use => $plan2use->id, layer_class => $layer->id});
                 push @tilesets, {
                     Layers => $plan->id."_".$use->id."_".$layer->id,
                     'Format' => 'image/png',

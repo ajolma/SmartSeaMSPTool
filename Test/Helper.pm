@@ -73,14 +73,17 @@ sub create_sqlite_schemas {
             topo_sort($deps, \@sorted, $table, \%in_result);
         }
         for my $table (@sorted) {
-            push @lines, "CREATE TABLE $table(\n";
+            my @cols;
             my $f = 1;
             for my $col (sort keys %{$tables->{$schema}{$table}}) {
                 next if $col eq '+';
                 my $c = $f ? '' : ",\n";
-                push @lines, "$c  $col $tables->{$schema}{$table}{$col}";
+                push @cols, "$c $col $tables->{$schema}{$table}{$col}";
                 $f = 0;
             }
+            next unless @cols;
+            push @lines, "CREATE TABLE $table(\n";
+            push @lines, @cols;
             for my $col (sort keys %{$tables->{$schema}{$table}{'+'}}) {
                 push @lines, ",\n  $tables->{$schema}{$table}{'+'}{$col}";
             }

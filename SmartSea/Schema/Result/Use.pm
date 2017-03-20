@@ -40,7 +40,7 @@ sub get_object {
     if (@{$args{oids}}) {
         if ($args{oids}->[0] =~ /layer/) {
             $args{oids}->[0] =~ s/layer://;
-            return SmartSea::Schema::Result::Layer->get_object(%args);
+            return SmartSea::Schema::Result::LayerClass->get_object(%args);
         } elsif ($args{oids}->[0] =~ /activity/) {
             $args{oids}->[0] =~ s/activity://;
             return SmartSea::Schema::Result::Activity->get_object(%args);
@@ -166,7 +166,7 @@ sub HTML_div {
                     my $plan2use = $args{schema}->
                         resultset('Plan2Use')->
                         single({plan => $args{plan}, use => $self->id});
-                    my $layer = $args{schema}->resultset('Layer')->single({ id => $args{parameters}{layer} });
+                    my $layer = $args{schema}->resultset('LayerClass')->single({ id => $args{parameters}{layer} });
                     eval {
                         $plan2use->add_to_layers($layer);
                     };
@@ -189,7 +189,7 @@ sub HTML_div {
                     my $plan2use = $args{schema}->
                         resultset('Plan2Use')->
                         single({plan => $args{plan}, use => $self->id});
-                    my $layer = $args{schema}->resultset('Layer')->single({ id => $remove });
+                    my $layer = $args{schema}->resultset('LayerClass')->single({ id => $remove });
                     eval {
                         $plan2use->remove_from_layers($layer);
                     };
@@ -211,7 +211,8 @@ sub HTML_div {
             my $plan2use = $args{schema}->
                 resultset('Plan2Use')->
                 single({plan => $args{plan}, use => $self->id});
-            push @l, SmartSea::Schema::Result::Layer->HTML_list([$plan2use->layers], %args, named_item => 1);
+            push @l, SmartSea::Schema::Result::LayerClass->
+                HTML_list([$plan2use->layers], %args, named_item => 1);
             $args{action} = 'None'; # activities are added/removed only when uses are edited
         }
         $args{use} = $self->id;

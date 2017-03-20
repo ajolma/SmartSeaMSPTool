@@ -96,14 +96,14 @@ my %attributes = (
 # suitability = multiply_all(w_r_1 ... w_r_n)
 
 __PACKAGE__->table('rules');
-__PACKAGE__->add_columns('id', 'cookie', 'made', 'plan2use2layer', keys %attributes);
+__PACKAGE__->add_columns('id', 'cookie', 'made', 'layer', keys %attributes);
 __PACKAGE__->set_primary_key('id', 'cookie');
 
-__PACKAGE__->belongs_to(plan2use2layer => 'SmartSea::Schema::Result::Plan2Use2Layer');
+__PACKAGE__->belongs_to(layer => 'SmartSea::Schema::Result::Layer');
 
 __PACKAGE__->belongs_to(r_plan => 'SmartSea::Schema::Result::Plan');
 __PACKAGE__->belongs_to(r_use => 'SmartSea::Schema::Result::Use');
-__PACKAGE__->belongs_to(r_layer => 'SmartSea::Schema::Result::Layer');
+__PACKAGE__->belongs_to(r_layer => 'SmartSea::Schema::Result::LayerClass');
 
 __PACKAGE__->belongs_to(r_dataset => 'SmartSea::Schema::Result::Dataset');
 
@@ -129,7 +129,7 @@ sub create_col_data {
     my $class = shift;
     my %col_data;
     for my $parameters (@_) {
-        for my $col (qw/plan2use2layer cookie my_index r_dataset/) { # or r_plan, r_use, r_layer (or is that r_pul?)
+        for my $col (qw/layer cookie my_index r_dataset/) { # or r_plan, r_use, r_layer (or is that r_pul?)
             $col_data{$col} //= $parameters->{$col};
             say STDERR "create rule: $col => $parameters->{$col}" if defined $parameters->{$col};
         }
@@ -165,9 +165,9 @@ sub values {
 
 sub as_text {
     my ($self, %args) = @_;
-    if ($self->plan2use2layer->layer->name eq 'Value') {
-        return $self->r_dataset ? $self->r_dataset->long_name : 'error';
-    }
+    #if ($self->layer->layer_class->name eq 'Value') {
+    #    return $self->r_dataset ? $self->r_dataset->long_name : 'error';
+    #}
     my $text;
     $text = $self->reduce ? "- If " : "+ If ";
     my $u = '';
@@ -210,7 +210,7 @@ sub as_hashref_for_json {
 sub HTML_div {
     my ($self, $attributes, %args) = @_;
     my @l;
-    my $sequential = $self->plan2use2layer->rule_class->name =~ /^sequential/;
+    my $sequential = $self->layer->rule_class->name =~ /^sequential/;
     my @cols;
     if ($sequential) {
         @cols = (qw/r_plan r_use r_layer r_dataset reduce op value min_value max_value my_index/);
@@ -239,7 +239,7 @@ sub HTML_div {
 sub HTML_form {
     my ($self, $attributes, $values, %args) = @_;
     # todo: args.fixed to render some attributes to unchangeable (mainly plan, use, layer
-    my $pul = $self->plan2use2layer;
+    my $pul = $self->layer;
     my $plan = $pul->plan2use->plan;
     my $use = $pul->plan2use->use;
     my $layer = $pul->layer;
@@ -303,7 +303,7 @@ sub HTML_list {
         } else {
             $li = item($rule->r_dataset->name, $rule->id, %args, ref => 'this rule');
         }
-        my $plan2use2layer = $rule->plan2use2layer;
+        my $plan2use2layer = $rule->layer;
         my $plan2use = $plan2use2layer->plan2use;
         my $plan = $plan2use->plan;
         my $use = $plan2use->use;

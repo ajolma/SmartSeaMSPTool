@@ -98,7 +98,8 @@ CREATE TABLE datasets (
     max_value double precision,
     min_value double precision,
     style integer DEFAULT 2 NOT NULL,
-    classes integer
+    classes integer,
+    style2 integer NOT NULL
 );
 
 
@@ -108,7 +109,7 @@ ALTER TABLE datasets OWNER TO ajolma;
 -- Name: COLUMN datasets.classes; Type: COMMENT; Schema: data; Owner: ajolma
 --
 
-COMMENT ON COLUMN datasets.classes IS 'Leave to NULL if assumed continuous data';
+COMMENT ON COLUMN datasets.classes IS 'Leave to NULL if assumed continuous data, not used in rules';
 
 
 --
@@ -357,6 +358,18 @@ ALTER SEQUENCE activity2impact_type_id_seq OWNED BY activity2pressure.id;
 
 
 --
+-- Name: color_scales; Type: TABLE; Schema: tool; Owner: ajolma
+--
+
+CREATE TABLE color_scales (
+    id integer NOT NULL,
+    name text NOT NULL
+);
+
+
+ALTER TABLE color_scales OWNER TO ajolma;
+
+--
 -- Name: ecosystem_components; Type: TABLE; Schema: tool; Owner: ajolma
 --
 
@@ -489,16 +502,43 @@ ALTER SEQUENCE impacts_id_seq1 OWNED BY impacts.id;
 
 
 --
--- Name: layers; Type: TABLE; Schema: tool; Owner: ajolma
+-- Name: layer_classes; Type: TABLE; Schema: tool; Owner: ajolma
 --
 
-CREATE TABLE layers (
+CREATE TABLE layer_classes (
     id integer NOT NULL,
     name text NOT NULL
 );
 
 
+ALTER TABLE layer_classes OWNER TO ajolma;
+
+--
+-- Name: layers; Type: TABLE; Schema: tool; Owner: ajolma
+--
+
+CREATE TABLE layers (
+    plan2use integer NOT NULL,
+    layer_class integer NOT NULL,
+    id integer NOT NULL,
+    rule_class integer DEFAULT 1 NOT NULL,
+    max_value double precision DEFAULT 1,
+    style integer,
+    classes integer,
+    min_value double precision,
+    descr text,
+    style2 integer NOT NULL
+);
+
+
 ALTER TABLE layers OWNER TO ajolma;
+
+--
+-- Name: TABLE layers; Type: COMMENT; Schema: tool; Owner: ajolma
+--
+
+COMMENT ON TABLE layers IS 'Has similarities with data.datasets';
+
 
 --
 -- Name: layers_id_seq; Type: SEQUENCE; Schema: tool; Owner: ajolma
@@ -518,7 +558,7 @@ ALTER TABLE layers_id_seq OWNER TO ajolma;
 -- Name: layers_id_seq; Type: SEQUENCE OWNED BY; Schema: tool; Owner: ajolma
 --
 
-ALTER SEQUENCE layers_id_seq OWNED BY layers.id;
+ALTER SEQUENCE layers_id_seq OWNED BY layer_classes.id;
 
 
 --
@@ -568,32 +608,6 @@ CREATE TABLE plan2use (
 ALTER TABLE plan2use OWNER TO ajolma;
 
 --
--- Name: plan2use2layer; Type: TABLE; Schema: tool; Owner: ajolma
---
-
-CREATE TABLE plan2use2layer (
-    plan2use integer NOT NULL,
-    layer integer NOT NULL,
-    id integer NOT NULL,
-    rule_class integer DEFAULT 1 NOT NULL,
-    max_value double precision DEFAULT 1 NOT NULL,
-    style integer NOT NULL,
-    classes integer,
-    min_value double precision,
-    descr text
-);
-
-
-ALTER TABLE plan2use2layer OWNER TO ajolma;
-
---
--- Name: TABLE plan2use2layer; Type: COMMENT; Schema: tool; Owner: ajolma
---
-
-COMMENT ON TABLE plan2use2layer IS 'Has similarities with data.datasets';
-
-
---
 -- Name: plan2use2layer_id_seq; Type: SEQUENCE; Schema: tool; Owner: ajolma
 --
 
@@ -611,7 +625,7 @@ ALTER TABLE plan2use2layer_id_seq OWNER TO ajolma;
 -- Name: plan2use2layer_id_seq; Type: SEQUENCE OWNED BY; Schema: tool; Owner: ajolma
 --
 
-ALTER SEQUENCE plan2use2layer_id_seq OWNED BY plan2use2layer.id;
+ALTER SEQUENCE plan2use2layer_id_seq OWNED BY layers.id;
 
 
 --
@@ -764,31 +778,94 @@ CREATE TABLE rules (
     value_at_min double precision DEFAULT 0,
     value_at_max double precision DEFAULT 1,
     weight double precision DEFAULT 1,
-    plan2use2layer integer NOT NULL
+    layer integer NOT NULL
 );
 
 
 ALTER TABLE rules OWNER TO ajolma;
 
 --
+-- Name: COLUMN rules.reduce; Type: COMMENT; Schema: tool; Owner: ajolma
+--
+
+COMMENT ON COLUMN rules.reduce IS 'for sequential rules, does this remove area?';
+
+
+--
+-- Name: COLUMN rules.r_use; Type: COMMENT; Schema: tool; Owner: ajolma
+--
+
+COMMENT ON COLUMN rules.r_use IS 'reference to other pul';
+
+
+--
+-- Name: COLUMN rules.r_layer; Type: COMMENT; Schema: tool; Owner: ajolma
+--
+
+COMMENT ON COLUMN rules.r_layer IS 'reference to other pul';
+
+
+--
+-- Name: COLUMN rules.r_plan; Type: COMMENT; Schema: tool; Owner: ajolma
+--
+
+COMMENT ON COLUMN rules.r_plan IS 'reference to other pul';
+
+
+--
 -- Name: COLUMN rules.value; Type: COMMENT; Schema: tool; Owner: ajolma
 --
 
-COMMENT ON COLUMN rules.value IS 'threshold';
+COMMENT ON COLUMN rules.value IS 'threshold, used together with op';
+
+
+--
+-- Name: COLUMN rules.r_dataset; Type: COMMENT; Schema: tool; Owner: ajolma
+--
+
+COMMENT ON COLUMN rules.r_dataset IS 'data for this this rule (alternative to reference pul)';
+
+
+--
+-- Name: COLUMN rules.my_index; Type: COMMENT; Schema: tool; Owner: ajolma
+--
+
+COMMENT ON COLUMN rules.my_index IS 'for sequential rules, the order';
+
+
+--
+-- Name: COLUMN rules.value_type; Type: COMMENT; Schema: tool; Owner: ajolma
+--
+
+COMMENT ON COLUMN rules.value_type IS 'for sequential rules';
 
 
 --
 -- Name: COLUMN rules.value_at_min; Type: COMMENT; Schema: tool; Owner: ajolma
 --
 
-COMMENT ON COLUMN rules.value_at_min IS '0 to 1, less than value_at_max';
+COMMENT ON COLUMN rules.value_at_min IS 'for additive and multiplicative rules. 0 to 1, less than value_at_max';
 
 
 --
 -- Name: COLUMN rules.value_at_max; Type: COMMENT; Schema: tool; Owner: ajolma
 --
 
-COMMENT ON COLUMN rules.value_at_max IS '0 to 1, greater than value_at_max';
+COMMENT ON COLUMN rules.value_at_max IS 'for additive and multiplicative rules. 0 to 1, greater than value_at_max';
+
+
+--
+-- Name: COLUMN rules.weight; Type: COMMENT; Schema: tool; Owner: ajolma
+--
+
+COMMENT ON COLUMN rules.weight IS 'for additive and multiplicative rules';
+
+
+--
+-- Name: COLUMN rules.layer; Type: COMMENT; Schema: tool; Owner: ajolma
+--
+
+COMMENT ON COLUMN rules.layer IS 'which layer this rule is used to create';
 
 
 --
@@ -818,7 +895,11 @@ ALTER SEQUENCE rules_id_seq OWNED BY rules.id;
 
 CREATE TABLE styles (
     id integer NOT NULL,
-    name text NOT NULL
+    color_scale integer,
+    min double precision,
+    max double precision,
+    classes integer,
+    scales text
 );
 
 
@@ -842,7 +923,28 @@ ALTER TABLE styles_id_seq OWNER TO ajolma;
 -- Name: styles_id_seq; Type: SEQUENCE OWNED BY; Schema: tool; Owner: ajolma
 --
 
-ALTER SEQUENCE styles_id_seq OWNED BY styles.id;
+ALTER SEQUENCE styles_id_seq OWNED BY color_scales.id;
+
+
+--
+-- Name: styles_id_seq1; Type: SEQUENCE; Schema: tool; Owner: ajolma
+--
+
+CREATE SEQUENCE styles_id_seq1
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE styles_id_seq1 OWNER TO ajolma;
+
+--
+-- Name: styles_id_seq1; Type: SEQUENCE OWNED BY; Schema: tool; Owner: ajolma
+--
+
+ALTER SEQUENCE styles_id_seq1 OWNED BY styles.id;
 
 
 --
@@ -976,6 +1078,13 @@ ALTER TABLE ONLY activity2pressure ALTER COLUMN id SET DEFAULT nextval('activity
 -- Name: id; Type: DEFAULT; Schema: tool; Owner: ajolma
 --
 
+ALTER TABLE ONLY color_scales ALTER COLUMN id SET DEFAULT nextval('styles_id_seq'::regclass);
+
+
+--
+-- Name: id; Type: DEFAULT; Schema: tool; Owner: ajolma
+--
+
 ALTER TABLE ONLY ecosystem_components ALTER COLUMN id SET DEFAULT nextval('ecosystem_components_id_seq'::regclass);
 
 
@@ -990,7 +1099,14 @@ ALTER TABLE ONLY impacts ALTER COLUMN id SET DEFAULT nextval('impacts_id_seq1'::
 -- Name: id; Type: DEFAULT; Schema: tool; Owner: ajolma
 --
 
-ALTER TABLE ONLY layers ALTER COLUMN id SET DEFAULT nextval('layers_id_seq'::regclass);
+ALTER TABLE ONLY layer_classes ALTER COLUMN id SET DEFAULT nextval('layers_id_seq'::regclass);
+
+
+--
+-- Name: id; Type: DEFAULT; Schema: tool; Owner: ajolma
+--
+
+ALTER TABLE ONLY layers ALTER COLUMN id SET DEFAULT nextval('plan2use2layer_id_seq'::regclass);
 
 
 --
@@ -1005,13 +1121,6 @@ ALTER TABLE ONLY ops ALTER COLUMN id SET DEFAULT nextval('ops_id_seq'::regclass)
 --
 
 ALTER TABLE ONLY plan2use ALTER COLUMN id SET DEFAULT nextval('plan2use_id_seq'::regclass);
-
-
---
--- Name: id; Type: DEFAULT; Schema: tool; Owner: ajolma
---
-
-ALTER TABLE ONLY plan2use2layer ALTER COLUMN id SET DEFAULT nextval('plan2use2layer_id_seq'::regclass);
 
 
 --
@@ -1053,7 +1162,7 @@ ALTER TABLE ONLY rules ALTER COLUMN id SET DEFAULT nextval('rules_id_seq'::regcl
 -- Name: id; Type: DEFAULT; Schema: tool; Owner: ajolma
 --
 
-ALTER TABLE ONLY styles ALTER COLUMN id SET DEFAULT nextval('styles_id_seq'::regclass);
+ALTER TABLE ONLY styles ALTER COLUMN id SET DEFAULT nextval('styles_id_seq1'::regclass);
 
 
 --
@@ -1230,7 +1339,7 @@ ALTER TABLE ONLY pressures
 -- Name: layers_data_key; Type: CONSTRAINT; Schema: tool; Owner: ajolma
 --
 
-ALTER TABLE ONLY layers
+ALTER TABLE ONLY layer_classes
     ADD CONSTRAINT layers_data_key UNIQUE (name);
 
 
@@ -1238,7 +1347,7 @@ ALTER TABLE ONLY layers
 -- Name: layers_pkey; Type: CONSTRAINT; Schema: tool; Owner: ajolma
 --
 
-ALTER TABLE ONLY layers
+ALTER TABLE ONLY layer_classes
     ADD CONSTRAINT layers_pkey PRIMARY KEY (id);
 
 
@@ -1254,7 +1363,7 @@ ALTER TABLE ONLY ops
 -- Name: plan2use2layer_pkey; Type: CONSTRAINT; Schema: tool; Owner: ajolma
 --
 
-ALTER TABLE ONLY plan2use2layer
+ALTER TABLE ONLY layers
     ADD CONSTRAINT plan2use2layer_pkey PRIMARY KEY (id);
 
 
@@ -1262,8 +1371,8 @@ ALTER TABLE ONLY plan2use2layer
 -- Name: plan2use2layer_plan2use_layer_key; Type: CONSTRAINT; Schema: tool; Owner: ajolma
 --
 
-ALTER TABLE ONLY plan2use2layer
-    ADD CONSTRAINT plan2use2layer_plan2use_layer_key UNIQUE (plan2use, layer);
+ALTER TABLE ONLY layers
+    ADD CONSTRAINT plan2use2layer_plan2use_layer_key UNIQUE (plan2use, layer_class);
 
 
 --
@@ -1334,8 +1443,16 @@ ALTER TABLE ONLY rules
 -- Name: styles_pkey; Type: CONSTRAINT; Schema: tool; Owner: ajolma
 --
 
-ALTER TABLE ONLY styles
+ALTER TABLE ONLY color_scales
     ADD CONSTRAINT styles_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: styles_pkey1; Type: CONSTRAINT; Schema: tool; Owner: ajolma
+--
+
+ALTER TABLE ONLY styles
+    ADD CONSTRAINT styles_pkey1 PRIMARY KEY (id);
 
 
 --
@@ -1371,6 +1488,14 @@ ALTER TABLE ONLY uses
 
 
 SET search_path = data, pg_catalog;
+
+--
+-- Name: datasets__style_fkey; Type: FK CONSTRAINT; Schema: data; Owner: ajolma
+--
+
+ALTER TABLE ONLY datasets
+    ADD CONSTRAINT datasets__style_fkey FOREIGN KEY (style2) REFERENCES tool.styles(id);
+
 
 --
 -- Name: datasets_custodian_fkey; Type: FK CONSTRAINT; Schema: data; Owner: ajolma
@@ -1417,7 +1542,7 @@ ALTER TABLE ONLY datasets
 --
 
 ALTER TABLE ONLY datasets
-    ADD CONSTRAINT datasets_style_fkey FOREIGN KEY (style) REFERENCES tool.styles(id);
+    ADD CONSTRAINT datasets_style_fkey FOREIGN KEY (style) REFERENCES tool.color_scales(id);
 
 
 --
@@ -1471,10 +1596,18 @@ ALTER TABLE ONLY pressures
 
 
 --
+-- Name: layers__style_fkey; Type: FK CONSTRAINT; Schema: tool; Owner: ajolma
+--
+
+ALTER TABLE ONLY layers
+    ADD CONSTRAINT layers__style_fkey FOREIGN KEY (style2) REFERENCES styles(id);
+
+
+--
 -- Name: plan2use2layer_plan2use_fkey; Type: FK CONSTRAINT; Schema: tool; Owner: ajolma
 --
 
-ALTER TABLE ONLY plan2use2layer
+ALTER TABLE ONLY layers
     ADD CONSTRAINT plan2use2layer_plan2use_fkey FOREIGN KEY (plan2use) REFERENCES plan2use(id);
 
 
@@ -1482,7 +1615,7 @@ ALTER TABLE ONLY plan2use2layer
 -- Name: plan2use2layer_rule_class_fkey; Type: FK CONSTRAINT; Schema: tool; Owner: ajolma
 --
 
-ALTER TABLE ONLY plan2use2layer
+ALTER TABLE ONLY layers
     ADD CONSTRAINT plan2use2layer_rule_class_fkey FOREIGN KEY (rule_class) REFERENCES rule_classes(id);
 
 
@@ -1490,8 +1623,8 @@ ALTER TABLE ONLY plan2use2layer
 -- Name: plan2use2layer_style_fkey; Type: FK CONSTRAINT; Schema: tool; Owner: ajolma
 --
 
-ALTER TABLE ONLY plan2use2layer
-    ADD CONSTRAINT plan2use2layer_style_fkey FOREIGN KEY (style) REFERENCES styles(id);
+ALTER TABLE ONLY layers
+    ADD CONSTRAINT plan2use2layer_style_fkey FOREIGN KEY (style) REFERENCES color_scales(id);
 
 
 --
@@ -1515,7 +1648,7 @@ ALTER TABLE ONLY plan2use
 --
 
 ALTER TABLE ONLY rules
-    ADD CONSTRAINT rules_plan2use2layer_fkey FOREIGN KEY (plan2use2layer) REFERENCES plan2use2layer(id);
+    ADD CONSTRAINT rules_plan2use2layer_fkey FOREIGN KEY (layer) REFERENCES layers(id);
 
 
 --
@@ -1531,7 +1664,7 @@ ALTER TABLE ONLY rules
 --
 
 ALTER TABLE ONLY rules
-    ADD CONSTRAINT rules_r_layer_fkey FOREIGN KEY (r_layer) REFERENCES layers(id);
+    ADD CONSTRAINT rules_r_layer_fkey FOREIGN KEY (r_layer) REFERENCES layer_classes(id);
 
 
 --
@@ -1559,6 +1692,14 @@ ALTER TABLE ONLY rules
 
 
 --
+-- Name: styles_color_scale_fkey; Type: FK CONSTRAINT; Schema: tool; Owner: ajolma
+--
+
+ALTER TABLE ONLY styles
+    ADD CONSTRAINT styles_color_scale_fkey FOREIGN KEY (color_scale) REFERENCES color_scales(id);
+
+
+--
 -- Name: use2activity_activity_fkey; Type: FK CONSTRAINT; Schema: tool; Owner: ajolma
 --
 
@@ -1578,8 +1719,8 @@ ALTER TABLE ONLY use2activity
 -- Name: use2layer_layer_fkey; Type: FK CONSTRAINT; Schema: tool; Owner: ajolma
 --
 
-ALTER TABLE ONLY plan2use2layer
-    ADD CONSTRAINT use2layer_layer_fkey FOREIGN KEY (layer) REFERENCES layers(id);
+ALTER TABLE ONLY layers
+    ADD CONSTRAINT use2layer_layer_fkey FOREIGN KEY (layer_class) REFERENCES layer_classes(id);
 
 
 --
@@ -1709,6 +1850,16 @@ GRANT ALL ON SEQUENCE activity2impact_type_id_seq TO smartsea;
 
 
 --
+-- Name: color_scales; Type: ACL; Schema: tool; Owner: ajolma
+--
+
+REVOKE ALL ON TABLE color_scales FROM PUBLIC;
+REVOKE ALL ON TABLE color_scales FROM ajolma;
+GRANT ALL ON TABLE color_scales TO ajolma;
+GRANT ALL ON TABLE color_scales TO smartsea;
+
+
+--
 -- Name: ecosystem_components; Type: ACL; Schema: tool; Owner: ajolma
 --
 
@@ -1750,6 +1901,17 @@ GRANT ALL ON SEQUENCE impacts_id_seq1 TO smartsea;
 
 
 --
+-- Name: layer_classes; Type: ACL; Schema: tool; Owner: ajolma
+--
+
+REVOKE ALL ON TABLE layer_classes FROM PUBLIC;
+REVOKE ALL ON TABLE layer_classes FROM ajolma;
+GRANT ALL ON TABLE layer_classes TO ajolma;
+GRANT SELECT ON TABLE layer_classes TO PUBLIC;
+GRANT ALL ON TABLE layer_classes TO smartsea;
+
+
+--
 -- Name: layers; Type: ACL; Schema: tool; Owner: ajolma
 --
 
@@ -1788,17 +1950,6 @@ REVOKE ALL ON TABLE plan2use FROM PUBLIC;
 REVOKE ALL ON TABLE plan2use FROM ajolma;
 GRANT ALL ON TABLE plan2use TO ajolma;
 GRANT ALL ON TABLE plan2use TO smartsea;
-
-
---
--- Name: plan2use2layer; Type: ACL; Schema: tool; Owner: ajolma
---
-
-REVOKE ALL ON TABLE plan2use2layer FROM PUBLIC;
-REVOKE ALL ON TABLE plan2use2layer FROM ajolma;
-GRANT ALL ON TABLE plan2use2layer TO ajolma;
-GRANT SELECT ON TABLE plan2use2layer TO PUBLIC;
-GRANT ALL ON TABLE plan2use2layer TO smartsea;
 
 
 --

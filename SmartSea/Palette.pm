@@ -16,7 +16,7 @@ binmode STDERR, ":utf8";
 #     255 for transparent
 
 sub new {
-    my ($class, $self) = @_; # known arguments: palette, classes (>=1)
+    my ($class, $self) = @_; # known arguments: color_scale, classes (>=1)
 
     $self = {} unless $self;
     if (defined $self->{classes}) {
@@ -29,7 +29,7 @@ sub new {
     $self->{color_table} = Geo::GDAL::ColorTable->new();
     my $n = $self->{classes};
         
-    if ($self->{palette} eq 'inverse_grayscale') { # white to black
+    if ($self->{color_scale} eq 'inverse_grayscale') { # white to black
 
         my $k = 1/($n-1);
 
@@ -40,7 +40,7 @@ sub new {
             $self->{color_table}->Color($c, [$hsv->rgba]);
         }
         
-    } elsif ($self->{palette} eq 'red_to_green') { # hue 0 -> 120
+    } elsif ($self->{color_scale} eq 'red_to_green') { # hue 0 -> 120
 
         my $k = 120/($n-1);
 
@@ -51,7 +51,7 @@ sub new {
             $self->{color_table}->Color($c, [$hsv->rgba]);
         }
         
-    } elsif ($self->{palette} eq 'green_to_red') { # hue 120 -> 0
+    } elsif ($self->{color_scale} eq 'green_to_red') { # hue 120 -> 0
 
         my $k = 120/($n-1);
 
@@ -62,7 +62,7 @@ sub new {
             $self->{color_table}->Color($c, [$hsv->rgba]);
         }
         
-    } elsif ($self->{palette} eq 'water_depth') { # hue 182 -> 237
+    } elsif ($self->{color_scale} eq 'water_depth') { # hue 182 -> 237
 
         my $k = 1/($n-1);
 
@@ -73,17 +73,17 @@ sub new {
             $self->{color_table}->Color($c, [$hsv->rgba]);
         }
         
-    } elsif ($self->{palette} eq 'green') {
+    } elsif ($self->{color_scale} eq 'green') {
 
         $self->{classes} = 1;
         $self->{color_table}->Color(0, [0,255,0,255]);
 
-    } elsif ($self->{palette} eq 'black') {
+    } elsif ($self->{color_scale} eq 'black') {
 
         $self->{classes} = 1;
         $self->{color_table}->Color(0, [0,0,0,255]);
         
-    } elsif ($self->{palette} eq 'browns') { # value 1 -> 0.3
+    } elsif ($self->{color_scale} eq 'browns') { # value 1 -> 0.3
 
         my $k = 1/($n-1);
 
@@ -95,7 +95,7 @@ sub new {
         }
         
     } else { # black to white
-        $self->{palette} = 'grayscale';
+        $self->{color_scale} = 'grayscale';
 
         my $k = 1/($n-1);
 

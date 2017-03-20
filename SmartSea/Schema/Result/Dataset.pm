@@ -75,25 +75,7 @@ my %attributes = (
         class => 'Unit',
         allow_null => 1
     },
-    min_value => {
-        i => 13,
-        input => 'text',
-        allow_null => 1,
-        empty_is_null => 1
-    },
-    max_value => {
-        i => 14,
-        input => 'text',
-        allow_null => 1,
-        empty_is_null => 1
-    },
-    classes => {
-        i => 15,
-        input => 'text',
-        allow_null => 1,
-        empty_is_null => 1
-    },
-    style => {
+    style2 => {
         i => 16,
         input => 'lookup',
         class => 'Style'
@@ -109,7 +91,7 @@ __PACKAGE__->belongs_to(is_a_part_of => 'SmartSea::Schema::Result::Dataset');
 __PACKAGE__->belongs_to(is_derived_from => 'SmartSea::Schema::Result::Dataset');
 __PACKAGE__->belongs_to(license => 'SmartSea::Schema::Result::License');
 __PACKAGE__->belongs_to(unit => 'SmartSea::Schema::Result::Unit');
-__PACKAGE__->belongs_to(style => 'SmartSea::Schema::Result::Style');
+__PACKAGE__->belongs_to(style2 => 'SmartSea::Schema::Result::Style');
 
 sub my_unit {
     my $self = shift;
