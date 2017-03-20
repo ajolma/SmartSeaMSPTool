@@ -17,42 +17,7 @@ my ($name,$path,$suffix) = fileparse($0, 'pl', 't');
 my ($tables, $deps, $indexes) = read_postgresql_dump($path.'../schema.sql');
 my $schemas = create_sqlite_schemas($tables, $deps, $indexes);
 
-my $data_schema  = SmartSea::Schema->connect(
-    'dbi:SQLite:data.db', undef, undef, 
-    {on_connect_do => ["ATTACH 'tool.db' AS aux"]});
-my $tool_schema  = SmartSea::Schema->connect(
-    'dbi:SQLite:tool.db', undef, undef, 
-    {on_connect_do => ["ATTACH 'data.db' AS aux"]});
-
-{
-    package Schema;
-    sub new {
-        my ($class, $self) = @_;
-        return bless $self, $class;
-    }
-    sub resultset {
-        my ($self, $class) = @_;
-        for my $s (@$self) {
-            return $s->[0]->resultset($class) if $s->[1]{$class};
-        }
-        say STDERR "missing $class";
-    }
-}
-
-my $schema = Schema->new(
-    [
-     [$data_schema, {Dataset => 1}], 
-     [$tool_schema, 
-      { Style => 1,
-        ColorScale => 1,
-        Plan => 1, 
-        Use => 1, 
-        Plan2Use => 1, 
-        LayerClass => 1, 
-        Layer => 1, 
-        RuleClass => 1,
-        Op => 1,
-        Rule => 1 }]]);
+my $schema = one_schema();
 
 # the tile that we'll ask the layer to compute
 {
@@ -125,7 +90,7 @@ my $dataset_rs = $schema->resultset('Dataset');
 my $rule_rs = $schema->resultset('Rule');
 
 # sequences
-my $pul_id = 1;
+my $layer_id = 1;
 my $rule_id = 1; 
 my $dataset_id = 1;
 my $style_id = 1;
@@ -280,7 +245,7 @@ sub test_a_dataset_layer {
 }
 
 sub make_layer {
-    my ($plan_id, $use_id, $layer_id, $style, $rule_class, $rules) = @_;
+    my ($plan_id, $use_id, $layer_class_id, $style, $rule_class, $rules) = @_;
     if ($use_id > 0) {
         $style_rs->new({
             id => $style_id, 
@@ -288,10 +253,10 @@ sub make_layer {
             min => $style->{min},
             max => $style->{max},
             classes => $style->{classes} })->insert;
-        $schema->resultset('LayerClass')->single({id => $layer_id})->create_related
-            ( 'layer', 
+        $schema->resultset('LayerClass')->single({id => $layer_class_id})->create_related
+            ( 'layers', 
               {
-                  id => $pul_id,
+                  id => $layer_id,
                   plan2use => 1,
                   rule_class => $rule_class->id,
                   style2 => $style_id
@@ -300,9 +265,9 @@ sub make_layer {
     }
     for my $rule (@$rules) {
         # $args->{rule_class}->id and $rule->{data} must match...
-        add_rule($pul_id, $rule->{based}, $rule->{data});
+        add_rule($layer_id, $rule->{based}, $rule->{data});
     }
-    ++$pul_id;
+    ++$layer_id;
     return SmartSea::Layer->new({
         epsg => $epsg,
         tile => $tile,
@@ -310,7 +275,7 @@ sub make_layer {
         data_dir => $data_dir,
         GDALVectorDataset => undef,
         cookie => '', 
-        trail => $plan_id.'_'.$use_id.'_'.$layer_id});
+        trail => $plan_id.'_'.$use_id.'_'.$layer_class_id});
 }
 
 sub add_rule {

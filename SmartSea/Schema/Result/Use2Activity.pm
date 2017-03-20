@@ -4,7 +4,7 @@ use warnings;
 use 5.010000;
 use base qw/DBIx::Class::Core/;
 
-__PACKAGE__->table('tool.use2activity');
+__PACKAGE__->table('use2activity');
 __PACKAGE__->add_columns(qw/ id use activity /);
 __PACKAGE__->set_primary_key(qw/ id /);
 __PACKAGE__->belongs_to(use => 'SmartSea::Schema::Result::Use');

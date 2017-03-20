@@ -1,13 +1,17 @@
 package SmartSea::HTML;
 use strict;
 use warnings;
+use Carp;
 use HTML::Entities;
 use Geo::OGC::Service;
 use SmartSea::Core qw/:all/;
+
 require Exporter;
+
 our @ISA = qw(Exporter Geo::OGC::Service::XMLWriter);
 our @EXPORT_OK = qw(a button checkbox text_input textarea drop_down item widgets);
 our %EXPORT_TAGS = (all => \@EXPORT_OK);
+
 sub new {
     my $class = shift;
     my $self = bless {}, 'SmartSea::HTML';
@@ -116,17 +120,18 @@ sub item {
 }
 sub widgets {
     my ($attributes, $values, $schema) = @_;
-    my %widgets;
-    for my $key (keys %$attributes) {
+    my @form;
+    for my $key (sort {$attributes->{$a}{i} <=> $attributes->{$b}{i}} keys %$attributes) {
         my $a = $attributes->{$key};
+        my $input;
         if ($a->{input} eq 'text') {
-            $widgets{$key} = text_input(
+            $input = text_input(
                 name => $key,
                 size => ($a->{size} // 10),
                 value => $values->{$key} // ''
             );
         } elsif ($a->{input} eq 'textarea') {
-            $widgets{$key} = textarea(
+            $input = textarea(
                 name => $key,
                 rows => $a->{rows},
                 cols => $a->{cols},
@@ -139,27 +144,39 @@ sub widgets {
             } else {
                 $objs = [$schema->resultset($a->{class})->all];
             }
-            $widgets{$key} = drop_down(
+            my $id;
+            $id = $values->{$key}->id if $values->{$key};
+            $input = drop_down(
                 name => $key,
                 objs => $objs,
-                selected => $values->{$key},
+                selected => $id,
                 allow_null => $a->{allow_null}
             );
         } elsif ($a->{input} eq 'checkbox') {
-            $widgets{$key} = checkbox(
+            $input = checkbox(
                 name => $key,
                 visual => $a->{cue},
                 checked => $values->{$key}
             );
         } elsif ($a->{input} eq 'spinner') {
-            $widgets{$key} = spinner(
+            $input = spinner(
                 name => $key,
                 min => $a->{min},
                 max => $a->{max},
                 value => $values->{$key} // 1
             );
         }
+        if ($a->{input} eq 'object') {
+            if ($values->{$key}) {
+                push @form, $values->{$key}->inputs($values, $schema);
+            } else {
+                my $class = 'SmartSea::Schema::Result::'.$a->{class};
+                push @form, $class->inputs($values, $schema);
+            }
+        } else {
+            push @form, [ p => [[1 => "$key: "], $input] ];
+        }
     }
-    return \%widgets;
+    return @form;
 }
 1;

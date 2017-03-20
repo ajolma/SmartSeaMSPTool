@@ -10,8 +10,73 @@ use constant DEFAULT => 'default'; # not user changed object, used for cookie at
 
 require Exporter;
 our @ISA = qw(Exporter);
-our @EXPORT_OK = qw(common_responses html200 json200 http_status parse_integer DEFAULT warn_unknowns); 
+our @EXPORT_OK = qw(create update common_responses html200 json200 http_status parse_integer DEFAULT warn_unknowns); 
 our %EXPORT_TAGS = (all => \@EXPORT_OK);
+
+sub create {
+    my ($class, $data, $schema, $col) = @_;
+    my $_class = 'SmartSea::Schema::Result::'.$class;
+    my $attributes = $_class->attributes;
+    my %update_data;
+    my %unused_data;
+    for my $col (keys %$attributes) {
+        if ($attributes->{$col}{input} eq 'object') {
+            $data = create($attributes->{$col}{class}, $data, $schema, $col);
+        }
+    }
+    for my $col (keys %$attributes) {
+        next if $attributes->{$col}{input} eq 'object';
+        if (exists $data->{$col}) {
+            if ($attributes->{$col}{empty_is_null} && $data->{$col} eq '') {
+                $data->{$col} = undef;
+            }
+        }
+    }
+    say STDERR "create $class";
+    for my $col (keys %$data) {
+        if (exists $attributes->{$col}) {
+            $update_data{$col} = $data->{$col};
+        } else {
+            $unused_data{$col} = $data->{$col};
+        }
+    }
+    my $rs = $schema->resultset($class);
+    my $obj = $rs->create(\%update_data);
+    say STDERR "id for $col is ",$obj->id if defined $col;
+    $unused_data{$col} = $obj->id if defined $col;
+    return \%unused_data;
+}
+
+sub update {
+    my ($self, $data) = @_;
+    my $attributes = $self->attributes;
+    my %update_data;
+    my %unused_data;
+    for my $col (keys %$attributes) {
+        if ($attributes->{$col}{input} eq 'object') {
+            my $obj = $self->$col;
+            $data = update($obj, $data);
+        }
+    }
+    for my $col (keys %$attributes) {
+        next if $attributes->{$col}{input} eq 'object';
+        if (exists $data->{$col}) {
+            if ($attributes->{$col}{empty_is_null} && $data->{$col} eq '') {
+                $data->{$col} = undef;
+            }
+        }
+    }
+    say STDERR "update $self";
+    for my $col (keys %$data) {
+        if (exists $attributes->{$col} && $attributes->{$col}{input} ne 'object') {
+            $update_data{$col} = $data->{$col};
+        } else {
+            $unused_data{$col} = $data->{$col};
+        }
+    }
+    $self->update(\%update_data);
+    return \%unused_data;
+}
 
 sub common_responses {
     my $header = shift;

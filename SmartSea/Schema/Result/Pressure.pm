@@ -7,8 +7,8 @@ use Scalar::Util 'blessed';
 use SmartSea::HTML qw(:all);
 use SmartSea::Impact qw(:all);
 
-__PACKAGE__->table('tool.pressures');
-__PACKAGE__->add_columns(qw/ id order name category /);
+__PACKAGE__->table('pressures');
+__PACKAGE__->add_columns(qw/ id ordr name category /);
 __PACKAGE__->set_primary_key('id');
 __PACKAGE__->has_many(activity2pressure => 'SmartSea::Schema::Result::Activity2Pressure', 'pressure');
 __PACKAGE__->many_to_many(activities => 'activity2pressure', 'activity');

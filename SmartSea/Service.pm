@@ -408,7 +408,7 @@ sub object_editor {
                    'Access-Control-Allow-Credentials' => 'true' };
     if ($parameters{request} eq 'create' and $self->{edit}) {
         eval {
-            $rs->create($class->create_col_data(\%parameters));
+            create($class =~ /(\w+)$/, \%parameters, $self->{schema});
         };
         say STDERR "error: $@" if $@;
         push @body, [0 => $@] if $@;
@@ -451,8 +451,9 @@ sub object_editor {
         my $obj = $class->get_object(%args);
         return http_status($header, 400) unless $obj;
         eval {
-            $obj->update($obj->update_col_data(\%parameters));
+            update($obj, \%parameters);
         };
+        say STDERR "error: $@" if $@;
         if ($@) {
             $args{oids} = [@$oids];
             shift @{$args{oids}};

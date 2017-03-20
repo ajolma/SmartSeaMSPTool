@@ -6,7 +6,7 @@ use base qw/DBIx::Class::Core/;
 use Scalar::Util 'blessed';
 use SmartSea::HTML qw(:all);
 
-__PACKAGE__->table('tool.impacts');
+__PACKAGE__->table('impacts');
 __PACKAGE__->add_columns(qw/ id activity2pressure ecosystem_component strength belief /);
 __PACKAGE__->set_primary_key('id');
 __PACKAGE__->belongs_to(activity2pressure => 'SmartSea::Schema::Result::Activity2Pressure');

@@ -6,8 +6,12 @@ use base qw/DBIx::Class::Core/;
 use Scalar::Util 'blessed';
 use SmartSea::HTML qw(:all);
 
+my %attributes = (
+    name =>            { i => 1,  input => 'text',    size => 20 }
+    );
+
 __PACKAGE__->table('uses');
-__PACKAGE__->add_columns(qw/id name/);
+__PACKAGE__->add_columns('id', keys %attributes);
 __PACKAGE__->set_primary_key('id');
 
 __PACKAGE__->has_many(plan2use => 'SmartSea::Schema::Result::Plan2Use', 'use');
@@ -16,22 +20,8 @@ __PACKAGE__->many_to_many(plans => 'plan2use', 'plan');
 __PACKAGE__->has_many(use2activity => 'SmartSea::Schema::Result::Use2Activity', 'use');
 __PACKAGE__->many_to_many(activities => 'use2activity', 'activity');
 
-sub create_col_data {
-    my ($class, $parameters) = @_;
-    my %col_data;
-    for my $col (qw/name/) {
-        $col_data{$col} = $parameters->{$col};
-    }
-    return \%col_data;
-}
-
-sub update_col_data {
-    my ($class, $parameters) = @_;
-    my %col_data;
-    for my $col (qw/name/) {
-        $col_data{$col} = $parameters->{$col};
-    }
-    return \%col_data;
+sub attributes {
+    return \%attributes;
 }
 
 sub get_object {
@@ -69,7 +59,7 @@ sub HTML_list {
                 resultset('Plan2Use')->
                 single({plan => $args{plan}, use => $use->id});
             for my $layer ($plan2use->layers) {
-                my $a = $layer->name;
+                my $a = $layer->layer_class->name;
                 my $id = $use->id.'/layer:'.$layer->id;
                 $li{$u}{layer}{$a} = item($a, $id, %args, action => 'None');
             }
@@ -150,7 +140,9 @@ sub HTML_div {
                     resultset('Plan2Use')->
                     single({plan => $args{plan}, use => $self->id});
                 $args{plan2use} = $plan2use->id;
-                push @l, $plan2use->layers->single({'layer.id' => $oid})->HTML_div({}, %args, named_item => 1);
+                push @l, $plan2use->
+                    layers->single({id => $oid})->
+                    HTML_div({}, %args, named_item => 1);
             }
         } elsif ($oid =~ /activity/) {
             $oid =~ s/activity://;
@@ -211,7 +203,7 @@ sub HTML_div {
             my $plan2use = $args{schema}->
                 resultset('Plan2Use')->
                 single({plan => $args{plan}, use => $self->id});
-            push @l, SmartSea::Schema::Result::LayerClass->
+            push @l, SmartSea::Schema::Result::Layer->
                 HTML_list([$plan2use->layers], %args, named_item => 1);
             $args{action} = 'None'; # activities are added/removed only when uses are edited
         }

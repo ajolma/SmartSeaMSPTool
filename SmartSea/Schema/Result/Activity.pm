@@ -6,31 +6,19 @@ use base qw/DBIx::Class::Core/;
 use Scalar::Util 'blessed';
 use SmartSea::HTML qw(:all);
 
-__PACKAGE__->table('tool.activities');
-__PACKAGE__->add_columns(qw/ id order name /);
+my %attributes = (
+    name =>  { i => 1,  input => 'text',  size => 20 },
+    ordr =>  { i => 2,  input => 'text',  size => 10 },
+    );
+
+
+__PACKAGE__->table('activities');
+__PACKAGE__->add_columns(qw/ id ordr name /);
 __PACKAGE__->set_primary_key('id');
 __PACKAGE__->has_many(activity2pressure => 'SmartSea::Schema::Result::Activity2Pressure', 'activity');
 __PACKAGE__->many_to_many(pressures => 'activity2pressure', 'pressure');
 __PACKAGE__->has_many(use2activity => 'SmartSea::Schema::Result::Use2Activity', 'use');
 __PACKAGE__->many_to_many(activities => 'use2activity', 'activity');
-
-sub create_col_data {
-    my ($class, $parameters) = @_;
-    my %col_data;
-    for my $col (qw/name/) {
-        $col_data{$col} = $parameters->{$col};
-    }
-    return \%col_data;
-}
-
-sub update_col_data {
-    my ($class, $parameters) = @_;
-    my %col_data;
-    for my $col (qw/name/) {
-        $col_data{$col} = $parameters->{$col};
-    }
-    return \%col_data;
-}
 
 sub get_object {
     my ($class, %args) = @_;

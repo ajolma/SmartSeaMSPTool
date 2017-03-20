@@ -95,22 +95,11 @@ CREATE TABLE datasets (
     disclaimer text,
     path text,
     unit integer,
-    max_value double precision,
-    min_value double precision,
-    style integer DEFAULT 2 NOT NULL,
-    classes integer,
     style2 integer NOT NULL
 );
 
 
 ALTER TABLE datasets OWNER TO ajolma;
-
---
--- Name: COLUMN datasets.classes; Type: COMMENT; Schema: data; Owner: ajolma
---
-
-COMMENT ON COLUMN datasets.classes IS 'Leave to NULL if assumed continuous data, not used in rules';
-
 
 --
 -- Name: datasets_id_seq; Type: SEQUENCE; Schema: data; Owner: ajolma
@@ -288,7 +277,7 @@ SET search_path = tool, pg_catalog;
 CREATE TABLE activities (
     id integer NOT NULL,
     name text NOT NULL,
-    "order" integer DEFAULT 1 NOT NULL
+    ordr integer DEFAULT 1 NOT NULL
 );
 
 
@@ -446,7 +435,7 @@ CREATE TABLE pressures (
     id integer NOT NULL,
     category integer NOT NULL,
     name text NOT NULL,
-    "order" integer
+    ordr integer
 );
 
 
@@ -522,10 +511,6 @@ CREATE TABLE layers (
     layer_class integer NOT NULL,
     id integer NOT NULL,
     rule_class integer DEFAULT 1 NOT NULL,
-    max_value double precision DEFAULT 1,
-    style integer,
-    classes integer,
-    min_value double precision,
     descr text,
     style2 integer NOT NULL
 );
@@ -1490,14 +1475,6 @@ ALTER TABLE ONLY uses
 SET search_path = data, pg_catalog;
 
 --
--- Name: datasets__style_fkey; Type: FK CONSTRAINT; Schema: data; Owner: ajolma
---
-
-ALTER TABLE ONLY datasets
-    ADD CONSTRAINT datasets__style_fkey FOREIGN KEY (style2) REFERENCES tool.styles(id);
-
-
---
 -- Name: datasets_custodian_fkey; Type: FK CONSTRAINT; Schema: data; Owner: ajolma
 --
 
@@ -1538,11 +1515,11 @@ ALTER TABLE ONLY datasets
 
 
 --
--- Name: datasets_style_fkey; Type: FK CONSTRAINT; Schema: data; Owner: ajolma
+-- Name: datasets_style2_fkey; Type: FK CONSTRAINT; Schema: data; Owner: ajolma
 --
 
 ALTER TABLE ONLY datasets
-    ADD CONSTRAINT datasets_style_fkey FOREIGN KEY (style) REFERENCES tool.color_scales(id);
+    ADD CONSTRAINT datasets_style2_fkey FOREIGN KEY (style2) REFERENCES tool.styles(id);
 
 
 --
@@ -1596,11 +1573,11 @@ ALTER TABLE ONLY pressures
 
 
 --
--- Name: layers__style_fkey; Type: FK CONSTRAINT; Schema: tool; Owner: ajolma
+-- Name: layers_style2_fkey; Type: FK CONSTRAINT; Schema: tool; Owner: ajolma
 --
 
 ALTER TABLE ONLY layers
-    ADD CONSTRAINT layers__style_fkey FOREIGN KEY (style2) REFERENCES styles(id);
+    ADD CONSTRAINT layers_style2_fkey FOREIGN KEY (style2) REFERENCES styles(id);
 
 
 --
@@ -1617,14 +1594,6 @@ ALTER TABLE ONLY layers
 
 ALTER TABLE ONLY layers
     ADD CONSTRAINT plan2use2layer_rule_class_fkey FOREIGN KEY (rule_class) REFERENCES rule_classes(id);
-
-
---
--- Name: plan2use2layer_style_fkey; Type: FK CONSTRAINT; Schema: tool; Owner: ajolma
---
-
-ALTER TABLE ONLY layers
-    ADD CONSTRAINT plan2use2layer_style_fkey FOREIGN KEY (style) REFERENCES color_scales(id);
 
 
 --
@@ -2052,6 +2021,16 @@ REVOKE ALL ON SEQUENCE styles_id_seq FROM PUBLIC;
 REVOKE ALL ON SEQUENCE styles_id_seq FROM ajolma;
 GRANT ALL ON SEQUENCE styles_id_seq TO ajolma;
 GRANT ALL ON SEQUENCE styles_id_seq TO smartsea;
+
+
+--
+-- Name: styles_id_seq1; Type: ACL; Schema: tool; Owner: ajolma
+--
+
+REVOKE ALL ON SEQUENCE styles_id_seq1 FROM PUBLIC;
+REVOKE ALL ON SEQUENCE styles_id_seq1 FROM ajolma;
+GRANT ALL ON SEQUENCE styles_id_seq1 TO ajolma;
+GRANT ALL ON SEQUENCE styles_id_seq1 TO smartsea;
 
 
 --

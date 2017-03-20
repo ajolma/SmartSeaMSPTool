@@ -10,76 +10,19 @@ use PDL;
 use PDL::NiceSlice;
 
 my %attributes = (
-    name => {
-        i => 1,
-        input => 'text',
-        size => 20,
-    },
-    custodian => {
-        i => 2,
-        input => 'lookup',
-        class => 'Organization',
-        allow_null => 1
-    },
-    contact => {
-        i => 3,
-        input => 'text',
-        size => 20,
-    },
-    descr => {
-        i => 4,
-        input => 'textarea'
-    },
-    data_model => {
-        i => 5,
-        input => 'lookup',
-        class => 'DataModel',
-        allow_null => 1
-    },
-    is_a_part_of => {
-        i => 6,
-        input => 'lookup',
-        class => 'Dataset',
-        allow_null => 1
-    },
-    is_derived_from => {
-        i => 7,
-        input => 'lookup',
-        class => 'Dataset',
-        allow_null => 1
-    },
-    license => {
-        i => 8,
-        input => 'lookup',
-        class => 'License',
-        allow_null => 1
-    },
-    attribution => {
-        i => 9,
-        input => 'text',
-        size => 40,
-    },
-    disclaimer => {
-        i => 10,
-        input => 'text',
-        size => 80,
-    },
-    path => {
-        i => 11,
-        input => 'text',
-        size => 30,
-    },
-    unit => {
-        i => 12,
-        input => 'lookup',
-        class => 'Unit',
-        allow_null => 1
-    },
-    style2 => {
-        i => 16,
-        input => 'lookup',
-        class => 'Style'
-    }
+    name =>            { i => 1,  input => 'text',    size => 20 },
+    custodian =>       { i => 2,  input => 'lookup',  class => 'Organization', allow_null => 1 },
+    contact =>         { i => 3,  input => 'text',    size => 20 },
+    descr =>           { i => 4,  input => 'textarea' },
+    data_model =>      { i => 5,  input => 'lookup',  class => 'DataModel', allow_null => 1 },
+    is_a_part_of =>    { i => 6,  input => 'lookup',  class => 'Dataset',   allow_null => 1 },
+    is_derived_from => { i => 7,  input => 'lookup',  class => 'Dataset',   allow_null => 1 },
+    license =>         { i => 8,  input => 'lookup',  class => 'License',   allow_null => 1 },
+    attribution =>     { i => 9,  input => 'text',    size => 40 },
+    disclaimer =>      { i => 10, input => 'text',    size => 80 },
+    path =>            { i => 11, input => 'text',    size => 30 },
+    unit =>            { i => 12, input => 'lookup',  class => 'Unit',      allow_null => 1 },
+    style2 =>          { i => 16, input => 'object',  class => 'Style' }
     );
 
 __PACKAGE__->table('datasets');
@@ -93,36 +36,16 @@ __PACKAGE__->belongs_to(license => 'SmartSea::Schema::Result::License');
 __PACKAGE__->belongs_to(unit => 'SmartSea::Schema::Result::Unit');
 __PACKAGE__->belongs_to(style2 => 'SmartSea::Schema::Result::Style');
 
+sub attributes {
+    return \%attributes;
+}
+
 sub my_unit {
     my $self = shift;
     return $self->unit if defined $self->unit;
     return $self->is_a_part_of->my_unit if defined $self->is_a_part_of;
     return $self->is_derived_from->my_unit if defined $self->is_derived_from;
     return undef;
-}
-
-sub create_col_data {
-    my ($class, $parameters) = @_;
-    my %col_data;
-    for my $col (keys %attributes) {
-        $col_data{$col} = $parameters->{$col} if exists $parameters->{$col};
-    }
-    return \%col_data;
-}
-
-sub update_col_data {
-    my ($class, $parameters) = @_;
-    my %col_data;
-    for my $col (keys %attributes) {
-        if (exists $parameters->{$col}) {
-            if ($attributes{$col}{empty_is_null} && $parameters->{$col} eq '') {
-                $col_data{$col} = undef;
-            } else {
-                $col_data{$col} = $parameters->{$col};
-            }
-        }
-    }
-    return \%col_data;
 }
 
 sub get_object {
@@ -193,12 +116,11 @@ sub HTML_div {
                        url => $self->license->url)]] if $self->license;
     push @l, [li => [[b => "attribution"],[1 => " = ".$self->attribution]]] if $self->attribution;
     push @l, [li => [[b => "data model"],[1 => " = ".$self->data_model->name]]] if $self->data_model;
-    push @l, [li => [[b => "minimum"],[1 => " = ".$self->min_value]]] if defined $self->min_value;
-    push @l, [li => [[b => "maximum"],[1 => " = ".$self->max_value]]] if defined $self->max_value;
-    push @l, [li => [[b => "classes"],[1 => " = ".$self->classes]]] if defined $self->classes;
     push @l, [li => [[b => "unit"],[1 => " = ".$self->unit->name]]] if $self->unit;
     push @l, [li => [[b => "path"],[1 => " = ".$self->path]]] if $self->path;
-    push @l, [li => [[b => "style"],[1 => " = ".$self->style->name]]] if $self->style;
+
+    push @l, $self->style2->li if $self->style2;
+    
     push @div, [ul => \@l] if @l;
 
     my $rel = $self->is_a_part_of;
@@ -231,29 +153,24 @@ sub HTML_form {
             # assuming one band
             my $b = Geo::GDAL::Open($args{data_dir}.$self->path)->Band;
             $b->ComputeStatistics(0);
-            $values->{min_value} = $b->GetMinimum;
-            $values->{max_value} = $b->GetMaximum;
+            $values->{min} = $b->GetMinimum;
+            $values->{max} = $b->GetMaximum;
         }
         
         for my $key (keys %attributes) {
             next unless defined $self->$key;
             next if defined $values->{$key};
-            $values->{$key} = ref($self->$key) ? $self->$key->id : $self->$key;
+            $values->{$key} = $self->$key;
         }
         push @form, [input => {type => 'hidden', name => 'id', value => $self->id}];
         $new = 0;
     }
 
-    my $widgets = widgets(\%attributes, $values, $args{schema});
-
-    for my $key (sort {$attributes{$a}{i} <=> $attributes{$b}{i}} keys %attributes) {
-        push @form, [ p => [[1 => "$key: "], $widgets->{$key}] ];
-    }
+    push @form, widgets(\%attributes, $values, $args{schema});
 
     if ($compute) {
         push @form, button(value => "Compute min & max from dataset");
-        push @form, ['br'];
-        push @form, ['br'];
+        push @form, ['br'], ['br'];
     }
 
     push @form, button(value => $new ? "Create" : "Store");

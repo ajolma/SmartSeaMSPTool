@@ -2,7 +2,45 @@ package Test::Helper;
 
 require Exporter;
 @ISA = qw(Exporter);
-@EXPORT = qw(read_postgresql_dump create_sqlite_schemas);
+@EXPORT = qw(one_schema read_postgresql_dump create_sqlite_schemas);
+
+{
+    package Schema;
+    sub new {
+        my ($class, $self) = @_;
+        return bless $self, $class;
+    }
+    sub resultset {
+        my ($self, $class) = @_;
+        for my $s (@$self) {
+            return $s->[0]->resultset($class) if $s->[1]{$class};
+        }
+        say STDERR "missing $class";
+    }
+}
+
+sub one_schema {
+    my $data_schema  = SmartSea::Schema->connect(
+        'dbi:SQLite:data.db', undef, undef, 
+        {on_connect_do => ["ATTACH 'tool.db' AS aux"]});
+    my $tool_schema  = SmartSea::Schema->connect(
+        'dbi:SQLite:tool.db', undef, undef, 
+        {on_connect_do => ["ATTACH 'data.db' AS aux"]});
+    return Schema->new(
+        [
+         [$data_schema, {Dataset => 1}], 
+         [$tool_schema, 
+          { Style => 1,
+            ColorScale => 1,
+            Plan => 1, 
+            Use => 1, 
+            Plan2Use => 1, 
+            LayerClass => 1, 
+            Layer => 1, 
+            RuleClass => 1,
+            Op => 1,
+            Rule => 1 }]]);   
+}
 
 sub read_postgresql_dump {
     my ($dump) = @_;

@@ -6,28 +6,18 @@ use base qw/DBIx::Class::Core/;
 use Scalar::Util 'blessed';
 use SmartSea::HTML qw(:all);
 
+my %attributes = (
+    name =>            { i => 1,  input => 'text',    size => 20 },
+    );
+
 __PACKAGE__->table('plans');
 __PACKAGE__->add_columns(qw/ id name /);
 __PACKAGE__->set_primary_key('id');
 __PACKAGE__->has_many(plan2use => 'SmartSea::Schema::Result::Plan2Use', 'plan');
 __PACKAGE__->many_to_many(uses => 'plan2use', 'use');
 
-sub create_col_data {
-    my ($class, $parameters) = @_;
-    my %col_data;
-    for my $col (qw/name/) {
-        $col_data{$col} = $parameters->{$col};
-    }
-    return \%col_data;
-}
-
-sub update_col_data {
-    my ($class, $parameters) = @_;
-    my %col_data;
-    for my $col (qw/name/) {
-        $col_data{$col} = $parameters->{$col};
-    }
-    return \%col_data;
+sub attributes {
+    return \%attributes;
 }
 
 sub get_object {
@@ -56,7 +46,7 @@ sub HTML_list {
     my %li;
     for my $plan (@$objs) {
         my $p = $plan->name;
-        $li{plan}{$p} = item([b => $p], $plan->id, %args, ref => 'this plan');
+        $li{_plan}{$p} = item([b => $p], $plan->id, %args, ref => 'this plan');
         for my $use ($plan->uses) {
             my $u = $use->name;
             $data{$p}{uses}{$u} = 1;
@@ -65,12 +55,12 @@ sub HTML_list {
         }
     }
     my @li;
-    for my $plan (sort keys %{$li{plan}}) {
+    for my $plan (sort keys %{$li{_plan}}) {
         my @l;
         for my $use (sort keys %{$data{$plan}{uses}}) {
             push @l, [li => $li{$plan}{uses}{$use}];
         }
-        my @item = @{$li{plan}{$plan}};
+        my @item = @{$li{_plan}{$plan}};
         push @item, [ul => \@l] if @l;
         push @li, [li => \@item];
     }

@@ -10,81 +10,21 @@ use SmartSea::Core qw(:all);
 use SmartSea::HTML qw(:all);
 use SmartSea::Layer;
 
-my %attributes = (
-    reduce => {
-        i => 4,
-        input => 'checkbox',
-        cue => 'Rule removes allocation/value',
-    },
-    r_plan => {
-        i => 5,
-        input => 'lookup',
-        class => 'Plan',
-        allow_null => 1
-    },
-    r_use => {
-        i => 6,
-        input => 'lookup',
-        class => 'Use',
-        allow_null => 1
-    },
-    r_layer => {
-        i => 7,
-        input => 'lookup',
-        class => 'Layer',
-        allow_null => 1
-    },
-    r_dataset => {
-        i => 8,
-        input => 'lookup',
-        class => 'Dataset',
-        objs => {path => {'!=',undef}},
-        allow_null => 1
-    },
-    op => {
-        i => 9,
-        input => 'lookup',
-        class => 'Op',
-        allow_null => 1
-    },
-    value => {
-        i => 10,
-        input => 'text',
-        type => 'double'
-    },
-    min_value => {
-        i => 11,
-        input => 'text',
-        type => 'double'
-    },
-    max_value => {
-        i => 12,
-        input => 'text',
-        type => 'double'
-    },
-    my_index => {
-        i => 13,
-        input => 'spinner'
-    },
-    value_type => {
-        i => 14,
-        input => 'text',
-    },
-    value_at_min => {
-        i => 15,
-        input => 'text',
-        type => 'double'
-    },
-    value_at_max => {
-        i => 16,
-        input => 'text',
-        type => 'double'
-    },
-    weight => {
-        i => 17,
-        input => 'text',
-        type => 'double'
-    }
+my %attributes = ( 
+    reduce =>       { i => 4,  input => 'checkbox', cue => 'Rule removes allocation/value', },
+    r_plan =>       { i => 5,  input => 'lookup', class => 'Plan',  allow_null => 1 },
+    r_use =>        { i => 6,  input => 'lookup', class => 'Use',   allow_null => 1 },
+    r_layer =>      { i => 7,  input => 'lookup', class => 'Layer', allow_null => 1 },
+    r_dataset =>    { i => 8,  input => 'lookup', class => 'Dataset', objs => {path => {'!=',undef}}, allow_null => 1 },
+    op =>           { i => 9,  input => 'lookup', class => 'Op',    allow_null => 1 },
+    value =>        { i => 10, input => 'text', type => 'double' },
+    min_value =>    { i => 11, input => 'text', type => 'double' },
+    max_value =>    { i => 12, input => 'text', type => 'double' },
+    my_index =>     { i => 13, input => 'spinner' },
+    value_type =>   { i => 14, input => 'text', },
+    value_at_min => { i => 15, input => 'text', type => 'double' },
+    value_at_max => { i => 16, input => 'text', type => 'double' },
+    weight =>       { i => 17, input => 'text', type => 'double'}
     );
 
 # how to compute the weighted value for x:
@@ -109,6 +49,10 @@ __PACKAGE__->belongs_to(r_dataset => 'SmartSea::Schema::Result::Dataset');
 
 __PACKAGE__->belongs_to(op => 'SmartSea::Schema::Result::Op');
 
+sub attributes {
+    return \%attributes;
+}
+
 sub get_object {
     my ($class, %args) = @_;
     my $oid = shift @{$args{oids}};
@@ -117,36 +61,11 @@ sub get_object {
         return undef;
     }
     my $obj;
-    say STDERR "get rule $oid, $args{cookie}";
     eval {
         $obj = $args{schema}->resultset('Rule')->single({id => $oid, cookie => $args{cookie}});
     };
     say STDERR "Error: $@" if $@;
     return $obj;
-}
-
-sub create_col_data {
-    my $class = shift;
-    my %col_data;
-    for my $parameters (@_) {
-        for my $col (qw/layer cookie my_index r_dataset/) { # or r_plan, r_use, r_layer (or is that r_pul?)
-            $col_data{$col} //= $parameters->{$col};
-            say STDERR "create rule: $col => $parameters->{$col}" if defined $parameters->{$col};
-        }
-    }
-    return \%col_data;
-}
-
-sub update_col_data {
-    my ($class, $parameters) = @_;
-    my %col_data;
-    for my $col (keys %attributes) {
-        next unless defined $parameters->{$col};
-        my $type = $attributes{$col}{type} // '';
-        $parameters->{$col} = undef if $type eq 'double' && $parameters->{$col} eq '';
-        $col_data{$col} = $parameters->{$col};
-    }
-    return \%col_data;
 }
 
 sub values {
@@ -303,11 +222,10 @@ sub HTML_list {
         } else {
             $li = item($rule->r_dataset->name, $rule->id, %args, ref => 'this rule');
         }
-        my $plan2use2layer = $rule->layer;
-        my $plan2use = $plan2use2layer->plan2use;
+        my $layer = $rule->layer;
+        my $plan2use = $layer->plan2use;
         my $plan = $plan2use->plan;
         my $use = $plan2use->use;
-        my $layer = $plan2use2layer->layer;
         $plans{$plan->name} = 1;
         $uses{$use->name} = 1;
         $layers{$layer->name} = 1;

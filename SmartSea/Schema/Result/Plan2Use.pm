@@ -11,7 +11,7 @@ __PACKAGE__->set_primary_key(qw/ id /);
 __PACKAGE__->belongs_to(plan => 'SmartSea::Schema::Result::Plan');
 __PACKAGE__->belongs_to(use => 'SmartSea::Schema::Result::Use');
 
-__PACKAGE__->has_many(layer_class => 'SmartSea::Schema::Result::Layer', 'plan2use');
-__PACKAGE__->many_to_many(layer_classes => 'layer_class', 'layer_class');
+__PACKAGE__->has_many(layers => 'SmartSea::Schema::Result::Layer', 'plan2use');
+__PACKAGE__->many_to_many(layer_classes => 'layers', 'layer_class');
 
 1;

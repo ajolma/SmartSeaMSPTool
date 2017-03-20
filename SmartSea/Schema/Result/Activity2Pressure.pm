@@ -7,7 +7,7 @@ use Scalar::Util 'blessed';
 use SmartSea::HTML qw(:all);
 use SmartSea::Impact qw(:all);
 
-__PACKAGE__->table('tool.activity2pressure');
+__PACKAGE__->table('activity2pressure');
 __PACKAGE__->add_columns(qw/ id activity pressure range /);
 __PACKAGE__->set_primary_key(qw/ id /);
 __PACKAGE__->belongs_to(activity => 'SmartSea::Schema::Result::Activity');

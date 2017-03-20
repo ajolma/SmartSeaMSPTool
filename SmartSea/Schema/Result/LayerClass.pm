@@ -7,28 +7,18 @@ use Scalar::Util 'blessed';
 use SmartSea::Core qw(:all);
 use SmartSea::HTML qw(:all);
 
+my %attributes = (
+    name =>            { i => 1,  input => 'text',    size => 20 },
+    );
+
 __PACKAGE__->table('layer_classes');
 __PACKAGE__->add_columns(qw/ id name /);
 __PACKAGE__->set_primary_key('id');
-__PACKAGE__->has_many(layer => 'SmartSea::Schema::Result::Layer', 'layer_class');
+__PACKAGE__->has_many(layers => 'SmartSea::Schema::Result::Layer', 'layer_class');
 __PACKAGE__->many_to_many(plan2uses => 'layer', 'plan2use');
 
-sub create_col_data {
-    my ($class, $parameters) = @_;
-    my %col_data;
-    for my $col (qw/name/) {
-        $col_data{$col} = $parameters->{$col};
-    }
-    return \%col_data;
-}
-
-sub update_col_data {
-    my ($class, $parameters) = @_;
-    my %col_data;
-    for my $col (qw/name/) {
-        $col_data{$col} = $parameters->{$col};
-    }
-    return \%col_data;
+sub attributes {
+    return \%attributes;
 }
 
 sub get_object {
