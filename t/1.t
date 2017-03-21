@@ -6,6 +6,7 @@ use lib '.';
 use Test::Helper;
 
 use_ok('SmartSea::Schema');
+use_ok('SmartSea::Object');
 
 # create the test databases
 
@@ -27,36 +28,16 @@ $schema->resultset('Plan')->single({id => 1})->
     create_related('plan2use', {id => 1, plan => 1, 'use' => 1});
 
 $schema->resultset('LayerClass')->single({id => 1})->
-    create_related( 'layers', {id => 1, plan2use => 1, rule_class => 1, style2 => 1});
+    create_related( 'layers', {id => 1, plan2use => 1, rule_class => 1, style => 1});
 
 my $root = 'SmartSea::Schema::Result::';
 my $parameters = {request => '', add => ''};
 
-for my $class (qw/Plan Use LayerClass RuleClass ColorScale Style Layer/) {
-    my $klass = $root.$class;
-    my $object = $klass->get_object(oids => [1], schema => $schema);
-    my $result = $klass->HTML_list([$schema->resultset($class)->all]);
+for my $class (qw/plan use layer_class rule_class color_scale style layer/) {
+    my $obj = SmartSea::Object->new(schema => $schema, url => '');
+    $obj->open($class);
+    my $result = $obj->li;
     ok(ref $result eq 'ARRAY', "$class simple HTML list");
-    $result = $object->HTML_div({}, parameters => $parameters, schema => $schema);
-    ok(ref $result eq 'ARRAY', "$class simple HTML div");
-    $result = $object->HTML_form({}, {}, oids => [], schema => $schema);
-    ok(ref $result eq 'ARRAY', "$class simple HTML form");
-}
-
-{
-    my $class = 'Use';
-    my $klass = $root.$class;
-    my $object = $klass->get_object(oids => [1], schema => $schema);
-    my $result = $object->HTML_div({}, parameters => $parameters, plan => 1, schema => $schema);
-    ok(ref $result eq 'ARRAY', "$class HTML div with parent");
-}
-
-{
-    my $class = 'Use';
-    my $klass = $root.$class;
-    my $object = $klass->get_object(oids => [1], schema => $schema);
-    my $result = $object->HTML_div({}, parameters => $parameters, plan => 1, oids => ['layer:1'], schema => $schema);
-    ok(ref $result eq 'ARRAY', "$class HTML div with parent and child");
 }
 
 for my $schema (keys %$schemas) {

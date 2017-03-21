@@ -14,21 +14,6 @@ __PACKAGE__->belongs_to(activity => 'SmartSea::Schema::Result::Activity');
 __PACKAGE__->belongs_to(pressure => 'SmartSea::Schema::Result::Pressure');
 __PACKAGE__->has_many(impacts => 'SmartSea::Schema::Result::Impact', 'activity2pressure');
 
-sub get_object {
-    my ($class, %args) = @_;
-    my $oid = shift @{$args{oids}};
-    my ($subclass) = $oid =~ s/^(\w+)://;
-    $oid =~ s/^\w+://;
-    return SmartSea::Schema::Result::Pressure->get_object(%args) if @{$args{oids}} && $subclass eq 'activity';
-    return SmartSea::Schema::Result::Pressure->get_object(%args) if @{$args{oids}} && $subclass eq 'pressure';
-    my $obj;
-    eval {
-        $obj = $args{schema}->resultset('Activity2Pressure')->single({id => $oid});
-    };
-    say STDERR "Error: $@" if $@;
-    return $obj;
-}
-
 sub impacts_list {
     my ($self) = @_;
     my @impacts;

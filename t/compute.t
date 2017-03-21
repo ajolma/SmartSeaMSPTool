@@ -70,9 +70,10 @@ $schema->resultset('Plan')->single({id => 1})
     ->create_related('plan2use', {id => 1, plan => 1, 'use' => 1});
 
 my $rule_class_rs = $schema->resultset('RuleClass');
-$rule_class_rs->new({id => 1, name => 'sequential'})->insert;
-$rule_class_rs->new({id => 2, name => 'multiplicative'})->insert;
-$rule_class_rs->new({id => 3, name => 'additive'})->insert;
+$rule_class_rs->new({id => 1, name => 'inclusive'})->insert;
+$rule_class_rs->new({id => 2, name => 'exclusive'})->insert;
+$rule_class_rs->new({id => 3, name => 'multiplicative'})->insert;
+$rule_class_rs->new({id => 4, name => 'additive'})->insert;
 
 my $color_scale_rs = $schema->resultset('ColorScale');
 $color_scale_rs->new({id => 1, name => 'grayscale'})->insert;
@@ -116,7 +117,8 @@ test_a_dataset_layer(debug => 0);
 #   y = wy_min + kw*x - kwx_min
 #   y = kw*x + c
 
-test_sequential_rules(debug => 0);
+test_inclusive_rules(debug => 0);
+test_exclusive_rules(debug => 0);
 test_multiplicative_rules(debug => 0);
 #test_additive_rules(debug => 2);
 
@@ -129,9 +131,9 @@ sub test_additive_rules {
     my $dataset_1 = make_dataset('Byte', [[1,2,3],[4,5,6],[7,8,9]]);
     my $dataset_2 = make_dataset('Float64', [[1,2,3],[4,5,6],[7,8,9]]);
     
-    my $rule_class = $rule_class_rs->single({id=>3}); # multiplicative
+    my $rule_class = $rule_class_rs->single({id=>4}); # additive
     my $layer = make_layer(
-        1,1,3, 
+        1,1,4, 
         {
             color_scale => $color_scale, 
             min => 0, 
@@ -161,9 +163,9 @@ sub test_multiplicative_rules {
     my $datatype = 'Int32';
     my $dataset_id = make_dataset($datatype, [[1,2,3],[150,160,180],[0,16,17]]);
     
-    my $rule_class = $rule_class_rs->single({id=>2}); # multiplicative
+    my $rule_class = $rule_class_rs->single({id=>3}); # multiplicative
     my $layer = make_layer(
-        1,1,2, 
+        1,1,3, 
         {
             color_scale => $color_scale,
             min => 0, 
@@ -183,14 +185,41 @@ sub test_multiplicative_rules {
 
 }
 
-sub test_sequential_rules {
+sub test_exclusive_rules {
     my %args = @_;
     my $color_scale = $color_scale_rs->single({id=>1}); #grayscale, no meaning here
     
     my $datatype = 'Int32';
     my $dataset_id = make_dataset($datatype, [[1,2,3],[150,160,180],[0,16,17]]);
  
-    my $rule_class = $rule_class_rs->single({id=>1}); # sequential
+    my $rule_class = $rule_class_rs->single({id=>2});
+    my $layer = make_layer(
+        1,1,2, 
+        {
+            color_scale => $color_scale,
+            min => 0, 
+            max => 1, 
+            classes => 2
+        },$rule_class,[{
+            based => { dataset_id => $dataset_id },
+            data => { reduce => 1, op_id => 1, value => 5.0, index => 1 }
+           }]
+        );
+    my $result = $layer->compute($args{debug});
+    my $exp = [[255,1,1],[0,0,0],[1,0,0]];
+    my $output = $result->Band->ReadTile;
+    my $ok = is_deeply($output, $exp, $rule_class->name()." rules with dataset of $datatype");
+    print $result->Band->Piddle() if !$ok && $args{debug};
+}
+
+sub test_inclusive_rules {
+    my %args = @_;
+    my $color_scale = $color_scale_rs->single({id=>1}); #grayscale, no meaning here
+    
+    my $datatype = 'Int32';
+    my $dataset_id = make_dataset($datatype, [[1,2,3],[150,160,180],[0,16,17]]);
+ 
+    my $rule_class = $rule_class_rs->single({id=>1});
     my $layer = make_layer(
         1,1,1, 
         {
@@ -206,7 +235,7 @@ sub test_sequential_rules {
     my $result = $layer->compute($args{debug});
 
     my $output = $result->Band->ReadTile;
-    my $exp = [[255,1,1],[0,0,0],[1,0,0]];
+    my $exp = [[255,0,0],[1,1,1],[0,1,1]];
     my $ok = is_deeply($output, $exp, $rule_class->name()." rules with dataset of $datatype");
     print $result->Band->Piddle() if !$ok && $args{debug};
 }
@@ -259,7 +288,7 @@ sub make_layer {
                   id => $layer_id,
                   plan2use => 1,
                   rule_class => $rule_class->id,
-                  style2 => $style_id
+                  style => $style_id
               });
         ++$style_id;
     }
@@ -296,10 +325,8 @@ sub add_rule {
         $rule->{r_dataset} = $based->{dataset_id};
     }
     if ($data->{op_id}) {
-        $rule->{reduce} = $data->{reduce};
         $rule->{op} = $data->{op_id};
         $rule->{value} = $data->{value};
-        $rule->{my_index} = $data->{index};
     } else {
         $rule->{value_at_min} = $data->{'y_min'};
         $rule->{value_at_max} = $data->{'y_max'};
@@ -336,7 +363,7 @@ sub make_dataset {
          disclaimer => '',
          path => $dataset_id.'.tiff',
          unit => undef,
-         style2 => $style_id
+         style => $style_id
         }, 
         {key => 'primary'})->insert;
     my $test = Geo::GDAL::Driver('GTiff')->Create(

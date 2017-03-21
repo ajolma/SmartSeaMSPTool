@@ -8,31 +8,41 @@ use Scalar::Util 'blessed';
 use SmartSea::Core qw(:all);
 use SmartSea::HTML qw(:all);
 
+my %attributes = (
+    plan2use    => { i => 1, input => 'lookup', class => 'Plan2Use' },
+    layer_class => { i => 2, input => 'lookup', class => 'LayerClass' },
+    rule_class  => { i => 3, input => 'lookup', class => 'RuleClass' },
+    style       => { i => 4, input => 'object', class => 'Style' },
+    );
+
 __PACKAGE__->table('layers');
-__PACKAGE__->add_columns(qw/ id plan2use layer_class rule_class style2 descr /);
+__PACKAGE__->add_columns('id', keys %attributes);
 __PACKAGE__->set_primary_key(qw/ id /);
 __PACKAGE__->belongs_to(plan2use => 'SmartSea::Schema::Result::Plan2Use');
 __PACKAGE__->belongs_to(layer_class => 'SmartSea::Schema::Result::LayerClass');
 __PACKAGE__->belongs_to(rule_class => 'SmartSea::Schema::Result::RuleClass');
-__PACKAGE__->belongs_to(style2 => 'SmartSea::Schema::Result::Style');
+__PACKAGE__->belongs_to(style => 'SmartSea::Schema::Result::Style');
 
 __PACKAGE__->has_many(rules => 'SmartSea::Schema::Result::Rule', 'layer');
+
+sub attributes {
+    return \%attributes;
+}
+
+sub relationship_methods {
+    my $self = shift;
+    return {
+        rules => 0
+    };
+}
+
+sub order_by {
+    return {-asc => 'id'};
+}
 
 sub name {
     my $self = shift;
     return $self->layer_class->name;
-}
-
-sub get_object {
-    my ($class, %args) = @_;
-    my $oid = shift @{$args{oids}};
-    my $obj;
-    $oid =~ s/^\w+://;
-    eval {
-        $obj = $args{schema}->resultset('Layer')->single({id => $oid});
-    };
-    say STDERR "Error: $@" if $@;
-    return $obj;
 }
 
 sub my_unit {
@@ -119,7 +129,7 @@ sub HTML_div {
 
     my @l;
     push @l, ([li => [b => 'Layer']]) unless $args{plan};
-    for my $a (qw/id name descr rule_class style2/) {
+    for my $a (qw/id name descr rule_class style/) {
         my $v = $self->$a // '';
         if (ref $v) {
             for my $b (qw/name id data/) {
@@ -147,7 +157,7 @@ sub HTML_div {
                 drop_down(name => 'style',
                           objs => [$args{schema}->
                                    resultset('ColorScale')->all], 
-                          selected => $self->style2->id),
+                          selected => $self->style->id),
                 ['br'],
                 [0 => "Rules are "], 
                 drop_down(name => 'rule_class',
@@ -157,21 +167,21 @@ sub HTML_div {
                 ['br'],
                 [0 => " Min value is "], 
                 text_input(name => 'min_value',
-                           value => $self->style2->min),
+                           value => $self->style->min),
                 ['br'],
                 [0 => " Max value is "], 
                 text_input(name => 'max_value',
-                           value => $self->style2->max),
+                           value => $self->style->max),
                 ['br'],
                 [0 => " Nr of classes is "], 
                 text_input(name => 'classes',
-                           value => $self->style2->classes),
+                           value => $self->style->classes),
                 ['br'],
                 [0 => " "], button(value => 'Update', name => 'self')
                 );
             push @l, [ li => @items ];
         } else {
-            push @l, [ li => "Color palette is ".$self->style2->color_scale->name ];
+            push @l, [ li => "Color palette is ".$self->style->color_scale->name ];
             push @l, [ li => "Rules are ".$rule_class->name ];
         }
         

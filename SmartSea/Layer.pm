@@ -77,11 +77,11 @@ sub new {
         }
     }
 
-    my $color_scale = $self->{style} // $self->{duck}->style2->color_scale->name // 'grayscale';
+    my $color_scale = $self->{style} // $self->{duck}->style->color_scale->name // 'grayscale';
     $color_scale =~ s/-/_/g;
     $color_scale =~ s/\W.*$//g;
     $self->{palette} = SmartSea::Palette->new(
-        {color_scale => $color_scale, classes => $self->{duck}->style2->classes});
+        {color_scale => $color_scale, classes => $self->{duck}->style->classes});
 
     return bless $self, $class;
 }
@@ -103,8 +103,8 @@ sub color {
 
 sub range {
     my ($self) = @_;
-    my $min = $self->{duck}->style2->min // 0;
-    my $max = $self->{duck}->style2->max // 1;
+    my $min = $self->{duck}->style->min // 0;
+    my $max = $self->{duck}->style->max // 1;
     my $unit = $self->{duck}->my_unit ? ' '.$self->{duck}->my_unit->name : '';
     $max = $min if $max < $min;
     return ($min, $max, $unit);
@@ -175,9 +175,10 @@ sub compute {
 
     my $method = $self->{pul}->rule_class->name;
 
-    if ($method =~ /^seq/ || $method =~ /^mult/) {
-        $result += 1; # 
+    unless ($method =~ /^incl/) {
+        $result += 1;
     }
+    # inclusive: start from 0 everywhere and add 1
     
     if ($debug) {
         say STDERR "Compute: ",$self->{plan}->name,' ',$self->{use}->name,' ',$self->{layer}->name;

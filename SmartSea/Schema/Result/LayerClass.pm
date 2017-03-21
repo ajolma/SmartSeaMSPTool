@@ -21,19 +21,6 @@ sub attributes {
     return \%attributes;
 }
 
-sub get_object {
-    my ($class, %args) = @_;
-    my $oid = shift @{$args{oids}};
-    $oid =~ s/^\w+://;
-    return SmartSea::Schema::Result::Rule->get_object(%args) if @{$args{oids}};
-    my $obj;
-    eval {
-        $obj = $args{schema}->resultset('LayerClass')->single({id => $oid});
-    };
-    say STDERR "Error: $@" if $@;
-    return $obj;
-}
-
 sub HTML_list {
     my (undef, $objs, %args) = @_;
     my %li;

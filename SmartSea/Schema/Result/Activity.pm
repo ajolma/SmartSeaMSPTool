@@ -11,26 +11,21 @@ my %attributes = (
     ordr =>  { i => 2,  input => 'text',  size => 10 },
     );
 
-
 __PACKAGE__->table('activities');
 __PACKAGE__->add_columns(qw/ id ordr name /);
 __PACKAGE__->set_primary_key('id');
 __PACKAGE__->has_many(activity2pressure => 'SmartSea::Schema::Result::Activity2Pressure', 'activity');
 __PACKAGE__->many_to_many(pressures => 'activity2pressure', 'pressure');
 __PACKAGE__->has_many(use2activity => 'SmartSea::Schema::Result::Use2Activity', 'use');
-__PACKAGE__->many_to_many(activities => 'use2activity', 'activity');
+__PACKAGE__->many_to_many(uses => 'use2activity', 'activity');
 
-sub get_object {
-    my ($class, %args) = @_;
-    my $oid = shift @{$args{oids}};
-    return SmartSea::Schema::Result::Pressure->get_object(%args) if @{$args{oids}};
-    $oid =~ s/^\w+://;
-    my $obj;
-    eval {
-        $obj = $args{schema}->resultset('Activity')->single({id => $oid});
-    };
-    say STDERR "Error: $@" if $@;
-    return $obj;
+sub attributes {
+    return \%attributes;
+}
+
+sub relationship_methods {
+    my $self = shift;
+    return { pressures => 0 };
 }
 
 sub HTML_list {

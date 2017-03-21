@@ -4,12 +4,14 @@ use warnings;
 use 5.010000; # say // and //=
 use Carp;
 use Encode qw(decode encode);
+use Scalar::Util 'blessed';
 use Plack::App::File;
 use Geo::GDAL;
 use PDL;
 use SmartSea::Core qw(:all);
 use SmartSea::HTML qw(:all);
 use SmartSea::Schema;
+use SmartSea::Object;
 use Data::Dumper;
 use Data::GUID;
 use GD;
@@ -48,6 +50,7 @@ sub call {
     say STDERR "cookie: $self->{cookie}";
     $self->{parameters} = $request->parameters;
     $self->{uri} = $env->{REQUEST_URI};
+    say STDERR "uri: $self->{uri}";
     $self->{origin} = $env->{HTTP_ORIGIN};
     for my $key (sort keys %$env) {
         #say STDERR "$key => $env->{$key}";
@@ -56,8 +59,7 @@ sub call {
     say STDERR "path: @path";
     my @base;
     while (@path) {
-        my $step =shift @path;
-        #say STDERR $step;
+        my $step = shift @path;
         push @base, $step;
         return $self->plans(\@path) if $step eq 'plans';
         return $self->plans(\@path) if $step eq 'layers';
@@ -65,19 +67,11 @@ sub call {
         return $self->pressure_table(\@path) if $step eq 'pressure_table';
         return $self->legend() if $step =~ /^legend/;
         if ($step eq 'browser') {
-            $step = shift(@path) // '';
-            push @base, $step;
             $self->{base_uri} = join('/', @base);
-            my $class = 'SmartSea::Schema::Result::';
-            return $self->object_editor($class.'Plan', \@path) if $step eq 'plans';
-            return $self->object_editor($class.'Use', \@path) if $step eq 'uses';
-            return $self->object_editor($class.'Activity', \@path) if $step eq 'activities';
-            return $self->object_editor($class.'Layer', \@path) if $step eq 'layers';
-            return $self->object_editor($class.'Rule', \@path) if $step eq 'rules';
-            return $self->object_editor($class.'Dataset', \@path) if $step eq 'datasets';
-            return $self->object_editor($class.'Pressure', \@path) if $step eq 'pressures';
-            return $self->object_editor($class.'Impact', \@path) if $step eq 'impacts';
-            return $self->object_editor($class.'EcosystemComponent', \@path) if $step eq 'ecosystem_components';
+            say STDERR "base uri: $self->{base_uri}";
+            say STDERR "oids: @path";
+            return $self->object_editor(\@path);
+            #return html200({}, SmartSea::HTML->new(html => [body => ''])->html);
             last;
         }
     }
@@ -87,22 +81,16 @@ sub call {
         $uri .= "$step/";
         last if $step eq 'core' or $step eq 'core_auth';
     }
+    my @lc;
+    for my $class (qw/plans uses activities layer_classes layers datasets pressures impacts ecosystem_components/) {
+        push @lc, [li => a(link => $class, url => $uri.'browser/'.$class)]
+    }
     my @l;
     push @l, (
         [li => a(link => 'plans', url  => $uri.'plans')],
         [li => a(link => 'layers', url  => $uri.'layers')],
         [li => [0 => 'browsers']],
-        [ul => [
-             [li => a(link => 'plans', url => $uri.'browser/plans')],
-             [li => a(link => 'uses', url => $uri.'browser/uses')],
-             [li => a(link => 'activities', url => $uri.'browser/activities')],
-             [li => a(link => 'layers', url => $uri.'browser/layers')],
-             [li => a(link => 'datasets', url  => $uri.'browser/datasets')],
-             [li => a(link => 'pressures', url  => $uri.'browser/pressures')],
-             [li => a(link => 'impacts', url  => $uri.'browser/impacts')],
-             [li => a(link => 'ecosystem components', url => $uri.'browser/ecosystem_components')]
-         ]
-        ],
+        [ul => \@lc],
         [li => a(link => 'impact_network', url  => $uri.'impact_network')],
         [li => a(link => 'pressure table', url  => $uri.'pressure_table')]
     );
@@ -230,7 +218,7 @@ sub plans {
                 }
                 push @layers, {
                     name => $layer->layer_class->name,
-                    style => $layer->style2->color_scale->name,
+                    style => $layer->style->color_scale->name,
                     id => $layer->layer_class->id, 
                     use => $use->id, 
                     rules => \@rules};
@@ -249,15 +237,15 @@ sub plans {
             next unless $dataset->path;
             next if defined $layer_id && $dataset->id != $layer_id;
             my $range = '';
-            if (defined $dataset->style2->min) {
+            if (defined $dataset->style->min) {
                 my $u = '';
                 $u = ' '.$dataset->my_unit->name if $dataset->my_unit;
-                $range = ' ('.$dataset->style2->min."$u..".$dataset->style2->max."$u)";
+                $range = ' ('.$dataset->style->min."$u..".$dataset->style2->max."$u)";
             }
             push @datasets, {
                 name => $dataset->name, 
                 descr => $dataset->lineage,
-                style => $dataset->style2->color_scale->name.$range,
+                style => $dataset->style->color_scale->name.$range,
                 id => $dataset->id, 
                 use => 0, 
                 rules => []};
@@ -325,7 +313,7 @@ sub impact_network {
 }
 
 sub object_editor {
-    my ($self, $class, $oids) = @_;
+    my ($self, $oids) = @_;
 
     # oids is what's after the base in URI, 
     # a list of object ids separated by / and possibly /new or ?edit in the end
@@ -335,8 +323,6 @@ sub object_editor {
     #         empty_is_null => parameters will be converted to undef if empty strings
     #         defaults => parameters will be set to the value unless in self->parameters
     # 'NULL' parameters will be converted to undef, 
-
-    say STDERR "uri=$self->{uri}, class=$class, oids=(@$oids)";
 
     my $config = {};
     $config->{create} //= 'Create';
@@ -348,15 +334,10 @@ sub object_editor {
     $config->{update} //= 'Update';
 
     my %parameters; # <request> => what, key => value
-   
-    if (@$oids && $oids->[$#$oids] =~ /([a-z]+)$/) {
-        $parameters{request} = $1;
-        if ($oids->[$#$oids] =~ /\?/) {
-            $oids->[$#$oids] =~ s/\?([a-z]+)$//;
-        } else {
-            pop @$oids;
-        }
-    }
+
+    my ($oid, $request) = split /\?/, $oids->[$#$oids];
+    $oids->[$#$oids] = $oid;
+    $parameters{request} = $request;
     
     # $self->{parameters} is a multivalue hash
     # we may have both object => command and object => id
@@ -401,21 +382,23 @@ sub object_editor {
     }
     $args{cookie} = DEFAULT;
 
-    my $rs = $self->{schema}->resultset($class =~ /(\w+)$/);
+    my $class = '';
+    my $rs = ''; #$self->{schema}->resultset($class =~ /(\w+)$/);
     my @body;
     # to make jQuery happy:
     my $header = { 'Access-Control-Allow-Origin' => $self->{origin},
                    'Access-Control-Allow-Credentials' => 'true' };
+    
     if ($parameters{request} eq 'create' and $self->{edit}) {
-        eval {
-            create($class =~ /(\w+)$/, \%parameters, $self->{schema});
-        };
-        say STDERR "error: $@" if $@;
+        create($class =~ /(\w+)$/, \%parameters, $self->{schema});
         push @body, [0 => $@] if $@;
+        
     } elsif ($parameters{request} eq 'new' and $self->{edit}) {
         my $path = @$oids ? '/'.join('/',@$oids) : '';
-        push @body, $class->HTML_form({ action => $args{base_uri}.$path, method => 'POST' }, \%parameters, %args);
+        push @body, $class->
+            HTML_form({ action => $args{base_uri}.$path, method => 'POST' }, \%parameters, %args);
         return html200({}, SmartSea::HTML->new(html => [body => \@body])->html);
+        
     } elsif ($parameters{request} eq 'delete' and $self->{edit}) {
         $args{oids} = [@$oids, $parameters{id}];
         my $obj = $class->get_object(%args);
@@ -426,6 +409,7 @@ sub object_editor {
             push @body, [p => 'Error: '.$@];
         }
         return object_div($class, \@body, $oids, %args) if @$oids;
+        
     } elsif ($parameters{request} eq 'modify') {
         return http_status($header, 403) if $self->{cookie} eq DEFAULT; # forbidden 
         $args{oids} = [@$oids];
@@ -445,6 +429,7 @@ sub object_editor {
         say STDERR "error: $@" if $@;
         return http_status($header, 500) if $@;
         return json200($header, {object => $obj->as_hashref_for_json});
+        
     } elsif ($parameters{request} eq 'store' and $self->{edit}) {
         #$args{oids} = [@$oids, $parameters{id}]; # if pop below
         $args{oids} = [@$oids];
@@ -464,6 +449,7 @@ sub object_editor {
             return html200({}, SmartSea::HTML->new(html => [body => \@body])->html);
         }
         return object_div($class, \@body, $oids, %args);
+        
     } elsif ($parameters{request} eq 'edit' and $self->{edit}) {
         $args{oids} = [@$oids];
         my $obj = $class->get_object(%args);
@@ -471,9 +457,16 @@ sub object_editor {
         my $path = @$oids ? '/'.join('/',@$oids) : '';
         push @body, $obj->HTML_form({ action => $args{base_uri}.$path, method => 'POST' }, {}, %args);
         return html200({}, SmartSea::HTML->new(html => [body => \@body])->html);
+        
     } elsif (@$oids) {
-        return object_div($class, \@body, $oids, %args);
+        my @body;
+        my $obj = SmartSea::Object->new(schema => $self->{schema}, url => $self->{base_uri});
+        $obj->open($oids->[0]);
+        $oids = $obj->all() unless $obj->{object};
+        @body = ([ul => [li => $obj->li($oids, 0)]]);
+        return html200({}, SmartSea::HTML->new(html => [body => @body])->html);
     }
+    
     my $objs;
     my %primary_columns = map {$_ => 1} $class->primary_columns;
     if (not $primary_columns{cookie}) {

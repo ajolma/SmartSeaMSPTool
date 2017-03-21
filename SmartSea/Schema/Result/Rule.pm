@@ -10,17 +10,14 @@ use SmartSea::Core qw(:all);
 use SmartSea::HTML qw(:all);
 use SmartSea::Layer;
 
-my %attributes = ( 
-    reduce =>       { i => 4,  input => 'checkbox', cue => 'Rule removes allocation/value', },
-    r_plan =>       { i => 5,  input => 'lookup', class => 'Plan',  allow_null => 1 },
-    r_use =>        { i => 6,  input => 'lookup', class => 'Use',   allow_null => 1 },
-    r_layer =>      { i => 7,  input => 'lookup', class => 'Layer', allow_null => 1 },
-    r_dataset =>    { i => 8,  input => 'lookup', class => 'Dataset', objs => {path => {'!=',undef}}, allow_null => 1 },
-    op =>           { i => 9,  input => 'lookup', class => 'Op',    allow_null => 1 },
+my %attributes = (
+    layer =>        { i => 1,  input => 'lookup', class => 'Layer',   allow_null => 0 },
+    r_layer =>      { i => 7,  input => 'lookup', class => 'Layer',   allow_null => 1 },
+    r_dataset =>    { i => 8,  input => 'lookup', class => 'Dataset', allow_null => 1, objs => {path => {'!=',undef}} },
+    op =>           { i => 9,  input => 'lookup', class => 'Op',      allow_null => 1 },
     value =>        { i => 10, input => 'text', type => 'double' },
     min_value =>    { i => 11, input => 'text', type => 'double' },
     max_value =>    { i => 12, input => 'text', type => 'double' },
-    my_index =>     { i => 13, input => 'spinner' },
     value_type =>   { i => 14, input => 'text', },
     value_at_min => { i => 15, input => 'text', type => 'double' },
     value_at_max => { i => 16, input => 'text', type => 'double' },
@@ -40,32 +37,12 @@ __PACKAGE__->add_columns('id', 'cookie', 'made', 'layer', keys %attributes);
 __PACKAGE__->set_primary_key('id', 'cookie');
 
 __PACKAGE__->belongs_to(layer => 'SmartSea::Schema::Result::Layer');
-
-__PACKAGE__->belongs_to(r_plan => 'SmartSea::Schema::Result::Plan');
-__PACKAGE__->belongs_to(r_use => 'SmartSea::Schema::Result::Use');
-__PACKAGE__->belongs_to(r_layer => 'SmartSea::Schema::Result::LayerClass');
-
+__PACKAGE__->belongs_to(r_layer => 'SmartSea::Schema::Result::Layer');
 __PACKAGE__->belongs_to(r_dataset => 'SmartSea::Schema::Result::Dataset');
-
 __PACKAGE__->belongs_to(op => 'SmartSea::Schema::Result::Op');
 
 sub attributes {
     return \%attributes;
-}
-
-sub get_object {
-    my ($class, %args) = @_;
-    my $oid = shift @{$args{oids}};
-    if (@{$args{oids}}) {
-        say STDERR "Too long oid list: @{$args{oids}}";
-        return undef;
-    }
-    my $obj;
-    eval {
-        $obj = $args{schema}->resultset('Rule')->single({id => $oid, cookie => $args{cookie}});
-    };
-    say STDERR "Error: $@" if $@;
-    return $obj;
 }
 
 sub values {
@@ -87,10 +64,8 @@ sub as_text {
     #if ($self->layer->layer_class->name eq 'Value') {
     #    return $self->r_dataset ? $self->r_dataset->long_name : 'error';
     #}
-    my $text;
-    $text = $self->reduce ? "- If " : "+ If ";
+    my $text = '';
     my $u = '';
-    $u = $self->r_use->name if $self->r_use && $self->r_use->name ne $self->use->name;
     if (!$self->r_layer) {
     } elsif ($self->r_layer->name eq 'Value') {
         $u = "for ".$u if $u;
@@ -106,18 +81,18 @@ sub as_text {
     }
     return $text." (true)" unless $self->op;
     $text .= " ".$self->op->name;
-    $text .= " ".$self->value if $args{include_value};
+    $text .= " ".$self->value unless $args{no_value};
     return $text;
 }
+*name = *as_text;
 
 sub as_hashref_for_json {
     my ($self) = @_;
     my $desc = $self->r_dataset ? $self->r_dataset->descr : '';
     return {
-        name => $self->as_text(include_value => 0), 
+        name => $self->as_text(no_value => 1),
         id => $self->id, 
-        active => JSON::true, 
-        index => $self->my_index,
+        active => JSON::true,
         value => $self->value,
         min => $self->min_value() // 0,
         max => $self->max_value() // 10,
@@ -132,9 +107,9 @@ sub HTML_div {
     my $sequential = $self->layer->rule_class->name =~ /^sequential/;
     my @cols;
     if ($sequential) {
-        @cols = (qw/r_plan r_use r_layer r_dataset reduce op value min_value max_value my_index/);
+        @cols = (qw/r_layer r_dataset op value min_value max_value/);
     } else {
-        @cols = (qw/r_plan r_use r_layer r_dataset min_value max_value value_at_min value_at_max weight/);
+        @cols = (qw/r_layer r_dataset min_value max_value value_at_min value_at_max weight/);
     }
     push @l, ([li => [b => 'Rule']]) unless $args{plan};
     #for my $a ('id', sort {$attributes{$a}{i} <=> $attributes{$b}{i}} keys %attributes) {
@@ -180,8 +155,6 @@ sub HTML_form {
     push (@form,
           [ p => $plan->name.'.'.$use->name.'.'.$layer->name],
           [ p => 'Spatial dataset for this Rule:' ],
-          [ p => [[1 => 'plan: '],$widgets->{r_plan}] ],
-          [ p => [[1 => 'use: '],$widgets->{r_use}] ],
           [ p => [[1 => 'layer: '],$widgets->{r_layer}] ],
           [ p => 'or' ],
           [ p => [[1 => 'dataset: '],$widgets->{r_dataset}] ],
@@ -189,9 +162,7 @@ sub HTML_form {
           ['hr']);
     if ($pul->rule_class eq 'sequentially') {
         push (@form,
-              [ p => $widgets->{reduce} ],
               [ p => [[1 => 'Operator and threshold value: '],$widgets->{op},$widgets->{value}] ],
-              [ p => [[1 => 'Index in sequence: '],$widgets->{my_index}] ],
               [ p => [[1 => 'Type of value: '],$widgets->{value_type}] ]);
     } else {
         push (@form,
@@ -218,7 +189,7 @@ sub HTML_list {
     for my $rule (sort {$a->my_index <=> $b->my_index} @$objs) {
         my $li;
         if ($sequential) {
-            $li = item($rule->as_text(include_value => 1)." (".$rule->my_index.")", $rule->id, %args, ref => 'this rule');
+            $li = item($rule->as_text." (".$rule->my_index.")", $rule->id, %args, ref => 'this rule');
         } else {
             $li = item($rule->r_dataset->name, $rule->id, %args, ref => 'this rule');
         }
@@ -279,27 +250,40 @@ sub apply {
         }
     }
 
-    if ($method =~ /^seq/) {
-        
-        # if $rule->reduce then deallocate where the rule is true
-        my $val = $self->reduce ? 0 : 1;
+    if ($method =~ /^incl/) {
 
+        # the default is to compare the spatial operand to 1
+        my $op = $self->op ? $self->op->name : '==';
+        my $value = $self->value // 1;
+
+        if (defined $x) {
+            if ($op eq '<=')    { $y->where($x <= $value) .= 1; } 
+            elsif ($op eq '<')  { $y->where($x <  $value) .= 1; }
+            elsif ($op eq '>=') { $y->where($x >= $value) .= 1; }
+            elsif ($op eq '>')  { $y->where($x >  $value) .= 1; }
+            elsif ($op eq '==') { $y->where($x == $value) .= 1; }
+            else                { say STDERR "rule is a no-op: ",$self->as_text; }
+        }   
+        else                    { $y .= 1; }
+
+    } elsif ($method =~ /^excl/) {
+        
         # the default is to compare the spatial operand to 1
         my $op = $self->op ? $self->op->name : '==';
         my $value = $self->value // 1;
         
         if (defined $x) {
-            if ($op eq '<=')    { $y->where($x <= $value) .= $val; } 
-            elsif ($op eq '<')  { $y->where($x <  $value) .= $val; }
-            elsif ($op eq '>=') { $y->where($x >= $value) .= $val; }
-            elsif ($op eq '>')  { $y->where($x >  $value) .= $val; }
-            elsif ($op eq '==') { $y->where($x == $value) .= $val; }
-            else                { say STDERR "rule is a no-op: ",
-                                  $self->as_text(include_value => 1); }
+            if ($op eq '<=')    { $y->where($x <= $value) .= 0; } 
+            elsif ($op eq '<')  { $y->where($x <  $value) .= 0; }
+            elsif ($op eq '>=') { $y->where($x >= $value) .= 0; }
+            elsif ($op eq '>')  { $y->where($x >  $value) .= 0; }
+            elsif ($op eq '==') { $y->where($x == $value) .= 0; }
+            else                { say STDERR "rule is a no-op: ",$self->as_text; }
         }   
-        else                    { $y .= $val; }
+        else                    { $y .= 0; }
 
     } else {
+        
         my $x_min = $self->min_value;
         my $x_max = $self->max_value;
         my $y_min = $self->value_at_min // 0;
@@ -308,6 +292,8 @@ sub apply {
 
         my $kw = $w * ($y_max-$y_min)/($x_max-$x_min);
         my $c = $w * $y_min - $kw * $x_min;
+
+        # todo: limit $x to min max
 
         if ($method =~ /^mult/) {
             
@@ -318,6 +304,7 @@ sub apply {
             $y += $kw * $x + $c;
             
         }
+        
     }
 }
 

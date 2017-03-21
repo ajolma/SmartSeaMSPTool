@@ -24,25 +24,32 @@ sub attributes {
     return \%attributes;
 }
 
-sub get_object {
-    my ($class, %args) = @_;
-    my $oid = shift @{$args{oids}};
-    if (@{$args{oids}}) {
-        if ($args{oids}->[0] =~ /layer/) {
-            $args{oids}->[0] =~ s/layer://;
-            return SmartSea::Schema::Result::LayerClass->get_object(%args);
-        } elsif ($args{oids}->[0] =~ /activity/) {
-            $args{oids}->[0] =~ s/activity://;
-            return SmartSea::Schema::Result::Activity->get_object(%args);
+sub relationship_methods {
+    my $self = shift;
+    return {
+        activities => 0,
+        layers => 1
+    };
+}
+
+sub layers {
+    my ($self, $oids) = @_;
+    my @layers = ();
+    # find the plan from oids
+    my $plan;
+    for my $oid (@$oids) {
+        my ($class, $id) = split /:/, $oid;
+        if ($class eq 'plan') {
+            $plan = $id;
+            last;
         }
     }
-    my $obj;
-    $oid =~ s/^\w+://;
-    eval {
-        $obj = $args{schema}->resultset('Use')->single({id => $oid});
-    };
-    say STDERR "Error: $@" if $@;
-    return $obj;
+    for my $p2u ($self->plan2use->search({plan => $plan})->all) {
+        for my $layer ($p2u->layers) {
+            push @layers, $layer;
+        }
+    }
+    return sort {$a->name cmp $b->name} @layers;
 }
 
 sub HTML_list {

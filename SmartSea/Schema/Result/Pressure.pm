@@ -7,6 +7,12 @@ use Scalar::Util 'blessed';
 use SmartSea::HTML qw(:all);
 use SmartSea::Impact qw(:all);
 
+my %attributes = (
+    name     => { i => 1,  input => 'text',  size => 20 },
+    ordr     => { i => 2,  input => 'text',  size => 10 },
+    category => { i => 3,  input => 'lookup', class => 'PressureCategory' },
+    );
+
 __PACKAGE__->table('pressures');
 __PACKAGE__->add_columns(qw/ id ordr name category /);
 __PACKAGE__->set_primary_key('id');
@@ -14,16 +20,13 @@ __PACKAGE__->has_many(activity2pressure => 'SmartSea::Schema::Result::Activity2P
 __PACKAGE__->many_to_many(activities => 'activity2pressure', 'activity');
 __PACKAGE__->belongs_to(category => 'SmartSea::Schema::Result::PressureCategory');
 
-sub get_object {
-    my ($class, %args) = @_;
-    my $oid = shift @{$args{oids}};
-    return SmartSea::Schema::Result::Use->get_object(%args) if @{$args{oids}};
-    my $obj;
-    eval {
-        $obj = $args{schema}->resultset('Pressure')->single({id => $oid});
-    };
-    say STDERR "Error: $@" if $@;
-    return $obj;
+sub attributes {
+    return \%attributes;
+}
+
+sub relationship_methods {
+    my $self = shift;
+    return { activities => 0 };
 }
 
 sub HTML_list {

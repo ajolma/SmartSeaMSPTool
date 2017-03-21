@@ -95,7 +95,7 @@ CREATE TABLE datasets (
     disclaimer text,
     path text,
     unit integer,
-    style2 integer NOT NULL
+    style integer NOT NULL
 );
 
 
@@ -512,7 +512,7 @@ CREATE TABLE layers (
     id integer NOT NULL,
     rule_class integer DEFAULT 1 NOT NULL,
     descr text,
-    style2 integer NOT NULL
+    style integer NOT NULL
 );
 
 
@@ -747,16 +747,12 @@ ALTER SEQUENCE rule_classes_id_seq OWNED BY rule_classes.id;
 
 CREATE TABLE rules (
     id integer NOT NULL,
-    reduce boolean DEFAULT true NOT NULL,
-    r_use integer,
     r_layer integer,
-    r_plan integer,
     op integer,
     value double precision,
     r_dataset integer,
     min_value double precision,
     max_value double precision,
-    my_index integer DEFAULT 1 NOT NULL,
     value_type text,
     cookie text DEFAULT 'default'::text NOT NULL,
     made timestamp with time zone,
@@ -770,31 +766,10 @@ CREATE TABLE rules (
 ALTER TABLE rules OWNER TO ajolma;
 
 --
--- Name: COLUMN rules.reduce; Type: COMMENT; Schema: tool; Owner: ajolma
---
-
-COMMENT ON COLUMN rules.reduce IS 'for sequential rules, does this remove area?';
-
-
---
--- Name: COLUMN rules.r_use; Type: COMMENT; Schema: tool; Owner: ajolma
---
-
-COMMENT ON COLUMN rules.r_use IS 'reference to other pul';
-
-
---
 -- Name: COLUMN rules.r_layer; Type: COMMENT; Schema: tool; Owner: ajolma
 --
 
 COMMENT ON COLUMN rules.r_layer IS 'reference to other pul';
-
-
---
--- Name: COLUMN rules.r_plan; Type: COMMENT; Schema: tool; Owner: ajolma
---
-
-COMMENT ON COLUMN rules.r_plan IS 'reference to other pul';
 
 
 --
@@ -809,13 +784,6 @@ COMMENT ON COLUMN rules.value IS 'threshold, used together with op';
 --
 
 COMMENT ON COLUMN rules.r_dataset IS 'data for this this rule (alternative to reference pul)';
-
-
---
--- Name: COLUMN rules.my_index; Type: COMMENT; Schema: tool; Owner: ajolma
---
-
-COMMENT ON COLUMN rules.my_index IS 'for sequential rules, the order';
 
 
 --
@@ -1519,7 +1487,7 @@ ALTER TABLE ONLY datasets
 --
 
 ALTER TABLE ONLY datasets
-    ADD CONSTRAINT datasets_style2_fkey FOREIGN KEY (style2) REFERENCES tool.styles(id);
+    ADD CONSTRAINT datasets_style2_fkey FOREIGN KEY (style) REFERENCES tool.styles(id);
 
 
 --
@@ -1577,7 +1545,7 @@ ALTER TABLE ONLY pressures
 --
 
 ALTER TABLE ONLY layers
-    ADD CONSTRAINT layers_style2_fkey FOREIGN KEY (style2) REFERENCES styles(id);
+    ADD CONSTRAINT layers_style2_fkey FOREIGN KEY (style) REFERENCES styles(id);
 
 
 --
@@ -1633,7 +1601,7 @@ ALTER TABLE ONLY rules
 --
 
 ALTER TABLE ONLY rules
-    ADD CONSTRAINT rules_r_layer_fkey FOREIGN KEY (r_layer) REFERENCES layer_classes(id);
+    ADD CONSTRAINT rules_r_layer_fkey FOREIGN KEY (r_layer) REFERENCES layers(id);
 
 
 --
@@ -1642,22 +1610,6 @@ ALTER TABLE ONLY rules
 
 ALTER TABLE ONLY rules
     ADD CONSTRAINT rules_r_op_fkey FOREIGN KEY (op) REFERENCES ops(id);
-
-
---
--- Name: rules_r_plan_fkey; Type: FK CONSTRAINT; Schema: tool; Owner: ajolma
---
-
-ALTER TABLE ONLY rules
-    ADD CONSTRAINT rules_r_plan_fkey FOREIGN KEY (r_plan) REFERENCES plans(id);
-
-
---
--- Name: rules_r_use_fkey; Type: FK CONSTRAINT; Schema: tool; Owner: ajolma
---
-
-ALTER TABLE ONLY rules
-    ADD CONSTRAINT rules_r_use_fkey FOREIGN KEY (r_use) REFERENCES uses(id);
 
 
 --

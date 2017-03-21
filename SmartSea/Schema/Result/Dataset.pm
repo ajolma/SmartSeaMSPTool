@@ -10,19 +10,19 @@ use PDL;
 use PDL::NiceSlice;
 
 my %attributes = (
-    name =>            { i => 1,  input => 'text',    size => 20 },
-    custodian =>       { i => 2,  input => 'lookup',  class => 'Organization', allow_null => 1 },
-    contact =>         { i => 3,  input => 'text',    size => 20 },
-    descr =>           { i => 4,  input => 'textarea' },
-    data_model =>      { i => 5,  input => 'lookup',  class => 'DataModel', allow_null => 1 },
-    is_a_part_of =>    { i => 6,  input => 'lookup',  class => 'Dataset',   allow_null => 1 },
+    name            => { i => 1,  input => 'text',    size => 20 },
+    custodian       => { i => 2,  input => 'lookup',  class => 'Organization', allow_null => 1 },
+    contact         => { i => 3,  input => 'text',    size => 20 },
+    descr           => { i => 4,  input => 'textarea' },
+    data_model      => { i => 5,  input => 'lookup',  class => 'DataModel', allow_null => 1 },
+    is_a_part_of    => { i => 6,  input => 'lookup',  class => 'Dataset',   allow_null => 1 },
     is_derived_from => { i => 7,  input => 'lookup',  class => 'Dataset',   allow_null => 1 },
-    license =>         { i => 8,  input => 'lookup',  class => 'License',   allow_null => 1 },
-    attribution =>     { i => 9,  input => 'text',    size => 40 },
-    disclaimer =>      { i => 10, input => 'text',    size => 80 },
-    path =>            { i => 11, input => 'text',    size => 30 },
-    unit =>            { i => 12, input => 'lookup',  class => 'Unit',      allow_null => 1 },
-    style2 =>          { i => 16, input => 'object',  class => 'Style' }
+    license         => { i => 8,  input => 'lookup',  class => 'License',   allow_null => 1 },
+    attribution     => { i => 9,  input => 'text',    size => 40 },
+    disclaimer      => { i => 10, input => 'text',    size => 80 },
+    path            => { i => 11, input => 'text',    size => 30 },
+    unit            => { i => 12, input => 'lookup',  class => 'Unit',      allow_null => 1 },
+    style           => { i => 16, input => 'object',  class => 'Style' }
     );
 
 __PACKAGE__->table('datasets');
@@ -34,10 +34,15 @@ __PACKAGE__->belongs_to(is_a_part_of => 'SmartSea::Schema::Result::Dataset');
 __PACKAGE__->belongs_to(is_derived_from => 'SmartSea::Schema::Result::Dataset');
 __PACKAGE__->belongs_to(license => 'SmartSea::Schema::Result::License');
 __PACKAGE__->belongs_to(unit => 'SmartSea::Schema::Result::Unit');
-__PACKAGE__->belongs_to(style2 => 'SmartSea::Schema::Result::Style');
+__PACKAGE__->belongs_to(style => 'SmartSea::Schema::Result::Style');
 
 sub attributes {
     return \%attributes;
+}
+
+sub relationship_methods {
+    my $self = shift;
+    return { };
 }
 
 sub my_unit {
@@ -46,17 +51,6 @@ sub my_unit {
     return $self->is_a_part_of->my_unit if defined $self->is_a_part_of;
     return $self->is_derived_from->my_unit if defined $self->is_derived_from;
     return undef;
-}
-
-sub get_object {
-    my ($class, %args) = @_;
-    my $oid = shift @{$args{oids}};
-    my $obj;
-    eval {
-        $obj = $args{schema}->resultset('Dataset')->single({id => $oid});
-    };
-    say STDERR "Error: $@" if $@;
-    return $obj;
 }
 
 sub long_name {
@@ -119,7 +113,7 @@ sub HTML_div {
     push @l, [li => [[b => "unit"],[1 => " = ".$self->unit->name]]] if $self->unit;
     push @l, [li => [[b => "path"],[1 => " = ".$self->path]]] if $self->path;
 
-    push @l, $self->style2->li if $self->style2;
+    push @l, $self->style->li if $self->style;
     
     push @div, [ul => \@l] if @l;
 

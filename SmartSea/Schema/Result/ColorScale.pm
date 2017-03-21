@@ -8,18 +8,6 @@ __PACKAGE__->table('color_scales');
 __PACKAGE__->add_columns(qw/ id name /);
 __PACKAGE__->set_primary_key('id');
 
-sub get_object {
-    my ($class, %args) = @_;
-    my $oid = shift @{$args{oids}};
-    my $obj;
-    $oid =~ s/^\w+://;
-    eval {
-        $obj = $args{schema}->resultset('ColorScale')->single({id => $oid});
-    };
-    say STDERR "Error: $@" if $@;
-    return $obj;
-}
-
 sub HTML_list {
     my (undef, $objs, %args) = @_;
     # plan -> use -> layer -> style -> color_scale

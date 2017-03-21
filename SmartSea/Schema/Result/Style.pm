@@ -33,18 +33,6 @@ sub name {
     return $name;
 }
 
-sub get_object {
-    my ($class, %args) = @_;
-    my $oid = shift @{$args{oids}};
-    my $obj;
-    $oid =~ s/^\w+://;
-    eval {
-        $obj = $args{schema}->resultset('Style')->single({id => $oid});
-    };
-    say STDERR "Error: $@" if $@;
-    return $obj;
-}
-
 sub HTML_list {
     my (undef, $objs, %args) = @_;
     # plan -> use -> layer -> style

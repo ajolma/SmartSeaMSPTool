@@ -4,6 +4,8 @@ use warnings;
 use 5.010000;
 use base qw/DBIx::Class::Core/;
 use Scalar::Util 'blessed';
+
+use SmartSea::Core qw(:all);
 use SmartSea::HTML qw(:all);
 
 my %attributes = (
@@ -20,24 +22,9 @@ sub attributes {
     return \%attributes;
 }
 
-sub get_object {
-    my ($class, %args) = @_;
-    my $oid = shift @{$args{oids}};
-    if (@{$args{oids}}) {
-        if ($args{oids}->[0] =~ /use/) {
-            $args{oids}->[0] =~ s/use://;
-            return SmartSea::Schema::Result::Use->get_object(%args);
-        } elsif ($args{oids}->[0] =~ /dataset/) {
-            $args{oids}->[0] =~ s/dataset://;
-            return SmartSea::Schema::Result::Dataset->get_object(%args);
-        }
-    }
-    my $obj;
-    eval {
-        $obj = $args{schema}->resultset('Plan')->single({id => $oid});
-    };
-    say STDERR "Error: $@" if $@;
-    return $obj;
+sub relationship_methods {
+    my $self = shift;
+    return {uses => 0};
 }
 
 sub HTML_list {

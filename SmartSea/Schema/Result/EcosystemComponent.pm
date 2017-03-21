@@ -7,10 +7,23 @@ use Scalar::Util 'blessed';
 use SmartSea::HTML qw(:all);
 use SmartSea::Impact qw(:all);
 
+my %attributes = (
+    name =>  { i => 1,  input => 'text',  size => 20 },
+    );
+
 __PACKAGE__->table('ecosystem_components');
 __PACKAGE__->add_columns(qw/ id name /);
 __PACKAGE__->set_primary_key('id');
 __PACKAGE__->has_many(impacts => 'SmartSea::Schema::Result::Impact', 'ecosystem_component');
+
+sub attributes {
+    return \%attributes;
+}
+
+sub relationship_methods {
+    my $self = shift;
+    return { };
+}
 
 sub order {
     my $self = shift;
