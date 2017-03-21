@@ -451,16 +451,16 @@ sub object_editor {
         return object_div($class, \@body, $oids, %args);
         
     } elsif ($parameters{request} eq 'edit' and $self->{edit}) {
-        $args{oids} = [@$oids];
-        my $obj = $class->get_object(%args);
-        #pop @$oids;
-        my $path = @$oids ? '/'.join('/',@$oids) : '';
-        push @body, $obj->HTML_form({ action => $args{base_uri}.$path, method => 'POST' }, {}, %args);
-        return html200({}, SmartSea::HTML->new(html => [body => \@body])->html);
+        my $obj = SmartSea::Object->new(schema => $self->{schema}, url => $self->{base_uri}, edit => $self->{edit});
+        $obj->open($oids->[$#$oids]);
+        my $url = $self->{uri};
+        $url =~ s/\?.*$//;
+        my $form = [form => {action => $url, method => 'POST'}, $obj->form($oids, \%parameters)];
+        return html200({}, SmartSea::HTML->new(html => [body => $form])->html);
         
     } elsif (@$oids) {
         my @body;
-        my $obj = SmartSea::Object->new(schema => $self->{schema}, url => $self->{base_uri});
+        my $obj = SmartSea::Object->new(schema => $self->{schema}, url => $self->{base_uri}, edit => $self->{edit});
         $obj->open($oids->[0]);
         $oids = $obj->all() unless $obj->{object};
         @body = ([ul => [li => $obj->li($oids, 0)]]);

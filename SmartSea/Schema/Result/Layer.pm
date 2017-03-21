@@ -9,7 +9,7 @@ use SmartSea::Core qw(:all);
 use SmartSea::HTML qw(:all);
 
 my %attributes = (
-    plan2use    => { i => 1, input => 'lookup', class => 'Plan2Use' },
+    plan2use    => { i => 1, input => 'ignore', class => 'Plan2Use' },
     layer_class => { i => 2, input => 'lookup', class => 'LayerClass' },
     rule_class  => { i => 3, input => 'lookup', class => 'RuleClass' },
     style       => { i => 4, input => 'object', class => 'Style' },

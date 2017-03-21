@@ -9,7 +9,7 @@ use SmartSea::HTML qw(:all);
 
 sub new {
     my ($class, %args) = @_;
-    my $self = {schema => $args{schema}, url => singular($args{url})};
+    my $self = {schema => $args{schema}, url => singular($args{url}), edit => $args{edit}};
     bless $self, $class;
 }
 
@@ -159,16 +159,26 @@ sub li {
         eval {
             for my $obj (@$oids) {
                 my $name = $obj->name;
-                push @li, [li => a(link => $name, url => $url.':'.$obj->id)];
+                my @content = a(link => $name, url => $url.':'.$obj->id);
+                if ($self->{edit}) { # todo is this really editable? eg use in plan is not
+                    push @content, [1 => ' '], a(link => 'edit', url => $url.':'.$obj->id.'?edit');
+                    push @content, [1 => ' '], button(value => 'Remove'); # to do: remove or delete? in form
+                }
+                push @li, [li => @content];
             }
         };
         say STDERR "Error: $@" if $@;
+        if ($self->{edit}) {
+            my @content = button(value => 'Add'); # to do: what else besides add? in form
+            push @li, [li => @content];
+        }
         return [[b => plural($class)],[ul => \@li]];
     }
 
     my $attributes = $self->{object}->attributes;
     my @li;
     for my $a ('id', sort keys %$attributes) {
+        # todo what if style, ie object?
         my $v = $self->{object}->$a // '';
         if (ref $v) {
             for my $b (qw/name id data/) {
@@ -184,7 +194,7 @@ sub li {
     $url .= ':'.$self->{object}->id;
     for my $method (sort keys %$need_arg) {
         my $c = singular($method);
-        my $child = SmartSea::Object->new(schema => $self->{schema}, url => $url);
+        my $child = SmartSea::Object->new(schema => $self->{schema}, url => $url, edit => $self->{edit});
         if ($#$oids >= $oids_index+1 && $oids->[$oids_index+1] =~ /$c/) {
             $child->open($oids->[$oids_index+1]);
         } else {
@@ -203,7 +213,27 @@ sub li {
         }
         push @li, [li => $child->li($oids_or_children, $oids_index+1)];
     }
-    return [[b => $class], [ul => \@li]];
+    $url =~ s/:\d+$//;
+    my @content = a(link => $class, url => plural($url));
+    if ($self->{edit}) {
+        push @content, [1 => ' '], a(link => 'edit', url => $url.':'.$self->{object}->id.'?edit');
+    }
+    return [[b => @content], [ul => \@li]];
+}
+
+sub form {
+    my ($self, $oids, $values) = @_;
+    my $object = $self->{object};
+    my $attributes = $object->attributes;
+    for my $key (keys %$attributes) {
+        next unless defined $object->$key;
+        next if defined $values->{$key};
+        $values->{$key} = $object->$key;
+    }
+    # todo: tell the context, from oids
+    my @widgets = widgets($attributes, $values, $self->{schema});
+    push @widgets, button(value => 'Save'), [1 => ' '], button(value => 'Cancel');
+    return @widgets;
 }
 
 1;

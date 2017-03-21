@@ -123,6 +123,7 @@ sub widgets {
     my @form;
     for my $key (sort {$attributes->{$a}{i} <=> $attributes->{$b}{i}} keys %$attributes) {
         my $a = $attributes->{$key};
+        next if $a->{input} eq 'ignore';
         my $input;
         if ($a->{input} eq 'text') {
             $input = text_input(
