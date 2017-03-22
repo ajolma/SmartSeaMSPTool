@@ -9,4 +9,8 @@ __PACKAGE__->table('data.organizations');
 __PACKAGE__->add_columns(qw/id name/);
 __PACKAGE__->set_primary_key('id');
 
+sub attributes {
+    return {name => {input => 'text'}};
+}
+
 1;

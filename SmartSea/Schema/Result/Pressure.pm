@@ -24,50 +24,6 @@ sub attributes {
     return \%attributes;
 }
 
-sub relationship_methods {
-    return { activities => [activity => 0] };
-}
-
-sub HTML_list {
-    my (undef, $objs, %args) = @_;
-    my %data;
-    my %li;
-    my %has;
-    for my $p (@$objs) {
-        my $t = $p->name;
-        $has{$p->id} = 1;
-        if ($args{activity}) {
-            my $ap = $p->activity2pressure->single({activity => $args{activity}});
-            my $e = [[b => $t],[1 => ", range of impact is ".$range{$ap->range}]];
-            my $i = item($e, $p->id, %args, ref => 'this activity-pressure link');
-            $li{$t} = [li => $i, [ul => $ap->impacts_list]];
-        } else {
-            $li{$t} = [li => item($t, $p->id, %args, ref => 'this pressure')];
-        }
-    }
-
-    my @li;
-    for my $pressure (sort keys %li) {
-        push @li, $li{$pressure};
-    }
-
-    if ($args{edit} && $args{activity} && !$args{use}) {
-        my @objs;
-        for my $obj ($args{schema}->resultset('Pressure')->all) {
-            next if $has{$obj->id};
-            push @objs, $obj;
-        }
-        if (@objs) {
-            my $drop_down = drop_down(name => 'pressure', objs => \@objs);
-            push @li, [li => [$drop_down, [0 => ' '], button(value => 'Add', name => 'pressure')]];
-        }
-    }
-    
-    my $ret = [ul => \@li];
-    return [ li => [ [0 => 'Pressures:'], $ret ]] if $args{named_item};
-    return $ret;
-}
-
 sub HTML_div {
     my ($self, $attributes, %args) = @_;
     my @l;
@@ -122,38 +78,6 @@ sub HTML_div {
     my $ret = [ul => \@l];
     return [ li => [0 => 'Pressure:'], $ret ] if $args{named_item};
     return $ret;
-}
-
-sub HTML_form {
-    my ($self, $attributes, $values, %args) = @_;
-
-    my @form;
-
-    if ($self and blessed($self) and $self->isa('SmartSea::Schema::Result::Pressure')) {
-        for my $key (qw/name category/) {
-            next unless $self->$key;
-            next if defined $values->{$key};
-            $values->{$key} = ref($self->$key) ? $self->$key->id : $self->$key;
-        }
-        push @form, [input => {type => 'hidden', name => 'id', value => $self->id}];
-    }
-
-    my $name = text_input(
-        name => 'name',
-        size => 10,
-        value => $values->{name} // ''
-    );
-
-    my $category = drop_down(name => 'category', 
-                             objs => [$args{schema}->resultset('PressureCategory')->all], 
-                             selected => $values->{category});
-
-    push @form, (
-        [ p => [[1 => 'Name: '],$name] ],
-        [ p => [[1 => 'Category: '],$category] ],
-        button(value => "Store")
-    );
-    return [form => $attributes, @form];
 }
 
 1;

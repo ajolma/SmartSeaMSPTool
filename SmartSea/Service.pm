@@ -336,7 +336,9 @@ sub object_editor {
         my @li;
         for my $source (sort keys %sources) {
             next if $source =~ /2/;
-            push @li, [li => a(link => SmartSea::Object::plural($source), url => 'browser/'.lc($source))]
+            my $lc = $source;
+            $lc =~ s/([a-z])([A-Z])/$1_$2/;
+            push @li, [li => a(link => SmartSea::Object::plural($source), url => 'browser/'.lc($lc))]
         }
         push @body, [ul=>\@li];
         return html200({}, SmartSea::HTML->new(html => [body => \@body])->html);
@@ -401,6 +403,7 @@ sub object_editor {
         push @body, [0 => $@] if $@;
         
     } elsif (($parameters{request} eq 'new' or $parameters{request} eq 'add') and $self->{edit}) {
+        # todo: tell that nothing has yet been really added
         my %args = %{$self};
         $args{url} = $self->{base_uri};
         my $obj = SmartSea::Object->new(\%args);
@@ -410,6 +413,14 @@ sub object_editor {
             my $form = [form => {action => $url, method => 'POST'}, $obj->form($oids, \%parameters)];
             return html200({}, SmartSea::HTML->new(html => [body => $form])->html);
         }
+
+        # example of remove
+        #my $layer = $args{schema}->resultset('LayerClass')->single({ id => $remove });
+        #eval {
+        #    $plan2use->remove_from_layers($layer);
+        #};
+        #$error = $@;
+        #say STDERR $@ if $@;
         
     } elsif ($parameters{request} eq 'delete' and $self->{edit}) {
         $args{oids} = [@$oids, $parameters{id}];
@@ -442,7 +453,16 @@ sub object_editor {
         return http_status($header, 500) if $@;
         return json200($header, {object => $obj->as_hashref_for_json});
         
-    } elsif ($parameters{request} eq 'store' and $self->{edit}) {
+    } elsif ($parameters{request} eq 'store' and $self->{edit}) { # or save
+
+        # example:
+        #my $layer = $args{schema}->resultset('LayerClass')->single({ id => $args{parameters}{layer} });
+        #eval {
+        #    $plan2use->add_to_layers($layer);
+        #};
+        #$error = $@;
+        #say STDERR $@ if $@;
+        
         #$args{oids} = [@$oids, $parameters{id}]; # if pop below
         $args{oids} = [@$oids];
         my $obj = $class->get_object(%args);

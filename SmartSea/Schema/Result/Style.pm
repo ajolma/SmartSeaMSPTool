@@ -33,38 +33,6 @@ sub name {
     return $name;
 }
 
-sub HTML_list {
-    my (undef, $objs, %args) = @_;
-    # plan -> use -> layer -> style
-    # dataset -> style
-    my @li = ();
-    my $ret = [ul => \@li];
-    return [ li => [0 => 'ColorScales:'], $ret ] if $args{named_item};
-    return $ret;
-}
-
-sub li {
-    my ($self) = @_;
-    my @l;
-    push @l, $self->color_scale->li if defined $self->color_scale;
-    push @l, [li => [[b => "minimum"],[1 => " = ".$self->min]]] if defined $self->min;
-    push @l, [li => [[b => "maximum"],[1 => " = ".$self->max]]] if defined $self->max;
-    push @l, [li => [[b => "classes"],[1 => " = ".$self->classes]]] if defined $self->classes;
-    push @l, [li => [[b => "scales"],[1 => " = ".$self->scales]]] if defined $self->scales;
-    return [ li => [[b=>'Style:'],[ul => \@l]] ];
-}
-
-sub HTML_div {
-    my ($self, $attributes, %args) = @_;
-    my @l;
-    push @l, $self->color_scale->HTML_div if defined $self->color_scale;
-    push @l, [li => [[b => "minimum"],[1 => " = ".$self->min]]] if defined $self->min;
-    push @l, [li => [[b => "maximum"],[1 => " = ".$self->max]]] if defined $self->max;
-    push @l, [li => [[b => "classes"],[1 => " = ".$self->classes]]] if defined $self->classes;
-    push @l, [li => [[b => "scales"],[1 => " = ".$self->scales]]] if defined $self->scales;
-    return [ ul => \@l ];
-}
-
 sub inputs {
     my ($self, $values, $schema) = @_;
     if ($self and blessed($self) and $self->isa('SmartSea::Schema::Result::Style')) {
@@ -75,11 +43,6 @@ sub inputs {
         }
     }
     return widgets(\%attributes, $values, $schema);
-}
-
-sub HTML_form {
-    my ($self, $attributes, $values, %args) = @_;
-    return [ 0 => '' ];
 }
 
 1;

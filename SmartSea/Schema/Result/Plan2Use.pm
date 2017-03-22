@@ -23,8 +23,24 @@ sub name {
     return $self->use->name;
 }
 
-sub relationship_methods {
+sub children_listers {
     return {layers => [layer => 0]};
+}
+
+sub for_child_form {
+    my ($self, $kind, $children, $args) = @_;
+    if ($kind eq 'layers') {
+        my %has;
+        for my $obj (@$children) {
+            $has{$obj->layer_class->id} = 1;
+        }
+        my @objs;
+        for my $obj ($args->{schema}->resultset('LayerClass')->all) {
+            next if $has{$obj->id};
+            push @objs, $obj;
+        }
+        return drop_down(name => 'layer_class', objs => \@objs);
+    }
 }
 
 1;

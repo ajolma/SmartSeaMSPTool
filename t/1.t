@@ -33,7 +33,10 @@ $schema->resultset('LayerClass')->single({id => 1})->
 my $root = 'SmartSea::Schema::Result::';
 my $parameters = {request => '', add => ''};
 
-for my $class (qw/plan use layer_class rule_class color_scale style layer/) {
+for my $class ($schema->sources) {
+    #next if $class =~ /2/;
+    $class =~ s/([a-z])([A-Z])/$1_$2/;
+    $class = lc($class);
     my $obj = SmartSea::Object->new({schema => $schema, url => ''});
     $obj->open($class);
     my $result = $obj->li;

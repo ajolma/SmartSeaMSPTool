@@ -71,6 +71,7 @@ sub singular {
         $w =~ s/ies$/y/;
     } elsif ($w =~ /sses$/) {
         $w =~ s/sses$/ss/;
+    } elsif ($w =~ /ss$/) {
     } else {
         $w =~ s/s$//;
     }
@@ -96,7 +97,6 @@ sub set_class {
     $class =~ s/^(\w)/uc($1)/e;
     $class =~ s/_(\w)/uc($1)/e;
     $class =~ s/(\d\w)/uc($1)/e;
-    $class =~ s/Pressurecategory/PressureCategory/;
     $self->{source} = $class;
     $self->{class} = 'SmartSea::Schema::Result::'.$class;
     $self->{class_name} = $self->{class}->can('class_name') ? 
@@ -168,6 +168,7 @@ sub delete {
 
 sub all {
     my ($self) = @_;
+    # todo: impacts resultset list
     return [$self->{rs}->list] if $self->{rs}->can('list');
     # todo: use self->rs and methods in it below
     my $order_by = $self->{class}->can('order_by') ? $self->{class}->order_by : {-asc => 'name'};
@@ -176,6 +177,8 @@ sub all {
 
 sub li {
     my ($self, $oids, $oids_index) = @_;
+
+    # todo: ecosystem component has an expected impact, which can be computed
 
     my $attributes = $self->{class}->can('attributes') ? $self->{class}->attributes : undef;
     my $editable = $attributes && $self->{edit};
@@ -198,15 +201,10 @@ sub li {
             push @li, [li => @content];
         }
         if ($self->{edit}) {
-            # to do: what else besides add? in form
-            # parent can get a list of what can be added or a set  of drop downs
-            
-            my $content = [
-                form => {action => $url, method => 'POST'},
-                button(value => 'Add')
-                ];
-            push @$content, $oids_index->{for_add} if $oids_index && $oids_index->{for_add};
-            push @li, [li => $content];
+            my @content;
+            push @content, $oids_index->{for_add}, [0=>' '] if $oids_index && $oids_index->{for_add};
+            push @content, button(value => 'Add');
+            push @li, [li => [form => {action => $url, method => 'POST'}, @content]];
         }
         return [[b => plural($self->{class_name})],[ul => \@li]];
         
@@ -222,13 +220,14 @@ sub li {
     }
     
     my @li = ([li => "id: ".$object->id], [li => "name: ".$object->name]);
-    my $children;
-    $children = $object->relationship_methods if $object->can('relationship_methods');
+    my $children_listers;
+    $children_listers = $object->children_listers if $object->can('children_listers');
     # simple attributes:
     for my $a (sort keys %$attributes) {
         next if $a eq 'name';
-        next if $children->{$a};
+        next if $children_listers->{$a};
         # todo what if style, ie object?
+        # todo: for rules show only relevant ones
         my $v = $object->$a // '';
         if (ref $v) {
             for my $b (qw/name id data/) {
@@ -245,8 +244,8 @@ sub li {
     # open - there is $oids->[$oids_index], it opens an object, whose id is in what the method returns - or 
     # closed - otherwise
     # the method can be built-in (0), in result (1) or in result_set (2)
-    for my $method (sort keys %$children) {
-        my ($class_of_child, $method_type) = @{$children->{$method}};
+    for my $lister (sort keys %$children_listers) {
+        my ($class_of_child, $lister_type) = @{$children_listers->{$lister}};
         my %args = %{$self};
         $args{url} = $url;
         my $child = SmartSea::Object->new(\%args);
@@ -255,36 +254,42 @@ sub li {
         } else {
             $child->set_class($class_of_child);
         }
-        my $list;
-        if ($method_type == 2) {
-            $list = [$self->{rs}->$method($object)];
-            $child->{class_name} = $method;
+        my $children;
+        if ($lister_type == 2) {
+            $children = [$self->{rs}->$lister($object)];
+            $child->{class_name} = $lister;
             $child->{class_name} =~ s/^(\w)/uc($1)/e;
-        } elsif ($method_type) {
-            $list = [$object->$method($oids)];
+        } elsif ($lister_type) {
+            $children = [$object->$lister($oids)];
         } else {
-            $list = [$object->$method()];
+            $children = [$object->$lister()];
         }
-        my $open = 0;
+        my $child_is_open = 0;
         if ($child->{object}) {
-            for my $in_list (@$list) {
-                if ($in_list->id == $child->{object}->id) {
-                    $open = 1;
+            for my $has_child (@$children) {
+                if ($has_child->id == $child->{object}->id) {
+                    $child_is_open = 1;
                     last;
                 }
             }
         }
-        if ($open) {
+        if ($child_is_open) {
             push @li, [li => $child->li($oids, $oids_index+1)];
         } else {
             delete $child->{object};
-            my %opt;
-            $opt{for_add} = $object->for_child_form($method) if $object->can('for_child_form');
-            push @li, [li => $child->li($list, \%opt)];
+            my %opt = (for_add => $self->for_child_form($lister, $children));
+            push @li, [li => $child->li($children, \%opt)];
         }
     }
     
     return [[b => @content], [ul => \@li]];
+}
+
+sub for_child_form {
+    my ($self, $lister, $children) = @_;
+    if ($self->{object}->can('for_child_form')) {
+        return $self->{object}->for_child_form($lister, $children, $self);
+    }
 }
 
 sub form {
@@ -299,6 +304,14 @@ sub form {
             next if defined $values->{$key};
             $values->{$key} = $self->{object}->$key;
         }
+
+        # todo: dataset have in-form button for computing min and max
+        # that returns here and changes values
+        # my $b = Geo::GDAL::Open($args{data_dir}.$self->path)->Band;
+        #    $b->ComputeStatistics(0);
+        #    $values->{min} = $b->GetMinimum;
+        #    $values->{max} = $b->GetMaximum;
+        
         push @widgets, hidden(id => $self->{object}->id);
         push @widgets, hidden(source => $self->{source});
     } else {

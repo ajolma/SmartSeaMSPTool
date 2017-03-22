@@ -22,145 +22,24 @@ sub attributes {
     return \%attributes;
 }
 
-sub relationship_methods {
+sub children_listers {
     return {plan2use => [plan2use => 0]};
 }
 
-sub HTML_list {
-    my (undef, $objs, %args) = @_;
-    my %data;
-    my %li;
-    for my $plan (@$objs) {
-        my $p = $plan->name;
-        $li{_plan}{$p} = item([b => $p], $plan->id, %args, ref => 'this plan');
-        for my $use ($plan->uses) {
-            my $u = $use->name;
-            $data{$p}{uses}{$u} = 1;
-            my $id = $plan->id.'/use:'.$use->id;
-            $li{$p}{uses}{$u} = item($u, $id, %args, action => 'None');
+sub for_child_form {
+    my ($self, $kind, $children, $args) = @_;
+    if ($kind eq 'plan2use') {
+        my %has;
+        for my $obj (@$children) {
+            $has{$obj->use->id} = 1;
         }
-    }
-    my @li;
-    for my $plan (sort keys %{$li{_plan}}) {
-        my @l;
-        for my $use (sort keys %{$data{$plan}{uses}}) {
-            push @l, [li => $li{$plan}{uses}{$use}];
+        my @objs;
+        for my $obj ($args->{schema}->resultset('Plan2Use')->all) {
+            next if $has{$obj->id};
+            push @objs, $obj;
         }
-        my @item = @{$li{_plan}{$plan}};
-        push @item, [ul => \@l] if @l;
-        push @li, [li => \@item];
+        return drop_down(name => 'plan2use', objs => \@objs);
     }
-
-    if ($args{edit}) {
-        my $name = text_input(name => 'name');
-        push @li, [li => [$name, 
-                          [0 => ' '],
-                          button(value => 'Create', name => 'plan')]];
-    }
-
-    return [ul => \@li];
-}
-
-sub HTML_div {
-    my ($self, $attributes, %args) = @_;
-    my @l = ([li => [b => 'Plan']]);
-    for my $a (qw/id name/) {
-        my $v = $self->$a // '';
-        if (ref $v) {
-            for my $b (qw/name id data/) {
-                if ($v->can($b)) {
-                    $v = $v->$b;
-                    last;
-                }
-            }
-        }
-        push @l, [li => "$a: ".$v];
-    }
-    $args{plan} = $self->id;
-    $args{named_item} = 1;
-    my $error;
-    if (my $oid = shift @{$args{oids}}) {
-        if ($oid =~ /use/) {
-            $oid =~ s/use://;
-            push @l, $self->uses->single({'use.id' => $oid})->HTML_div({}, %args);
-        } elsif ($oid =~ /dataset/) {
-            $oid =~ s/dataset://;
-            push @l, $self->datasets->single({'dataset.id' => $oid})->HTML_div({}, %args);
-        }
-    } else {
-        if ($args{parameters}{request} eq 'add') {
-            if ($args{parameters}{add} eq 'use') {
-                my $use = $args{schema}->resultset('Use')->single({ id => $args{parameters}{use} });
-                eval {
-                    $self->add_to_uses($use);
-                };
-                $error = $@;
-                say STDERR $@ if $@;
-            } elsif ($args{parameters}{add} eq 'dataset') {
-                my $dataset = $args{schema}->resultset('Dataset')->single({ id => $args{parameters}{dataset} });
-                eval {
-                    $self->add_to_datasets($dataset);
-                };
-                $error = $@;
-                say STDERR $@ if $@;
-            }
-        } elsif ($args{parameters}{request} eq 'remove') {
-            if ($args{parameters}{remove} =~ /^use:(\d+)/) {
-                my $use = $args{schema}->resultset('Use')->single({ id => $1 });
-                eval {
-                    $self->remove_from_uses($use);
-                };
-                $error = $@;
-                say STDERR $@ if $@;
-            } elsif ($args{parameters}{remove} =~ /^dataset:(\d+)/) {
-                my $dataset = $args{schema}->resultset('Dataset')->single({ id => $1 });
-                eval {
-                    $self->remove_from_datasets($dataset);
-                };
-                $error = $@;
-                say STDERR $@ if $@;
-            }
-        }
-        $args{action} = 'Remove';
-        push @l, SmartSea::Schema::Result::Use->HTML_list([$self->uses], %args);
-    }
-    my @content;
-    push @content, [0 => $error] if $error;
-    push @content, [ul => \@l];
-    return [div => $attributes, @content];
-}
-
-sub HTML_form {
-    my ($self, $attributes, $values, %args) = @_;
-
-    if (my $oid = shift @{$args{oids}}) {
-        $args{plan} = $self->id;
-        return $self->uses->single({'use.id' => $oid})->HTML_form($attributes, undef, %args);
-    }
-
-    my @form;
-
-    if ($self and blessed($self) and $self->isa('SmartSea::Schema::Result::Plan')) {
-        for my $key (qw/name/) {
-            next unless $self->$key;
-            next if defined $values->{$key};
-            $values->{$key} = ref($self->$key) ? $self->$key->id : $self->$key;
-        }
-        push @form, [input => {type => 'hidden', name => 'id', value => $self->id}];
-    }
-
-    my $name = text_input(
-        name => 'name',
-        size => 15,
-        value => $values->{name} // ''
-    );
-
-    push @form, (
-        [ p => [[1 => 'name: '],$name] ],
-        button(value => "Store")
-    );
-
-    return [form => $attributes, @form];
 }
 
 1;

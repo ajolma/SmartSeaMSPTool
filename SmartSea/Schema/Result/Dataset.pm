@@ -40,7 +40,7 @@ sub attributes {
     return \%attributes;
 }
 
-sub relationship_methods {
+sub children_listers {
     return { parts => [dataset => 2], derivatives => [dataset => 2] };
 }
 
@@ -95,125 +95,6 @@ sub info {
         }
     }
     return [pre => $info];
-}
-
-sub HTML_form {
-    my ($self, $attributes, $values, %args) = @_;
-
-    my @form;
-
-    my $new = 1;
-    my $compute = 0;
-    if ($self and blessed($self) and $self->isa('SmartSea::Schema::Result::Dataset')) {
-
-        $compute = 1 if $self->path;
-        
-        if ($compute && $args{parameters}{compute}) {
-            # min and max
-            # assuming one band
-            my $b = Geo::GDAL::Open($args{data_dir}.$self->path)->Band;
-            $b->ComputeStatistics(0);
-            $values->{min} = $b->GetMinimum;
-            $values->{max} = $b->GetMaximum;
-        }
-        
-        for my $key (keys %attributes) {
-            next unless defined $self->$key;
-            next if defined $values->{$key};
-            $values->{$key} = $self->$key;
-        }
-        push @form, [input => {type => 'hidden', name => 'id', value => $self->id}];
-        $new = 0;
-    }
-
-    push @form, widgets(\%attributes, $values, $args{schema});
-
-    if ($compute) {
-        push @form, button(value => "Compute min & max from dataset");
-        push @form, ['br'], ['br'];
-    }
-
-    push @form, button(value => $new ? "Create" : "Store");
-    push @form, [1 => ' '];
-    push @form, button(value => "Cancel");
-
-    return [form => $attributes, @form];
-}
-
-sub li {
-    my ($all, $parent, $id, %args) = @_;
-    my @li;
-    for my $set (@$all) {
-        my $sid = $set->id;
-        unless (defined $id) {
-            next if $parent->{$sid};
-        } else {
-            next unless $parent->{$sid} && $parent->{$sid} == $id;
-        }
-        my $li = item($set->name, $set->id, %args, ref => 'this dataset');
-        my @item = @$li;
-        my @l = li($all, $parent, $sid, %args);
-        push @item, [ul => \@l] if @l;
-        push @li, [li => \@item];
-    }
-    return @li;
-}
-
-sub tree {
-    my ($objs, %args) = @_;
-    my %parent;
-    my @all;
-    for my $set (sort {$a->name cmp $b->name} @$objs) {
-        my $rel = $set->is_a_part_of // $set->is_derived_from;
-        $parent{$set->id} = $rel->id if $rel;
-        push @all, $set;
-    }
-    return li(\@all, \%parent, undef, %args);
-}
-
-sub HTML_list {
-    my (undef, $objs, %args) = @_;
-
-    my @li;
-    my %has;
-    if ($args{plan}) {
-        my %li;
-        for my $dataset (@$objs) {
-            my $u = $dataset->long_name;
-            $has{$dataset->id} = 1;
-            my $ref = 'this dataset';
-            $li{$u} = item([b => $u], 'dataset:'.$dataset->id, %args, ref => $ref);
-        }
-        for my $dataset (sort keys %li) {
-            push @li, [li => $li{$dataset}];
-        }
-    } else {
-        @li = tree($objs, %args);
-    }
-
-    if ($args{edit}) {
-        if ($args{plan}) {
-            my @objs;
-            for my $obj ($args{schema}->resultset('Dataset')->all) {
-                next unless $obj->path;
-                next if $has{$obj->id};
-                push @objs, $obj;
-            }
-            if (@objs) {
-                my $drop_down = drop_down(name => 'dataset', objs => \@objs);
-                push @li, [li => [$drop_down, [0 => ' '], button(value => 'Add', name => 'dataset')]];
-            }
-        } else {
-            my $name = text_input(name => 'name');
-            push @li, [li => [$name, 
-                              [0 => ' '],
-                              button(value => 'Create', name => 'dataset')]];
-        }
-    }
-    
-    my $ret = [ul => \@li];
-    return [ li => [0 => 'Datasets:'], $ret ] if $args{named_item};
-    return $ret;
 }
 
 sub Piddle {

@@ -17,11 +17,7 @@ __PACKAGE__->set_primary_key('id');
 __PACKAGE__->has_many(impacts => 'SmartSea::Schema::Result::Impact', 'ecosystem_component');
 
 sub attributes {
-    return \%attributes;
-}
-
-sub relationship_methods {
-    return { };
+    return {name => {input => 'text'}};
 }
 
 sub order {
@@ -77,51 +73,6 @@ sub HTML_list {
     }
     #push @li, [li => a(link => 'add use', url => $uri.'/new')] if $edit;
     return [ul => \@li];
-}
-
-sub HTML_div {
-    my ($self, $attributes, %args) = @_;
-    my @l = ([li => 'Ecosystem component']);
-    for my $a (qw/id name/) {
-        my $v = $self->$a // '';
-        if (ref $v) {
-            for my $b (qw/name data id/) {
-                if ($v->can($b)) {
-                    $v = $v->$b;
-                    last;
-                }
-            }
-        }
-        push @l, [li => "$a: ".$v];
-    }
-    return [div => $attributes, [ul => \@l]];
-}
-
-sub HTML_form {
-    my ($self, $attributes, $values, %args) = @_;
-
-    my @form;
-
-    if ($self and blessed($self) and $self->isa('SmartSea::Schema::Result::EcosystemComponent')) {
-        for my $key (qw/name/) {
-            next unless $self->$key;
-            next if defined $values->{$key};
-            $values->{$key} = ref($self->$key) ? $self->$key->id : $self->$key;
-        }
-        push @form, [input => {type => 'hidden', name => 'id', value => $self->id}];
-    }
-
-    my $name = text_input(
-        name => 'name',
-        size => 10,
-        value => $values->{name} // ''
-    );
-
-    push @form, (
-        [ p => [[1 => 'Name: '],$name] ],
-        button(value => "Store")
-    );
-    return [form => $attributes, @form];
 }
 
 1;

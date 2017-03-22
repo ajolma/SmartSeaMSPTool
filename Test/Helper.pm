@@ -17,6 +17,14 @@ require Exporter;
         }
         say STDERR "missing $class";
     }
+    sub sources {
+        my $self = shift;
+        my @s;
+        for my $s (@$self) {
+            push @s, $s->[0]->sources;
+        }
+        return @s;
+    }
 }
 
 sub one_schema {
@@ -28,7 +36,12 @@ sub one_schema {
         {on_connect_do => ["ATTACH 'data.db' AS aux"]});
     return Schema->new(
         [
-         [$data_schema, {Dataset => 1}], 
+         [$data_schema, {
+             Dataset => 1,
+             License => 1,
+             Organization => 1,
+             Unit => 1
+          }], 
          [$tool_schema, 
           { Style => 1,
             ColorScale => 1,
@@ -39,7 +52,23 @@ sub one_schema {
             Layer => 1, 
             RuleClass => 1,
             Op => 1,
-            Rule => 1 }]]);   
+            Rule => 1,
+            Use2Activity => 1,
+            PressureCategory => 1,
+            Activity2Pressure => 1,
+            Activity => 1,
+            Pressure => 1,
+            Impact => 1,
+            EcosystemComponent => 1,
+            Impact => 1,
+            EcosystemComponent => 1,
+            Pressure => 1,
+            PressureCategory => 1,
+            Use2Activity => 1,
+            DataModel => 1,
+            Activity => 1,
+            Activity2Pressure => 1,
+          }]]);
 }
 
 sub read_postgresql_dump {
