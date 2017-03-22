@@ -45,6 +45,10 @@ sub attributes {
     return \%attributes;
 }
 
+sub relationship_methods {
+    return { };
+}
+
 sub values {
     my ($self) = @_;
     my %values;

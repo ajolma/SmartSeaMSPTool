@@ -41,8 +41,13 @@ sub attributes {
 }
 
 sub relationship_methods {
-    my $self = shift;
-    return { };
+    return { parts => [dataset => 2], derivatives => [dataset => 2] };
+}
+
+sub for_child_form {
+    my ($self, $kind) = @_;
+    return hidden(is_a_part_of => $self->id) if $kind eq 'parts';
+    return hidden(is_derived_from => $self->id) if $kind eq 'derivatives';
 }
 
 sub my_unit {
@@ -68,67 +73,28 @@ sub long_name {
 }
 *lineage = *long_name;
 
-sub HTML_div {
-    my ($self, $attributes, %args) = @_;
-
-    my @div = ([h2 => $self->name]);
-    
-    if ($self->path) {
-        my $info = '';
-        if ($self->path =~ /^PG:/) {
-            my $dsn = $self->path;
-            $dsn =~ s/^PG://;
-            $info = `ogrinfo -so PG:"dbname=$args{dbname} user='$args{user}' password='$args{pass}'" '$dsn'`;
-            $info =~ s/user='(.*?)'/user='xxx'/;
-            $info =~ s/password='(.*?)'/password='xxx'/;
-        } else {
-            my $path = $args{data_dir}.$self->path;
-            my @info = `gdalinfo $path`;
-            my $table;
-            for (@info) {
-                $table = 1 if /<GDALRasterAttributeTable>/;
-                next if $table;
-                $info .= $_;
-                $table = 0 if /<\/GDALRasterAttributeTable>/;
-            }
+sub info {
+    my ($self, $args) = @_;
+    return '' unless $self->path;
+    my $info = '';
+    if ($self->path =~ /^PG:/) {
+        my $dsn = $self->path;
+        $dsn =~ s/^PG://;
+        $info = `ogrinfo -so PG:"dbname=$args->{dbname} user='$args->{user}' password='$args->{pass}'" '$dsn'`;
+        $info =~ s/user='(.*?)'/user='xxx'/;
+        $info =~ s/password='(.*?)'/password='xxx'/;
+    } else {
+        my $path = $args->{data_dir}.$self->path;
+        my @info = `gdalinfo $path`;
+        my $table;
+        for (@info) {
+            $table = 1 if /<GDALRasterAttributeTable>/;
+            next if $table;
+            $info .= $_;
+            $table = 0 if /<\/GDALRasterAttributeTable>/;
         }
-        push @div, [h3 => "GDAL info of ".$self->name.":"], [pre => $info];
     }
-
-    my @l;
-    push @l, [li => [[b => 'custodian'],[1 => " = ".$self->custodian->name]]] if $self->custodian;
-    if ($self->contact) {
-        my $c = $self->contact;
-        # remove email
-        $c =~ s/\<.+?\>//;
-        push @l, [li => [[b => "contact"],[1 => " = ".$c]]];
-    }
-    push @l, [li => [[b => "description"],[1 => " = ".$self->descr]]] if $self->descr;
-    push @l, [li => [[b => "disclaimer"],[1 => " = ".$self->disclaimer]]] if $self->disclaimer;
-    push @l, [li => [[b => "license"],[1 => " = "],
-                     a(link => $self->license->name, 
-                       url => $self->license->url)]] if $self->license;
-    push @l, [li => [[b => "attribution"],[1 => " = ".$self->attribution]]] if $self->attribution;
-    push @l, [li => [[b => "data model"],[1 => " = ".$self->data_model->name]]] if $self->data_model;
-    push @l, [li => [[b => "unit"],[1 => " = ".$self->unit->name]]] if $self->unit;
-    push @l, [li => [[b => "path"],[1 => " = ".$self->path]]] if $self->path;
-
-    push @l, $self->style->li if $self->style;
-    
-    push @div, [ul => \@l] if @l;
-
-    my $rel = $self->is_a_part_of;
-    if ($rel) {
-        push @div, [h3 => "'".$self->name."' is a part of '".$rel->name."'"];
-        push @div, $rel->HTML_div({}, %args);
-    }
-    $rel = $self->is_derived_from;
-    if ($rel) {
-        push @div, [h3 => "'".$self->name."' is derived from '".$rel->name."'"];
-        push @div, $rel->HTML_div({}, %args);
-    }
-
-    return [div => $attributes, @div];
+    return [pre => $info];
 }
 
 sub HTML_form {

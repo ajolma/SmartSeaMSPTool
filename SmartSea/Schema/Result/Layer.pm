@@ -30,10 +30,7 @@ sub attributes {
 }
 
 sub relationship_methods {
-    my $self = shift;
-    return {
-        rules => 0
-    };
+    return { rules => [rule => 0] };
 }
 
 sub order_by {

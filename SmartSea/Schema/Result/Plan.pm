@@ -23,8 +23,7 @@ sub attributes {
 }
 
 sub relationship_methods {
-    my $self = shift;
-    return {uses => 0};
+    return {plan2use => [plan2use => 0]};
 }
 
 sub HTML_list {

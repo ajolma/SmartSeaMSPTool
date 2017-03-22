@@ -25,8 +25,7 @@ sub attributes {
 }
 
 sub relationship_methods {
-    my $self = shift;
-    return { activities => 0 };
+    return { activities => [activity => 0] };
 }
 
 sub HTML_list {

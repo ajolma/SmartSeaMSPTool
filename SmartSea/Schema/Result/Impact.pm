@@ -24,7 +24,6 @@ sub attributes {
 }
 
 sub relationship_methods {
-    my $self = shift;
     return { };
 }
 

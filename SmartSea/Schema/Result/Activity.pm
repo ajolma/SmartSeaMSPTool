@@ -24,8 +24,7 @@ sub attributes {
 }
 
 sub relationship_methods {
-    my $self = shift;
-    return { pressures => 0 };
+    return { pressures => [pressure => 0] };
 }
 
 sub HTML_list {

@@ -9,7 +9,7 @@ use SmartSea::Core qw/:all/;
 require Exporter;
 
 our @ISA = qw(Exporter Geo::OGC::Service::XMLWriter);
-our @EXPORT_OK = qw(a button checkbox text_input textarea drop_down item widgets);
+our @EXPORT_OK = qw(a button checkbox text_input textarea drop_down hidden item widgets);
 our %EXPORT_TAGS = (all => \@EXPORT_OK);
 
 sub new {
@@ -87,6 +87,10 @@ sub drop_down {
     }
     return [select => {name => $name}, \@options];
 }
+sub hidden {
+    my ($name, $value) = @_;
+    return [input => {type => 'hidden', name => $name, value => $value}];
+}
 sub spinner {
     my (%arg) = @_;
     $arg{step} //= 1;
@@ -146,7 +150,13 @@ sub widgets {
                 $objs = [$schema->resultset($a->{class})->all];
             }
             my $id;
-            $id = $values->{$key}->id if $values->{$key};
+            if ($values->{$key}) {
+                if (ref $values->{$key}) {
+                    $id = $values->{$key}->id;
+                } else {
+                    $id = $values->{$key};
+                }
+            }
             $input = drop_down(
                 name => $key,
                 objs => $objs,

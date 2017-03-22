@@ -14,4 +14,17 @@ __PACKAGE__->belongs_to(use => 'SmartSea::Schema::Result::Use');
 __PACKAGE__->has_many(layers => 'SmartSea::Schema::Result::Layer', 'plan2use');
 __PACKAGE__->many_to_many(layer_classes => 'layers', 'layer_class');
 
+sub class_name {
+    return 'Use';
+}
+
+sub name {
+    my $self = shift;
+    return $self->use->name;
+}
+
+sub relationship_methods {
+    return {layers => [layer => 0]};
+}
+
 1;

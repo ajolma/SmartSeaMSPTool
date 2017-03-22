@@ -34,7 +34,7 @@ my $root = 'SmartSea::Schema::Result::';
 my $parameters = {request => '', add => ''};
 
 for my $class (qw/plan use layer_class rule_class color_scale style layer/) {
-    my $obj = SmartSea::Object->new(schema => $schema, url => '');
+    my $obj = SmartSea::Object->new({schema => $schema, url => ''});
     $obj->open($class);
     my $result = $obj->li;
     ok(ref $result eq 'ARRAY', "$class simple HTML list");

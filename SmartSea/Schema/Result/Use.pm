@@ -25,10 +25,9 @@ sub attributes {
 }
 
 sub relationship_methods {
-    my $self = shift;
     return {
-        activities => 0,
-        layers => 1
+        activities => [activity => 0],
+        layers => [layer => 1]
     };
 }
 
