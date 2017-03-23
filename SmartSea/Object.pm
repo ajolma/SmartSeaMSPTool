@@ -9,16 +9,12 @@ use SmartSea::HTML qw(:all);
 
 our $debug = 0;
 
+# in args give oid or lc_class, and possibly object or id
 sub new {
     my ($class, $args, $args2) = @_;
     my $self = {};
     for my $key (qw/schema url edit dbname user pass data_dir/) {
         $self->{$key} = $args->{$key} // $args2->{$key};
-    }
-    my $object = $args->{object};
-    if ($object) {
-        $self->{object} = $object;
-        return bless $self, $class;
     }
     my $oid = $args->{oid};
     my ($lc_class, $id);
@@ -38,9 +34,13 @@ sub new {
         $self->{class}->class_name : $self->{source};
     eval {
         $self->{rs} = $self->{schema}->resultset($self->{source});
-        $id //= $args->{id};
-        say STDERR "source = $self->{source}, id = ",($id // 'undef') if $debug;
-        $self->{object} = $self->{rs}->single({id => $id}) if $id;
+        if ($args->{object}) {
+            $self->{object} = $args->{object};
+        } else {
+            $id //= $args->{id};
+            say STDERR "source = $self->{source}, id = ",($id // 'undef') if $debug;
+            $self->{object} = $self->{rs}->single({id => $id}) if $id;
+        }
     };
     if ($@) {
         say STDERR "Error: $@" if $@;
@@ -67,30 +67,37 @@ sub create {
 }
 
 sub save {
-    my ($self, $oids, $parameters) = @_;
+    my ($self, $oids, $oids_index, $parameters) = @_;
 
     my $attributes = $self->attributes;
     return "$self->{source} is non-editable" unless $attributes;
-    
+    my $col_data = {};
+
     unless ($self->{object}) {
         # create content objects, create this, and possibly link this into parents
         # content = the child does not exist on its own nor can be used by other objects (composition)
         # this can be an aggregate object but not a composed object
-        my %data;
+        
+        if ($self->{rs}->can('col_data_for_create')) {
+            say STDERR "parent oid = $oids->[$oids_index-1]";
+            my $parent = SmartSea::Object->new({oid => $oids->[$oids_index-1]}, $self);
+            $col_data = $self->{rs}->col_data_for_create($parent->{object});
+        }
         for my $class_of_child (keys %$attributes) {
             next unless $attributes->{$class_of_child}{input} eq 'object';
             my $child = SmartSea::Object->new({lc_class => $class_of_child}, $self);
             # how to consume child parameters and possibly know them from our parameters?
-            $child->save(undef, $parameters);
-            $data{$class_of_child} = $child->{object}->id;
+            $child->save($oids, $oids_index, $parameters);
+            $col_data->{$class_of_child} = $child->{object}->id;
         }
         for my $col (keys %$attributes) {
             next if $attributes->{$col}{input} eq 'object';
-            $data{$col} = $parameters->{$col} if exists $parameters->{$col};
-            $data{$col} = undef if $attributes->{$col}{empty_is_null} && $data{$col} eq '';
+            $col_data->{$col} = $parameters->{$col} if exists $parameters->{$col};
+            $col_data->{$col} = undef if $attributes->{$col}{empty_is_null} && $col_data->{$col} eq '';
         }
         eval {
-            $self->{object} = $self->{rs}->create(\%data); # or add_to_x??
+            say STDERR "create $self->{source}";
+            $self->{object} = $self->{rs}->create($col_data); # or add_to_x??
         };
         say STDERR "Error: $@" if $@;
 
@@ -102,20 +109,21 @@ sub save {
 
     for my $class_of_child (keys %$attributes) {
         next unless $attributes->{$class_of_child}{input} eq 'object';
-        my $child = SmartSea::Object->new({object => $self->{object}->$class_of_child}, $self);
+        my $child = SmartSea::Object->new(
+            {lc_class => $class_of_child, object => $self->{object}->$class_of_child}, $self);
         # how to consume child parameters and possibly know them from our parameters?
-        $child->save(undef, $parameters);
+        $child->save($oids, $oids_index, $parameters);
     }
 
-    my %data;
     for my $col (keys %$attributes) {
         next if $attributes->{$col}{input} eq 'object';
-        $data{$col} = $parameters->{$col} if exists $parameters->{$col};
-        $data{$col} = undef if $attributes->{$col}{empty_is_null} && $data{$col} eq '';
+        $col_data->{$col} = $parameters->{$col} if exists $parameters->{$col};
+        $col_data->{$col} = undef if $attributes->{$col}{empty_is_null} && $col_data->{$col} eq '';
     }
 
     eval {
-        $self->{object} = $self->{rs}->update(\%data);
+        say STDERR "update $self->{source} ",$self->{object}->id;
+        $self->{object}->update($col_data);
     };
     say STDERR "Error: $@" if $@;
 
@@ -291,12 +299,29 @@ sub for_child_form {
 
 sub form {
     my ($self, $oids, $values) = @_;
-    return unless $self->{class}->can('attributes');
-    my $attributes = $self->{class}->attributes;
+    say STDERR "form for $self->{source}";
+    my $attributes = $self->attributes;
+    return unless $attributes;
     my @widgets;
-    # todo: tell the context, from oids
+
+    if ($self->{rs}->can('col_data_for_create')) {
+        # these cannot be changed, so no widgets for these
+        my $oids_index = $#$oids;
+        say STDERR "parent oid = $oids->[$oids_index-1]";
+        my $parent = SmartSea::Object->new({oid => $oids->[$oids_index-1]}, $self);
+        my $col_data = $self->{rs}->col_data_for_create($parent->{object});
+        for my $col (keys %$col_data) {
+            push @widgets, hidden($col => $col_data->{$col});
+        }
+    }   
+    
+    my $trace = '';
     if ($self->{object}) {
-        # todo: add parent data for information
+        for (my $oid = 0; $oid < @$oids-1; ++$oid) {
+            my $obj = SmartSea::Object->new({oid => $oids->[$oid]}, $self);
+            $trace .= ' -> ' if $trace;
+            $trace .= $obj->{class_name}.' '.$obj->{object}->name;
+        }
         for my $key (keys %$attributes) {
             next unless defined $self->{object}->$key;
             next if defined $values->{$key};
@@ -313,23 +338,28 @@ sub form {
         push @widgets, hidden(id => $self->{object}->id); # should be in url...
         push @widgets, hidden(source => $self->{source});
     } else {
-        push @widgets, 
-        [p => {style => 'color:red'}, 
-         'Filled data is from parent objects and for information only. Please delete or overwrite them.'] 
-             if @$oids > 1;
         my %from_upstream;
         for (my $oid = 0; $oid < @$oids-1; ++$oid) {
             my $obj = SmartSea::Object->new({oid => $oids->[$oid]}, $self);
+            $trace .= ' -> ' if $trace;
+            $trace .= $obj->{class_name}.' '.$obj->{object}->name;
             for my $key (keys %$attributes) {
-                next unless defined $obj->{object}->$key;
+                next unless $obj->{object}->can($key);
                 $from_upstream{$key} = $obj->{object}->$key;
             }
         }
+        my $has_upstream;
         for my $key (keys %$attributes) {
             next if defined $values->{$key};
+            next unless defined $from_upstream{$key};
+            $has_upstream = 1;
             $values->{$key} = $from_upstream{$key};
         }
+        push @widgets, [p => {style => 'color:red'}, 
+                        'Filled data is from parent objects and for information only. Please delete or overwrite them.'] 
+                            if $has_upstream;
     }
+    push @widgets, [p => "Editing ".$self->{class_name}." in: $trace."];
     push @widgets, widgets($attributes, $values, $self->{schema});
     push @widgets, button(value => 'Save'), [1 => ' '], button(value => 'Cancel');
     return @widgets;

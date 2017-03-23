@@ -445,11 +445,11 @@ sub object_editor {
         # todo: tell that nothing has yet been really added?
         my $obj = SmartSea::Object->new({oid => $oids->[$#$oids], url => $self->{base_uri}}, $self);
         if ($obj) {
-            my $form = $obj->form($oids, \%parameters);
-            if ($form) {
+            my @form = $obj->form($oids, \%parameters);
+            if (@form) {
                 my $url = $self->{uri};
                 $url =~ s/\?.*$//;
-                $form = [form => {action => $url, method => 'POST'}, $form];
+                my $form = [form => {action => $url, method => 'POST'}, @form];
                 return html200({}, SmartSea::HTML->new(html => [body => $form])->html);
             } else {
                 # non-editable, just add and show
@@ -484,7 +484,7 @@ sub object_editor {
         my %args = (oid => $oids->[$#$oids], url => $self->{base_uri}, id => $parameters{id});
         my $obj = SmartSea::Object->new(\%args, $self);
         if ($obj) {
-            my $error = $obj->save($oids, \%parameters);
+            my $error = $obj->save($oids, $#$oids, \%parameters);
             if ($error) {
                 my $url = $self->{uri};
                 $url =~ s/\?.*$//;

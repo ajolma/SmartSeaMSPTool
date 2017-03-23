@@ -24,6 +24,10 @@ sub attributes {
     return \%attributes;
 }
 
+sub order_by {
+    return {-asc => 'color_scale'};
+}
+
 sub name {
     my $self = shift;
     my $name = '';
