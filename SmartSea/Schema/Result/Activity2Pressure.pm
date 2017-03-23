@@ -22,6 +22,10 @@ sub class_name {
     return 'Pressure';
 }
 
+sub children_listers {
+    return { impacts => [impact => 0] }; # todo: activity2pressure here
+}
+
 sub name {
     my $self = shift;
     return $self->pressure->name;

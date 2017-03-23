@@ -7,7 +7,7 @@ use Encode qw(decode encode);
 use JSON;
 use SmartSea::HTML qw(:all);
 
-our $debug = 0;
+our $debug = 1;
 
 # in args give oid or lc_class, and possibly object or id
 sub new {
@@ -20,7 +20,7 @@ sub new {
     my ($lc_class, $id);
     if ($oid) {
         ($lc_class, $id) = split /:/, $oid;
-        say STDERR "split $oid => $lc_class";
+        say STDERR "split $oid => $lc_class" if $debug;
     }
     $lc_class //= $args->{lc_class};
     $lc_class = singular($lc_class);
@@ -30,8 +30,8 @@ sub new {
     $lc_class =~ s/(\d\w)/uc($1)/e;
     $self->{source} = $lc_class;
     $self->{class} = 'SmartSea::Schema::Result::'.$lc_class;
-    $self->{class_name} = $self->{class}->can('class_name') ? 
-        $self->{class}->class_name : $self->{source};
+    my $can_class_name = $self->{class}->can('class_name');
+    $self->{class_name} = $can_class_name ? $self->{class}->class_name : $self->{source};
     eval {
         $self->{rs} = $self->{schema}->resultset($self->{source});
         if ($args->{object}) {
@@ -46,6 +46,7 @@ sub new {
         say STDERR "Error: $@" if $@;
         return undef;
     }
+    $self->{class_name} = $self->{object}->class_name if $can_class_name && $self->{object};
     bless $self, $class;
 }
 
@@ -79,7 +80,7 @@ sub save {
         # this can be an aggregate object but not a composed object
         
         if ($self->{rs}->can('col_data_for_create')) {
-            say STDERR "parent oid = $oids->[$oids_index-1]";
+            say STDERR "parent oid = $oids->[$oids_index-1]" if $debug;
             my $parent = SmartSea::Object->new({oid => $oids->[$oids_index-1]}, $self);
             $col_data = $self->{rs}->col_data_for_create($parent->{object});
         }
@@ -96,7 +97,7 @@ sub save {
             $col_data->{$col} = undef if $attributes->{$col}{empty_is_null} && $col_data->{$col} eq '';
         }
         eval {
-            say STDERR "create $self->{source}";
+            say STDERR "create $self->{source}" if $debug;
             $self->{object} = $self->{rs}->create($col_data); # or add_to_x??
         };
         say STDERR "Error: $@" if $@;
@@ -122,7 +123,7 @@ sub save {
     }
 
     eval {
-        say STDERR "update $self->{source} ",$self->{object}->id;
+        say STDERR "update $self->{source} ",$self->{object}->id if $debug;
         $self->{object}->update($col_data);
     };
     say STDERR "Error: $@" if $@;
@@ -245,18 +246,22 @@ sub li {
         }
         push @li, [li => "$a: ".$v];
     }
-    push @li, [li => $object->info($self)] if $object->can('info');
+    if ($object->can('info')) {
+        my $info = $object->info($self);
+        push @li, [li => $info] if $info;
+    }
     # children, which can be 
     # open - there is $oids->[$oids_index], it opens an object, whose id is in what the method returns - or 
     # closed - otherwise
     # the method can be built-in (0), in result (1) or in result_set (2)
     for my $lister (sort keys %$children_listers) {
         my ($class_of_child, $lister_type, $editable) = @{$children_listers->{$lister}};
-        say STDERR "class_of_child = $class_of_child, oid = ",($oids->[$oids_index+1] // 'undef');
+        say STDERR "class_of_child = $class_of_child, oid = ",($oids->[$oids_index+1] // 'undef') if $debug;
         $editable = 1 if !defined $editable; # todo make this more sensible
         $editable = $editable && $self->{edit};
         my %args = (url => $url, lc_class => $class_of_child, edit => $editable);
-        $args{oid} = $oids->[$oids_index+1] if $oids->[$oids_index+1] =~ /$class_of_child/;
+        $args{oid} = $oids->[$oids_index+1] 
+            if defined $oids->[$oids_index+1] && $oids->[$oids_index+1] =~ /$class_of_child/;
         my $child = SmartSea::Object->new(\%args, $self);
         my $children;
         if ($lister_type == 2) {
@@ -277,7 +282,7 @@ sub li {
                 }
             }
         }
-        say STDERR "child is open? $child_is_open";
+        say STDERR "child is open? $child_is_open" if $debug;
         if ($child_is_open) {
             push @li, [li => $child->li($oids, $oids_index+1)];
         } else {
@@ -298,71 +303,92 @@ sub for_child_form {
 }
 
 sub form {
-    my ($self, $oids, $values) = @_;
-    say STDERR "form for $self->{source}";
+    my ($self, $oids, $parameters) = @_;
+    say STDERR "form for $self->{source}" if $debug;
     my $attributes = $self->attributes;
     return unless $attributes;
     my @widgets;
 
+    my $col_data = {};
     if ($self->{rs}->can('col_data_for_create')) {
         # these cannot be changed, so no widgets for these
         my $oids_index = $#$oids;
-        say STDERR "parent oid = $oids->[$oids_index-1]";
+        say STDERR "parent oid = $oids->[$oids_index-1]" if $debug;
         my $parent = SmartSea::Object->new({oid => $oids->[$oids_index-1]}, $self);
-        my $col_data = $self->{rs}->col_data_for_create($parent->{object});
+        $col_data = $self->{rs}->col_data_for_create($parent->{object}, $parameters);
         for my $col (keys %$col_data) {
             push @widgets, hidden($col => $col_data->{$col});
         }
     }   
-    
+
+    my $doing;
     my $trace = '';
     if ($self->{object}) {
+        $doing = 'Editing '.$self->{class_name}.' in ';
         for (my $oid = 0; $oid < @$oids-1; ++$oid) {
             my $obj = SmartSea::Object->new({oid => $oids->[$oid]}, $self);
             $trace .= ' -> ' if $trace;
             $trace .= $obj->{class_name}.' '.$obj->{object}->name;
         }
         for my $key (keys %$attributes) {
+            next if defined $col_data->{$key};
             next unless defined $self->{object}->$key;
-            next if defined $values->{$key};
-            $values->{$key} = $self->{object}->$key;
+            next if defined $parameters->{$key};
+            $parameters->{$key} = $self->{object}->$key;
         }
 
         # todo: dataset have in-form button for computing min and max
-        # that returns here and changes values
+        # that returns here and changes parameters
         # my $b = Geo::GDAL::Open($args{data_dir}.$self->path)->Band;
         #    $b->ComputeStatistics(0);
-        #    $values->{min} = $b->GetMinimum;
-        #    $values->{max} = $b->GetMaximum;
+        #    $parameters->{min} = $b->GetMinimum;
+        #    $parameters->{max} = $b->GetMaximum;
         
         push @widgets, hidden(id => $self->{object}->id); # should be in url...
         push @widgets, hidden(source => $self->{source});
     } else {
+        my $what = title($attributes, $col_data, $self->{schema});
+        $doing = "Creating $what$self->{class_name} for ";
         my %from_upstream;
         for (my $oid = 0; $oid < @$oids-1; ++$oid) {
             my $obj = SmartSea::Object->new({oid => $oids->[$oid]}, $self);
             $trace .= ' -> ' if $trace;
             $trace .= $obj->{class_name}.' '.$obj->{object}->name;
             for my $key (keys %$attributes) {
+                next if defined $col_data->{$key};
                 next unless $obj->{object}->can($key);
                 $from_upstream{$key} = $obj->{object}->$key;
             }
         }
         my $has_upstream;
         for my $key (keys %$attributes) {
-            next if defined $values->{$key};
+            next if defined $parameters->{$key};
             next unless defined $from_upstream{$key};
+            say STDERR "$key => $from_upstream{$key} is from upstream" if $debug;
             $has_upstream = 1;
-            $values->{$key} = $from_upstream{$key};
+            $parameters->{$key} = $from_upstream{$key};
         }
         push @widgets, [p => {style => 'color:red'}, 
                         'Filled data is from parent objects and for information only. Please delete or overwrite them.'] 
                             if $has_upstream;
     }
-    push @widgets, [p => "Editing ".$self->{class_name}." in: $trace."];
-    push @widgets, widgets($attributes, $values, $self->{schema});
+    push @widgets, [p => $doing.$trace.'.'];
+    push @widgets, widgets($attributes, $parameters, $self->{schema});
     push @widgets, button(value => 'Save'), [1 => ' '], button(value => 'Cancel');
     return @widgets;
+}
+
+sub title {
+    my ($attributes, $parameters, $schema) = @_;
+    for my $key (keys %$attributes) {
+        my $a = $attributes->{$key};
+        next unless $a->{input} eq 'ignore';
+        next if $key =~ /2/; # hack to select layer_class from parameters
+        say STDERR "$key $a->{class} $parameters->{$key}" if $debug;
+        my $obj = $schema->resultset($a->{class})->single({id => $parameters->{$key}});
+        return $obj->name.' ';
+    }
+    return '';
 }
 
 sub singular {
