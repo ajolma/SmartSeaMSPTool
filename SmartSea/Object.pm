@@ -7,163 +7,147 @@ use Encode qw(decode encode);
 use JSON;
 use SmartSea::HTML qw(:all);
 
+our $debug = 0;
+
 sub new {
-    my ($class, $args) = @_;
-    my $self = {
-        schema => $args->{schema}, 
-        url => singular($args->{url}), 
-        edit => $args->{edit},
-        dbname => $args->{dbname},
-        user => $args->{user},
-        pass => $args->{pass},
-        data_dir => $args->{data_dir},
-        class_lc => undef,
-        source => undef,
-        class => undef,
-        class_name => undef,
-        rs => undef,
-        object => undef,
-    };
-    bless $self, $class;
-}
-
-sub create {
-    my ($class, $data, $schema, $col) = @_;
-    my $_class = 'SmartSea::Schema::Result::'.$class;
-    my $attributes = $_class->attributes;
-    my %update_data;
-    my %unused_data;
-    for my $col (keys %$attributes) {
-        if ($attributes->{$col}{input} eq 'object') {
-            $data = create($attributes->{$col}{class}, $data, $schema, $col);
-        }
+    my ($class, $args, $args2) = @_;
+    my $self = {};
+    for my $key (qw/schema url edit dbname user pass data_dir/) {
+        $self->{$key} = $args->{$key} // $args2->{$key};
     }
-    for my $col (keys %$attributes) {
-        next if $attributes->{$col}{input} eq 'object';
-        if (exists $data->{$col}) {
-            if ($attributes->{$col}{empty_is_null} && $data->{$col} eq '') {
-                $data->{$col} = undef;
-            }
-        }
+    my $object = $args->{object};
+    if ($object) {
+        $self->{object} = $object;
+        return bless $self, $class;
     }
-    say STDERR "create $class";
-    for my $col (keys %$data) {
-        if (exists $attributes->{$col}) {
-            $update_data{$col} = $data->{$col};
-        } else {
-            $unused_data{$col} = $data->{$col};
-        }
+    my $oid = $args->{oid};
+    my ($lc_class, $id);
+    if ($oid) {
+        ($lc_class, $id) = split /:/, $oid;
+        say STDERR "split $oid => $lc_class";
     }
-    my $rs = $schema->resultset($class);
-    my $obj;
+    $lc_class //= $args->{lc_class};
+    $lc_class = singular($lc_class);
+    $self->{lc_class} = $lc_class;
+    $lc_class =~ s/^(\w)/uc($1)/e;
+    $lc_class =~ s/_(\w)/uc($1)/e;
+    $lc_class =~ s/(\d\w)/uc($1)/e;
+    $self->{source} = $lc_class;
+    $self->{class} = 'SmartSea::Schema::Result::'.$lc_class;
+    $self->{class_name} = $self->{class}->can('class_name') ? 
+        $self->{class}->class_name : $self->{source};
     eval {
-        $obj = $rs->create(\%update_data);
+        $self->{rs} = $self->{schema}->resultset($self->{source});
+        $id //= $args->{id};
+        say STDERR "source = $self->{source}, id = ",($id // 'undef') if $debug;
+        $self->{object} = $self->{rs}->single({id => $id}) if $id;
     };
-    say STDERR "Error: $@" if $@;
-    say STDERR "id for $col is ",$obj->id if defined $col;
-    $unused_data{$col} = $obj->id if defined $col;
-    return \%unused_data;
-}
-
-sub singular {
-    my ($w) = @_;
-    if ($w =~ /ies$/) {
-        $w =~ s/ies$/y/;
-    } elsif ($w =~ /sses$/) {
-        $w =~ s/sses$/ss/;
-    } elsif ($w =~ /ss$/) {
-    } else {
-        $w =~ s/s$//;
+    if ($@) {
+        say STDERR "Error: $@" if $@;
+        return undef;
     }
-    return $w;
-}
-
-sub plural {
-    my ($w) = @_;
-    if ($w =~ /y$/) {
-        $w =~ s/y$/ies/;
-    } elsif ($w =~ /ss$/) {
-        $w =~ s/ss$/sses/;
-    } elsif ($w =~ /s$/) {
-    } else {
-        $w .= 's';
-    }
-    return $w;
+    bless $self, $class;
 }
 
 sub set_class {
     my ($self, $class) = @_;
-    $self->{class_lc} = $class;
-    $class =~ s/^(\w)/uc($1)/e;
-    $class =~ s/_(\w)/uc($1)/e;
-    $class =~ s/(\d\w)/uc($1)/e;
-    $self->{source} = $class;
-    $self->{class} = 'SmartSea::Schema::Result::'.$class;
-    $self->{class_name} = $self->{class}->can('class_name') ? 
-        $self->{class}->class_name : $self->{source};
+    $self->{lc_class} = $class;
+    
 }
 
-sub open {
-    my ($self, $oid) = @_;
-    my ($class, $id) = split /:/, $oid;
-    $self->set_class(singular($class));
+sub create {
+    my ($self, $oids, $parameters) = @_;
+    my $parent = SmartSea::Object->new({oid => $oids->[$#$oids-1]}, $self);
+    my $col_data = $self->{rs}->col_data_for_create($parent->{object}, $parameters);
     eval {
-        $self->{rs} = $self->{schema}->resultset($self->{source});
-        if (defined $id) {
-            $self->{object} = $self->{rs}->single({id => $id});
-        }
+        $self->{rs}->create($col_data);
     };
     say STDERR "Error: $@" if $@;
-    return $@ ? 0 : 1;
+    return "$@";
 }
 
-sub update {
-    my ($self, $data) = @_;
+sub save {
+    my ($self, $oids, $parameters) = @_;
+
     my $attributes = $self->attributes;
-    my %update_data;
-    my %unused_data;
-    for my $col (keys %$attributes) {
-        if ($attributes->{$col}{input} eq 'object') {
-            my $obj = $self->$col;
-            $data = update($obj, $data);
+    return "$self->{source} is non-editable" unless $attributes;
+    
+    unless ($self->{object}) {
+        # create content objects, create this, and possibly link this into parents
+        # content = the child does not exist on its own nor can be used by other objects (composition)
+        # this can be an aggregate object but not a composed object
+        my %data;
+        for my $class_of_child (keys %$attributes) {
+            next unless $attributes->{$class_of_child}{input} eq 'object';
+            my $child = SmartSea::Object->new({lc_class => $class_of_child}, $self);
+            # how to consume child parameters and possibly know them from our parameters?
+            $child->save(undef, $parameters);
+            $data{$class_of_child} = $child->{object}->id;
         }
+        for my $col (keys %$attributes) {
+            next if $attributes->{$col}{input} eq 'object';
+            $data{$col} = $parameters->{$col} if exists $parameters->{$col};
+            $data{$col} = undef if $attributes->{$col}{empty_is_null} && $data{$col} eq '';
+        }
+        eval {
+            $self->{object} = $self->{rs}->create(\%data); # or add_to_x??
+        };
+        say STDERR "Error: $@" if $@;
+
+        # add links to parents?
+
+        return "$@";
+        
     }
+
+    for my $class_of_child (keys %$attributes) {
+        next unless $attributes->{$class_of_child}{input} eq 'object';
+        my $child = SmartSea::Object->new({object => $self->{object}->$class_of_child}, $self);
+        # how to consume child parameters and possibly know them from our parameters?
+        $child->save(undef, $parameters);
+    }
+
+    my %data;
     for my $col (keys %$attributes) {
         next if $attributes->{$col}{input} eq 'object';
-        if (exists $data->{$col}) {
-            if ($attributes->{$col}{empty_is_null} && $data->{$col} eq '') {
-                $data->{$col} = undef;
-            }
-        }
+        $data{$col} = $parameters->{$col} if exists $parameters->{$col};
+        $data{$col} = undef if $attributes->{$col}{empty_is_null} && $data{$col} eq '';
     }
-    say STDERR "update $self";
-    for my $col (keys %$data) {
-        if (exists $attributes->{$col} && $attributes->{$col}{input} ne 'object') {
-            $update_data{$col} = $data->{$col};
-        } else {
-            $unused_data{$col} = $data->{$col};
-        }
-    }
-    $self->update(\%update_data);
-    return \%unused_data;
+
+    eval {
+        $self->{object} = $self->{rs}->update(\%data);
+    };
+    say STDERR "Error: $@" if $@;
+
+    return "$@";
+    
 }
 
 sub delete {
     my ($self) = @_;
     my $attributes = $self->attributes;
+    unless ($self->{object}) {
+        return "there is no $self->{source} object";
+    }
+    unless ($attributes) {
+        return "$self->{source} is non-editable";
+    }
     my %delete;
-    for my $col (keys %$attributes) {
-        if ($attributes->{$col}{input} eq 'object') {
-            $delete{$col} = $self->$col;
+    for my $class_of_child (keys %$attributes) {
+        if ($attributes->{$class_of_child}{input} eq 'object') {
+            $delete{$class_of_child} = $self->{object}->$class_of_child->id;
         }
     }
     eval {
-        $self->delete;
+        $self->{object}->delete; # plan2use->remove_from_layers($layer);??
     };
     say STDERR "Error: $@" if $@;
-    for my $col (keys %$attributes) {
-        delete($delete{$col})
+    for my $class_of_child (keys %delete) {
+        my %args = (lc_class => $class_of_child, id => $delete{$class_of_child});
+        my $child = SmartSea::Object->new(\%args, $self);
+        $child->delete;
     }
+    return "$@";
 }
 
 sub all {
@@ -175,16 +159,21 @@ sub all {
     return [$self->{rs}->search(undef, {order_by => $order_by})->all];
 }
 
+sub attributes {
+    my ($self) = @_;
+    return $self->{class}->can('attributes') ? $self->{class}->attributes : undef;
+}
+
 sub li {
     my ($self, $oids, $oids_index) = @_;
 
     # todo: ecosystem component has an expected impact, which can be computed
 
-    my $attributes = $self->{class}->can('attributes') ? $self->{class}->attributes : undef;
+    my $attributes = $self->attributes;
     my $editable = $attributes && $self->{edit};
     $attributes //= {};
 
-    my $url = $self->{url}.'/'.$self->{class_lc};
+    my $url = $self->{url}.'/'.$self->{lc_class};
     unless ($self->{object}) {
 
         #say STDERR "list ",$self->{class_name};
@@ -196,7 +185,10 @@ sub li {
                 push @content, [1 => ' '], a(link => 'edit', url => $url.':'.$obj->id.'?edit');
             }
             if ($self->{edit}) {
-                push @content, [1 => ' '], button(value => 'Remove'); # to do: remove or delete? in form
+                my $name = $obj->name;
+                my $onclick = "return confirm('Are you sure you want to delete dataset $name?')";
+                my %attr = (name => $obj->id, value => 'Remove', onclick => $onclick);
+                push @content, [1 => ' '], button(%attr); # to do: remove or delete?
             }
             push @li, [li => @content];
         }
@@ -204,9 +196,15 @@ sub li {
             my @content;
             push @content, $oids_index->{for_add}, [0=>' '] if $oids_index && $oids_index->{for_add};
             push @content, button(value => 'Add');
-            push @li, [li => [form => {action => $url, method => 'POST'}, @content]];
+            push @li, [li => \@content];
         }
-        return [[b => plural($self->{class_name})],[ul => \@li]];
+        my $ul;
+        if ($self->{edit}) {
+            $ul = [form => {action => $url, method => 'POST'}, [ul => \@li]];
+        } else {
+            $ul = [ul => \@li];
+        }
+        return [[b => plural($self->{class_name})], $ul];
         
     }
     
@@ -245,15 +243,13 @@ sub li {
     # closed - otherwise
     # the method can be built-in (0), in result (1) or in result_set (2)
     for my $lister (sort keys %$children_listers) {
-        my ($class_of_child, $lister_type) = @{$children_listers->{$lister}};
-        my %args = %{$self};
-        $args{url} = $url;
-        my $child = SmartSea::Object->new(\%args);
-        if ($#$oids >= $oids_index+1) {
-            $child->open($oids->[$oids_index+1]);
-        } else {
-            $child->set_class($class_of_child);
-        }
+        my ($class_of_child, $lister_type, $editable) = @{$children_listers->{$lister}};
+        say STDERR "class_of_child = $class_of_child, oid = ",($oids->[$oids_index+1] // 'undef');
+        $editable = 1 if !defined $editable; # todo make this more sensible
+        $editable = $editable && $self->{edit};
+        my %args = (url => $url, lc_class => $class_of_child, edit => $editable);
+        $args{oid} = $oids->[$oids_index+1] if $oids->[$oids_index+1] =~ /$class_of_child/;
+        my $child = SmartSea::Object->new(\%args, $self);
         my $children;
         if ($lister_type == 2) {
             $children = [$self->{rs}->$lister($object)];
@@ -273,6 +269,7 @@ sub li {
                 }
             }
         }
+        say STDERR "child is open? $child_is_open";
         if ($child_is_open) {
             push @li, [li => $child->li($oids, $oids_index+1)];
         } else {
@@ -294,6 +291,7 @@ sub for_child_form {
 
 sub form {
     my ($self, $oids, $values) = @_;
+    return unless $self->{class}->can('attributes');
     my $attributes = $self->{class}->attributes;
     my @widgets;
     # todo: tell the context, from oids
@@ -312,26 +310,55 @@ sub form {
         #    $values->{min} = $b->GetMinimum;
         #    $values->{max} = $b->GetMaximum;
         
-        push @widgets, hidden(id => $self->{object}->id);
+        push @widgets, hidden(id => $self->{object}->id); # should be in url...
         push @widgets, hidden(source => $self->{source});
     } else {
         push @widgets, 
         [p => {style => 'color:red'}, 
          'Filled data is from parent objects and for information only. Please delete or overwrite them.'] 
-            if @$oids > 1;
+             if @$oids > 1;
+        my %from_upstream;
         for (my $oid = 0; $oid < @$oids-1; ++$oid) {
-            my $obj = SmartSea::Object->new($self);
-            $obj->open($oids->[$oid]);
+            my $obj = SmartSea::Object->new({oid => $oids->[$oid]}, $self);
             for my $key (keys %$attributes) {
                 next unless defined $obj->{object}->$key;
-                next if defined $values->{$key};
-                $values->{$key} = $obj->{object}->$key;
+                $from_upstream{$key} = $obj->{object}->$key;
             }
+        }
+        for my $key (keys %$attributes) {
+            next if defined $values->{$key};
+            $values->{$key} = $from_upstream{$key};
         }
     }
     push @widgets, widgets($attributes, $values, $self->{schema});
     push @widgets, button(value => 'Save'), [1 => ' '], button(value => 'Cancel');
     return @widgets;
+}
+
+sub singular {
+    my ($w) = @_;
+    if ($w =~ /ies$/) {
+        $w =~ s/ies$/y/;
+    } elsif ($w =~ /sses$/) {
+        $w =~ s/sses$/ss/;
+    } elsif ($w =~ /ss$/) {
+    } else {
+        $w =~ s/s$//;
+    }
+    return $w;
+}
+
+sub plural {
+    my ($w) = @_;
+    if ($w =~ /y$/) {
+        $w =~ s/y$/ies/;
+    } elsif ($w =~ /ss$/) {
+        $w =~ s/ss$/sses/;
+    } elsif ($w =~ /s$/) {
+    } else {
+        $w .= 's';
+    }
+    return $w;
 }
 
 1;

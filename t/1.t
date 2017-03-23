@@ -37,8 +37,7 @@ for my $class ($schema->sources) {
     #next if $class =~ /2/;
     $class =~ s/([a-z])([A-Z])/$1_$2/;
     $class = lc($class);
-    my $obj = SmartSea::Object->new({schema => $schema, url => ''});
-    $obj->open($class);
+    my $obj = SmartSea::Object->new({schema => $schema, url => '', lc_class => $class});
     my $result = $obj->li;
     ok(ref $result eq 'ARRAY', "$class simple HTML list");
 }

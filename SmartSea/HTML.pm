@@ -35,7 +35,9 @@ sub a {
 sub button {
     my (%arg) = @_;
     $arg{name} //= 'submit';
-    return [input => {type=>"submit", name=>$arg{name}, value=>$arg{value}}]
+    my %attr = (type=>"submit", name=>$arg{name}, value=>$arg{value});
+    $attr{onclick} = $arg{onclick} if $arg{onclick};
+    return [input => \%attr]
 }
 sub checkbox {
     my (%arg) = @_;

@@ -34,7 +34,7 @@ sub for_child_form {
             $has{$obj->use->id} = 1;
         }
         my @objs;
-        for my $obj ($args->{schema}->resultset('Plan2Use')->all) {
+        for my $obj ($args->{schema}->resultset('Use')->all) {
             next if $has{$obj->id};
             push @objs, $obj;
         }

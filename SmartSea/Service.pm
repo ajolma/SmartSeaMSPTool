@@ -36,40 +36,40 @@ sub new {
 
 sub call {
     my ($self, $env) = @_;
+    for my $key (sort keys %$env) {
+        #say STDERR "$key => $env->{$key}";
+    }
     my $ret = common_responses({}, $env);
     return $ret if $ret;
-    my $user = $env->{REMOTE_USER} // 'guest';
-    $self->{edit} = 1 if $user eq 'ajolma';
-    say STDERR "remote user is $user";
     my $request = Plack::Request->new($env);
     my $cookies = $request->cookies;
     for my $cookie (sort keys %$cookies) {
         #say STDERR "cookie: $cookie => $cookies->{$cookie}";
     }
+    my $user = $env->{REMOTE_USER} // 'guest';
+    $self->{edit} = 1 if $user eq 'ajolma';
     $self->{cookie} = $cookies->{SmartSea} // DEFAULT;
-    say STDERR "cookie: $self->{cookie}";
     $self->{parameters} = $request->parameters;
     $self->{uri} = $env->{REQUEST_URI};
-    say STDERR "uri: $self->{uri}";
     $self->{origin} = $env->{HTTP_ORIGIN};
-    for my $key (sort keys %$env) {
-        #say STDERR "$key => $env->{$key}";
-    }
+    $self->{uri} =~ s/\/$//;
     my @path = split /\//, $self->{uri};
-    say STDERR "path: @path";
+    say STDERR "remote user is $user";
+    say STDERR "cookie: $self->{cookie}";
+    say STDERR "uri: $self->{uri}";
+    say STDERR "path: @path ",scalar(@path);
     my @base;
     while (@path) {
         my $step = shift @path;
         push @base, $step;
-        return $self->plans(\@path) if $step eq 'plans';
-        return $self->plans(\@path) if $step eq 'layers';
+        return $self->plans(\@path) if $step eq 'plans' || $step eq 'layers';
         return $self->impact_network(\@path) if $step eq 'impact_network';
         return $self->pressure_table(\@path) if $step eq 'pressure_table';
         return $self->legend() if $step =~ /^legend/;
         if ($step eq 'browser') {
             $self->{base_uri} = join('/', @base);
+            say STDERR "base_uri: $self->{base_uri}";
             return $self->object_editor(\@path);
-            last;
         }
     }
     @path = split /\//, $self->{uri};
@@ -317,20 +317,24 @@ sub object_editor {
     # 'NULL' parameters will be converted to undef, 
 
     my $config = {};
+    # known requests
     $config->{create} //= 'Create';
     $config->{add} //= 'Add';
     $config->{delete} //= 'Delete';
     $config->{remove} //= 'Remove';
     $config->{store} //= 'Store';
+    $config->{save} //= 'Save';
     $config->{modify} //= 'Modify';
     $config->{update} //= 'Update';
+    $config->{compute} //= 'Compute';
 
-    my %parameters; # <request> => what, key => value
+    my %parameters; # {request}{$request} = 1, key => value
 
     my %sources = map {$_ => 1} $self->{schema}->sources;
 
+    my $url = $self->{base_uri}.'/';
     unless (@$oids) {
-        my @path = split /\//, $self->{uri};
+        my @path = split /\//, $self->{base_uri};
         pop @path;
         my @body = a(link => 'Up', url => join('/', @path));
         my @li;
@@ -338,7 +342,7 @@ sub object_editor {
             next if $source =~ /2/;
             my $lc = $source;
             $lc =~ s/([a-z])([A-Z])/$1_$2/;
-            push @li, [li => a(link => SmartSea::Object::plural($source), url => 'browser/'.lc($lc))]
+            push @li, [li => a(link => SmartSea::Object::plural($source), url => $url.lc($lc))]
         }
         push @body, [ul=>\@li];
         return html200({}, SmartSea::HTML->new(html => [body => \@body])->html);
@@ -346,14 +350,14 @@ sub object_editor {
 
     my ($oid, $request) = split /\?/, $oids->[$#$oids];
     $oids->[$#$oids] = $oid;
-    $parameters{request} = $request;
+    $parameters{request}{$request} = 1 if $request;
     
     # $self->{parameters} is a multivalue hash
     # we may have both object => command and object => id
     for my $key (sort keys %{$self->{parameters}}) {
         for my $value ($self->{parameters}->get_all($key)) {
             if ($key eq 'submit' && $value =~ /^Compute/) {
-                $parameters{request} = 'edit';
+                $parameters{request}{edit} = 1;
                 $parameters{compute} = $value;
                 last;
             }
@@ -361,8 +365,8 @@ sub object_editor {
             my $done = 0;
             for my $request (keys %$config) {
                 if ($value eq $config->{$request}) {
-                    $parameters{request} = $request;
-                    if ($request eq 'delete') {
+                    $parameters{request}{$request} = 1;
+                    if ($request eq 'delete' or $request eq 'remove') {
                         $parameters{id} = $key;
                     } else {
                         $parameters{$request} = $key;
@@ -379,10 +383,15 @@ sub object_editor {
             }
         }
     }
-    $parameters{request} //= '';
 
     for my $p (sort keys %parameters) {
-        say STDERR "$p => ".(defined($parameters{$p})?$parameters{$p}:'undef');
+        if ($p eq 'request') {
+            for my $r (sort keys %{$parameters{$p}}) {
+                say STDERR "request => $r";
+            }
+        } else {
+            say STDERR "$p => ".(defined($parameters{$p})?$parameters{$p}:'undef');
+        }
     }
 
     my %args = (parameters => \%parameters);
@@ -393,47 +402,21 @@ sub object_editor {
 
     my $class = '';
     my $rs = ''; #$self->{schema}->resultset($class =~ /(\w+)$/);
-    my @body;
+    
     # to make jQuery happy:
     my $header = { 'Access-Control-Allow-Origin' => $self->{origin},
                    'Access-Control-Allow-Credentials' => 'true' };
-    
-    if ($parameters{request} eq 'create' and $self->{edit}) {
-        create($class =~ /(\w+)$/, \%parameters, $self->{schema});
-        push @body, [0 => $@] if $@;
-        
-    } elsif (($parameters{request} eq 'new' or $parameters{request} eq 'add') and $self->{edit}) {
-        # todo: tell that nothing has yet been really added
-        my %args = %{$self};
-        $args{url} = $self->{base_uri};
-        my $obj = SmartSea::Object->new(\%args);
-        if ($obj->open($oids->[$#$oids])) {
-            my $url = $self->{uri};
-            $url =~ s/\?.*$//;
-            my $form = [form => {action => $url, method => 'POST'}, $obj->form($oids, \%parameters)];
-            return html200({}, SmartSea::HTML->new(html => [body => $form])->html);
-        }
 
-        # example of remove
-        #my $layer = $args{schema}->resultset('LayerClass')->single({ id => $remove });
-        #eval {
-        #    $plan2use->remove_from_layers($layer);
-        #};
-        #$error = $@;
-        #say STDERR $@ if $@;
-        
-    } elsif ($parameters{request} eq 'delete' and $self->{edit}) {
-        $args{oids} = [@$oids, $parameters{id}];
-        my $obj = $class->get_object(%args);
-        eval {
-            $obj->delete;
-        };
-        if ($@) {
-            push @body, [p => 'Error: '.$@];
+    if (!$parameters{request}) {
+        my @body = a(link => 'All classes', url => $self->{base_uri});
+        my $obj = SmartSea::Object->new({oid => $oids->[0], url => $self->{base_uri}}, $self);
+        if ($obj) {
+            $oids = $obj->all() unless $obj->{object};
+            push @body, [ul => [li => $obj->li($oids, 0)]];
+            return html200({}, SmartSea::HTML->new(html => [body => @body])->html);
         }
-        return object_div($class, \@body, $oids, %args) if @$oids;
         
-    } elsif ($parameters{request} eq 'modify') {
+    } elsif ($parameters{request}{modify}) {
         return http_status($header, 403) if $self->{cookie} eq DEFAULT; # forbidden 
         $args{oids} = [@$oids];
         $args{cookie} = $self->{cookie};
@@ -452,74 +435,87 @@ sub object_editor {
         say STDERR "error: $@" if $@;
         return http_status($header, 500) if $@;
         return json200($header, {object => $obj->as_hashref_for_json});
-        
-    } elsif ($parameters{request} eq 'store' and $self->{edit}) { # or save
 
-        # example:
-        #my $layer = $args{schema}->resultset('LayerClass')->single({ id => $args{parameters}{layer} });
-        #eval {
-        #    $plan2use->add_to_layers($layer);
-        #};
-        #$error = $@;
-        #say STDERR $@ if $@;
-        
-        #$args{oids} = [@$oids, $parameters{id}]; # if pop below
-        $args{oids} = [@$oids];
-        my $obj = $class->get_object(%args);
-        return http_status($header, 400) unless $obj;
-        eval {
-            update($obj, \%parameters);
-        };
-        say STDERR "error: $@" if $@;
-        if ($@) {
-            $args{oids} = [@$oids];
-            shift @{$args{oids}};
-            push @body, (
-                [p => 'Error: '.$@],
-                $obj->HTML_form({ action => $args{uri}, method => 'POST' }, \%parameters, %args)
-            );
-            return html200({}, SmartSea::HTML->new(html => [body => \@body])->html);
+    }
+
+    return html200({}, SmartSea::HTML->new(html => [body => 'not allowed or error'])->html)
+        unless $self->{edit};
+    
+    if ($parameters{request}{new} or $parameters{request}{add}) {
+        # todo: tell that nothing has yet been really added?
+        my $obj = SmartSea::Object->new({oid => $oids->[$#$oids], url => $self->{base_uri}}, $self);
+        if ($obj) {
+            my $form = $obj->form($oids, \%parameters);
+            if ($form) {
+                my $url = $self->{uri};
+                $url =~ s/\?.*$//;
+                $form = [form => {action => $url, method => 'POST'}, $form];
+                return html200({}, SmartSea::HTML->new(html => [body => $form])->html);
+            } else {
+                # non-editable, just add and show
+                my @body;
+                my $error = $obj->create($oids, \%parameters);
+                push @body, [p => {style => 'color:red'}, $error] if $@;
+                push @body, a(link => 'All classes', url => $self->{base_uri});
+                $obj = SmartSea::Object->new({oid => $oids->[0], url => $self->{base_uri}}, $self);
+                $oids = $obj->all() unless $obj->{object};
+                push @body, [ul => [li => $obj->li($oids, 0)]];
+                return html200({}, SmartSea::HTML->new(html => [body => \@body])->html);
+            }
         }
-        return object_div($class, \@body, $oids, %args);
         
-    } elsif ($parameters{request} eq 'edit' and $self->{edit}) {
-        my %args = %{$self};
-        $args{url} = $self->{base_uri};
-        my $obj = SmartSea::Object->new(\%args);
-        if ($obj->open($oids->[$#$oids])) {
+    } elsif ($parameters{request}{delete} or $parameters{request}{remove}) {
+        my %args = (oid => $oids->[$#$oids], url => $self->{base_uri}, id => $parameters{id});
+        my $obj = SmartSea::Object->new(\%args, $self);
+        if ($obj) {
+            my $error = $obj->delete();
+            my @body;
+            push @body, [p => {style => 'color:red'}, $error] if $error;
+            $obj = SmartSea::Object->new({oid => $oids->[0], url => $self->{base_uri}}, $self);
+            if ($obj) {
+                push @body, a(link => 'All classes', url => $self->{base_uri});
+                $oids = $obj->all() unless $obj->{object};
+                push @body, [ul => [li => $obj->li($oids, 0)]];
+            }
+            return html200({}, SmartSea::HTML->new(html => [body => @body])->html);
+        }
+        
+    } elsif ($parameters{request}{store} or $parameters{request}{save}) {
+        my %args = (oid => $oids->[$#$oids], url => $self->{base_uri}, id => $parameters{id});
+        my $obj = SmartSea::Object->new(\%args, $self);
+        if ($obj) {
+            my $error = $obj->save($oids, \%parameters);
+            if ($error) {
+                my $url = $self->{uri};
+                $url =~ s/\?.*$//;
+                my $form = [form => {action => $url, method => 'POST'}, $obj->form($oids, \%parameters)];
+                my @body = ([p => {style => 'color:red'}, $error], $form);
+                return html200({}, SmartSea::HTML->new(html => [body => @body])->html);
+            } else {
+                $obj = SmartSea::Object->new({oid => $oids->[0], url => $self->{base_uri}}, $self);
+                if ($obj) {
+                    my @body = a(link => 'All classes', url => $self->{base_uri});
+                    $oids = $obj->all() unless $obj->{object};
+                    push @body, [ul => [li => $obj->li($oids, 0)]];
+                    return html200({}, SmartSea::HTML->new(html => [body => @body])->html);
+                }
+            }
+        }
+        
+    } elsif ($parameters{request}{edit}) {
+        my %args = (oid => $oids->[$#$oids], url => $self->{base_uri}, id => $parameters{id});
+        my $obj = SmartSea::Object->new(\%args, $self);
+        if ($obj) {
             my $url = $self->{uri};
             $url =~ s/\?.*$//;
             my $form = [form => {action => $url, method => 'POST'}, $obj->form($oids, \%parameters)];
             return html200({}, SmartSea::HTML->new(html => [body => $form])->html);
         }
         
-    } elsif (@$oids) {
-        my @body = a(link => 'All classes', url => $self->{base_uri});
-        my %args = %{$self};
-        $args{url} = $self->{base_uri};
-        my $obj = SmartSea::Object->new(\%args);
-        if ($obj->open($oids->[0])) {
-            $oids = $obj->all() unless $obj->{object};
-            push @body, [ul => [li => $obj->li($oids, 0)]];
-            return html200({}, SmartSea::HTML->new(html => [body => @body])->html);
-        }
     }
-    return html200({}, SmartSea::HTML->new(html => [body => 'error, consult the logs'])->html);
-}
 
-sub object_div {
-    my ($class, $body, $oids, %args) = @_;
-    $args{oids} = [$oids->[0]];
-    my $obj = $class->get_object(%args);
-    $args{oids} = [@$oids];
-    shift @{$args{oids}};
-    my $div = $obj->HTML_div({}, %args);
-    $div = [form => { action => $args{uri}, method => 'POST' }, $div] if $args{edit};
-    push @$body, $div;
-    pop @$oids;
-    my $path = @$oids ? '/'.join('/',@$oids) : '';
-    push @$body, a(link => 'up', url => $args{base_uri}.$path);
-    return html200({}, SmartSea::HTML->new(html => [body => $body])->html);
+    return html200({}, SmartSea::HTML->new(html => [body => 'error'])->html);
+    
 }
 
 sub pressure_table {

@@ -24,7 +24,7 @@ sub name {
 }
 
 sub children_listers {
-    return {layers => [layer => 0]};
+    return {layers => [layer => 0], list_activities => [activity => 0, 0]};
 }
 
 sub for_child_form {
@@ -41,6 +41,11 @@ sub for_child_form {
         }
         return drop_down(name => 'layer_class', objs => \@objs);
     }
+}
+
+sub list_activities {
+    my ($self) = @_;
+    return $self->use->activities;
 }
 
 1;
