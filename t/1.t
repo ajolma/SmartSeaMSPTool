@@ -25,10 +25,10 @@ $schema->resultset('ColorScale')->new({id => 1, name => 'color_scale'})->insert;
 $schema->resultset('Style')->new({id => 1, color_scale => 1})->insert;
 
 $schema->resultset('Plan')->single({id => 1})->
-    create_related('use', {id => 1, plan => 1, 'use_class' => 1});
+    create_related('uses', {id => 1, plan => 1, 'use_class' => 1});
 
 $schema->resultset('LayerClass')->single({id => 1})->
-    create_related( 'layers', {id => 1, use => 1, rule_class => 1, style => 1});
+    create_related('layers', {id => 1, use => 1, rule_class => 1, style => 1});
 
 my $root = 'SmartSea::Schema::Result::';
 my $parameters = {request => '', add => ''};

@@ -67,7 +67,7 @@ for my $i (1..3) {
 }
 
 $schema->resultset('Plan')->single({id => 1})
-    ->create_related('use', {id => 1, plan => 1, 'use_class' => 1});
+    ->create_related('uses', {id => 1, plan => 1, 'use_class' => 1});
 
 my $rule_class_rs = $schema->resultset('RuleClass');
 $rule_class_rs->new({id => 1, name => 'inclusive'})->insert;
