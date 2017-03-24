@@ -41,7 +41,8 @@ sub button {
 }
 sub checkbox {
     my (%arg) = @_;
-    my $attr = {type => 'checkbox',name => $arg{name},value => $arg{value}};
+    my $attr = {type => 'checkbox', name => $arg{name}, value => $arg{value}};
+    $attr->{id} = $arg{id} if $arg{id};
     $attr->{checked} = 'checked' if $arg{checked};
     return [input => $attr, encode_entities($arg{visual})];
 }
@@ -180,12 +181,36 @@ sub widgets {
             );
         }
         if ($a->{input} eq 'object') {
+            unless ($a->{required}) {
+                push @form, [ p => checkbox(
+                                  name => $key.'_is',
+                                  visual => "Define ".$a->{class},
+                                  checked => $values->{$key},
+                                  id => 'style_cb' )
+                ];
+                my $code =<< 'END_CODE';
+function dim(cb,id){
+  document.getElementById(id).style.display=(cb.checked)?'':'none';
+}
+window.onload = function() {
+  var cb = document.getElementById("style_cb");
+  var id = "style";
+  if (!cb.checked) dim(this,id);
+  cb.addEventListener("change", function() {
+    dim(this,id);
+  }, false);
+};
+END_CODE
+                push @form, [script => $code];
+            }
+            my @style;
             if ($values->{$key}) {
-                push @form, $values->{$key}->inputs($values, $schema);
+                @style = $values->{$key}->inputs($values, $schema);
             } else {
                 my $class = 'SmartSea::Schema::Result::'.$a->{class};
-                push @form, $class->inputs($values, $schema);
+                @style = $class->inputs($values, $schema);
             }
+            push @form, [div => {id=>'style'}, @style];
         } else {
             push @form, [ p => [[1 => "$key: "], $input] ];
         }

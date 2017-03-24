@@ -201,13 +201,7 @@ sub plans {
                     resultset('Layer')->
                     single({use => $use->id, layer_class => $layer_class->id});
                 my @rules;
-                for my $rule ($layer->rules(
-                                  {
-                                      cookie => DEFAULT
-                                  },
-                                  {
-                                      order_by => { -asc => 'my_index' }
-                                  })) {
+                for my $rule ($layer->rules({cookie => DEFAULT})) {
                     push @rules, $rule->as_hashref_for_json
                 }
                 push @layers, {
@@ -234,7 +228,7 @@ sub plans {
             if (defined $dataset->style->min) {
                 my $u = '';
                 $u = ' '.$dataset->my_unit->name if $dataset->my_unit;
-                $range = ' ('.$dataset->style->min."$u..".$dataset->style2->max."$u)";
+                $range = ' ('.$dataset->style->min."$u..".$dataset->style->max."$u)";
             }
             push @datasets, {
                 name => $dataset->name, 
@@ -443,7 +437,6 @@ sub object_editor {
         unless $self->{edit};
     
     if ($parameters{request}{new} or $parameters{request}{add}) {
-        # todo: tell that nothing has yet been really added?
         my $obj = SmartSea::Object->new({oid => $oids->[$#$oids], url => $self->{base_uri}}, $self);
         if ($obj) {
             my @form = $obj->form($oids, $#$oids, \%parameters);
@@ -453,7 +446,6 @@ sub object_editor {
                 my $form = [form => {action => $url, method => 'POST'}, @form];
                 return html200({}, SmartSea::HTML->new(html => [body => $form])->html);
             } else {
-                # non-editable, just add and show
                 my @body;
                 my $error = $obj->create($oids, \%parameters);
                 push @body, [p => {style => 'color:red'}, $error] if $@;

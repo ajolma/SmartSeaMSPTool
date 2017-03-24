@@ -95,11 +95,18 @@ CREATE TABLE datasets (
     disclaimer text,
     path text,
     unit integer,
-    style integer NOT NULL
+    style integer
 );
 
 
 ALTER TABLE datasets OWNER TO ajolma;
+
+--
+-- Name: COLUMN datasets.style; Type: COMMENT; Schema: data; Owner: ajolma
+--
+
+COMMENT ON COLUMN datasets.style IS 'required if path is not null, ie real data';
+
 
 --
 -- Name: datasets_id_seq; Type: SEQUENCE; Schema: data; Owner: ajolma

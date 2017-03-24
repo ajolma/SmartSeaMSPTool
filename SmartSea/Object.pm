@@ -53,11 +53,11 @@ sub set_class_name {
 }
 
 sub class_name {
-    my ($self, $parent) = @_;
+    my ($self, $parent, $purpose) = @_;
     return $self->{class_name} if $self->{class_name};
     return $self->{source} unless $self->{class}->can('class_name');
-    return $self->{class}->class_name($parent->{object}) unless $self->{object};
-    return $self->{object}->class_name($parent->{object});
+    return $self->{class}->class_name($parent->{object}, $purpose) unless $self->{object};
+    return $self->{object}->class_name($parent->{object}, $purpose);
 }
 
 sub attributes {
@@ -99,6 +99,10 @@ sub save {
         }
         for my $class_of_child (keys %$attributes) {
             next unless $attributes->{$class_of_child}{input} eq 'object';
+            unless ($parameters->{$class_of_child.'_is'}) {
+                $col_data->{$class_of_child} = undef;
+                next;
+            }
             my $child = SmartSea::Object->new({lc_class => $class_of_child}, $self);
             # how to consume child parameters and possibly know them from our parameters?
             $child->save($oids, $oids_index, $parameters);
@@ -106,6 +110,7 @@ sub save {
         }
         for my $col (keys %$attributes) {
             next if $attributes->{$col}{input} eq 'object';
+            next unless $parameters->{$col};
             next if $parameters->{$col} eq '' && $attributes->{$col}{empty_is_default};
             $col_data->{$col} = $parameters->{$col} if exists $parameters->{$col};
             $col_data->{$col} = undef if $attributes->{$col}{empty_is_null} && $col_data->{$col} eq '';
@@ -128,6 +133,10 @@ sub save {
 
     for my $class_of_child (keys %$attributes) {
         next unless $attributes->{$class_of_child}{input} eq 'object';
+        unless ($parameters->{$class_of_child.'_is'}) {
+            $col_data->{$class_of_child} = undef;
+            next;
+        }
         my $child = SmartSea::Object->new(
             {lc_class => $class_of_child, object => $self->{object}->$class_of_child}, $self);
         # how to consume child parameters and possibly know them from our parameters?
@@ -136,6 +145,7 @@ sub save {
 
     for my $col (keys %$attributes) {
         next if $attributes->{$col}{input} eq 'object';
+        next unless $parameters->{$col};
         next if $parameters->{$col} eq '' && $attributes->{$col}{empty_is_default};
         $col_data->{$col} = $parameters->{$col} if exists $parameters->{$col};
         $col_data->{$col} = undef if $attributes->{$col}{empty_is_null} && $col_data->{$col} eq '';
@@ -168,7 +178,9 @@ sub delete {
     my %delete;
     for my $class_of_child (keys %$attributes) {
         if ($attributes->{$class_of_child}{input} eq 'object') {
-            $delete{$class_of_child} = $self->{object}->$class_of_child->id;
+            my $child = $self->{object}->$class_of_child;
+            next unless $child;
+            $delete{$class_of_child} = $child->id;
         }
     }
     eval {
@@ -185,7 +197,6 @@ sub delete {
 
 sub all {
     my ($self) = @_;
-    # todo: impacts resultset list
     return [$self->{rs}->list] if $self->{rs}->can('list');
     # todo: use self->rs and methods in it below
     my $order_by = $self->{class}->can('order_by') ? $self->{class}->order_by : {-asc => 'name'};
@@ -245,10 +256,10 @@ sub li {
     my $object = $self->{object};
     #say STDERR "object ",$object->id;
 
-    my @content = a(link => $self->class_name, url => plural($url));
+    my @content = a(link => "Show all ".plural($self->class_name(undef, 'list')), url => plural($url));
     $url .= ':'.$object->id;
     if ($editable) {
-        push @content, [1 => ' '], a(link => 'edit', url => $url.'?edit');
+        push @content, [1 => ' '], a(link => 'edit this one', url => $url.'?edit');
     }
     
     my @li = ([li => "id: ".$object->id], [li => "name: ".$object->name]);
@@ -258,8 +269,8 @@ sub li {
     for my $a (sort keys %$attributes) {
         next if $a eq 'name';
         next if $children_listers->{$a};
+        next if $attributes->{$a}{input} eq 'ignore';
         # todo what if style, ie object?
-        # todo: for rules show only relevant ones
         my $v = $object->$a // '';
         if (ref $v) {
             for my $b (qw/name id data/) {
@@ -347,10 +358,11 @@ sub form {
         }
     }   
 
-    my $doing;
+    # todo, what if there is no oids and this is a layer etc? bail out?
+    my @doing;
     my $trace = '';
     if ($self->{object}) {
-        $doing = 'Editing '.$self->class_name($parent).' in ';
+        @doing = ('Editing '.$self->class_name($parent),' in ');
         for (my $oid = 0; $oid < @$oids-1; ++$oid) {
             my $obj = SmartSea::Object->new({oid => $oids->[$oid]}, $self);
             $trace .= ' -> ' if $trace;
@@ -374,7 +386,7 @@ sub form {
         push @widgets, hidden(source => $self->{source});
     } else {
         my $what = title($attributes, $col_data, $self->{schema});
-        $doing = "Creating $what".$self->class_name($parent)." for ";
+        @doing = ("Creating $what".$self->class_name($parent)," for ");
         my %from_upstream;
         for (my $oid = 0; $oid < @$oids-1; ++$oid) {
             my $obj = SmartSea::Object->new({oid => $oids->[$oid]}, $self);
@@ -398,7 +410,9 @@ sub form {
                         'Filled data is from parent objects and for information only. Please delete or overwrite them.'] 
                             if $has_upstream;
     }
-    push @widgets, [p => $doing.$trace.'.'];
+    my $p = $doing[0];
+    $p .= $doing[1].$trace if $trace;
+    push @widgets, [p => $p.'.'];
     push @widgets, widgets($attributes, $parameters, $self->{schema});
     push @widgets, button(value => 'Save'), [1 => ' '], button(value => 'Cancel');
     return @widgets;

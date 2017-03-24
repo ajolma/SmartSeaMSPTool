@@ -12,7 +12,7 @@ my %attributes = (
     use         => { i => 1, input => 'ignore', class => 'Use' },
     layer_class => { i => 2, input => 'ignore', class => 'LayerClass' },
     rule_class  => { i => 3, input => 'lookup', class => 'RuleClass' },
-    style       => { i => 4, input => 'object', class => 'Style' },
+    style       => { i => 4, input => 'object', class => 'Style', required => 1 },
     );
 
 __PACKAGE__->table('layers');
@@ -38,7 +38,8 @@ sub order_by {
 }
 
 sub class_name {
-    my ($self) = @_;
+    my ($self, $parent, $purpose) = @_;
+    return 'Layer' if blessed($self) && $purpose && $purpose eq 'list';
     return $self->layer_class->name.' Layer' if blessed($self);
     return 'Layer';
 }

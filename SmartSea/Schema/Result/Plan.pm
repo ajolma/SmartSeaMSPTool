@@ -16,7 +16,7 @@ __PACKAGE__->table('plans');
 __PACKAGE__->add_columns(qw/ id name /);
 __PACKAGE__->set_primary_key('id');
 __PACKAGE__->has_many(uses => 'SmartSea::Schema::Result::Use', 'plan');
-__PACKAGE__->many_to_many(use_classes => 'use', 'use_class');
+__PACKAGE__->many_to_many(use_classes => 'uses', 'use_class');
 
 sub attributes {
     return \%attributes;
