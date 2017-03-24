@@ -188,7 +188,7 @@ sub compute {
     for my $rule (@{$self->{rules}}) {
         if ($debug) {
             my $val = $rule->value // 1;
-            say STDERR "apply: ",$rule->as_text," ",$val;
+            say STDERR "apply: ",$rule->name," ",$val;
         }
         $rule->apply($method, $result, $self, $debug);
         if ($debug) {

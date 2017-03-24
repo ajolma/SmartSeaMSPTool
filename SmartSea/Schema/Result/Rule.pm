@@ -14,14 +14,14 @@ my %attributes = (
     #layer =>        { i => 1,  input => 'lookup', class => 'Layer',   allow_null => 0 },
     r_layer =>      { i => 7,  input => 'lookup', class => 'Layer',   allow_null => 1 },
     r_dataset =>    { i => 8,  input => 'lookup', class => 'Dataset', allow_null => 1, objs => {path => {'!=',undef}} },
-    op =>           { i => 9,  input => 'lookup', class => 'Op',      allow_null => 1 },
-    value =>        { i => 10, input => 'text', type => 'double', empty_is_null => 1 },
-    min_value =>    { i => 11, input => 'text', type => 'double', empty_is_null => 1 },
-    max_value =>    { i => 12, input => 'text', type => 'double', empty_is_null => 1 },
-    value_type =>   { i => 14, input => 'text', },
-    value_at_min => { i => 15, input => 'text', type => 'double', empty_is_null => 1 },
-    value_at_max => { i => 16, input => 'text', type => 'double', empty_is_null => 1 },
-    weight =>       { i => 17, input => 'text', type => 'double', empty_is_null => 1 }
+    op =>           { i => 9,  input => 'lookup', class => 'Op'  },
+    value =>        { i => 10, input => 'text', type => 'double', empty_is_default => 1 },
+    min_value =>    { i => 11, input => 'text', type => 'double', empty_is_default => 1 },
+    max_value =>    { i => 12, input => 'text', type => 'double', empty_is_default => 1 },
+    value_type =>   { i => 14, input => 'lookup', class => 'NumberType' },
+    value_at_min => { i => 15, input => 'text', type => 'double', empty_is_default => 1 },
+    value_at_max => { i => 16, input => 'text', type => 'double', empty_is_default => 1 },
+    weight =>       { i => 17, input => 'text', type => 'double', empty_is_default => 1 }
     );
 
 # how to compute the weighted value for x:
@@ -42,13 +42,115 @@ __PACKAGE__->belongs_to(r_dataset => 'SmartSea::Schema::Result::Dataset');
 __PACKAGE__->belongs_to(op => 'SmartSea::Schema::Result::Op');
 
 sub attributes {
-    return \%attributes;
+    my ($self, $parent) = @_;
+    return \%attributes unless $parent;
+    my %a = %attributes;
+    my $class = $parent->rule_class->name;
+    if ($class eq 'additive' or $class eq 'multiplicative') {
+        delete $a{op};
+        delete $a{value};
+        delete $a{value_type};
+    } else {
+        delete $a{min_value};
+        delete $a{max_value};
+        delete $a{value_at_min};
+        delete $a{value_at_max};
+        delete $a{weight};
+    }
+    return \%a;
+}
+
+sub is_ok {
+    my ($self, $col_data) = @_;
+    return "Rule must be based either on a layer or on a dataset." if 
+        (!defined($col_data->{r_dataset}) && !defined($col_data->{r_layer})) ||
+        (defined($col_data->{r_dataset}) && defined($col_data->{r_layer}));
+    return undef;
 }
 
 sub order_by {
     return {-asc => 'id'};
 }
 
+sub class_name {
+    my ($self, $parent) = @_;
+    #say STDERR "class name for rule: @_";
+    return 'Rule' unless $self && $parent;
+    my $class = $parent->rule_class->name;
+    return "$class Rule";
+}
+
+sub name_with_parent {
+    my ($self, $parent) = @_;
+    my $class = $parent->rule_class->name;
+
+    my $x = $self->r_layer ? 
+        $self->r_layer->name : 
+        ($self->r_dataset ? $self->r_dataset->name : 'undefined');
+    
+    my $op = $self->op->name;
+    my $value = $self->value;
+    my $x_min = $self->min_value;
+    my $x_max = $self->max_value;
+    my $y_min = $self->value_at_min;
+    my $y_max = $self->value_at_max;
+    my $w = $self->weight;
+    
+    if ($class eq 'additive') {
+        return "+ $y_min - $w * ($y_max-$y_min)/($x_max-$x_min) * ($x - $x_min)";
+    } elsif ($class eq 'exclusive') {
+        return "- if $x $op $value";
+    } elsif ($class eq 'inclusive') {
+        return "+ if $x $op $value";
+    } elsif ($class eq 'multiplicative') {
+        return "* $y_min - $w * ($y_max-$y_min)/($x_max-$x_min) * ($x - $x_min)";
+    }
+}
+
+sub name {
+    my ($self, %args) = @_;
+
+    my $class = 'exclusive'; # todo: fix this
+
+    my $x = $self->r_layer ? 
+        $self->r_layer->name : 
+        ($self->r_dataset ? $self->r_dataset->name : 'undefined');
+    
+    my $op = $self->op->name;
+    my $value = $args{no_value} ? '' : $self->value;
+    my $x_min = $self->min_value;
+    my $x_max = $self->max_value;
+    my $y_min = $self->value_at_min;
+    my $y_max = $self->value_at_max;
+    my $w = $self->weight;
+    
+    if ($class eq 'additive') {
+        return "+ $y_min - $w * ($y_max-$y_min)/($x_max-$x_min) * ($x - $x_min)";
+    } elsif ($class eq 'exclusive') {
+        return "- if $x $op $value";
+    } elsif ($class eq 'inclusive') {
+        return "+ if $x $op $value";
+    } elsif ($class eq 'multiplicative') {
+        return "* $y_min - $w * ($y_max-$y_min)/($x_max-$x_min) * ($x - $x_min)";
+    }
+}
+
+sub as_hashref_for_json {
+    my ($self) = @_;
+    my $desc = $self->r_dataset ? $self->r_dataset->descr : '';
+    return {
+        name => $self->name(no_value => 1),
+        id => $self->id, 
+        active => JSON::true,
+        value => $self->value,
+        min => $self->min_value() // 0,
+        max => $self->max_value() // 10,
+        type => $self->value_type() // 'int',
+        description => $desc,
+    };
+}
+
+# this is needed by modify request
 sub values {
     my ($self) = @_;
     my %values;
@@ -61,48 +163,6 @@ sub values {
         }
     }
     return \%values;
-}
-
-sub as_text {
-    my ($self, %args) = @_;
-    #if ($self->layer->layer_class->name eq 'Value') {
-    #    return $self->r_dataset ? $self->r_dataset->long_name : 'error';
-    #}
-    my $text = '';
-    my $u = '';
-    if (!$self->r_layer) {
-    } elsif ($self->r_layer->name eq 'Value') {
-        $u = "for ".$u if $u;
-        $text .= $self->r_layer->name.$u;
-    } elsif ($self->r_layer->name eq 'Allocation') {
-        $u = "of ".$u if $u;
-        $text .= $self->r_layer->name.$u;
-        $text .= $self->r_plan ? " in plan".$self->r_plan->name : " of this plan";
-    } # else?
-    if ($self->r_dataset) {
-        #$text .= $self->r_dataset->long_name;
-        $text .= $self->r_dataset->name;
-    }
-    return $text." (true)" unless $self->op;
-    $text .= " ".$self->op->name;
-    $text .= " ".$self->value unless $args{no_value};
-    return $text;
-}
-*name = *as_text;
-
-sub as_hashref_for_json {
-    my ($self) = @_;
-    my $desc = $self->r_dataset ? $self->r_dataset->descr : '';
-    return {
-        name => $self->as_text(no_value => 1),
-        id => $self->id, 
-        active => JSON::true,
-        value => $self->value,
-        min => $self->min_value() // 0,
-        max => $self->max_value() // 10,
-        type => $self->value_type() // 'int',
-        description => $desc,
-    };
 }
 
 sub apply {
@@ -132,7 +192,7 @@ sub apply {
             elsif ($op eq '>=') { $y->where($x >= $value) .= 1; }
             elsif ($op eq '>')  { $y->where($x >  $value) .= 1; }
             elsif ($op eq '==') { $y->where($x == $value) .= 1; }
-            else                { say STDERR "rule is a no-op: ",$self->as_text; }
+            else                { say STDERR "rule is a no-op: ",$self->name; }
         }   
         else                    { $y .= 1; }
 
@@ -148,7 +208,7 @@ sub apply {
             elsif ($op eq '>=') { $y->where($x >= $value) .= 0; }
             elsif ($op eq '>')  { $y->where($x >  $value) .= 0; }
             elsif ($op eq '==') { $y->where($x == $value) .= 0; }
-            else                { say STDERR "rule is a no-op: ",$self->as_text; }
+            else                { say STDERR "rule is a no-op: ",$self->name; }
         }   
         else                    { $y .= 0; }
 

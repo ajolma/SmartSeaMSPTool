@@ -14,10 +14,6 @@ __PACKAGE__->belongs_to(use_class => 'SmartSea::Schema::Result::UseClass');
 __PACKAGE__->has_many(layers => 'SmartSea::Schema::Result::Layer', 'use');
 __PACKAGE__->many_to_many(layer_classes => 'layers', 'layer_class');
 
-sub class_name {
-    return 'Use';
-}
-
 sub order_by {
     return {-asc => 'id'};
 }

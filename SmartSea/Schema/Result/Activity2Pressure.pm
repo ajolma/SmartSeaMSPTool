@@ -14,6 +14,10 @@ __PACKAGE__->belongs_to(activity => 'SmartSea::Schema::Result::Activity');
 __PACKAGE__->belongs_to(pressure => 'SmartSea::Schema::Result::Pressure');
 __PACKAGE__->has_many(impacts => 'SmartSea::Schema::Result::Impact', 'activity2pressure');
 
+sub order_by {
+    return {-asc => 'id'};
+}
+
 sub attributes {
     return {range => {input => 'text'}}; # todo: show range as real units
 }
@@ -42,11 +46,6 @@ sub impacts_list {
         push @impacts, [li => "impact on $c is $strength, $belief."];
     }
     return \@impacts;
-}
-
-sub as_text {
-    my ($self) = @_;
-    return $self->activity->name . ' - ' . $self->pressure->name;
 }
 
 1;

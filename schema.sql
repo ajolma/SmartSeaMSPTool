@@ -547,6 +547,39 @@ ALTER SEQUENCE layers_id_seq OWNED BY layer_classes.id;
 
 
 --
+-- Name: number_type; Type: TABLE; Schema: tool; Owner: ajolma
+--
+
+CREATE TABLE number_type (
+    id integer NOT NULL,
+    name text NOT NULL
+);
+
+
+ALTER TABLE number_type OWNER TO ajolma;
+
+--
+-- Name: number_type_id_seq; Type: SEQUENCE; Schema: tool; Owner: ajolma
+--
+
+CREATE SEQUENCE number_type_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE number_type_id_seq OWNER TO ajolma;
+
+--
+-- Name: number_type_id_seq; Type: SEQUENCE OWNED BY; Schema: tool; Owner: ajolma
+--
+
+ALTER SEQUENCE number_type_id_seq OWNED BY number_type.id;
+
+
+--
 -- Name: ops; Type: TABLE; Schema: tool; Owner: ajolma
 --
 
@@ -748,18 +781,18 @@ ALTER SEQUENCE rule_classes_id_seq OWNED BY rule_classes.id;
 CREATE TABLE rules (
     id integer NOT NULL,
     r_layer integer,
-    op integer,
-    value double precision,
+    op integer DEFAULT 1 NOT NULL,
+    value double precision DEFAULT 1 NOT NULL,
     r_dataset integer,
-    min_value double precision,
-    max_value double precision,
-    value_type text,
+    min_value double precision DEFAULT 0 NOT NULL,
+    max_value double precision DEFAULT 1 NOT NULL,
     cookie text DEFAULT 'default'::text NOT NULL,
     made timestamp with time zone,
-    value_at_min double precision DEFAULT 0,
-    value_at_max double precision DEFAULT 1,
-    weight double precision DEFAULT 1,
-    layer integer NOT NULL
+    value_at_min double precision DEFAULT 0 NOT NULL,
+    value_at_max double precision DEFAULT 1 NOT NULL,
+    weight double precision DEFAULT 1 NOT NULL,
+    layer integer NOT NULL,
+    value_type integer DEFAULT 1 NOT NULL
 );
 
 
@@ -784,13 +817,6 @@ COMMENT ON COLUMN rules.value IS 'threshold, used together with op';
 --
 
 COMMENT ON COLUMN rules.r_dataset IS 'data for this this rule (alternative to reference pul)';
-
-
---
--- Name: COLUMN rules.value_type; Type: COMMENT; Schema: tool; Owner: ajolma
---
-
-COMMENT ON COLUMN rules.value_type IS 'for sequential rules, type of column ''value''';
 
 
 --
@@ -819,6 +845,13 @@ COMMENT ON COLUMN rules.weight IS 'for additive and multiplicative rules';
 --
 
 COMMENT ON COLUMN rules.layer IS 'which layer this rule is used to create';
+
+
+--
+-- Name: COLUMN rules.value_type; Type: COMMENT; Schema: tool; Owner: ajolma
+--
+
+COMMENT ON COLUMN rules.value_type IS 'for sequential rules, type of column ''value''';
 
 
 --
@@ -1066,6 +1099,13 @@ ALTER TABLE ONLY layers ALTER COLUMN id SET DEFAULT nextval('plan2use2layer_id_s
 -- Name: id; Type: DEFAULT; Schema: tool; Owner: ajolma
 --
 
+ALTER TABLE ONLY number_type ALTER COLUMN id SET DEFAULT nextval('number_type_id_seq'::regclass);
+
+
+--
+-- Name: id; Type: DEFAULT; Schema: tool; Owner: ajolma
+--
+
 ALTER TABLE ONLY ops ALTER COLUMN id SET DEFAULT nextval('ops_id_seq'::regclass);
 
 
@@ -1302,6 +1342,14 @@ ALTER TABLE ONLY layer_classes
 
 ALTER TABLE ONLY layer_classes
     ADD CONSTRAINT layers_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: number_type_pkey; Type: CONSTRAINT; Schema: tool; Owner: ajolma
+--
+
+ALTER TABLE ONLY number_type
+    ADD CONSTRAINT number_type_pkey PRIMARY KEY (id);
 
 
 --
@@ -1613,6 +1661,14 @@ ALTER TABLE ONLY rules
 
 
 --
+-- Name: rules_v_fkey; Type: FK CONSTRAINT; Schema: tool; Owner: ajolma
+--
+
+ALTER TABLE ONLY rules
+    ADD CONSTRAINT rules_v_fkey FOREIGN KEY (value_type) REFERENCES number_type(id);
+
+
+--
 -- Name: styles_color_scale_fkey; Type: FK CONSTRAINT; Schema: tool; Owner: ajolma
 --
 
@@ -1851,6 +1907,26 @@ REVOKE ALL ON SEQUENCE layers_id_seq FROM PUBLIC;
 REVOKE ALL ON SEQUENCE layers_id_seq FROM ajolma;
 GRANT ALL ON SEQUENCE layers_id_seq TO ajolma;
 GRANT ALL ON SEQUENCE layers_id_seq TO smartsea;
+
+
+--
+-- Name: number_type; Type: ACL; Schema: tool; Owner: ajolma
+--
+
+REVOKE ALL ON TABLE number_type FROM PUBLIC;
+REVOKE ALL ON TABLE number_type FROM ajolma;
+GRANT ALL ON TABLE number_type TO ajolma;
+GRANT ALL ON TABLE number_type TO smartsea;
+
+
+--
+-- Name: number_type_id_seq; Type: ACL; Schema: tool; Owner: ajolma
+--
+
+REVOKE ALL ON SEQUENCE number_type_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE number_type_id_seq FROM ajolma;
+GRANT ALL ON SEQUENCE number_type_id_seq TO ajolma;
+GRANT ALL ON SEQUENCE number_type_id_seq TO smartsea;
 
 
 --

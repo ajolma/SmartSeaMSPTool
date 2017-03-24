@@ -413,7 +413,6 @@ sub object_editor {
         my @body = a(link => 'All classes', url => $self->{base_uri});
         my $obj = SmartSea::Object->new({oid => $oids->[0], url => $self->{base_uri}}, $self);
         if ($obj) {
-            $oids = $obj->all() unless $obj->{object};
             push @body, [ul => [li => $obj->li($oids, 0)]];
             return html200({}, SmartSea::HTML->new(html => [body => @body])->html);
         }
@@ -447,7 +446,7 @@ sub object_editor {
         # todo: tell that nothing has yet been really added?
         my $obj = SmartSea::Object->new({oid => $oids->[$#$oids], url => $self->{base_uri}}, $self);
         if ($obj) {
-            my @form = $obj->form($oids, \%parameters);
+            my @form = $obj->form($oids, $#$oids, \%parameters);
             if (@form) {
                 my $url = $self->{uri};
                 $url =~ s/\?.*$//;
@@ -460,7 +459,6 @@ sub object_editor {
                 push @body, [p => {style => 'color:red'}, $error] if $@;
                 push @body, a(link => 'All classes', url => $self->{base_uri});
                 $obj = SmartSea::Object->new({oid => $oids->[0], url => $self->{base_uri}}, $self);
-                $oids = $obj->all() unless $obj->{object};
                 push @body, [ul => [li => $obj->li($oids, 0)]];
                 return html200({}, SmartSea::HTML->new(html => [body => \@body])->html);
             }
@@ -476,7 +474,6 @@ sub object_editor {
             $obj = SmartSea::Object->new({oid => $oids->[0], url => $self->{base_uri}}, $self);
             if ($obj) {
                 push @body, a(link => 'All classes', url => $self->{base_uri});
-                $oids = $obj->all() unless $obj->{object};
                 push @body, [ul => [li => $obj->li($oids, 0)]];
             }
             return html200({}, SmartSea::HTML->new(html => [body => @body])->html);
@@ -490,14 +487,13 @@ sub object_editor {
             if ($error) {
                 my $url = $self->{uri};
                 $url =~ s/\?.*$//;
-                my $form = [form => {action => $url, method => 'POST'}, $obj->form($oids, \%parameters)];
+                my $form = [form => {action => $url, method => 'POST'}, $obj->form($oids, $#$oids, \%parameters)];
                 my @body = ([p => {style => 'color:red'}, $error], $form);
                 return html200({}, SmartSea::HTML->new(html => [body => @body])->html);
             } else {
                 $obj = SmartSea::Object->new({oid => $oids->[0], url => $self->{base_uri}}, $self);
                 if ($obj) {
                     my @body = a(link => 'All classes', url => $self->{base_uri});
-                    $oids = $obj->all() unless $obj->{object};
                     push @body, [ul => [li => $obj->li($oids, 0)]];
                     return html200({}, SmartSea::HTML->new(html => [body => @body])->html);
                 }
@@ -510,7 +506,7 @@ sub object_editor {
         if ($obj) {
             my $url = $self->{uri};
             $url =~ s/\?.*$//;
-            my $form = [form => {action => $url, method => 'POST'}, $obj->form($oids, \%parameters)];
+            my $form = [form => {action => $url, method => 'POST'}, $obj->form($oids, $#$oids, \%parameters)];
             return html200({}, SmartSea::HTML->new(html => [body => $form])->html);
         }
         
