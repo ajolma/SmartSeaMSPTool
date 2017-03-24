@@ -45,6 +45,10 @@ sub attributes {
     return \%attributes;
 }
 
+sub order_by {
+    return {-asc => 'id'};
+}
+
 sub values {
     my ($self) = @_;
     my %values;

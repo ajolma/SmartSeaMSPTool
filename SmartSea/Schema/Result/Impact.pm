@@ -29,7 +29,7 @@ sub order_by {
 
 sub name {
     my $self = shift;
-    return 'to '.$self->ecosystem_component->name;
+    return $self->activity2pressure->name.' <-> '.$self->ecosystem_component->name;
 }
 
 1;

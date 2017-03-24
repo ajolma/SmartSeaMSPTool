@@ -48,6 +48,11 @@ sub name {
     return $self->layer_class->name;
 }
 
+sub long_name {
+    my $self = shift;
+    return $self->use->name.' <-> '.$self->layer_class->name;
+}
+
 sub my_unit {
     return '';
 }

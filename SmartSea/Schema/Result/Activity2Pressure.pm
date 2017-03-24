@@ -28,7 +28,7 @@ sub children_listers {
 
 sub name {
     my $self = shift;
-    return $self->pressure->name;
+    return $self->activity->name.' <-> '.$self->pressure->name;
 }
 
 sub impacts_list {

@@ -12,7 +12,7 @@ __PACKAGE__->belongs_to(activity => 'SmartSea::Schema::Result::Activity');
 
 sub name {
     my $self = shift;
-    return $self->use_class->name.'-'.$self->activity->name;
+    return $self->use_class->name.' <-> '.$self->activity->name;
 }
 
 1;
