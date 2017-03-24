@@ -507,7 +507,7 @@ ALTER TABLE layer_classes OWNER TO ajolma;
 --
 
 CREATE TABLE layers (
-    plan2use integer NOT NULL,
+    use integer NOT NULL,
     layer_class integer NOT NULL,
     id integer NOT NULL,
     rule_class integer DEFAULT 1 NOT NULL,
@@ -580,19 +580,6 @@ ALTER SEQUENCE ops_id_seq OWNED BY ops.id;
 
 
 --
--- Name: plan2use; Type: TABLE; Schema: tool; Owner: ajolma
---
-
-CREATE TABLE plan2use (
-    id integer NOT NULL,
-    plan integer NOT NULL,
-    use integer NOT NULL
-);
-
-
-ALTER TABLE plan2use OWNER TO ajolma;
-
---
 -- Name: plan2use2layer_id_seq; Type: SEQUENCE; Schema: tool; Owner: ajolma
 --
 
@@ -614,6 +601,19 @@ ALTER SEQUENCE plan2use2layer_id_seq OWNED BY layers.id;
 
 
 --
+-- Name: uses; Type: TABLE; Schema: tool; Owner: ajolma
+--
+
+CREATE TABLE uses (
+    id integer NOT NULL,
+    plan integer NOT NULL,
+    use_class integer NOT NULL
+);
+
+
+ALTER TABLE uses OWNER TO ajolma;
+
+--
 -- Name: plan2use_id_seq; Type: SEQUENCE; Schema: tool; Owner: ajolma
 --
 
@@ -631,7 +631,7 @@ ALTER TABLE plan2use_id_seq OWNER TO ajolma;
 -- Name: plan2use_id_seq; Type: SEQUENCE OWNED BY; Schema: tool; Owner: ajolma
 --
 
-ALTER SEQUENCE plan2use_id_seq OWNED BY plan2use.id;
+ALTER SEQUENCE plan2use_id_seq OWNED BY uses.id;
 
 
 --
@@ -790,7 +790,7 @@ COMMENT ON COLUMN rules.r_dataset IS 'data for this this rule (alternative to re
 -- Name: COLUMN rules.value_type; Type: COMMENT; Schema: tool; Owner: ajolma
 --
 
-COMMENT ON COLUMN rules.value_type IS 'for sequential rules';
+COMMENT ON COLUMN rules.value_type IS 'for sequential rules, type of column ''value''';
 
 
 --
@@ -901,17 +901,17 @@ ALTER SEQUENCE styles_id_seq1 OWNED BY styles.id;
 
 
 --
--- Name: use2activity; Type: TABLE; Schema: tool; Owner: ajolma
+-- Name: use_class2activity; Type: TABLE; Schema: tool; Owner: ajolma
 --
 
-CREATE TABLE use2activity (
+CREATE TABLE use_class2activity (
     id integer NOT NULL,
-    use integer NOT NULL,
+    use_class integer NOT NULL,
     activity integer NOT NULL
 );
 
 
-ALTER TABLE use2activity OWNER TO ajolma;
+ALTER TABLE use_class2activity OWNER TO ajolma;
 
 --
 -- Name: use2activity_id_seq; Type: SEQUENCE; Schema: tool; Owner: ajolma
@@ -931,20 +931,20 @@ ALTER TABLE use2activity_id_seq OWNER TO ajolma;
 -- Name: use2activity_id_seq; Type: SEQUENCE OWNED BY; Schema: tool; Owner: ajolma
 --
 
-ALTER SEQUENCE use2activity_id_seq OWNED BY use2activity.id;
+ALTER SEQUENCE use2activity_id_seq OWNED BY use_class2activity.id;
 
 
 --
--- Name: uses; Type: TABLE; Schema: tool; Owner: ajolma
+-- Name: use_classes; Type: TABLE; Schema: tool; Owner: ajolma
 --
 
-CREATE TABLE uses (
+CREATE TABLE use_classes (
     id integer NOT NULL,
     name text NOT NULL
 );
 
 
-ALTER TABLE uses OWNER TO ajolma;
+ALTER TABLE use_classes OWNER TO ajolma;
 
 --
 -- Name: uses_id_seq; Type: SEQUENCE; Schema: tool; Owner: ajolma
@@ -964,7 +964,7 @@ ALTER TABLE uses_id_seq OWNER TO ajolma;
 -- Name: uses_id_seq; Type: SEQUENCE OWNED BY; Schema: tool; Owner: ajolma
 --
 
-ALTER SEQUENCE uses_id_seq OWNED BY uses.id;
+ALTER SEQUENCE uses_id_seq OWNED BY use_classes.id;
 
 
 SET search_path = data, pg_catalog;
@@ -1073,13 +1073,6 @@ ALTER TABLE ONLY ops ALTER COLUMN id SET DEFAULT nextval('ops_id_seq'::regclass)
 -- Name: id; Type: DEFAULT; Schema: tool; Owner: ajolma
 --
 
-ALTER TABLE ONLY plan2use ALTER COLUMN id SET DEFAULT nextval('plan2use_id_seq'::regclass);
-
-
---
--- Name: id; Type: DEFAULT; Schema: tool; Owner: ajolma
---
-
 ALTER TABLE ONLY plans ALTER COLUMN id SET DEFAULT nextval('plans_id_seq'::regclass);
 
 
@@ -1122,14 +1115,21 @@ ALTER TABLE ONLY styles ALTER COLUMN id SET DEFAULT nextval('styles_id_seq1'::re
 -- Name: id; Type: DEFAULT; Schema: tool; Owner: ajolma
 --
 
-ALTER TABLE ONLY use2activity ALTER COLUMN id SET DEFAULT nextval('use2activity_id_seq'::regclass);
+ALTER TABLE ONLY use_class2activity ALTER COLUMN id SET DEFAULT nextval('use2activity_id_seq'::regclass);
 
 
 --
 -- Name: id; Type: DEFAULT; Schema: tool; Owner: ajolma
 --
 
-ALTER TABLE ONLY uses ALTER COLUMN id SET DEFAULT nextval('uses_id_seq'::regclass);
+ALTER TABLE ONLY use_classes ALTER COLUMN id SET DEFAULT nextval('uses_id_seq'::regclass);
+
+
+--
+-- Name: id; Type: DEFAULT; Schema: tool; Owner: ajolma
+--
+
+ALTER TABLE ONLY uses ALTER COLUMN id SET DEFAULT nextval('plan2use_id_seq'::regclass);
 
 
 SET search_path = data, pg_catalog;
@@ -1325,14 +1325,14 @@ ALTER TABLE ONLY layers
 --
 
 ALTER TABLE ONLY layers
-    ADD CONSTRAINT plan2use2layer_plan2use_layer_key UNIQUE (plan2use, layer_class);
+    ADD CONSTRAINT plan2use2layer_plan2use_layer_key UNIQUE (use, layer_class);
 
 
 --
 -- Name: plan2use_pkey; Type: CONSTRAINT; Schema: tool; Owner: ajolma
 --
 
-ALTER TABLE ONLY plan2use
+ALTER TABLE ONLY uses
     ADD CONSTRAINT plan2use_pkey PRIMARY KEY (id);
 
 
@@ -1340,8 +1340,8 @@ ALTER TABLE ONLY plan2use
 -- Name: plan2use_plan_use_key; Type: CONSTRAINT; Schema: tool; Owner: ajolma
 --
 
-ALTER TABLE ONLY plan2use
-    ADD CONSTRAINT plan2use_plan_use_key UNIQUE (plan, use);
+ALTER TABLE ONLY uses
+    ADD CONSTRAINT plan2use_plan_use_key UNIQUE (plan, use_class);
 
 
 --
@@ -1412,7 +1412,7 @@ ALTER TABLE ONLY styles
 -- Name: use2activity_pkey; Type: CONSTRAINT; Schema: tool; Owner: ajolma
 --
 
-ALTER TABLE ONLY use2activity
+ALTER TABLE ONLY use_class2activity
     ADD CONSTRAINT use2activity_pkey PRIMARY KEY (id);
 
 
@@ -1420,15 +1420,15 @@ ALTER TABLE ONLY use2activity
 -- Name: use2activity_use_activity_key; Type: CONSTRAINT; Schema: tool; Owner: ajolma
 --
 
-ALTER TABLE ONLY use2activity
-    ADD CONSTRAINT use2activity_use_activity_key UNIQUE (use, activity);
+ALTER TABLE ONLY use_class2activity
+    ADD CONSTRAINT use2activity_use_activity_key UNIQUE (use_class, activity);
 
 
 --
 -- Name: uses_pkey; Type: CONSTRAINT; Schema: tool; Owner: ajolma
 --
 
-ALTER TABLE ONLY uses
+ALTER TABLE ONLY use_classes
     ADD CONSTRAINT uses_pkey PRIMARY KEY (id);
 
 
@@ -1436,7 +1436,7 @@ ALTER TABLE ONLY uses
 -- Name: uses_title_key; Type: CONSTRAINT; Schema: tool; Owner: ajolma
 --
 
-ALTER TABLE ONLY uses
+ALTER TABLE ONLY use_classes
     ADD CONSTRAINT uses_title_key UNIQUE (name);
 
 
@@ -1553,7 +1553,7 @@ ALTER TABLE ONLY layers
 --
 
 ALTER TABLE ONLY layers
-    ADD CONSTRAINT plan2use2layer_plan2use_fkey FOREIGN KEY (plan2use) REFERENCES plan2use(id);
+    ADD CONSTRAINT plan2use2layer_plan2use_fkey FOREIGN KEY (use) REFERENCES uses(id);
 
 
 --
@@ -1568,7 +1568,7 @@ ALTER TABLE ONLY layers
 -- Name: plan2use_plan_fkey; Type: FK CONSTRAINT; Schema: tool; Owner: ajolma
 --
 
-ALTER TABLE ONLY plan2use
+ALTER TABLE ONLY uses
     ADD CONSTRAINT plan2use_plan_fkey FOREIGN KEY (plan) REFERENCES plans(id);
 
 
@@ -1576,8 +1576,8 @@ ALTER TABLE ONLY plan2use
 -- Name: plan2use_use_fkey; Type: FK CONSTRAINT; Schema: tool; Owner: ajolma
 --
 
-ALTER TABLE ONLY plan2use
-    ADD CONSTRAINT plan2use_use_fkey FOREIGN KEY (use) REFERENCES uses(id);
+ALTER TABLE ONLY uses
+    ADD CONSTRAINT plan2use_use_fkey FOREIGN KEY (use_class) REFERENCES use_classes(id);
 
 
 --
@@ -1624,7 +1624,7 @@ ALTER TABLE ONLY styles
 -- Name: use2activity_activity_fkey; Type: FK CONSTRAINT; Schema: tool; Owner: ajolma
 --
 
-ALTER TABLE ONLY use2activity
+ALTER TABLE ONLY use_class2activity
     ADD CONSTRAINT use2activity_activity_fkey FOREIGN KEY (activity) REFERENCES activities(id);
 
 
@@ -1632,8 +1632,8 @@ ALTER TABLE ONLY use2activity
 -- Name: use2activity_use_fkey; Type: FK CONSTRAINT; Schema: tool; Owner: ajolma
 --
 
-ALTER TABLE ONLY use2activity
-    ADD CONSTRAINT use2activity_use_fkey FOREIGN KEY (use) REFERENCES uses(id);
+ALTER TABLE ONLY use_class2activity
+    ADD CONSTRAINT use2activity_use_fkey FOREIGN KEY (use_class) REFERENCES use_classes(id);
 
 
 --
@@ -1864,16 +1864,6 @@ GRANT ALL ON TABLE ops TO smartsea;
 
 
 --
--- Name: plan2use; Type: ACL; Schema: tool; Owner: ajolma
---
-
-REVOKE ALL ON TABLE plan2use FROM PUBLIC;
-REVOKE ALL ON TABLE plan2use FROM ajolma;
-GRANT ALL ON TABLE plan2use TO ajolma;
-GRANT ALL ON TABLE plan2use TO smartsea;
-
-
---
 -- Name: plan2use2layer_id_seq; Type: ACL; Schema: tool; Owner: ajolma
 --
 
@@ -1881,6 +1871,16 @@ REVOKE ALL ON SEQUENCE plan2use2layer_id_seq FROM PUBLIC;
 REVOKE ALL ON SEQUENCE plan2use2layer_id_seq FROM ajolma;
 GRANT ALL ON SEQUENCE plan2use2layer_id_seq TO ajolma;
 GRANT ALL ON SEQUENCE plan2use2layer_id_seq TO smartsea;
+
+
+--
+-- Name: uses; Type: ACL; Schema: tool; Owner: ajolma
+--
+
+REVOKE ALL ON TABLE uses FROM PUBLIC;
+REVOKE ALL ON TABLE uses FROM ajolma;
+GRANT ALL ON TABLE uses TO ajolma;
+GRANT ALL ON TABLE uses TO smartsea;
 
 
 --
@@ -1986,13 +1986,13 @@ GRANT ALL ON SEQUENCE styles_id_seq1 TO smartsea;
 
 
 --
--- Name: use2activity; Type: ACL; Schema: tool; Owner: ajolma
+-- Name: use_class2activity; Type: ACL; Schema: tool; Owner: ajolma
 --
 
-REVOKE ALL ON TABLE use2activity FROM PUBLIC;
-REVOKE ALL ON TABLE use2activity FROM ajolma;
-GRANT ALL ON TABLE use2activity TO ajolma;
-GRANT ALL ON TABLE use2activity TO smartsea;
+REVOKE ALL ON TABLE use_class2activity FROM PUBLIC;
+REVOKE ALL ON TABLE use_class2activity FROM ajolma;
+GRANT ALL ON TABLE use_class2activity TO ajolma;
+GRANT ALL ON TABLE use_class2activity TO smartsea;
 
 
 --
@@ -2006,14 +2006,14 @@ GRANT ALL ON SEQUENCE use2activity_id_seq TO smartsea;
 
 
 --
--- Name: uses; Type: ACL; Schema: tool; Owner: ajolma
+-- Name: use_classes; Type: ACL; Schema: tool; Owner: ajolma
 --
 
-REVOKE ALL ON TABLE uses FROM PUBLIC;
-REVOKE ALL ON TABLE uses FROM ajolma;
-GRANT ALL ON TABLE uses TO ajolma;
-GRANT SELECT ON TABLE uses TO PUBLIC;
-GRANT ALL ON TABLE uses TO smartsea;
+REVOKE ALL ON TABLE use_classes FROM PUBLIC;
+REVOKE ALL ON TABLE use_classes FROM ajolma;
+GRANT ALL ON TABLE use_classes TO ajolma;
+GRANT SELECT ON TABLE use_classes TO PUBLIC;
+GRANT ALL ON TABLE use_classes TO smartsea;
 
 
 --
