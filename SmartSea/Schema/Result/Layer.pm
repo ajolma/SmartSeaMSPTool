@@ -9,7 +9,7 @@ use SmartSea::Core qw(:all);
 use SmartSea::HTML qw(:all);
 
 my %attributes = (
-    plan2use    => { i => 1, input => 'ignore', class => 'Plan2Use' },
+    use         => { i => 1, input => 'ignore', class => 'Use' },
     layer_class => { i => 2, input => 'ignore', class => 'LayerClass' },
     rule_class  => { i => 3, input => 'lookup', class => 'RuleClass' },
     style       => { i => 4, input => 'object', class => 'Style' },
@@ -18,7 +18,7 @@ my %attributes = (
 __PACKAGE__->table('layers');
 __PACKAGE__->add_columns('id', keys %attributes);
 __PACKAGE__->set_primary_key(qw/ id /);
-__PACKAGE__->belongs_to(plan2use => 'SmartSea::Schema::Result::Plan2Use');
+__PACKAGE__->belongs_to(use => 'SmartSea::Schema::Result::Use');
 __PACKAGE__->belongs_to(layer_class => 'SmartSea::Schema::Result::LayerClass');
 __PACKAGE__->belongs_to(rule_class => 'SmartSea::Schema::Result::RuleClass');
 __PACKAGE__->belongs_to(style => 'SmartSea::Schema::Result::Style');

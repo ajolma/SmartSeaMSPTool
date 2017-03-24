@@ -7,7 +7,7 @@ use base 'DBIx::Class::ResultSet';
 
 sub col_data_for_create {
     my ($self, $parent, $parameters) = @_;
-    return {plan2use => $parent->id, layer_class => $parameters->{layer_class}};
+    return {use => $parent->id, layer_class => $parameters->{layer_class}};
 }
 
 1;

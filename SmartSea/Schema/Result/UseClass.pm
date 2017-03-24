@@ -10,8 +10,8 @@ __PACKAGE__->table('use_classes');
 __PACKAGE__->add_columns('id', 'name');
 __PACKAGE__->set_primary_key('id');
 
-__PACKAGE__->has_many(plan2use => 'SmartSea::Schema::Result::Plan2Use', 'use_class');
-__PACKAGE__->many_to_many(plans => 'plan2use', 'plan');
+__PACKAGE__->has_many(use => 'SmartSea::Schema::Result::Use', 'use_class');
+__PACKAGE__->many_to_many(plans => 'use', 'plan');
 
 __PACKAGE__->has_many(use_class2activity => 'SmartSea::Schema::Result::UseClass2Activity', 'use_class');
 __PACKAGE__->many_to_many(activities => 'use_class2activity', 'activity');

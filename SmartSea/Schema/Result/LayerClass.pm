@@ -11,7 +11,7 @@ __PACKAGE__->table('layer_classes');
 __PACKAGE__->add_columns(qw/ id name /);
 __PACKAGE__->set_primary_key('id');
 __PACKAGE__->has_many(layers => 'SmartSea::Schema::Result::Layer', 'layer_class');
-__PACKAGE__->many_to_many(plan2uses => 'layer', 'plan2use');
+__PACKAGE__->many_to_many(uses => 'layer', 'use');
 
 sub attributes {
     return {name => {input => 'text'}};

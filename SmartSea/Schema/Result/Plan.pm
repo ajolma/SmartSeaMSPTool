@@ -15,20 +15,20 @@ my %attributes = (
 __PACKAGE__->table('plans');
 __PACKAGE__->add_columns(qw/ id name /);
 __PACKAGE__->set_primary_key('id');
-__PACKAGE__->has_many(plan2use => 'SmartSea::Schema::Result::Plan2Use', 'plan');
-__PACKAGE__->many_to_many(use_classes => 'plan2use', 'use_class');
+__PACKAGE__->has_many(use => 'SmartSea::Schema::Result::Use', 'plan');
+__PACKAGE__->many_to_many(use_classes => 'use', 'use_class');
 
 sub attributes {
     return \%attributes;
 }
 
 sub children_listers {
-    return {plan2use => [plan2use => 0]};
+    return {use => [use => 0]};
 }
 
 sub for_child_form {
     my ($self, $kind, $children, $args) = @_;
-    if ($kind eq 'plan2use') {
+    if ($kind eq 'use') {
         my %has;
         for my $obj (@$children) {
             $has{$obj->use_class->id} = 1;
@@ -38,7 +38,7 @@ sub for_child_form {
             next if $has{$obj->id};
             push @objs, $obj;
         }
-        return drop_down(name => 'plan2use', objs => \@objs);
+        return drop_down(name => 'use', objs => \@objs);
     }
 }
 
