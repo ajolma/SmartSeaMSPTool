@@ -10,4 +10,9 @@ __PACKAGE__->set_primary_key(qw/ id /);
 __PACKAGE__->belongs_to(use_class => 'SmartSea::Schema::Result::UseClass');
 __PACKAGE__->belongs_to(activity => 'SmartSea::Schema::Result::Activity');
 
+sub name {
+    my $self = shift;
+    return $self->use_class->name.'-'.$self->activity->name;
+}
+
 1;

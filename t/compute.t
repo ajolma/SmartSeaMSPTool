@@ -61,13 +61,13 @@ my $data_dir = '/vsimem/';
 # set up the test database
 
 $schema->resultset('Plan')->new({id => 1, name => 'plan'})->insert;
-$schema->resultset('Use')->new({id => 1, name => 'use'})->insert;
+$schema->resultset('UseClass')->new({id => 1, name => 'use_class'})->insert;
 for my $i (1..3) {
     $schema->resultset('LayerClass')->new({id => $i, name => 'layer_'.$i})->insert;
 }
 
 $schema->resultset('Plan')->single({id => 1})
-    ->create_related('plan2use', {id => 1, plan => 1, 'use' => 1});
+    ->create_related('use', {id => 1, plan => 1, 'use_class' => 1});
 
 my $rule_class_rs = $schema->resultset('RuleClass');
 $rule_class_rs->new({id => 1, name => 'inclusive'})->insert;
@@ -286,7 +286,7 @@ sub make_layer {
             ( 'layers', 
               {
                   id => $layer_id,
-                  plan2use => 1,
+                  use => 1,
                   rule_class => $rule_class->id,
                   style => $style_id
               });

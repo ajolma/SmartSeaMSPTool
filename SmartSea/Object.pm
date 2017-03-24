@@ -148,7 +148,7 @@ sub delete {
         }
     }
     eval {
-        $self->{object}->delete; # plan2use->remove_from_layers($layer);??
+        $self->{object}->delete;
     };
     say STDERR "Error: $@" if $@;
     for my $class_of_child (keys %delete) {

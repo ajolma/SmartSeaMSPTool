@@ -18,17 +18,17 @@ my $schemas = create_sqlite_schemas($tables, $deps, $indexes);
 my $schema = one_schema();
 
 $schema->resultset('Plan')->new({id => 1, name => 'plan'})->insert;
-$schema->resultset('Use')->new({id => 1, name => 'use'})->insert;
+$schema->resultset('UseClass')->new({id => 1, name => 'use_class'})->insert;
 $schema->resultset('LayerClass')->new({id => 1, name => 'layer_class'})->insert;
 $schema->resultset('RuleClass')->new({id => 1, name => 'rule_class'})->insert;
 $schema->resultset('ColorScale')->new({id => 1, name => 'color_scale'})->insert;
 $schema->resultset('Style')->new({id => 1, color_scale => 1})->insert;
 
 $schema->resultset('Plan')->single({id => 1})->
-    create_related('plan2use', {id => 1, plan => 1, 'use' => 1});
+    create_related('use', {id => 1, plan => 1, 'use_class' => 1});
 
 $schema->resultset('LayerClass')->single({id => 1})->
-    create_related( 'layers', {id => 1, plan2use => 1, rule_class => 1, style => 1});
+    create_related( 'layers', {id => 1, use => 1, rule_class => 1, style => 1});
 
 my $root = 'SmartSea::Schema::Result::';
 my $parameters = {request => '', add => ''};

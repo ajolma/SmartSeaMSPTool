@@ -51,15 +51,15 @@ sub config {
     my @tilesets;
     for my $plan ($self->{schema}->resultset('Plan')->all()) {
         my @uses;
-        for my $use ($plan->uses) {
-            my $plan2use = $self->{schema}->
-                resultset('Plan2Use')->
-                single({plan => $plan->id, use => $use->id});
+        for my $use_class ($plan->use_classes) {
+            my $use = $self->{schema}->
+                resultset('Use')->
+                single({plan => $plan->id, use_class => $use_class->id});
             my @layers;
-            for my $layer ($plan2use->layer_classes) {
+            for my $layer ($use->layer_classes) {
                 my $pul = $self->{schema}->
                     resultset('Layer')->
-                    single({plan2use => $plan2use->id, layer_class => $layer->id});
+                    single({use => $use->id, layer_class => $layer->id});
                 push @tilesets, {
                     Layers => $plan->id."_".$use->id."_".$layer->id,
                     'Format' => 'image/png',

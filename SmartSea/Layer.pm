@@ -7,7 +7,7 @@ use PDL;
 
 use SmartSea::Core qw(:all);
 
-# an ordered set of rules to create a layer for a use in a plan
+# a set of rules to create a layer for a use in a plan
 # OR
 # a dataset
 #
@@ -31,14 +31,14 @@ sub new {
         $self->{duck} = $self->{dataset};
     } else {
         $self->{plan} = $self->{schema}->resultset('Plan')->single({ id => $plan_id });
-        $self->{use} = $self->{schema}->resultset('Use')->single({ id => $use_id });
+        $self->{use} = $self->{schema}->resultset('UseClass')->single({ id => $use_id });
         $self->{layer} = $self->{schema}->resultset('LayerClass')->single({ id => $layer_id });
 
-        my $plan2use = $self->{schema}->resultset('Plan2Use')->single({
+        my $use = $self->{schema}->resultset('Use')->single({
             plan => $self->{plan}->id, 
-            use => $self->{use}->id });
+            use_class => $self->{use}->id });
         $self->{pul} = $self->{schema}->resultset('Layer')->single({
-            plan2use => $plan2use->id, 
+            use => $use->id, 
             layer_class => $self->{layer}->id });
         $self->{duck} = $self->{pul};
 

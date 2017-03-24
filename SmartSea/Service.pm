@@ -190,16 +190,16 @@ sub plans {
     for my $plan ($schema->resultset('Plan')->search($search, {order_by => {-desc => 'name'}})) {
         my @uses;
         $search = defined $use_id ? {use => $use_id}: undef;
-        for my $use ($plan->uses($search, {order_by => 'id'})) {
-            my $plan2use = $self->{schema}->
-                resultset('Plan2Use')->
-                single({plan => $plan->id, use => $use->id});
+        for my $use_class ($plan->use_classes($search, {order_by => 'id'})) {
+            my $use = $self->{schema}->
+                resultset('Use')->
+                single({plan => $plan->id, use_class => $use_class->id});
             my @layers;
             $search = defined $layer_id ? {layer => $layer_id}: undef;
-            for my $layer_class ($plan2use->layer_classes($search, {order_by => {-desc => 'id'}})) {
+            for my $layer_class ($use->layer_classes($search, {order_by => {-desc => 'id'}})) {
                 my $layer = $self->{schema}->
                     resultset('Layer')->
-                    single({plan2use => $plan2use->id, layer_class => $layer_class->id});
+                    single({use => $use->id, layer_class => $layer_class->id});
                 my @rules;
                 for my $rule ($layer->rules(
                                   {
@@ -214,10 +214,10 @@ sub plans {
                     name => $layer->layer_class->name,
                     style => $layer->style->color_scale->name,
                     id => $layer->layer_class->id, 
-                    use => $use->id, 
+                    use => $use->use_class->id, 
                     rules => \@rules};
             }
-            push @uses, {name => $use->name, id => $use->id, plan => $plan->id, layers => \@layers};
+            push @uses, {name => $use_class->name, id => $use_class->id, plan => $plan->id, layers => \@layers};
         }
         push @plans, {name => $plan->name, id => $plan->id, uses => \@uses};
     }
