@@ -16,8 +16,8 @@ __PACKAGE__->add_columns(qw/ id ordr name /);
 __PACKAGE__->set_primary_key('id');
 __PACKAGE__->has_many(activity2pressure => 'SmartSea::Schema::Result::Activity2Pressure', 'activity');
 __PACKAGE__->many_to_many(pressures => 'activity2pressure', 'pressure');
-__PACKAGE__->has_many(use2activity => 'SmartSea::Schema::Result::Use2Activity', 'use');
-__PACKAGE__->many_to_many(uses => 'use2activity', 'activity');
+__PACKAGE__->has_many(use_class2activity => 'SmartSea::Schema::Result::UseClass2Activity', 'use_class');
+__PACKAGE__->many_to_many(use_classes => 'use_class2activity', 'activity');
 
 sub attributes {
     return \%attributes;

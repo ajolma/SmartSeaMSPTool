@@ -16,7 +16,7 @@ __PACKAGE__->table('plans');
 __PACKAGE__->add_columns(qw/ id name /);
 __PACKAGE__->set_primary_key('id');
 __PACKAGE__->has_many(plan2use => 'SmartSea::Schema::Result::Plan2Use', 'plan');
-__PACKAGE__->many_to_many(uses => 'plan2use', 'use');
+__PACKAGE__->many_to_many(use_classes => 'plan2use', 'use_class');
 
 sub attributes {
     return \%attributes;
@@ -31,7 +31,7 @@ sub for_child_form {
     if ($kind eq 'plan2use') {
         my %has;
         for my $obj (@$children) {
-            $has{$obj->use->id} = 1;
+            $has{$obj->use_class->id} = 1;
         }
         my @objs;
         for my $obj ($args->{schema}->resultset('Use')->all) {

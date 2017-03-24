@@ -1,4 +1,4 @@
-package SmartSea::Schema::Result::Use;
+package SmartSea::Schema::Result::UseClass;
 use strict;
 use warnings;
 use 5.010000;
@@ -6,15 +6,15 @@ use base qw/DBIx::Class::Core/;
 use Scalar::Util 'blessed';
 use SmartSea::HTML qw(:all);
 
-__PACKAGE__->table('uses');
+__PACKAGE__->table('use_classes');
 __PACKAGE__->add_columns('id', 'name');
 __PACKAGE__->set_primary_key('id');
 
-__PACKAGE__->has_many(plan2use => 'SmartSea::Schema::Result::Plan2Use', 'use');
+__PACKAGE__->has_many(plan2use => 'SmartSea::Schema::Result::Plan2Use', 'use_class');
 __PACKAGE__->many_to_many(plans => 'plan2use', 'plan');
 
-__PACKAGE__->has_many(use2activity => 'SmartSea::Schema::Result::Use2Activity', 'use');
-__PACKAGE__->many_to_many(activities => 'use2activity', 'activity');
+__PACKAGE__->has_many(use_class2activity => 'SmartSea::Schema::Result::UseClass2Activity', 'use_class');
+__PACKAGE__->many_to_many(activities => 'use_class2activity', 'activity');
 
 sub attributes {
     return {name => {input => 'text'}};
