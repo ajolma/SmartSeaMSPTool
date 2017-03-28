@@ -14,8 +14,9 @@ use SmartSea::Core qw(:all);
 # from visualization point of view this is a raster source
 # the raster is either continuous data or classed data
 # data has min and max (for classed data these are integers)
+# (this is in Style)
 #
-# the default order of rules is defined in the rules table using "my_index"
+# rules do not have any specific order
 # layer name is a sequence of integers separated with non-numbers (a trail)
 # trail = plan use layer [rule*]
 
@@ -71,7 +72,7 @@ sub new {
                     $rules{$rule->id} = $rule;
                 }
             }
-            for my $i (sort {$rules{$a}->my_index <=> $rules{$b}->my_index} keys %rules) {
+            for my $i (sort {$rules{$a}->name <=> $rules{$b}->name} keys %rules) {
                 push @{$self->{rules}}, $rules{$i};
             }
         }

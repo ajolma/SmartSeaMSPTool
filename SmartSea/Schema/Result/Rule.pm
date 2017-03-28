@@ -110,7 +110,7 @@ sub name_with_parent {
 sub name {
     my ($self, %args) = @_;
 
-    my $class = 'exclusive'; # todo: fix this
+    my $class = $self->layer->rule_class->name;
 
     my $x = $self->r_layer ? 
         $self->r_layer->name : 

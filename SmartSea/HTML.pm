@@ -132,7 +132,9 @@ sub widgets {
         my $a = $attributes->{$key};
         next if $a->{input} eq 'ignore';
         my $input;
-        if ($a->{input} eq 'text') {
+        if ($a->{input} eq 'hidden') {
+            $input = hidden($key, $values->{$key}) if exists $values->{$key};
+        } elsif ($a->{input} eq 'text') {
             $input = text_input(
                 name => $key,
                 size => ($a->{size} // 10),
@@ -212,7 +214,11 @@ END_CODE
             }
             push @form, [div => {id=>'style'}, @style];
         } else {
-            push @form, [ p => [[1 => "$key: "], $input] ];
+            if ($a->{input} eq 'hidden') {
+                push @form, $input if defined $input;
+            } else {
+                push @form, [ p => [[1 => "$key: "], $input] ];
+            }
         }
     }
     return @form;

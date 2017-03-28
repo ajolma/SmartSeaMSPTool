@@ -131,16 +131,23 @@ sub save {
         
     }
 
+    my %delete;
     for my $class_of_child (keys %$attributes) {
         next unless $attributes->{$class_of_child}{input} eq 'object';
-        unless ($parameters->{$class_of_child.'_is'}) {
+        if ($parameters->{$class_of_child.'_is'}) {
+            unless (my $child = $self->{object}->$class_of_child) {
+                $child = SmartSea::Object->new(
+                    {lc_class => $class_of_child, object => $self->{object}->$class_of_child}, $self);
+                # how to consume child parameters and possibly know them from our parameters?
+                $child->save($oids, $oids_index, $parameters);
+                $col_data->{$class_of_child} = $child->{object}->id;
+            }
+        } else {
             $col_data->{$class_of_child} = undef;
-            next;
+            if (my $child = $self->{object}->$class_of_child) {
+                $delete{$class_of_child} = $child; # todo: make child SmartSea::Object
+            }
         }
-        my $child = SmartSea::Object->new(
-            {lc_class => $class_of_child, object => $self->{object}->$class_of_child}, $self);
-        # how to consume child parameters and possibly know them from our parameters?
-        $child->save($oids, $oids_index, $parameters);
     }
 
     for my $col (keys %$attributes) {
@@ -162,6 +169,12 @@ sub save {
     };
     say STDERR "Error: $@" if $@;
 
+    # delete children:
+    
+    for my $class_of_child (keys %delete) {
+        $delete{$class_of_child}->delete;
+    }
+    
     return "$@";
     
 }
@@ -270,6 +283,8 @@ sub li {
         next if $a eq 'name';
         next if $children_listers->{$a};
         next if $attributes->{$a}{input} eq 'ignore';
+        next if $attributes->{$a}{input} eq 'hidden';
+        next if $attributes->{$a}{input} eq 'object' && !$object->$a;
         # todo what if style, ie object?
         my $v = $object->$a // '';
         if (ref $v) {
@@ -426,7 +441,7 @@ sub title {
         next if $key =~ /2/; # hack to select layer_class from parameters
         say STDERR "$key $a->{class} $parameters->{$key}" if $debug;
         my $obj = $schema->resultset($a->{class})->single({id => $parameters->{$key}});
-        return $obj->name.' ';
+        return $obj->name.' ' if $obj;
     }
     return '';
 }
