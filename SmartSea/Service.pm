@@ -139,30 +139,34 @@ sub legend {
     }
     
     $color = $image->colorAllocateAlpha(0,0,0,0);
-    my $font = gdMediumBoldFont;
-    $font = GD::Font->load($self->{images}.'/X_9x15_LE.gdf');
+    my $font = '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf';
+    my @string = ($color, $font, $fontHeight, 0);
 
     unless (defined $nc) {
         # this is for continuous data; never happens??
-        $image->string($font, $colorWidth, -1, "- $max$unit", $color);
-        $image->string($font, $colorWidth, $imageHeight-$fontHeight-2, "- $min$unit", $color);
+        #$image->string($font, $colorWidth, -1, "- $max$unit", $color);
+        #$image->string($font, $colorWidth, $imageHeight-$fontHeight-2, "- $min$unit", $color);
+        $image->stringFT(@string, $colorWidth, -1+$halfFontHeight, "- $max$unit");
+        $image->stringFT(@string, $colorWidth, $imageHeight-$fontHeight-2+$halfFontHeight, "- $min$unit");
     } else {
         my $step = int($nc/($colorHeight/$fontHeight)+0.5);
         $step = 1 if $step < 1;
         my $d = $layer->descr // '';
         my $c = $nc == 1 ? 0 : ($max - $min) / ($nc - 1);
         for (my $class = 1; $class <= $nc; $class += $step) {
-            my $y  = int(($nc - $class + 0.5)*$colorHeight/$nc);
+            my $h = int($colorHeight/$nc/2);
+            my $y = int(($nc - $class + 0.5)*$colorHeight/$nc);
             my $l;
             my ($l2) = $d =~ /$class = ([\w, \-]+)/;
             if ($l2) {
-                $l = $l2;
+                $l = encode utf8 => $l2;
             } elsif (defined $min) {
                 $l = sprintf("%.1f", $min + $c*($class-1)) . $unit;
             } else {
                 $l = $class;
             }
-            $image->string($font, $colorWidth, $y-1, "- $l", $color);
+            #$image->string($font, $colorWidth, $y-1, "- $l", $color);
+            $image->stringFT(@string, $colorWidth, $y-1+$h, "- $l");
         }
     }
     

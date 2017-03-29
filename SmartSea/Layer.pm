@@ -88,7 +88,7 @@ sub new {
 
 sub descr {
     my ($self) = @_;
-    return $self->{duck}->descr;
+    return $self->{duck}->style->scales // $self->{duck}->descr;
 }
 
 sub classes {

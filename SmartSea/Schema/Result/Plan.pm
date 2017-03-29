@@ -38,7 +38,7 @@ sub for_child_form {
             next if $has{$obj->id};
             push @objs, $obj;
         }
-        return drop_down(name => 'use', objs => \@objs);
+        return drop_down(name => 'use_class', objs => \@objs);
     }
 }
 
