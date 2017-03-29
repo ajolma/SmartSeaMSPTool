@@ -7,7 +7,7 @@ use Encode qw(decode encode);
 use JSON;
 use SmartSea::HTML qw(:all);
 
-our $debug = 0;
+our $debug = 2;
 
 # in args give oid or lc_class, and possibly object or id
 sub new {
@@ -110,7 +110,7 @@ sub save {
         }
         for my $col (keys %$attributes) {
             next if $attributes->{$col}{input} eq 'object';
-            next unless $parameters->{$col};
+            next unless exists $parameters->{$col};
             next if $parameters->{$col} eq '' && $attributes->{$col}{empty_is_default};
             $col_data->{$col} = $parameters->{$col} if exists $parameters->{$col};
             $col_data->{$col} = undef if $attributes->{$col}{empty_is_null} && $col_data->{$col} eq '';
@@ -136,11 +136,13 @@ sub save {
         next unless $attributes->{$class_of_child}{input} eq 'object';
         if ($parameters->{$class_of_child.'_is'}) {
             unless (my $child = $self->{object}->$class_of_child) {
-                $child = SmartSea::Object->new(
-                    {lc_class => $class_of_child, object => $self->{object}->$class_of_child}, $self);
+                $child = SmartSea::Object->new({lc_class => $class_of_child}, $self);
                 # how to consume child parameters and possibly know them from our parameters?
                 $child->save($oids, $oids_index, $parameters);
                 $col_data->{$class_of_child} = $child->{object}->id;
+            } else {
+                $child = SmartSea::Object->new({lc_class => $class_of_child, object => $child}, $self);
+                $child->save($oids, $oids_index, $parameters);
             }
         } else {
             $col_data->{$class_of_child} = undef;
@@ -152,7 +154,8 @@ sub save {
 
     for my $col (keys %$attributes) {
         next if $attributes->{$col}{input} eq 'object';
-        next unless $parameters->{$col};
+        next if $attributes->{$col}{input} eq 'ignore';
+        next unless exists $parameters->{$col};
         next if $parameters->{$col} eq '' && $attributes->{$col}{empty_is_default};
         $col_data->{$col} = $parameters->{$col} if exists $parameters->{$col};
         $col_data->{$col} = undef if $attributes->{$col}{empty_is_null} && $col_data->{$col} eq '';
@@ -165,6 +168,9 @@ sub save {
 
     eval {
         say STDERR "update $self->{source} ",$self->{object}->id if $debug;
+        for my $col (sort keys %$col_data) {
+            say STDERR "  $col => ",(defined $col_data->{$col} ? $col_data->{$col} : 'undef') if $debug > 1;
+        }
         $self->{object}->update($col_data);
     };
     say STDERR "Error: $@" if $@;

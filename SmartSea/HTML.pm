@@ -133,7 +133,7 @@ sub widgets {
         next if $a->{input} eq 'ignore';
         my $input;
         if ($a->{input} eq 'hidden') {
-            $input = hidden($key, $values->{$key}) if exists $values->{$key};
+            $input = hidden($key, $values->{$key}->id) if exists $values->{$key}; # todo: why ->id ?
         } elsif ($a->{input} eq 'text') {
             $input = text_input(
                 name => $key,
@@ -204,6 +204,8 @@ window.onload = function() {
 };
 END_CODE
                 push @form, [script => $code];
+            } else {
+                push @form, hidden($key.'_is', 1);
             }
             my @style;
             if ($values->{$key}) {

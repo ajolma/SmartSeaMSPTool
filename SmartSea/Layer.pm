@@ -23,25 +23,24 @@ use SmartSea::Core qw(:all);
 # may need trail, schema, tile, epsg, data_dir, style
 sub new {
     my ($class, $self) = @_;
-    my ($plan_id, $use_id, $layer_id, @rules) = split /_/, $self->{trail} // '';
-    #say STDERR "trail: $plan_id, $use_id, $layer_id, @rules";
-    return bless $self, $class unless $layer_id;
+    my ($plan_id, $use_class_id, $layer_class_id, @rules) = split /_/, $self->{trail} // '';
+    #say STDERR "trail: $plan_id, $use_class_id, $layer_class_id, @rules";
+    return bless $self, $class unless $layer_class_id;
 
-    if ($use_id == 0) {
-        $self->{dataset} = $self->{schema}->resultset('Dataset')->single({ id => $layer_id });
+    if ($use_class_id == 0) {
+        $self->{dataset} = $self->{schema}->resultset('Dataset')->single({ id => $layer_class_id });
         $self->{duck} = $self->{dataset};
     } else {
-        $self->{plan} = $self->{schema}->resultset('Plan')->single({ id => $plan_id });
-        $self->{use} = $self->{schema}->resultset('UseClass')->single({ id => $use_id });
-        $self->{layer} = $self->{schema}->resultset('LayerClass')->single({ id => $layer_id });
-
+        my $plan = $self->{schema}->resultset('Plan')->single({ id => $plan_id });
+        my $use_class = $self->{schema}->resultset('UseClass')->single({ id => $use_class_id });
+        my $layer_class = $self->{schema}->resultset('LayerClass')->single({ id => $layer_class_id });
         my $use = $self->{schema}->resultset('Use')->single({
-            plan => $self->{plan}->id, 
-            use_class => $self->{use}->id });
-        $self->{pul} = $self->{schema}->resultset('Layer')->single({
+            plan => $plan->id, 
+            use_class => $use_class->id });
+        my $layer = $self->{schema}->resultset('Layer')->single({
             use => $use->id, 
-            layer_class => $self->{layer}->id });
-        $self->{duck} = $self->{pul};
+            layer_class => $layer_class->id });
+        $self->{duck} = $layer;
 
         $self->{rules} = [];
         # rule list is optional
@@ -64,7 +63,7 @@ sub new {
             }
         } else {
             my %rules;
-            for my $rule ($self->{pul}->rules) {
+            for my $rule ($layer->rules) {
                 # prefer id/cookie pair to id/default, they have the same id
                 if (exists $rules{$rule->id}) {
                     $rules{$rule->id} = $rule if $rule->cookie eq $self->{cookie};
@@ -72,7 +71,7 @@ sub new {
                     $rules{$rule->id} = $rule;
                 }
             }
-            for my $i (sort {$rules{$a}->name <=> $rules{$b}->name} keys %rules) {
+            for my $i (sort {$rules{$a}->name cmp $rules{$b}->name} keys %rules) {
                 push @{$self->{rules}}, $rules{$i};
             }
         }
@@ -142,11 +141,11 @@ sub post_process {
         }    
         
         # scale and bound to min .. max => 0 .. $nc-1
-        # note that the first and last ranges are half of others
         $y = double $y;
-        --$n_classes;
-        $y = $n_classes*($y-$min)/($max-$min)+0.5;
-        $y->where($y > $n_classes) .= $n_classes;
+        my $k = $n_classes/($max-$min);
+        my $b = $min * $k;
+        $y = $k*$y - $b;
+        $y->where($y > ($n_classes-1)) .= $n_classes-1;
         $y->where($y < 0) .= 0;
         
     }
@@ -174,7 +173,7 @@ sub compute {
 
     my $result = zeroes($self->{tile}->tile);
 
-    my $method = $self->{pul}->rule_class->name;
+    my $method = $self->{duck}->rule_class->name;
 
     unless ($method =~ /^incl/) {
         $result += 1;
@@ -182,7 +181,7 @@ sub compute {
     # inclusive: start from 0 everywhere and add 1
     
     if ($debug) {
-        say STDERR "Compute: ",$self->{plan}->name,' ',$self->{use}->name,' ',$self->{layer}->name;
+        #say STDERR "Compute: ",$plan->name,' ',$use_class->name,' ',$layer_class->name;
         my @stats = stats($result); # 3 and 4 are min and max
         say STDERR "  result min=$stats[3], max=$stats[4]";
     }

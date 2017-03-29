@@ -179,7 +179,7 @@ sub test_multiplicative_rules {
     my $result = $layer->compute($args{debug});
     
     my $output = $result->Band->ReadTile;
-    my $exp = [[255,0,0],[1,2,2],[0,0,0]];
+    my $exp = [[255,0,0],[2,2,2],[0,0,0]];
     my $ok = is_deeply($output, $exp, $rule_class->name()." rules with dataset of $datatype");
     print $result->Band->Piddle() if !$ok && $args{debug};
 
@@ -256,7 +256,7 @@ sub test_a_dataset_layer {
                 
                 my $exp;
                 if (!defined $classes) {
-                    $exp = [[255,2,3],[100,100,100],[0,13,14]];
+                    $exp = [[255,1,2],[100,100,100],[0,13,14]];
                 } elsif ($classes == 2) {
                     $exp = [[255,0,0],[1,1,1],[0,0,0]];
                 } elsif ($classes == 10) {

@@ -126,10 +126,14 @@ sub legend {
 
     my $nc = $layer->classes;
     for my $y (0..$colorHeight-1) {
-        my $i = $nc-1 - int($y/($colorHeight-1)*($nc-1)+0.5);
+        
+        my $i = $nc - 1 - int($nc*$y/($colorHeight-1));
+        $i = 0 if $i < 0;
+        
         my $color = $image->colorAllocateAlpha($layer->color($i));
         $image->line(0, $y+$halfFontHeight, $colorWidth-1, $y+$halfFontHeight, $color);
     }
+    
     for my $y ($imageHeight-$halfFontHeight+1..$imageHeight-1) {
         $image->line(0, $y, $colorWidth-1, $y, $color);
     }
@@ -148,19 +152,7 @@ sub legend {
         my $d = $layer->descr // '';
         my $c = $nc == 1 ? 0 : ($max - $min) / ($nc - 1);
         for (my $class = 1; $class <= $nc; $class += $step) {
-            my $y;
-            if ($nc == 1) {
-                $y = int($colorHeight / 2);
-            } elsif ($nc == 2) {
-                $y = int((1 - ($class-0.5)/$nc)*($colorHeight-1));
-            } else {
-                my $n = $nc - 1;
-                my $m = 0.25;
-                $m += 0.75 if $class > 1;
-                $m += $class-2 if $class > 2;
-                $m -= 0.25 if $class == $nc;
-                $y = int((1 - $m/$n)*($colorHeight-1));
-            }
+            my $y  = int(($nc - $class + 0.5)*$colorHeight/$nc);
             my $l;
             my ($l2) = $d =~ /$class = ([\w, \-]+)/;
             if ($l2) {
@@ -223,6 +215,7 @@ sub plans {
                              {order_by => {-desc => 'name'}})->all) 
         {
             next unless $dataset->path;
+            next unless $dataset->style;
             next if defined $layer_id && $dataset->id != $layer_id;
             my $range = '';
             if (defined $dataset->style->min) {
