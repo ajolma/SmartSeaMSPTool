@@ -98,11 +98,6 @@ sub class_labels {
     return $self->{style}->class_labels // $self->{duck}->descr // '';
 }
 
-sub color {
-    my ($self, $i) = @_;
-    return $self->{style}->color($i);
-}
-
 sub range {
     my ($self) = @_;
     my $min = $self->{style}->min // 0;
@@ -110,6 +105,12 @@ sub range {
     my $unit = $self->{duck}->my_unit ? ' '.$self->{duck}->my_unit->name : '';
     $max = $min if $max < $min;
     return ($min, $max, $unit);
+}
+
+sub unit {
+    my ($self) = @_;
+    my $unit = $self->{duck}->my_unit ? ' '.$self->{duck}->my_unit->name : '';
+    return $unit;
 }
 
 sub post_process {
@@ -120,6 +121,7 @@ sub post_process {
     $mask->inplace->setvaltobad(0);
 
     my $n_classes = $self->{style}->classes // 101;
+    $n_classes = 2 if $n_classes == 1;
     
     if ($debug) {
         say STDERR "post processing: classes = $n_classes";
@@ -128,31 +130,18 @@ sub post_process {
         
     $y *= $mask;
 
-    if ($n_classes == 1) {
-
-        # class = "true", map zero to bad, non-zero to 0
-        
-        $y = $y->setbadif($y == 0);
-        
-        $y->where($y > 0) .= 0;
-        $y->where($y < 0) .= 0;
-        
-    } else {
-
-        my ($min, $max) = $self->range;
-        if ($debug) {
-            say STDERR "scale to $min .. $max";
-        }    
-        
-        # scale and bound to min .. max => 0 .. $nc-1
-        $y = double $y;
-        my $k = $n_classes/($max-$min);
-        my $b = $min * $k;
-        $y = $k*$y - $b;
-        $y->where($y > ($n_classes-1)) .= $n_classes-1;
-        $y->where($y < 0) .= 0;
-        
-    }
+    my ($min, $max) = $self->range;
+    if ($debug) {
+        say STDERR "scale to $min .. $max";
+    }    
+    
+    # scale and bound to min .. max => 0 .. $nc-1
+    $y = double $y;
+    my $k = $n_classes/($max-$min);
+    my $b = $min * $k;
+    $y = $k*$y - $b;
+    $y->where($y > ($n_classes-1)) .= $n_classes-1;
+    $y->where($y < 0) .= 0;
 
     $y->inplace->setbadtoval(255);
     $result->Band->Piddle(byte $y);

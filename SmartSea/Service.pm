@@ -94,83 +94,24 @@ sub call {
 sub legend {
     my ($self, $oids) = @_;
 
-    my %header;
-    $header{'Content-Type'} //= 'image/png';
-    $header{'Access-Control-Allow-Origin'} //= '*';
-
     my $layer = SmartSea::Layer->new({
         schema => $self->{schema},
         trail => $self->{parameters}{layer}});
 
-    unless ($layer->{duck}) {
-        my $image = GD::Image->new('/usr/share/icons/cab_view.png');
-        return [ 200, [%header], [$image->png] ];
-    }
+    my $image = $layer->{duck} ?
+        $layer->{style}->legend({
+            unit => $layer->unit,
+            font => '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+            font_size => 10,
+            width => 200, # layout.css.right.width
+            height => 140,
+            symbology_width => 50}) 
+        :
+        GD::Image->new('/usr/share/icons/cab_view.png');
     
-    my ($min, $max, $unit) = $layer->range();
-
-    my $fontHeight = 12;
-    my $halfFontHeight = $fontHeight/2;
-    my $imageWidth = 200; # layout.css.right.width
-    my $colorWidth = 50;
-    my $colorHeight = 128;
-    my $imageHeight = $colorHeight+$fontHeight;
-    
-    my $image = GD::Image->new($imageWidth, $imageHeight);
-    
-    my $color = $image->colorAllocateAlpha(255,255,255,0);
-    $image->filledRectangle($colorWidth,0,99,$imageHeight-1+$fontHeight,$color);
-    for my $y (0..$halfFontHeight-1) {
-        $image->line(0,$y,$colorWidth-1,$y,$color);
-    }
-
-    my $nc = $layer->classes;
-    for my $y (0..$colorHeight-1) {
-        
-        my $i = $nc - 1 - int($nc*$y/($colorHeight-1));
-        $i = 0 if $i < 0;
-        
-        my $color = $image->colorAllocateAlpha($layer->color($i));
-        $image->line(0, $y+$halfFontHeight, $colorWidth-1, $y+$halfFontHeight, $color);
-    }
-    
-    for my $y ($imageHeight-$halfFontHeight+1..$imageHeight-1) {
-        $image->line(0, $y, $colorWidth-1, $y, $color);
-    }
-    
-    $color = $image->colorAllocateAlpha(0,0,0,0);
-    my $font = '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf';
-    my @string = ($color, $font, $fontHeight, 0);
-
-    unless (defined $nc) {
-        # this is for continuous data; never happens??
-        #$image->string($font, $colorWidth, -1, "- $max$unit", $color);
-        #$image->string($font, $colorWidth, $imageHeight-$fontHeight-2, "- $min$unit", $color);
-        $image->stringFT(@string, $colorWidth, -1+$halfFontHeight, "- $max$unit");
-        $image->stringFT(@string, $colorWidth, $imageHeight-$fontHeight-2+$halfFontHeight, "- $min$unit");
-    } else {
-        my $step = int($nc/($colorHeight/$fontHeight)+0.5);
-        $step = 1 if $step < 1;
-        my $d = $layer->class_labels;
-        my $c = $nc == 1 ? 0 : ($max - $min) / ($nc - 1);
-        for (my $class = 1; $class <= $nc; $class += $step) {
-            my $h = int($colorHeight/$nc/2);
-            my $y = int(($nc - $class + 0.5)*$colorHeight/$nc);
-            my $l;
-            my ($l2) = $d =~ /$class = ([\w, \-]+)/;
-            if ($l2) {
-                $l = encode utf8 => $l2;
-            } elsif (defined $min) {
-                $l = sprintf("%.1f", $min + $c*($class-1)) . $unit;
-            } else {
-                $l = $class;
-            }
-            #$image->string($font, $colorWidth, $y-1, "- $l", $color);
-            $image->stringFT(@string, $colorWidth, $y-1+$h, "- $l");
-        }
-    }
-    
-    return [ 200, [%header], [$image->png] ];
+    return [ 200, 
+             ['Content-Type' => 'image/png', 'Access-Control-Allow-Origin' => '*'], 
+             [$image->png] ];
 }
 
 sub plans {
