@@ -16,7 +16,6 @@ use Geo::OGC::Service;
 use SmartSea::Core qw(:all);
 use SmartSea::Schema;
 use SmartSea::Layer;
-use SmartSea::Palette;
 
 binmode STDERR, ":utf8";
 
@@ -170,7 +169,7 @@ sub process {
 
         $ds->GeoTransform($minx, ($maxx-$minx)/$w, 0, $maxy, 0, ($miny-$maxy)/$h);
         $ds->SpatialReference(Geo::OSR::SpatialReference->new(EPSG=>3067));
-        $ds->Band(1)->ColorTable($self->{palette}{suomi});
+        #$ds->Band(1)->ColorTable($self->{palette}{suomi});
         $self->{Suomi}->Rasterize($ds, [-burn => 1, -l => 'f_l1_3067']);
         $self->{Suomi}->Rasterize($ds, [-burn => 2, -l => $layer]);
         $self->{Suomi}->Rasterize($ds, [-burn => 3, -l => 'maakunnat_rajat']);

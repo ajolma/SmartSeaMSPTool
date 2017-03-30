@@ -151,7 +151,7 @@ sub legend {
     } else {
         my $step = int($nc/($colorHeight/$fontHeight)+0.5);
         $step = 1 if $step < 1;
-        my $d = $layer->descr // '';
+        my $d = $layer->class_labels;
         my $c = $nc == 1 ? 0 : ($max - $min) / ($nc - 1);
         for (my $class = 1; $class <= $nc; $class += $step) {
             my $h = int($colorHeight/$nc/2);

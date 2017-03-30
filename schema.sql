@@ -892,7 +892,7 @@ CREATE TABLE styles (
     min double precision,
     max double precision,
     classes integer,
-    scales text
+    class_labels text
 );
 
 

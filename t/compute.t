@@ -7,7 +7,6 @@ use lib '.';
 use Test::Helper;
 
 use_ok('SmartSea::Schema');
-use_ok('SmartSea::Palette');
 use_ok('SmartSea::Layer');
 
 # create the test databases

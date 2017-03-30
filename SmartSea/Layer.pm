@@ -77,45 +77,49 @@ sub new {
         }
     }
 
-    my $color_scale = $self->{style} // $self->{duck}->style->color_scale->name // 'grayscale';
-    $color_scale =~ s/-/_/g;
-    $color_scale =~ s/\W.*$//g;
-    $self->{palette} = SmartSea::Palette->new(
-        {color_scale => $color_scale, classes => $self->{duck}->style->classes});
+    # todo: if style is defined by a client
+    # my $color_scale = $self->{style} // $self->{duck}->style->color_scale->name // 'grayscale';
+    # $color_scale =~ s/-/_/g;
+    # $color_scale =~ s/\W.*$//g;
+    
+    $self->{duck}->style->prepare;
+    $self->{style} = $self->{duck}->style;
 
     return bless $self, $class;
 }
 
-sub descr {
-    my ($self) = @_;
-    return $self->{duck}->style->scales // $self->{duck}->descr;
-}
-
 sub classes {
     my ($self) = @_;
-    return $self->{palette}->classes;
+    return $self->{style}->classes;
+}
+
+sub class_labels {
+    my ($self) = @_;
+    return $self->{style}->class_labels // $self->{duck}->descr // '';
 }
 
 sub color {
     my ($self, $i) = @_;
-    return $self->{palette}->color($i);
+    return $self->{style}->color($i);
 }
 
 sub range {
     my ($self) = @_;
-    my $min = $self->{duck}->style->min // 0;
-    my $max = $self->{duck}->style->max // 1;
+    my $min = $self->{style}->min // 0;
+    my $max = $self->{style}->max // 1;
     my $unit = $self->{duck}->my_unit ? ' '.$self->{duck}->my_unit->name : '';
     $max = $min if $max < $min;
     return ($min, $max, $unit);
 }
 
 sub post_process {
-    my ($self, $y, $n_classes, $debug) = @_;
+    my ($self, $y, $debug) = @_;
 
     my $result = $self->mask();
     my $mask = $result->Band->Piddle; # 1 = target area, 0 not
     $mask->inplace->setvaltobad(0);
+
+    my $n_classes = $self->{style}->classes // 101;
     
     if ($debug) {
         say STDERR "post processing: classes = $n_classes";
@@ -152,14 +156,12 @@ sub post_process {
 
     $y->inplace->setbadtoval(255);
     $result->Band->Piddle(byte $y);
-    $result->Band->ColorTable($self->{palette}->color_table);
+    $result->Band->ColorTable($self->{style}{color_table});
     return $result
 }
 
 sub compute {
     my ($self, $debug) = @_;
-
-    my $n_classes = $self->{palette}{classes};
 
     if ($self->{dataset}) {
         my $result = $self->{dataset}->Piddle($self);
@@ -168,7 +170,7 @@ sub compute {
             say STDERR "Dataset: ",$self->{dataset}->name;
             say STDERR "  result min=$stats[3], max=$stats[4]";
         }
-        return $self->post_process($result, $n_classes, $debug);
+        return $self->post_process($result, $debug);
     }
 
     my $result = zeroes($self->{tile}->tile);
@@ -208,7 +210,7 @@ sub compute {
         $result->where($result > 1) .= 1;
     }
 
-    return $self->post_process($result, $n_classes, $debug);
+    return $self->post_process($result, $debug);
 }
 
 sub mask {
