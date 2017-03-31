@@ -139,15 +139,15 @@ sub prepare {
         my $k = 1/($n-1);
 
         for my $c (0..$n-1) {
+            my ($s, $v) = (1,1);
+            if ($c < $n/2) {
+                $s = 60+(100-60)*$c*$k;
+            } else {
+                $v = 100-(60-100)*$c*$k;
+            }
             my $hsv = Imager::Color->new(
-                my ($s, $v) = (1,1);
-                if ($c < $n/2) {
-                    $s = 60+(100-60)*$c*$k;
-                } else {
-                    $v = 100-(60-100)*$c*$k;
-                }
                 hsv => [ 0, $s, $v ]
-            );
+                );
             $colors->Color($c, [$hsv->rgba]);
         }
         
@@ -167,13 +167,13 @@ sub prepare {
         my $k = 1/($n-1);
 
         for my $c (0..$n-1) {
+            my ($s, $v) = (1,1);
+            if ($c < $n/2) {
+                $s = 60+(100-60)*$c*$k;
+            } else {
+                $v = 100-(60-100)*$c*$k;
+            }
             my $hsv = Imager::Color->new(
-                my ($s, $v) = (1,1);
-                if ($c < $n/2) {
-                    $s = 60+(100-60)*$c*$k;
-                } else {
-                    $v = 100-(60-100)*$c*$k;
-                }
                 hsv => [ 240, $s, $v ]
             );
             $colors->Color($c, [$hsv->rgba]);
