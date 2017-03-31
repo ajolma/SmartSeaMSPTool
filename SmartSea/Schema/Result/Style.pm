@@ -76,21 +76,19 @@ sub prepare {
     if ($n == 1) {
 
         $colors->Color(0, [0,0,0,0]);
-        if ($palette eq 'inverse-grayscale') {
-            $colors->Color(1, [255,255,255,255]);
-        } elsif ($palette eq 'red-to-green') { # hue 0 -> 120
-            $colors->Color(1, [0,255,0,255]);
-        } elsif ($palette eq 'green-to-red') { # hue 120 -> 0
-            $colors->Color(1, [255,0,0,255]);
-        } elsif ($palette eq 'water-depth') { # hue 182 -> 237
-            $colors->Color(1, [0,0,0,255]);
-        } elsif ($palette eq 'green') {
-            $colors->Color(1, [0,255,0,255]);
-        } elsif ($palette eq 'brown') { # value 1 -> 0.3
-            $colors->Color(1, [0,0,0,255]);
-        } else { # inverse-grayscale, black
-            $colors->Color(1, [0,0,0,255]);
+        my $color;
+        for ($palette) {
+            if    (/inverse-grayscale/)  { $color = [127,127,127,255] }
+            elsif (/red-to-green/)  { $color = [  0,255,  0,255] }
+            elsif (/green-to-red/)  { $color = [255,  0,  0,255] }
+            elsif (/water-depth/)   { $color = [ 44, 55,255,255] }
+            elsif (/red/)           { $color = [255, 44, 44,255] }
+            elsif (/green/)         { $color = [ 55,255, 44,255] }
+            elsif (/blue/)          { $color = [ 44, 55,255,255] }
+            elsif (/brown/)         { $color = [179,101,  0,255] }
+            else                    { $color = [  0,  0,  0,255] }
         }
+        $colors->Color(1, [0,0,0,255]);
         
     } elsif ($palette eq 'grayscale') { # black to white
 
@@ -136,6 +134,23 @@ sub prepare {
             $colors->Color($c, [$hsv->rgba]);
         }
         
+    } elsif ($palette eq 'red') {
+
+        my $k = 1/($n-1);
+
+        for my $c (0..$n-1) {
+            my $hsv = Imager::Color->new(
+                my ($s, $v) = (1,1);
+                if ($c < $n/2) {
+                    $s = 60+(100-60)*$c*$k;
+                } else {
+                    $v = 100-(60-100)*$c*$k;
+                }
+                hsv => [ 0, $s, $v ]
+            );
+            $colors->Color($c, [$hsv->rgba]);
+        }
+        
     } elsif ($palette eq 'green') {
 
         my $k = 1/($n-1);
@@ -143,6 +158,23 @@ sub prepare {
         for my $c (0..$n-1) {
             my $hsv = Imager::Color->new(
                 hsv => [ 120, 1, 1 - 0.7*$c*$k ]
+            );
+            $colors->Color($c, [$hsv->rgba]);
+        }
+        
+    } elsif ($palette eq 'blue') {
+
+        my $k = 1/($n-1);
+
+        for my $c (0..$n-1) {
+            my $hsv = Imager::Color->new(
+                my ($s, $v) = (1,1);
+                if ($c < $n/2) {
+                    $s = 60+(100-60)*$c*$k;
+                } else {
+                    $v = 100-(60-100)*$c*$k;
+                }
+                hsv => [ 240, $s, $v ]
             );
             $colors->Color($c, [$hsv->rgba]);
         }

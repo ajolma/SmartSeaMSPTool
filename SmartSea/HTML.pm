@@ -133,7 +133,13 @@ sub widgets {
         next if $a->{input} eq 'ignore';
         my $input;
         if ($a->{input} eq 'hidden') {
-            $input = hidden($key, $values->{$key}->id) if exists $values->{$key}; # todo: why ->id ?
+            if (exists $values->{$key}) {
+                if (ref $values->{$key}) {
+                    $input = hidden($key, $values->{$key}->id);
+                } else {
+                    $input = hidden($key, $values->{$key});
+                }
+            }
         } elsif ($a->{input} eq 'text') {
             $input = text_input(
                 name => $key,
