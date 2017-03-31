@@ -8,10 +8,10 @@ use SmartSea::HTML qw(:all);
 use SmartSea::Impact qw(:all);
 
 __PACKAGE__->table('activity2pressure');
-__PACKAGE__->add_columns(qw/ id activity pressure range /);
+__PACKAGE__->add_columns(qw/ id activity pressure_class range /);
 __PACKAGE__->set_primary_key(qw/ id /);
 __PACKAGE__->belongs_to(activity => 'SmartSea::Schema::Result::Activity');
-__PACKAGE__->belongs_to(pressure => 'SmartSea::Schema::Result::Pressure');
+__PACKAGE__->belongs_to(pressure_class => 'SmartSea::Schema::Result::PressureClass');
 __PACKAGE__->has_many(impacts => 'SmartSea::Schema::Result::Impact', 'activity2pressure');
 
 sub order_by {
@@ -30,9 +30,26 @@ sub children_listers {
     return { impacts => [impact => 0] }; # todo: activity2pressure here
 }
 
+sub for_child_form {
+    my ($self, $kind, $children, $args) = @_;
+    if ($kind eq 'impacts') {
+        my %has;
+        for my $obj (@$children) {
+            $has{$obj->ecosystem_component->id} = 1;
+        }
+        my @objs;
+        for my $obj ($args->{schema}->resultset('EcosystemComponent')->all) {
+            next if $has{$obj->id};
+            push @objs, $obj;
+        }
+        return 0 if @objs == 0; # all ecosystem components have already an impact
+        return drop_down(name => 'ecosystem_component', objs => \@objs);
+    }
+}
+
 sub name {
     my $self = shift;
-    return $self->activity->name.' <-> '.$self->pressure->name;
+    return $self->activity->name.' <-> '.$self->pressure_class->name;
 }
 
 sub impacts_list {

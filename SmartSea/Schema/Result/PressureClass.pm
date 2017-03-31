@@ -1,4 +1,4 @@
-package SmartSea::Schema::Result::Pressure;
+package SmartSea::Schema::Result::PressureClass;
 use strict;
 use warnings;
 use 5.010000;
@@ -13,10 +13,10 @@ my %attributes = (
     category => { i => 3,  input => 'lookup', class => 'PressureCategory' },
     );
 
-__PACKAGE__->table('pressures');
+__PACKAGE__->table('pressure_classes');
 __PACKAGE__->add_columns(qw/ id ordr name category /);
 __PACKAGE__->set_primary_key('id');
-__PACKAGE__->has_many(activity2pressure => 'SmartSea::Schema::Result::Activity2Pressure', 'pressure');
+__PACKAGE__->has_many(activity2pressure => 'SmartSea::Schema::Result::Activity2Pressure', 'pressure_class');
 __PACKAGE__->many_to_many(activities => 'activity2pressure', 'activity');
 __PACKAGE__->belongs_to(category => 'SmartSea::Schema::Result::PressureCategory');
 

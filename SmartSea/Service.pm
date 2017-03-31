@@ -221,18 +221,18 @@ sub impact_network {
 
     for my $activity ($self->{schema}->resultset('Activity')->all) {
         push @{$elements{nodes}}, { data => { id => 'a'.$activity->id, name => $activity->name }};
-        for my $pressure ($activity->pressures) {
+        for my $pressure_class ($activity->pressure_classes) {
             push @{$elements{edges}}, { data => { 
                 source => 'a'.$activity->id, 
-                target => 'p'.$pressure->id }};
+                target => 'p'.$pressure_class->id }};
             my $ap = $self->{schema}->resultset('Activity2Pressure')->
-                single({activity => $activity->id, pressure => $pressure->id});
+                single({activity => $activity->id, pressure_class => $pressure_class->id});
             for my $impacts ($ap->impacts) {
             }
         }
     }
-    for my $pressure ($self->{schema}->resultset('Pressure')->all) {
-        push @{$elements{nodes}}, { data => { id => 'p'.$pressure->id, name => $pressure->name }};
+    for my $pressure_class ($self->{schema}->resultset('PressureClass')->all) {
+        push @{$elements{nodes}}, { data => { id => 'p'.$pressure_class->id, name => $pressure_class->name }};
     }
 
     return json200({}, \%elements);
@@ -451,52 +451,52 @@ sub pressure_table {
     my %edits;
     $edits{aps} = $self->{schema}->resultset('Activity2Pressure');
     $edits{impacts} = $self->{schema}->resultset('Impact');
-    my $pressures = $self->{schema}->resultset('Pressure');
+    my $pressure_classes = $self->{schema}->resultset('PressureClass');
     my %id;
-    my %pressures;
+    my %pressure_classes;
     my %cats;
-    for my $pressure ($pressures->all) {
-        $pressures{$pressure->name} = $pressure->order;
-        $id{pressures}{$pressure->name} = $pressure->id;
-        $cats{$pressure->name} = $pressure->category->name;
+    for my $pressure_class ($pressure_classes->all) {
+        $pressure_classes{$pressure_class->name} = $pressure_class->ordr;
+        $id{pressure_classes}{$pressure_class->name} = $pressure_class->id;
+        $cats{$pressure_class->name} = $pressure_class->category->name;
     }
     my $activities = $self->{schema}->resultset('Activity');
     my %activities;
     my %name;
     for my $activity ($activities->all) {
-        $activities{$activity->name} = $activity->order;
+        $activities{$activity->name} = $activity->ordr;
         $id{activities}{$activity->name} = $activity->id;
-        $name{$activity->name} = $activity->name.'('.$activity->order.')';
+        $name{$activity->name} = $activity->name.'('.$activity->ordr.')';
     }
     my $components = $self->{schema}->resultset('EcosystemComponent');
     my %components;
     for my $component ($components->all) {
-        $components{$component->name} = $component->order;
+        $components{$component->name} = $component->id;
         $id{components}{$component->name} = $component->id;
     }
 
-    for my $pressure ($pressures->all) {
+    for my $pressure_class ($pressure_classes->all) {
         for my $activity ($activities->all) {
-            my $key = 'range_'.$pressure->id.'_'.$activity->id;
-            $name{$key} = $pressure->name.' '.$activity->name;
+            my $key = 'range_'.$pressure_class->id.'_'.$activity->id;
+            $name{$key} = $pressure_class->name.' '.$activity->name;
 
-            my $ap = $edits{aps}->single({pressure => $pressure->id, activity => $activity->id});
-            $name{$pressure->name}{$activity->name} = $activity->name; #.' '.$ap->id if $ap;
+            my $ap = $edits{aps}->single({pressure_class => $pressure_class->id, activity => $activity->id});
+            $name{$pressure_class->name}{$activity->name} = $activity->name; #.' '.$ap->id if $ap;
         }
     }
 
     my %attrs;
     my %ranges;
     for my $ap ($edits{aps}->all) {
-        $ranges{$ap->pressure->name}{$ap->activity->name} = $ap->range;
-        my $key = 'range_'.$ap->pressure->id.'_'.$ap->activity->id;
+        $ranges{$ap->pressure_class->name}{$ap->activity->name} = $ap->range;
+        my $key = 'range_'.$ap->pressure_class->id.'_'.$ap->activity->id;
         $attrs{$key} = $ap->range;
-        $id{activity2pressure}{$ap->pressure->name}{$ap->activity->name} = $ap->id;
+        $id{activity2pressure}{$ap->pressure_class->name}{$ap->activity->name} = $ap->id;
     }
     my %impacts;
     for my $impact ($edits{impacts}->all) {
         my $ap = $impact->activity2pressure;
-        my $p = $ap->pressure;
+        my $p = $ap->pressure_class;
         my $a = $ap->activity;
         my $e = $impact->ecosystem_component;
         my $name = $p->name.'+'.$a->name.' -> '.$e->name;
@@ -527,8 +527,8 @@ sub pressure_table {
             my $edits;
             if ($attr eq 'range') {
                 next if $value eq '0';
-                %single = (pressure => $one, activity => $two);
-                %params = (pressure => $one, activity => $two, $attr => $value);
+                %single = (pressure_class => $one, activity => $two);
+                %params = (pressure_class => $one, activity => $two, $attr => $value);
                 $edits = $edits{aps};
             } else {
                 next if $value eq '-1';
@@ -571,11 +571,11 @@ sub pressure_table {
         }
 
         for my $ap ($edits{aps}->all) {
-            $ranges{$ap->pressure->name}{$ap->activity->name} = $ap->range;
+            $ranges{$ap->pressure_class->name}{$ap->activity->name} = $ap->range;
         }
         for my $impact ($edits{impacts}->all) {
             my $ap = $impact->activity2pressure;
-            my $p = $ap->pressure;
+            my $p = $ap->pressure_class;
             my $a = $ap->activity;
             my $e = $impact->ecosystem_component;
             $impacts{$p->name}{$a->name}{$e->name} = [$impact->strength,$impact->belief];
@@ -604,25 +604,25 @@ sub pressure_table {
 
     my $c = 0;
     my $cat = '';
-    for my $pressure (sort {$pressures{$a} <=> $pressures{$b}} keys %pressures) {
-        next unless $pressures{$pressure};
+    for my $pressure_class (sort {$pressure_classes{$a} <=> $pressure_classes{$b}} keys %pressure_classes) {
+        next unless $pressure_classes{$pressure_class};
         my @activities;
         for my $activity (sort {$activities{$a} <=> $activities{$b}} keys %activities) {
-            next unless exists $ranges{$pressure}{$activity};
-            my $range = $ranges{$pressure}{$activity} // 0;
+            next unless exists $ranges{$pressure_class}{$activity};
+            my $range = $ranges{$pressure_class}{$activity} // 0;
             next if $range < 0;
             push @activities, $activity;
         }
-        my @td = ([td => {rowspan => $#activities+1}, $pressure]);
+        my @td = ([td => {rowspan => $#activities+1}, $pressure_class]);
         for my $activity (@activities) {
             my $color = $c ? '#cccccc' : '#ffffff';
-            push @td, [td => {bgcolor=>$color}, $name{$pressure}{$activity}];
+            push @td, [td => {bgcolor=>$color}, $name{$pressure_class}{$activity}];
 
-            my $idp = $id{pressures}{$pressure};
+            my $idp = $id{pressure_classes}{$pressure_class};
             my $ida = $id{activities}{$activity};
-            my $idap = $id{activity2pressure}{$pressure}{$activity};
+            my $idap = $id{activity2pressure}{$pressure_class}{$activity};
 
-            my $range = $ranges{$pressure}{$activity} // 0;
+            my $range = $ranges{$pressure_class}{$activity} // 0;
             $range = text_input(
                 name => 'range_'.$idp.'_'.$ida,
                 size => 1,
@@ -635,7 +635,7 @@ sub pressure_table {
 
             for my $component (@components) {
                 my $idc = $id{components}{$component};
-                my $impact = $impacts{$pressure}{$activity}{$component} // [-1,-1];
+                my $impact = $impacts{$pressure_class}{$activity}{$component} // [-1,-1];
                 $impact = [text_input(
                                name => 'strength_'.$idap.'_'.$idc,
                                size => 1,
@@ -649,8 +649,8 @@ sub pressure_table {
                 push @td, ([td => {bgcolor=>$color}, $impact->[0]],[td => {bgcolor=>$color2}, $impact->[1]]);
             }
 
-            if ($cat ne $cats{$pressure}) {
-                $cat = $cats{$pressure};
+            if ($cat ne $cats{$pressure_class}) {
+                $cat = $cats{$pressure_class};
                 my @c = ([td => $cat]);
                 for (1..$#td) {
                     push @c, [td => ''];

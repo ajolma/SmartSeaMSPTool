@@ -62,7 +62,7 @@ sub one_schema {
             EcosystemComponent => 1,
             Impact => 1,
             EcosystemComponent => 1,
-            Pressure => 1,
+            PressureClass => 1,
             PressureCategory => 1,
             Use2Activity => 1,
             DataModel => 1,

@@ -318,7 +318,7 @@ ALTER SEQUENCE activities_id_seq OWNED BY activities.id;
 CREATE TABLE activity2pressure (
     id integer NOT NULL,
     activity integer NOT NULL,
-    pressure integer NOT NULL,
+    pressure_class integer NOT NULL,
     range integer NOT NULL
 );
 
@@ -435,10 +435,10 @@ COMMENT ON COLUMN impacts.belief IS '1 to 3';
 
 
 --
--- Name: pressures; Type: TABLE; Schema: tool; Owner: ajolma
+-- Name: pressure_classes; Type: TABLE; Schema: tool; Owner: ajolma
 --
 
-CREATE TABLE pressures (
+CREATE TABLE pressure_classes (
     id integer NOT NULL,
     category integer NOT NULL,
     name text NOT NULL,
@@ -446,13 +446,13 @@ CREATE TABLE pressures (
 );
 
 
-ALTER TABLE pressures OWNER TO ajolma;
+ALTER TABLE pressure_classes OWNER TO ajolma;
 
 --
--- Name: TABLE pressures; Type: COMMENT; Schema: tool; Owner: ajolma
+-- Name: TABLE pressure_classes; Type: COMMENT; Schema: tool; Owner: ajolma
 --
 
-COMMENT ON TABLE pressures IS 'Table 2, MSFD';
+COMMENT ON TABLE pressure_classes IS 'Table 2, MSFD';
 
 
 --
@@ -473,7 +473,7 @@ ALTER TABLE impacts_id_seq OWNER TO ajolma;
 -- Name: impacts_id_seq; Type: SEQUENCE OWNED BY; Schema: tool; Owner: ajolma
 --
 
-ALTER SEQUENCE impacts_id_seq OWNED BY pressures.id;
+ALTER SEQUENCE impacts_id_seq OWNED BY pressure_classes.id;
 
 
 --
@@ -1134,7 +1134,7 @@ ALTER TABLE ONLY pressure_categories ALTER COLUMN id SET DEFAULT nextval('pressu
 -- Name: id; Type: DEFAULT; Schema: tool; Owner: ajolma
 --
 
-ALTER TABLE ONLY pressures ALTER COLUMN id SET DEFAULT nextval('impacts_id_seq'::regclass);
+ALTER TABLE ONLY pressure_classes ALTER COLUMN id SET DEFAULT nextval('impacts_id_seq'::regclass);
 
 
 --
@@ -1292,7 +1292,7 @@ ALTER TABLE ONLY activity2pressure
 --
 
 ALTER TABLE ONLY activity2pressure
-    ADD CONSTRAINT activity2pressure_activity_pressure_key UNIQUE (activity, pressure);
+    ADD CONSTRAINT activity2pressure_activity_pressure_key UNIQUE (activity, pressure_class);
 
 
 --
@@ -1315,7 +1315,7 @@ ALTER TABLE ONLY impacts
 -- Name: impacts_pkey; Type: CONSTRAINT; Schema: tool; Owner: ajolma
 --
 
-ALTER TABLE ONLY pressures
+ALTER TABLE ONLY pressure_classes
     ADD CONSTRAINT impacts_pkey PRIMARY KEY (id);
 
 
@@ -1331,7 +1331,7 @@ ALTER TABLE ONLY impacts
 -- Name: impacts_title_key; Type: CONSTRAINT; Schema: tool; Owner: ajolma
 --
 
-ALTER TABLE ONLY pressures
+ALTER TABLE ONLY pressure_classes
     ADD CONSTRAINT impacts_title_key UNIQUE (name);
 
 
@@ -1568,7 +1568,7 @@ ALTER TABLE ONLY activity2pressure
 --
 
 ALTER TABLE ONLY activity2pressure
-    ADD CONSTRAINT activity2impact_type_impact_type_fkey FOREIGN KEY (pressure) REFERENCES pressures(id);
+    ADD CONSTRAINT activity2impact_type_impact_type_fkey FOREIGN KEY (pressure_class) REFERENCES pressure_classes(id);
 
 
 --
@@ -1591,7 +1591,7 @@ ALTER TABLE ONLY impacts
 -- Name: impacts_pressure_fkey; Type: FK CONSTRAINT; Schema: tool; Owner: ajolma
 --
 
-ALTER TABLE ONLY pressures
+ALTER TABLE ONLY pressure_classes
     ADD CONSTRAINT impacts_pressure_fkey FOREIGN KEY (category) REFERENCES pressure_categories(id);
 
 
@@ -1864,14 +1864,14 @@ GRANT ALL ON TABLE impacts TO smartsea;
 
 
 --
--- Name: pressures; Type: ACL; Schema: tool; Owner: ajolma
+-- Name: pressure_classes; Type: ACL; Schema: tool; Owner: ajolma
 --
 
-REVOKE ALL ON TABLE pressures FROM PUBLIC;
-REVOKE ALL ON TABLE pressures FROM ajolma;
-GRANT ALL ON TABLE pressures TO ajolma;
-GRANT SELECT ON TABLE pressures TO PUBLIC;
-GRANT ALL ON TABLE pressures TO smartsea;
+REVOKE ALL ON TABLE pressure_classes FROM PUBLIC;
+REVOKE ALL ON TABLE pressure_classes FROM ajolma;
+GRANT ALL ON TABLE pressure_classes TO ajolma;
+GRANT SELECT ON TABLE pressure_classes TO PUBLIC;
+GRANT ALL ON TABLE pressure_classes TO smartsea;
 
 
 --

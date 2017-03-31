@@ -20,7 +20,7 @@ sub new {
     my ($lc_class, $id);
     if ($oid) {
         ($lc_class, $id) = split /:/, $oid;
-        say STDERR "split $oid => $lc_class" if $debug;
+        say STDERR "split $oid => $lc_class,",(defined $id ? $id : 'undef') if $debug;
     }
     $lc_class //= $args->{lc_class};
     $lc_class = singular($lc_class);
@@ -257,10 +257,21 @@ sub li {
             push @li, [li => @content];
         }
         if ($self->{edit}) {
-            my @content;
-            push @content, $opt->{for_add}, [0=>' '] if $opt && $opt->{for_add};
-            push @content, button(value => 'Add');
-            push @li, [li => \@content];
+            my $can_add = 1;
+            my $extra = 0;
+            if ($opt && defined $opt->{for_add}) {
+                if (ref $opt->{for_add}) {
+                    $extra = $opt->{for_add}
+                } else {
+                    $can_add = 0 if $opt->{for_add} == 0;
+                }
+            }
+            if ($can_add) {
+                my @content;
+                push @content, $extra, [0=>' '] if $extra;
+                push @content, button(value => 'Add');
+                push @li, [li => \@content] if @content;
+            }
         }
         my $ul;
         if ($self->{edit}) {
@@ -408,14 +419,16 @@ sub form {
     } else {
         my $what = title($attributes, $col_data, $self->{schema});
         @doing = ("Creating $what".$self->class_name($parent)," for ");
-        my %from_upstream;
+        my %from_upstream; # simple data from parent/upstream objects
         for (my $oid = 0; $oid < @$oids-1; ++$oid) {
             my $obj = SmartSea::Object->new({oid => $oids->[$oid]}, $self);
             $trace .= ' -> ' if $trace;
             $trace .= $obj->class_name.' '.$obj->{object}->name;
             for my $key (keys %$attributes) {
                 next if defined $col_data->{$key};
-                next unless $obj->{object}->can($key);
+                #next unless $obj->{object}->can($key);
+                next unless $obj->{object}->attributes->{$key};
+                say STDERR "getting $key from upstream $oids->[$oid]" if $debug;
                 $from_upstream{$key} = $obj->{object}->$key;
             }
         }
@@ -428,7 +441,8 @@ sub form {
             $parameters->{$key} = $from_upstream{$key};
         }
         push @widgets, [p => {style => 'color:red'}, 
-                        'Filled data is from parent objects and for information only. Please delete or overwrite them.'] 
+                        'Filled data is from parent objects and for information only. '.
+                        'Please delete or overwrite them.'] 
                             if $has_upstream;
     }
     my $p = $doing[0];
