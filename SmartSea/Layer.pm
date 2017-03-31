@@ -43,10 +43,12 @@ sub new {
         $self->{duck} = $layer;
 
         $self->{rules} = [];
-        # rule list is optional
+        # rule list is optional, if no rules, then all rules (QGIS plugin does not send any rules)
         if (@rules) {
-            # rule order is defined by the client in this case
             for my $id (@rules) {
+                # id = 0 is a bail out
+                last unless $id;
+                
                 # there may be default rule and a modified rule denoted with a cookie
                 # prefer the one with our cookie
                 my $rule;

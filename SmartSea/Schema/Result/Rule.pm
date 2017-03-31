@@ -40,6 +40,7 @@ __PACKAGE__->belongs_to(layer => 'SmartSea::Schema::Result::Layer');
 __PACKAGE__->belongs_to(r_layer => 'SmartSea::Schema::Result::Layer');
 __PACKAGE__->belongs_to(r_dataset => 'SmartSea::Schema::Result::Dataset');
 __PACKAGE__->belongs_to(op => 'SmartSea::Schema::Result::Op');
+__PACKAGE__->belongs_to(value_type => 'SmartSea::Schema::Result::NumberType');
 
 sub attributes {
     my ($self, $parent) = @_;
@@ -145,7 +146,7 @@ sub as_hashref_for_json {
         value => $self->value,
         min => $self->min_value() // 0,
         max => $self->max_value() // 10,
-        type => $self->value_type() // 'int',
+        type => $self->value_type->name,
         description => $desc,
     };
 }

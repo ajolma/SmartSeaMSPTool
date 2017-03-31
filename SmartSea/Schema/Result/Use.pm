@@ -18,6 +18,10 @@ sub order_by {
     return {-asc => 'id'};
 }
 
+sub attributes {
+    return {plan => {}, use_class => {}};
+}
+
 sub name {
     my $self = shift;
     return $self->use_class->name;

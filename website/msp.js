@@ -318,9 +318,9 @@ MSPView.prototype = {
             html = html
                 .replace(/^- If/, "Do not allocate if")
                 .replace(/==/, "equals:");
-            if (rule.type == 'int') {
+            if (rule.type == 'integer') {
                 html += element('p',{},element('input', {id:"rule-editor"}));
-            } else if (rule.type == 'double') {
+            } else if (rule.type == 'real') {
                 html += element('p',{},element('div', {id:"rule-editor"}));
                 html += element('p', {id:"rule-slider-value"}, '');
                 self.id.rule_editor_info = self.id.rule_dialog+" #rule-slider-value";
@@ -330,14 +330,14 @@ MSPView.prototype = {
             self.elements.rule_dialog.html(html);
 
             $(self.id.rule_dialog+" #rule-info").html(rule.description); 
-            if (rule.type == 'int') {
+            if (rule.type == 'integer') {
                 $(self.id.rule_editor)
                     .spinner({
                         min: rule.min,
                         max: rule.max
                     })
                     .spinner("value", rule.value);
-            } else if (rule.type == 'double') {
+            } else if (rule.type == 'real') {
                 var slider = $(self.id.rule_editor).slider({
                     min: parseFloat(rule.min),
                     max: parseFloat(rule.max),
@@ -500,11 +500,15 @@ MSP.prototype = {
                 if (boot) {
                     // initial boot or new plan
                     var wmts = self.plan.id + '_' + use.id + '_' + layer.id;
-                    if (layer.name === 'Allocation') {
+                    if (layer.rules.length > 0) {
+                        var rules = '';
                         // add rules
                         $.each(layer.rules, function(i, rule) {
-                            if (rule.active) wmts += '_'+rule.id;
+                            if (rule.active) rules += '_'+rule.id;
                         });
+                        if (rules == '') rules = '_0'; // avoid no rules = all rules
+                        wmts += rules;
+                        // needs to be updated
                         if (layer.object) layer.object = null;
                     }
                     layer.wmts = wmts;
