@@ -36,7 +36,7 @@ sub HTML_list {
         for my $impact (@impacts) {
             next unless defined $impact->strength;
             next unless defined $impact->belief;
-            my $activity = $impact->activity2pressure->activity;
+            my $activity = $impact->pressure->activity;
             my $i = $activity->name;
             if (exists $li{$c}{$i}) {
                 push @{$li{$c}{$i}}, [$impact->strength,$impact->belief];

@@ -225,7 +225,7 @@ sub impact_network {
             push @{$elements{edges}}, { data => { 
                 source => 'a'.$activity->id, 
                 target => 'p'.$pressure_class->id }};
-            my $ap = $self->{schema}->resultset('Activity2Pressure')->
+            my $ap = $self->{schema}->resultset('Pressure')->
                 single({activity => $activity->id, pressure_class => $pressure_class->id});
             for my $impacts ($ap->impacts) {
             }
@@ -449,7 +449,7 @@ sub object_editor {
 sub pressure_table {
     my ($self, $x) = @_;
     my %edits;
-    $edits{aps} = $self->{schema}->resultset('Activity2Pressure');
+    $edits{aps} = $self->{schema}->resultset('Pressure');
     $edits{impacts} = $self->{schema}->resultset('Impact');
     my $pressure_classes = $self->{schema}->resultset('PressureClass');
     my %id;
@@ -491,11 +491,11 @@ sub pressure_table {
         $ranges{$ap->pressure_class->name}{$ap->activity->name} = $ap->range;
         my $key = 'range_'.$ap->pressure_class->id.'_'.$ap->activity->id;
         $attrs{$key} = $ap->range;
-        $id{activity2pressure}{$ap->pressure_class->name}{$ap->activity->name} = $ap->id;
+        $id{pressure}{$ap->pressure_class->name}{$ap->activity->name} = $ap->id;
     }
     my %impacts;
     for my $impact ($edits{impacts}->all) {
-        my $ap = $impact->activity2pressure;
+        my $ap = $impact->pressure;
         my $p = $ap->pressure_class;
         my $a = $ap->activity;
         my $e = $impact->ecosystem_component;
@@ -532,8 +532,8 @@ sub pressure_table {
                 $edits = $edits{aps};
             } else {
                 next if $value eq '-1';
-                %single = (activity2pressure => $one, ecosystem_component => $two);
-                %params = (activity2pressure => $one, ecosystem_component => $two, $attr => $value);
+                %single = (pressure => $one, ecosystem_component => $two);
+                %params = (pressure => $one, ecosystem_component => $two, $attr => $value);
                 if (!exists($attrs{$key})) {
                     if ($attr eq 'belief') {
                         $params{strength} = 0;
@@ -574,7 +574,7 @@ sub pressure_table {
             $ranges{$ap->pressure_class->name}{$ap->activity->name} = $ap->range;
         }
         for my $impact ($edits{impacts}->all) {
-            my $ap = $impact->activity2pressure;
+            my $ap = $impact->pressure;
             my $p = $ap->pressure_class;
             my $a = $ap->activity;
             my $e = $impact->ecosystem_component;
@@ -620,7 +620,7 @@ sub pressure_table {
 
             my $idp = $id{pressure_classes}{$pressure_class};
             my $ida = $id{activities}{$activity};
-            my $idap = $id{activity2pressure}{$pressure_class}{$activity};
+            my $idap = $id{pressure}{$pressure_class}{$activity};
 
             my $range = $ranges{$pressure_class}{$activity} // 0;
             $range = text_input(

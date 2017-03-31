@@ -55,7 +55,7 @@ sub one_schema {
             Rule => 1,
             UseClass2Activity => 1,
             PressureCategory => 1,
-            Activity2Pressure => 1,
+            Pressure => 1,
             Activity => 1,
             Pressure => 1,
             Impact => 1,

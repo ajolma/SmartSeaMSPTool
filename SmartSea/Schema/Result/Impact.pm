@@ -7,16 +7,16 @@ use Scalar::Util 'blessed';
 use SmartSea::HTML qw(:all);
 
 my %attributes = (
-    activity2pressure   => { i => 1, input => 'ignore', class => 'Activity2Pressure' },
+    pressure            => { i => 1, input => 'ignore', class => 'Pressure' },
     ecosystem_component => { i => 2, input => 'lookup', class => 'EcosystemComponent' },
     strength            => { i => 3, input => 'text', size => 10 },
     belief              => { i => 4, input => 'text', size => 10 },
     );
 
 __PACKAGE__->table('impacts');
-__PACKAGE__->add_columns(qw/ id activity2pressure ecosystem_component strength belief /);
+__PACKAGE__->add_columns(qw/ id pressure ecosystem_component strength belief /);
 __PACKAGE__->set_primary_key('id');
-__PACKAGE__->belongs_to(activity2pressure => 'SmartSea::Schema::Result::Activity2Pressure');
+__PACKAGE__->belongs_to(pressure => 'SmartSea::Schema::Result::Pressure');
 __PACKAGE__->belongs_to(ecosystem_component => 'SmartSea::Schema::Result::EcosystemComponent');
 
 sub attributes {
@@ -29,7 +29,7 @@ sub order_by {
 
 sub name {
     my $self = shift;
-    return $self->activity2pressure->name.' <-> '.$self->ecosystem_component->name;
+    return $self->pressure->name.' <-> '.$self->ecosystem_component->name;
 }
 
 1;

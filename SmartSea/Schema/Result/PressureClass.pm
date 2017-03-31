@@ -16,8 +16,8 @@ my %attributes = (
 __PACKAGE__->table('pressure_classes');
 __PACKAGE__->add_columns(qw/ id ordr name category /);
 __PACKAGE__->set_primary_key('id');
-__PACKAGE__->has_many(activity2pressure => 'SmartSea::Schema::Result::Activity2Pressure', 'pressure_class');
-__PACKAGE__->many_to_many(activities => 'activity2pressure', 'activity');
+__PACKAGE__->has_many(pressure => 'SmartSea::Schema::Result::Pressure', 'pressure_class');
+__PACKAGE__->many_to_many(activities => 'pressure', 'activity');
 __PACKAGE__->belongs_to(category => 'SmartSea::Schema::Result::PressureCategory');
 
 sub attributes {
@@ -41,13 +41,13 @@ sub HTML_div {
         push @l, [li => "$a: ".$v];
     }
     if ($args{activity}) {
-        my $ap = $self->activity2pressure->single({activity => $args{activity}});
+        my $ap = $self->pressure->single({activity => $args{activity}});
         my $impacts = $ap->impacts_list;
         push @l, [li => [0 => "Range of impact is ".$range{$ap->range}.'.'], [ul => $impacts]] if @$impacts;
     } else {
         my %a;
         my %ec;
-        for my $ap ($self->activity2pressure->all) {
+        for my $ap ($self->pressure->all) {
             my $a = $ap->activity->id;
             $a{$ap->activity->name} = $a;
             for my $i ($ap->impacts) {

@@ -1,4 +1,4 @@
-package SmartSea::Schema::Result::Activity2Pressure;
+package SmartSea::Schema::Result::Pressure;
 use strict;
 use warnings;
 use 5.010000;
@@ -7,12 +7,12 @@ use Scalar::Util 'blessed';
 use SmartSea::HTML qw(:all);
 use SmartSea::Impact qw(:all);
 
-__PACKAGE__->table('activity2pressure');
+__PACKAGE__->table('pressures');
 __PACKAGE__->add_columns(qw/ id activity pressure_class range /);
 __PACKAGE__->set_primary_key(qw/ id /);
 __PACKAGE__->belongs_to(activity => 'SmartSea::Schema::Result::Activity');
 __PACKAGE__->belongs_to(pressure_class => 'SmartSea::Schema::Result::PressureClass');
-__PACKAGE__->has_many(impacts => 'SmartSea::Schema::Result::Impact', 'activity2pressure');
+__PACKAGE__->has_many(impacts => 'SmartSea::Schema::Result::Impact', 'pressure');
 
 sub order_by {
     return {-asc => 'id'};
@@ -27,7 +27,7 @@ sub class_name {
 }
 
 sub children_listers {
-    return { impacts => [impact => 0] }; # todo: activity2pressure here
+    return { impacts => [impact => 0] };
 }
 
 sub for_child_form {

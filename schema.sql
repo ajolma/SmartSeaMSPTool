@@ -312,10 +312,10 @@ ALTER SEQUENCE activities_id_seq OWNED BY activities.id;
 
 
 --
--- Name: activity2pressure; Type: TABLE; Schema: tool; Owner: ajolma
+-- Name: pressures; Type: TABLE; Schema: tool; Owner: ajolma
 --
 
-CREATE TABLE activity2pressure (
+CREATE TABLE pressures (
     id integer NOT NULL,
     activity integer NOT NULL,
     pressure_class integer NOT NULL,
@@ -323,13 +323,13 @@ CREATE TABLE activity2pressure (
 );
 
 
-ALTER TABLE activity2pressure OWNER TO ajolma;
+ALTER TABLE pressures OWNER TO ajolma;
 
 --
--- Name: COLUMN activity2pressure.range; Type: COMMENT; Schema: tool; Owner: ajolma
+-- Name: COLUMN pressures.range; Type: COMMENT; Schema: tool; Owner: ajolma
 --
 
-COMMENT ON COLUMN activity2pressure.range IS 'distance of impact, 1 to 6';
+COMMENT ON COLUMN pressures.range IS 'distance of impact, 1 to 6';
 
 
 --
@@ -350,7 +350,7 @@ ALTER TABLE activity2impact_type_id_seq OWNER TO ajolma;
 -- Name: activity2impact_type_id_seq; Type: SEQUENCE OWNED BY; Schema: tool; Owner: ajolma
 --
 
-ALTER SEQUENCE activity2impact_type_id_seq OWNED BY activity2pressure.id;
+ALTER SEQUENCE activity2impact_type_id_seq OWNED BY pressures.id;
 
 
 --
@@ -411,7 +411,7 @@ ALTER SEQUENCE ecosystem_components_id_seq OWNED BY ecosystem_components.id;
 
 CREATE TABLE impacts (
     id integer NOT NULL,
-    activity2pressure integer NOT NULL,
+    pressure integer NOT NULL,
     ecosystem_component integer NOT NULL,
     strength integer,
     belief integer
@@ -1064,13 +1064,6 @@ ALTER TABLE ONLY activities ALTER COLUMN id SET DEFAULT nextval('activities_id_s
 -- Name: id; Type: DEFAULT; Schema: tool; Owner: ajolma
 --
 
-ALTER TABLE ONLY activity2pressure ALTER COLUMN id SET DEFAULT nextval('activity2impact_type_id_seq'::regclass);
-
-
---
--- Name: id; Type: DEFAULT; Schema: tool; Owner: ajolma
---
-
 ALTER TABLE ONLY color_scales ALTER COLUMN id SET DEFAULT nextval('styles_id_seq'::regclass);
 
 
@@ -1135,6 +1128,13 @@ ALTER TABLE ONLY pressure_categories ALTER COLUMN id SET DEFAULT nextval('pressu
 --
 
 ALTER TABLE ONLY pressure_classes ALTER COLUMN id SET DEFAULT nextval('impacts_id_seq'::regclass);
+
+
+--
+-- Name: id; Type: DEFAULT; Schema: tool; Owner: ajolma
+--
+
+ALTER TABLE ONLY pressures ALTER COLUMN id SET DEFAULT nextval('activity2impact_type_id_seq'::regclass);
 
 
 --
@@ -1283,7 +1283,7 @@ ALTER TABLE ONLY activities
 -- Name: activity2impact_type_pkey; Type: CONSTRAINT; Schema: tool; Owner: ajolma
 --
 
-ALTER TABLE ONLY activity2pressure
+ALTER TABLE ONLY pressures
     ADD CONSTRAINT activity2impact_type_pkey PRIMARY KEY (id);
 
 
@@ -1291,7 +1291,7 @@ ALTER TABLE ONLY activity2pressure
 -- Name: activity2pressure_activity_pressure_key; Type: CONSTRAINT; Schema: tool; Owner: ajolma
 --
 
-ALTER TABLE ONLY activity2pressure
+ALTER TABLE ONLY pressures
     ADD CONSTRAINT activity2pressure_activity_pressure_key UNIQUE (activity, pressure_class);
 
 
@@ -1308,7 +1308,7 @@ ALTER TABLE ONLY ecosystem_components
 --
 
 ALTER TABLE ONLY impacts
-    ADD CONSTRAINT impacts_activity2pressure_ecosystem_component_key UNIQUE (activity2pressure, ecosystem_component);
+    ADD CONSTRAINT impacts_activity2pressure_ecosystem_component_key UNIQUE (pressure, ecosystem_component);
 
 
 --
@@ -1559,7 +1559,7 @@ SET search_path = tool, pg_catalog;
 -- Name: activity2impact_type_activity_fkey; Type: FK CONSTRAINT; Schema: tool; Owner: ajolma
 --
 
-ALTER TABLE ONLY activity2pressure
+ALTER TABLE ONLY pressures
     ADD CONSTRAINT activity2impact_type_activity_fkey FOREIGN KEY (activity) REFERENCES activities(id);
 
 
@@ -1567,7 +1567,7 @@ ALTER TABLE ONLY activity2pressure
 -- Name: activity2impact_type_impact_type_fkey; Type: FK CONSTRAINT; Schema: tool; Owner: ajolma
 --
 
-ALTER TABLE ONLY activity2pressure
+ALTER TABLE ONLY pressures
     ADD CONSTRAINT activity2impact_type_impact_type_fkey FOREIGN KEY (pressure_class) REFERENCES pressure_classes(id);
 
 
@@ -1576,7 +1576,7 @@ ALTER TABLE ONLY activity2pressure
 --
 
 ALTER TABLE ONLY impacts
-    ADD CONSTRAINT impacts_activity2impact_type_fkey FOREIGN KEY (activity2pressure) REFERENCES activity2pressure(id);
+    ADD CONSTRAINT impacts_activity2impact_type_fkey FOREIGN KEY (pressure) REFERENCES pressures(id);
 
 
 --
@@ -1814,13 +1814,13 @@ GRANT ALL ON SEQUENCE activities_id_seq TO smartsea;
 
 
 --
--- Name: activity2pressure; Type: ACL; Schema: tool; Owner: ajolma
+-- Name: pressures; Type: ACL; Schema: tool; Owner: ajolma
 --
 
-REVOKE ALL ON TABLE activity2pressure FROM PUBLIC;
-REVOKE ALL ON TABLE activity2pressure FROM ajolma;
-GRANT ALL ON TABLE activity2pressure TO ajolma;
-GRANT ALL ON TABLE activity2pressure TO smartsea;
+REVOKE ALL ON TABLE pressures FROM PUBLIC;
+REVOKE ALL ON TABLE pressures FROM ajolma;
+GRANT ALL ON TABLE pressures TO ajolma;
+GRANT ALL ON TABLE pressures TO smartsea;
 
 
 --
