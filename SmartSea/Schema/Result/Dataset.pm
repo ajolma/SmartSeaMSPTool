@@ -15,8 +15,8 @@ my %attributes = (
     contact         => { i => 3,  input => 'text',    size => 20 },
     descr           => { i => 4,  input => 'textarea' },
     data_model      => { i => 5,  input => 'lookup',  class => 'DataModel', allow_null => 1 },
-    is_a_part_of    => { i => 6,  input => 'hidden',  class => 'Dataset',   allow_null => 1 },
-    is_derived_from => { i => 7,  input => 'hidden',  class => 'Dataset',   allow_null => 1 },
+    is_a_part_of    => { i => 6,  input => 'lookup',  class => 'Dataset',   allow_null => 1 },
+    is_derived_from => { i => 7,  input => 'lookup',  class => 'Dataset',   allow_null => 1 },
     license         => { i => 8,  input => 'lookup',  class => 'License',   allow_null => 1 },
     attribution     => { i => 9,  input => 'text',    size => 40 },
     disclaimer      => { i => 10, input => 'text',    size => 80 },
@@ -35,6 +35,9 @@ __PACKAGE__->belongs_to(is_derived_from => 'SmartSea::Schema::Result::Dataset');
 __PACKAGE__->belongs_to(license => 'SmartSea::Schema::Result::License');
 __PACKAGE__->belongs_to(unit => 'SmartSea::Schema::Result::Unit');
 __PACKAGE__->belongs_to(style => 'SmartSea::Schema::Result::Style');
+
+__PACKAGE__->has_many(parts => 'SmartSea::Schema::Result::Dataset', 'is_a_part_of');
+__PACKAGE__->has_many(derivatives => 'SmartSea::Schema::Result::Dataset', 'is_derived_from');
 
 sub attributes {
     return \%attributes;

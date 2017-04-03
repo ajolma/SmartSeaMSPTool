@@ -83,7 +83,7 @@ sub class_name {
 
 sub name_with_parent {
     my ($self, $parent) = @_;
-    my $class = $parent->rule_class->name;
+    my $class = $parent->rule_class->name if $parent;
 
     my $x = $self->r_layer ? 
         $self->r_layer->name : 
@@ -139,13 +139,20 @@ sub name {
 sub as_hashref_for_json {
     my ($self) = @_;
     my $desc = $self->r_dataset ? $self->r_dataset->descr : '';
+    my $binary = JSON::false;
+    if ($self->r_dataset && $self->r_dataset->style) {
+        $binary = JSON::true if $self->r_dataset->style->classes == 1;
+    }
     return {
-        name => $self->name(no_value => 1),
+        name_old => $self->name(no_value => 1),
+        name => $self->r_dataset ? $self->r_dataset->name : 'undef',
+        op => $self->op->name,
+        binary => $binary,
         id => $self->id, 
         active => JSON::true,
         value => $self->value,
-        min => $self->min_value() // 0,
-        max => $self->max_value() // 10,
+        min => $self->min_value,
+        max => $self->max_value,
         type => $self->value_type->name,
         description => $desc,
     };

@@ -251,10 +251,14 @@ MSPView.prototype = {
         );
         if (use.id == 0) {
             this.elements.rule_info.html("");
-        } else if (layer.id == 3) 
-            this.elements.rule_info.html("Default is to allocate.");
-        else 
-            this.elements.rule_info.html("Default is no value.");
+        } else if (layer.rule_class == "exclusive") 
+            this.elements.rule_info.html("Default is YES, rules subtract.");
+        else if (layer.rule_class == "inclusive") 
+            this.elements.rule_info.html("Default is NO, rules add.");
+        else if (layer.rule_class == "multiplicative") 
+            this.elements.rule_info.html("Value is a product of rules.");
+        else if (layer.rule_class == "inclusive") 
+            this.elements.rule_info.html("Value is a sum of rules.");
     },
     unselectLayer: function(use, layer) {
         $("#l"+use+'_'+layer).css("background-color","white");
@@ -281,10 +285,14 @@ MSPView.prototype = {
                         rule:rule.id
                     };
                     if (rule.active) attr.checked = "checked";
+                    var name = rule.name;
+                    if (!rule.binary) {
+                        name += ' '+rule.op+' '+rule.value;
+                    }
                     item = element(
                         'input', 
                         attr, 
-                        element('a', {id:"rule", rule:rule.id}, rule.name+' '+rule.value)
+                        element('a', {id:"rule", rule:rule.id}, name)
                     );
                 }
                 self.elements.rules.append(item);
@@ -318,7 +326,9 @@ MSPView.prototype = {
             html = html
                 .replace(/^- If/, "Do not allocate if")
                 .replace(/==/, "equals:");
-            if (rule.type == 'integer') {
+            if (rule.binary) {
+                html += element('p',{},"Binary rule, nothing to edit.");
+            } else if (rule.type == 'integer') {
                 html += element('p',{},element('input', {id:"rule-editor"}));
             } else if (rule.type == 'real') {
                 html += element('p',{},element('div', {id:"rule-editor"}));

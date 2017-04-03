@@ -145,7 +145,8 @@ sub plans {
                     name => $layer->layer_class->name,
                     style => $layer->style->color_scale->name,
                     id => $layer->layer_class->id, 
-                    use => $use->use_class->id, 
+                    use => $use->use_class->id,
+                    rule_class => $layer->rule_class->name,
                     rules => \@rules};
             }
             push @uses, {name => $use_class->name, id => $use_class->id, plan => $plan->id, layers => \@layers};

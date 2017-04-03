@@ -19,7 +19,7 @@ sub order_by {
 }
 
 sub attributes {
-    return {plan => {}, use_class => {}};
+    return {plan => {input => 'ignore'}, use_class => {input => 'ignore'}};
 }
 
 sub name {

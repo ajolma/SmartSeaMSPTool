@@ -229,62 +229,16 @@ sub li {
 
     my $parent = $oids_index > 0 ? SmartSea::Object->new({oid => $oids->[$oids_index-1]}, $self) : undef;
 
+    return $self->item_class($parent, $children, $opt) unless $self->{object};
+    
     my $attributes = $self->attributes($parent);
     my $editable = $attributes && $self->{edit};
     $attributes //= {};
 
-    my $url = $self->{url}.'/'.$self->{lc_class};
-    unless ($self->{object}) {
-
-        $children = $self->all() unless $children;
-        
-        my @li;
-        for my $obj (@$children) {
-            my $name = $parent ?
-                ($obj->can('name_with_parent') ? $obj->name_with_parent($parent->{object}) : $obj->name) :
-                ($obj->can('long_name') ? $obj->long_name : $obj->name);
-            my @content = a(link => $name, url => $url.':'.$obj->id);
-            if ($editable) {
-                push @content, [1 => ' '], a(link => 'edit', url => $url.':'.$obj->id.'?edit');
-            }
-            if ($self->{edit}) {
-                my $source = $obj->result_source->source_name;
-                my $name = $obj->name;
-                my $onclick = "return confirm('Are you sure you want to delete $source '$name'?')";
-                my %attr = (name => $obj->id, value => 'Remove', onclick => $onclick);
-                push @content, [1 => ' '], button(%attr); # to do: remove or delete?
-            }
-            push @li, [li => @content];
-        }
-        if ($self->{edit}) {
-            my $can_add = 1;
-            my $extra = 0;
-            if ($opt && defined $opt->{for_add}) {
-                if (ref $opt->{for_add}) {
-                    $extra = $opt->{for_add}
-                } else {
-                    $can_add = 0 if $opt->{for_add} == 0;
-                }
-            }
-            if ($can_add) {
-                my @content;
-                push @content, $extra, [0=>' '] if $extra;
-                push @content, button(value => 'Add');
-                push @li, [li => \@content] if @content;
-            }
-        }
-        my $ul;
-        if ($self->{edit}) {
-            $ul = [form => {action => $url, method => 'POST'}, [ul => \@li]];
-        } else {
-            $ul = [ul => \@li];
-        }
-        return [[b => plural($self->class_name)], $ul];
-        
-    }
-    
     my $object = $self->{object};
     #say STDERR "object ",$object->id;
+
+    my $url = $self->{url}.'/'.$self->{lc_class};
 
     my @content = a(link => "Show all ".plural($self->class_name(undef, 'list')), url => plural($url));
     $url .= ':'.$object->id;
@@ -362,6 +316,73 @@ sub li {
     }
     
     return [[b => @content], [ul => \@li]];
+}
+
+sub item_class {
+    my ($self, $parent, $children, $opt) = @_;
+    $children = $self->all() unless $children;
+    my $url = $self->{url}.'/'.$self->{lc_class};
+    my $editable = $self->{edit};
+        
+    my @li;
+    for my $obj (@$children) {
+        my $name = $parent ?
+            ($obj->can('name_with_parent') ? $obj->name_with_parent($parent->{object}) : $obj->name) :
+            ($obj->can('long_name') ? $obj->long_name : $obj->name);
+        my @content = a(link => $name, url => $url.':'.$obj->id);
+        if ($editable) {
+            push @content, [1 => ' '], a(link => 'edit', url => $url.':'.$obj->id.'?edit');
+        }
+        if ($self->{edit}) {
+            my $source = $obj->result_source->source_name;
+            my $name = $obj->name;
+            my $onclick = "return confirm('Are you sure you want to delete $source '$name'?')";
+            my %attr = (name => $obj->id, value => 'Remove', onclick => $onclick);
+            push @content, [1 => ' '], button(%attr); # to do: remove or delete?
+        }
+        if ($self->{source} eq 'Dataset') {
+            my @p;
+            my $children_listers;
+            $children_listers = $obj->children_listers if $obj->can('children_listers');
+            for my $lister (sort keys %$children_listers) {
+                my ($class_of_child, $lister_type, $editable) = @{$children_listers->{$lister}};
+                my @parts = $obj->$lister;
+                if (@parts) {
+                    my $p = SmartSea::Object->new({lc_class => $class_of_child, edit => 0}, $self);
+                    $p->set_class_name($lister);
+                    push @p, $p->item_class($self, \@parts);
+                }
+            }
+            if (@p) {
+                push @content, [ul => \@p];
+            }
+        }
+        push @li, [li => @content];
+    }
+    if ($self->{edit}) {
+        my $can_add = 1;
+        my $extra = 0;
+        if ($opt && defined $opt->{for_add}) {
+            if (ref $opt->{for_add}) {
+                $extra = $opt->{for_add}
+            } else {
+                $can_add = 0 if $opt->{for_add} == 0;
+            }
+        }
+        if ($can_add) {
+            my @content;
+            push @content, $extra, [0=>' '] if $extra;
+            push @content, button(value => 'Add');
+            push @li, [li => \@content] if @content;
+        }
+    }
+    my $ul;
+    if ($self->{edit}) {
+        $ul = [form => {action => $url, method => 'POST'}, [ul => \@li]];
+    } else {
+        $ul = [ul => \@li];
+    }
+    return [[b => plural($self->class_name)], $ul];
 }
 
 sub for_child_form {

@@ -17,7 +17,7 @@ __PACKAGE__->set_primary_key('id');
 __PACKAGE__->has_many(impacts => 'SmartSea::Schema::Result::Impact', 'ecosystem_component');
 
 sub attributes {
-    return {name => {input => 'text'}};
+    return \%attributes;
 }
 
 sub order {
