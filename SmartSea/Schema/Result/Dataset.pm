@@ -22,8 +22,12 @@ my %attributes = (
     disclaimer      => { i => 10, input => 'text',    size => 80 },
     path            => { i => 11, input => 'text',    size => 30 },
     db_table        => { i => 12, input => 'text',    size => 30 },
-    unit            => { i => 13, input => 'lookup',  class => 'Unit',      allow_null => 1 },
-    style           => { i => 16, input => 'object',  class => 'Style' }
+    min_value       => { i => 13, input => 'text',    size => 20 },
+    max_value       => { i => 14, input => 'text',    size => 20 },
+    data_type       => { i => 15, input => 'lookup',  class => 'NumberType', allow_null => 1 },
+    class_semantics => { i => 16, input => 'text',    size => 40 },
+    unit            => { i => 17, input => 'lookup',  class => 'Unit',       allow_null => 1 },
+    style           => { i => 18, input => 'object',  class => 'Style' }
     );
 
 __PACKAGE__->table('datasets');

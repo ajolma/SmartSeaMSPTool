@@ -332,12 +332,6 @@ sub object_editor {
         }
     }
 
-    my %args = (parameters => \%parameters);
-    for my $key (qw/uri base_uri schema edit dbname user pass data_dir/) {
-        $args{$key} = $self->{$key};
-    }
-    $args{cookie} = DEFAULT;
-
     my $class = '';
     my $rs = ''; #$self->{schema}->resultset($class =~ /(\w+)$/);
     
@@ -354,11 +348,10 @@ sub object_editor {
         }
         
     } elsif ($parameters{request}{modify}) {
-        return http_status($header, 403) if $self->{cookie} eq DEFAULT; # forbidden 
-        $args{oids} = [@$oids];
-        $args{cookie} = $self->{cookie};
-        my $obj = $class->get_object(%args);
-        my $cols = $obj->values;
+        return http_status($header, 403) if $self->{cookie} eq DEFAULT; # forbidden
+        my $obj = SmartSea::Object->new({oid => $oids->[0], url => $self->{base_uri}}, $self);
+        
+        my $cols = $obj->values; # todo: must be obj.object
         $cols->{value} = $parameters{value};
         $cols->{id} = $obj->id;
         $cols->{plan2use2layer} = $obj->plan2use2layer->id;

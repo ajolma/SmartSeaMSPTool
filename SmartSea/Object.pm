@@ -15,7 +15,7 @@ our $debug = 2;
 sub new {
     my ($class, $args, $args2) = @_;
     my $self = {};
-    for my $key (qw/schema url edit dbname user pass data_dir/) {
+    for my $key (qw/schema url edit dbname user pass data_dir cookie/) {
         $self->{$key} = $args->{$key} // $args2->{$key};
     }
     my $oid = $args->{oid};
@@ -39,6 +39,9 @@ sub new {
         } else {
             $id //= $args->{id};
             #say STDERR "source = $self->{source}, id = ",($id // 'undef') if $debug;
+
+            # todo: cookie for rules, it is in self.key
+            
             $self->{object} = $self->{rs}->single({id => $id}) if $id;
         }
     };

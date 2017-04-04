@@ -293,7 +293,9 @@ MSPView.prototype = {
                     if (rule.active) attr.checked = "checked";
                     var name = rule.name;
                     if (!rule.binary) {
-                        name += ' '+rule.op+' '+rule.value;
+                        var value = rule.value;
+                        if (rule.value_semantics) value = rule.value_semantics[value];
+                        name += ' '+rule.op+' '+value;
                     }
                     item = element(
                         'input', 
@@ -332,7 +334,20 @@ MSPView.prototype = {
             html = html
                 .replace(/^- If/, "Do not allocate if")
                 .replace(/==/, "equals:");
-            if (rule.binary) {
+
+            if (rule.value_semantics) {
+                if (layer.rule_class == "exclusive")
+                    html = "Unmark cell if "+html+" is "+rule.op+" than";
+                //var label = element('label',{for:'rule-editor'},'Select value');
+                var options = '';
+                $.each(rule.value_semantics, function(i, semantic) {
+                    var args = {value:i};
+                    if (i == rule.value) args.selected = "selected";
+                    options += element('option',args,semantic);
+                });
+                var menu = element('select',{name:'rule-editor',id:'rule-editor'},options);
+                html += element('p',{},menu);
+            } else if (rule.binary) {
                 html += element('p',{},"Binary rule, nothing to edit.");
             } else if (rule.type == 'integer') {
                 html += element('p',{},element('input', {id:"rule-editor"}));
@@ -346,7 +361,11 @@ MSPView.prototype = {
             self.elements.rule_dialog.html(html);
 
             $(self.id.rule_dialog+" #rule-info").html(rule.description); 
-            if (rule.type == 'integer') {
+            if (rule.value_semantics) {
+
+                //$(self.id.rule_editor).selectmenu();
+                
+            } else if (rule.type == 'integer') {
                 $(self.id.rule_editor)
                     .spinner({
                         min: rule.min,
@@ -371,9 +390,11 @@ MSPView.prototype = {
     },
     getRuleEditValue: function() {
         var self = this;
-        if (self.model.ruleInEdit.type == 'int')
+        if (self.model.ruleInEdit.value_semantics)
+            return $(this.id.rule_editor).find(":selected").attr('value');
+        else if (self.model.ruleInEdit.type == 'integer')
             return $(this.id.rule_editor).spinner("value");
-        else if (self.model.ruleInEdit.type == 'double')
+        else if (self.model.ruleInEdit.type == 'real')
             return $(this.id.rule_editor).slider("value");
     },
     siteInteraction: function(source) {
@@ -598,7 +619,7 @@ MSP.prototype = {
                 withCredentials: true
             }
         });
-        $.post( 'http://'+self.server+'/core/browser/rules/'+self.ruleInEdit.id, 
+        $.post( 'http://'+self.server+'/core/browser/rule:'+self.ruleInEdit.id, 
                 { submit: 'Modify', value: value }, 
                 function(data) {
                     self.ruleInEdit.value = data.object.value;

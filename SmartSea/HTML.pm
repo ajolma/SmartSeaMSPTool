@@ -3,6 +3,7 @@ use strict;
 use warnings;
 use Carp;
 use HTML::Entities;
+use Scalar::Util 'blessed';
 use Geo::OGC::Service;
 use SmartSea::Core qw/:all/;
 
@@ -76,10 +77,12 @@ sub drop_down {
     if ($arg{objs}) {
         my %objs;
         for my $obj (@{$arg{objs}}) {
-            $objs{$obj->id} = $obj->name;
-            $visuals->{$obj->id} = $obj->name;
+            my $id = blessed($obj) ? $obj->id : $obj->{id};
+            my $name = blessed($obj) ? $obj->name : $obj->{name};
+            $objs{$id} = $name;
+            $visuals->{$id} = $name;
         }
-        $values = [sort {$objs{$a} cmp $objs{$b}} keys %objs];
+        $values //= [sort {$objs{$a} cmp $objs{$b}} keys %objs];
         unshift @$values, 'NULL' if $arg{allow_null};
     }
     my @options;
@@ -155,7 +158,9 @@ sub widgets {
             );
         } elsif ($a->{input} eq 'lookup') {
             my $objs;
-            if ($a->{objs}) {
+            if (ref $a->{objs} eq 'ARRAY') {
+                $objs = $a->{objs};
+            } elsif ($a->{objs}) {
                 $objs = [$schema->resultset($a->{class})->search($a->{objs})];
             } else {
                 $objs = [$schema->resultset($a->{class})->all];
@@ -172,6 +177,7 @@ sub widgets {
                 name => $key,
                 objs => $objs,
                 selected => $id,
+                values => $a->{values},
                 allow_null => $a->{allow_null}
             );
         } elsif ($a->{input} eq 'checkbox') {

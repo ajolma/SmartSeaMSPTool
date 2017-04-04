@@ -44,8 +44,25 @@ __PACKAGE__->belongs_to(value_type => 'SmartSea::Schema::Result::NumberType');
 
 sub attributes {
     my ($self, $parent) = @_;
-    return \%attributes unless $parent;
     my %a = %attributes;
+    my $dataset = $self->r_dataset ? $self->r_dataset : undef;
+    my $value_semantics = $dataset ? $dataset->class_semantics : undef;
+    if ($value_semantics) {
+        my @objs;
+        my @values;
+        for my $item (split /; /, $value_semantics) {
+            my ($value, $semantics) = split / = /, $item;
+            push @objs, {id => $value, name => $semantics};
+            push @values, $value;
+        }
+        $a{value} = {
+            i => 10,
+            input => 'lookup',
+            objs => \@objs,
+            values => \@values
+        };
+    }
+    return \%a unless $parent;
     my $class = $parent->rule_class->name;
     if ($class eq 'additive' or $class eq 'multiplicative') {
         delete $a{op};
@@ -138,24 +155,54 @@ sub name {
 
 sub as_hashref_for_json {
     my ($self) = @_;
-    my $desc = $self->r_dataset ? $self->r_dataset->descr : '';
-    my $binary = JSON::false;
-    if ($self->r_dataset && $self->r_dataset->style) {
-        $binary = JSON::true if $self->r_dataset->style->classes == 1;
-    }
-    return {
-        name_old => $self->name(no_value => 1),
+    my %rule = (
         name => $self->r_dataset ? $self->r_dataset->name : 'undef',
         op => $self->op->name,
-        binary => $binary,
+        binary => JSON::false,
         id => $self->id, 
         active => JSON::true,
-        value => $self->value,
-        min => $self->min_value,
-        max => $self->max_value,
-        type => $self->value_type->name,
-        description => $desc,
-    };
+        value => $self->value+0,
+        description => $self->r_dataset ? $self->r_dataset->descr : '',
+        );
+
+    my $dataset = $self->r_dataset ? $self->r_dataset : undef;
+    my $value_semantics = $dataset ? $dataset->class_semantics : undef;
+    if ($value_semantics) {
+        my %value_semantics;
+        for my $item (split /; /, $value_semantics) {
+            my ($value, $semantics) = split / = /, $item;
+            $value_semantics{$value} = $semantics;
+        }
+        $rule{value_semantics} = \%value_semantics;
+        $rule{min} = $dataset->min_value;
+        $rule{max} = $dataset->max_value;
+        $rule{type} = 'integer';
+    } else {
+        my $class = $self->layer->rule_class->name;
+        if ($class eq 'exclusive' || $class eq 'inclusive') {
+            my $dataset = $self->r_dataset;
+            my $style = $dataset ? $dataset->style : undef;
+            my $n_classes = $style ? $style->classes : undef;
+            if ($n_classes) {
+                if ($n_classes == 1) {
+                    $rule{binary} = JSON::true;
+                } else {
+                    $rule{min} = 1;
+                    $rule{max} = $style->classes;
+                    $rule{type} = $self->value_type->name;
+                }
+            } elsif ($dataset) {
+                $rule{min} = $dataset->min_value // ($style ? $style->min : 0) // 0;
+                $rule{max} = $dataset->max_value // ($style ? $style->max : 1) // 1;
+                $rule{type} = $self->value_type->name;
+            }
+        } elsif ($class eq 'additive' || $class eq 'multiplicative') {
+            $rule{min} = $self->min_value;
+            $rule{min} = $self->max_value;
+            $rule{type} = 'real';
+        }
+    }
+    return \%rule;
 }
 
 # this is needed by modify request
@@ -178,6 +225,7 @@ sub apply {
 
     # the operand (x)
     my $x = $self->operand($rules);
+    return unless defined $x;
     
     if ($debug) {
         if ($debug > 1) {
@@ -188,37 +236,18 @@ sub apply {
         }
     }
 
-    if ($method =~ /^incl/) {
+    if ($method =~ /^incl/ || $method =~ /^excl/) {
 
-        # the default is to compare the spatial operand to 1
-        my $op = $self->op ? $self->op->name : '==';
-        my $value = $self->value // 1;
+        my $op = $self->op->name;
+        my $value = $self->value;
 
-        if (defined $x) {
-            if ($op eq '<=')    { $y->where($x <= $value) .= 1; } 
-            elsif ($op eq '<')  { $y->where($x <  $value) .= 1; }
-            elsif ($op eq '>=') { $y->where($x >= $value) .= 1; }
-            elsif ($op eq '>')  { $y->where($x >  $value) .= 1; }
-            elsif ($op eq '==') { $y->where($x == $value) .= 1; }
-            else                { say STDERR "rule is a no-op: ",$self->name; }
-        }   
-        else                    { $y .= 1; }
+        my $value_if_true = $method =~ /^incl/ ? 1 : 0;
 
-    } elsif ($method =~ /^excl/) {
-        
-        # the default is to compare the spatial operand to 1
-        my $op = $self->op ? $self->op->name : '==';
-        my $value = $self->value // 1;
-        
-        if (defined $x) {
-            if ($op eq '<=')    { $y->where($x <= $value) .= 0; } 
-            elsif ($op eq '<')  { $y->where($x <  $value) .= 0; }
-            elsif ($op eq '>=') { $y->where($x >= $value) .= 0; }
-            elsif ($op eq '>')  { $y->where($x >  $value) .= 0; }
-            elsif ($op eq '==') { $y->where($x == $value) .= 0; }
-            else                { say STDERR "rule is a no-op: ",$self->name; }
-        }   
-        else                    { $y .= 0; }
+        if ($op eq '<=')    { $y->where($x <= $value) .= $value_if_true; } 
+        elsif ($op eq '<')  { $y->where($x <  $value) .= $value_if_true; }
+        elsif ($op eq '>=') { $y->where($x >= $value) .= $value_if_true; }
+        elsif ($op eq '>')  { $y->where($x >  $value) .= $value_if_true; }
+        elsif ($op eq '==') { $y->where($x == $value) .= $value_if_true; }
 
     } else {
         

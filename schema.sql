@@ -96,7 +96,11 @@ CREATE TABLE datasets (
     path text,
     unit integer,
     style integer,
-    db_table text
+    db_table text,
+    min_value double precision,
+    max_value double precision,
+    data_type integer,
+    class_semantics text
 );
 
 
@@ -1519,6 +1523,14 @@ ALTER TABLE ONLY datasets
 
 ALTER TABLE ONLY datasets
     ADD CONSTRAINT "datasets_data model_fkey" FOREIGN KEY (data_model) REFERENCES data_models(id);
+
+
+--
+-- Name: datasets_data_type_fkey; Type: FK CONSTRAINT; Schema: data; Owner: ajolma
+--
+
+ALTER TABLE ONLY datasets
+    ADD CONSTRAINT datasets_data_type_fkey FOREIGN KEY (data_type) REFERENCES tool.number_type(id);
 
 
 --
