@@ -7,6 +7,8 @@ use Encode qw(decode encode);
 use JSON;
 use SmartSea::HTML qw(:all);
 
+binmode STDERR, ":utf8";
+
 our $debug = 2;
 
 # in args give oid or lc_class, and possibly object or id
@@ -329,14 +331,18 @@ sub item_class {
         my $name = $parent ?
             ($obj->can('name_with_parent') ? $obj->name_with_parent($parent->{object}) : $obj->name) :
             ($obj->can('long_name') ? $obj->long_name : $obj->name);
-        my @content = a(link => $name, url => $url.':'.$obj->id);
+        $obj->{my_name} = $name;
+    }
+    for my $obj (sort {$a->{my_name} cmp $b->{my_name}} @$children) {
+        my @content = a(link => $obj->{my_name}, url => $url.':'.$obj->id);
         if ($editable) {
             push @content, [1 => ' '], a(link => 'edit', url => $url.':'.$obj->id.'?edit');
         }
         if ($self->{edit}) {
             my $source = $obj->result_source->source_name;
-            my $name = $obj->name;
-            my $onclick = "return confirm('Are you sure you want to delete $source '$name'?')";
+            my $name = $obj->{my_name};
+            $name =~ s/'//g;
+            my $onclick = "return confirm('Are you sure you want to delete $source &quot;$name&quot;?')";
             my %attr = (name => $obj->id, value => 'Remove', onclick => $onclick);
             push @content, [1 => ' '], button(%attr); # to do: remove or delete?
         }

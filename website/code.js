@@ -28,11 +28,12 @@ DAMAGE.
 
 (function() {
     $('body').addClass('stop-scrolling');
-    var model = new MSP(server, 3);
+    var model = new MSP({server:server, firstPlan:14});
     var view = new MSPView(model, {
         map: $("#map"),
         plans: $("#plans"),
         layers: $("#layers"),
+        rule_header: $("#rule-header"),
         rule_info: $("#rule-info"),
         rules: $("#rules"),
         rule_dialog: $("#rule-dialog"),

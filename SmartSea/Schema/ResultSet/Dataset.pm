@@ -7,7 +7,7 @@ use base 'DBIx::Class::ResultSet';
 
 sub list {
     my $self = shift;
-    $self->search({ -and => [is_a_part_of => undef, is_derived_from => undef] });
+    $self->search({ -and => [is_a_part_of => undef, is_derived_from => undef] }, {order_by => {-asc => 'name'}});
 }
 
 sub parts {

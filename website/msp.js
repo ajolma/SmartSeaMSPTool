@@ -250,18 +250,24 @@ MSPView.prototype = {
             element('img',{src:url+'?layer='+plan.id+'_'+use.id+'_'+layer.id},'')
         );
         if (use.id == 0) {
-            this.elements.rule_info.html("");
-        } else if (layer.rule_class == "exclusive") 
-            this.elements.rule_info.html("Default is YES, rules subtract.");
-        else if (layer.rule_class == "inclusive") 
-            this.elements.rule_info.html("Default is NO, rules add.");
-        else if (layer.rule_class == "multiplicative") 
-            this.elements.rule_info.html("Value is a product of rules.");
-        else if (layer.rule_class == "inclusive") 
-            this.elements.rule_info.html("Value is a sum of rules.");
+            this.elements.rule_header.html("Information about dataset:");
+            this.elements.rule_info.html(layer.provenance);
+        } else {
+            this.elements.rule_header.html("Rules for layer:");
+            if (layer.rule_class == "exclusive") 
+                this.elements.rule_info.html("Default is YES, rules subtract.");
+            else if (layer.rule_class == "inclusive") 
+                this.elements.rule_info.html("Default is NO, rules add.");
+            else if (layer.rule_class == "multiplicative") 
+                this.elements.rule_info.html("Value is a product of rules.");
+            else if (layer.rule_class == "inclusive") 
+                this.elements.rule_info.html("Value is a sum of rules.");
+        }
     },
     unselectLayer: function(use, layer) {
         $("#l"+use+'_'+layer).css("background-color","white");
+        this.elements.rule_header.html("");
+        this.elements.rule_info.html("");
         this.elements.color_scale.html('');
         this.elements.rules.empty();
     },
@@ -433,9 +439,9 @@ MSPView.prototype = {
     }
 };
 
-function MSP(server, firstPlan) {
-    this.server = server;
-    this.firstPlan = firstPlan;
+function MSP(args) {
+    this.server = args.server;
+    this.firstPlan = args.firstPlan;
     this.proj = null;
     this.map = null;
     this.site = null; // layer showing selected location or area
@@ -485,10 +491,16 @@ MSP.prototype = {
         self.plan = null;
         self.use = null;
         self.layer = null;
-        var datasets;
+        var datasets = {id:0, name:"Data", open:false, plan:0, layers:[]};
         $.each(self.plans, function(i, plan) {
             if (id == plan.id) self.plan = plan;
-            if (plan.id == 0) datasets = plan.uses[0];
+            if (plan.id == 0) {
+                //datasets = plan.uses[0];
+                $.each(plan.uses[0].layers, function(i, dataset) {
+                    if (self.plan.data[dataset.id])
+                        datasets.layers.push(dataset);
+                });
+            }
             $.each(plan.uses, function(i, use) {
                 $.each(use.layers, function(j, layer) {
                     if (layer.object) self.map.removeLayer(layer.object);
@@ -631,18 +643,14 @@ MSP.prototype = {
             var feature = evt.feature;
             var geom = feature.getGeometry();
             var type = geom.getType();
-            var query = 'plan='+self.plan.id+'&';
-            $.each(self.plan.uses, function(i, use) {
-                $.each(use.layers, function(j, layer) {
-                    if (layer.visible) query += 'layer='+layer.name+'&';
-                });
-            });
+            var query = 'plan='+self.plan.id;
+            if (self.layer && self.layer.visible) query += '&use='+self.layer.use+'&layer='+self.layer.id;
             if (type == 'Polygon') {
                 var format  = new ol.format.WKT();
-                query += 'wkt='+format.writeGeometry(geom);
+                query += '&wkt='+format.writeGeometry(geom);
             } else if (type == 'Point') {
                 var coordinates = geom.getCoordinates();
-                query += 'easting='+coordinates[0]+'&northing='+coordinates[1];
+                query += '&easting='+coordinates[0]+'&northing='+coordinates[1];
             }
             query += '&srs='+self.proj.projection.getCode();
             $.ajax({

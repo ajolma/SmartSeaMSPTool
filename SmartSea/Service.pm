@@ -126,6 +126,7 @@ sub plans {
     my $search = defined $plan_id ? {id => $plan_id}: undef;
     for my $plan ($schema->resultset('Plan')->search($search, {order_by => {-desc => 'name'}})) {
         my @uses;
+        my %data;
         $search = defined $use_id ? {use => $use_id}: undef;
         for my $use_class ($plan->use_classes($search, {order_by => 'id'})) {
             my $use = $self->{schema}->
@@ -138,8 +139,9 @@ sub plans {
                     resultset('Layer')->
                     single({use => $use->id, layer_class => $layer_class->id});
                 my @rules;
-                for my $rule ($layer->rules({cookie => DEFAULT})) {
-                    push @rules, $rule->as_hashref_for_json
+                for my $rule (sort {$a->name cmp $b->name} $layer->rules({cookie => DEFAULT})) {
+                    push @rules, $rule->as_hashref_for_json;
+                    $data{$rule->r_dataset->id} = 1 if $rule->r_dataset;
                 }
                 push @layers, {
                     name => $layer->layer_class->name,
@@ -151,14 +153,14 @@ sub plans {
             }
             push @uses, {name => $use_class->name, id => $use_class->id, plan => $plan->id, layers => \@layers};
         }
-        push @plans, {name => $plan->name, id => $plan->id, uses => \@uses};
+        push @plans, {name => $plan->name, id => $plan->id, uses => \@uses, data => \%data};
     }
     if (!defined $plan_id || $plan_id == 0) {
         # make a "plan" from all real datasets
         my @datasets;
         for my $dataset ($schema->resultset('Dataset')->search(
                              undef, 
-                             {order_by => {-desc => 'name'}})->all) 
+                             {order_by => {-asc => 'name'}})->all) 
         {
             next unless $dataset->path;
             next unless $dataset->style;
@@ -170,8 +172,9 @@ sub plans {
                 $range = ' ('.$dataset->style->min."$u..".$dataset->style->max."$u)";
             }
             push @datasets, {
-                name => $dataset->name, 
-                descr => $dataset->lineage,
+                name => $dataset->name,
+                provenance => $dataset->lineage,
+                descr => $dataset->descr,
                 style => $dataset->style->color_scale->name.$range,
                 id => $dataset->id, 
                 use => 0, 

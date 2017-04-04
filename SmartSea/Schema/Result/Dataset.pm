@@ -21,7 +21,8 @@ my %attributes = (
     attribution     => { i => 9,  input => 'text',    size => 40 },
     disclaimer      => { i => 10, input => 'text',    size => 80 },
     path            => { i => 11, input => 'text',    size => 30 },
-    unit            => { i => 12, input => 'lookup',  class => 'Unit',      allow_null => 1 },
+    db_table        => { i => 12, input => 'text',    size => 30 },
+    unit            => { i => 13, input => 'lookup',  class => 'Unit',      allow_null => 1 },
     style           => { i => 16, input => 'object',  class => 'Style' }
     );
 

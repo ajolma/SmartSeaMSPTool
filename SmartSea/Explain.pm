@@ -13,7 +13,7 @@ use parent qw/Plack::Component/;
 
 binmode STDERR, ":utf8";
 
-our $debug = 0;
+our $debug = 1;
 
 sub new {
     my ($class, $self) = @_;
@@ -53,9 +53,17 @@ sub call {
         $ct = Geo::OSR::CoordinateTransformation->new($src, $dst);
     }
     
-    my @rules;
-    for my $layer ($request->query_parameters->get_all('layer')) {
-        push @rules, SmartSea::Layer->new({schema => $self->{schema}, cookie => 'default', trail => $layer});
+    #my @rules;
+    #for my $layer ($request->query_parameters->get_all('layer')) {
+    #    push @rules, SmartSea::Layer->new({schema => $self->{schema}, cookie => 'default', trail => $layer});
+    #}
+    my $plan_id = $request->query_parameters->get('plan');
+    my $use_id = $request->query_parameters->get('use');
+    my $layer_id = $request->query_parameters->get('layer');
+    my $dataset;
+    if ($use_id == 0) {
+        $dataset = $self->{schema}->resultset('Dataset')->single({id => $layer_id});
+        say STDERR $dataset->db_table;
     }
     
     my $report = '';
@@ -72,7 +80,7 @@ sub call {
         my $point = [$parameters->{easting},$parameters->{northing}];
         $point = $ct->TransformPoint(@$point) if $ct;
         say STDERR "location = @$point" if $debug;
-        $report = $self->make_point_report($point);
+        $report = $self->make_point_report($point, $dataset);
 
     } else {
         
@@ -87,7 +95,24 @@ sub call {
 }
 
 sub make_point_report {
-    my ($self, $point, $ct) = @_;
+    my ($self, $point, $dataset) = @_;
+
+    for my $key (sort keys %{$self->{schema}{storage}}) {
+        #say STDERR "$key => $self->{schema}{storage}{$key}" if $debug;
+    }
+
+    if ($dataset && $dataset->id == 78) {
+        my $table = decode utf8 => 'natura_hiekkasärkkä_ja_riutta_alle_20m';
+        my $sql = 
+            "select naturatunn from vesiviljely.\"$table\"".
+            "where st_within(st_geomfromtext('POINT(@$point)',3067),geom)";
+        my $result = $self->{schema}{storage}{_dbh}->selectall_arrayref($sql);
+        if ($result->[0][0]) {
+            my $url = 'http://natura2000.eea.europa.eu/Natura2000/SDF.aspx';
+            return "<a target=\"_blank\" href=\"$url?site=$result->[0][0]\">$result->[0][0]</a>";
+        }
+    }
+    
     my $gt = $self->{mask}->GeoTransform;
     my @c = $gt->Inv->Apply([$point->[0]],[$point->[1]]);
     my $x = int($c[0]->[0]);

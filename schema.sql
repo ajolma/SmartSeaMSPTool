@@ -95,7 +95,8 @@ CREATE TABLE datasets (
     disclaimer text,
     path text,
     unit integer,
-    style integer
+    style integer,
+    db_table text
 );
 
 
@@ -106,6 +107,13 @@ ALTER TABLE datasets OWNER TO ajolma;
 --
 
 COMMENT ON COLUMN datasets.style IS 'required if path is not null, ie real data';
+
+
+--
+-- Name: COLUMN datasets.db_table; Type: COMMENT; Schema: data; Owner: ajolma
+--
+
+COMMENT ON COLUMN datasets.db_table IS 'For raster datasets: the table from it was created';
 
 
 --
