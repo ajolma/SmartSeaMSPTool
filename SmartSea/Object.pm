@@ -5,6 +5,7 @@ use 5.010000; # say // and //=
 use Carp;
 use Encode qw(decode encode);
 use JSON;
+use SmartSea::Core qw(:all);
 use SmartSea::HTML qw(:all);
 
 binmode STDERR, ":utf8";
@@ -15,7 +16,7 @@ our $debug = 2;
 sub new {
     my ($class, $args, $args2) = @_;
     my $self = {};
-    for my $key (qw/schema url edit dbname user pass data_dir cookie/) {
+    for my $key (qw/schema url edit dbname user pass data_dir/) {
         $self->{$key} = $args->{$key} // $args2->{$key};
     }
     my $oid = $args->{oid};
@@ -37,12 +38,36 @@ sub new {
         if ($args->{object}) {
             $self->{object} = $args->{object};
         } else {
-            $id //= $args->{id};
-            #say STDERR "source = $self->{source}, id = ",($id // 'undef') if $debug;
-
-            # todo: cookie for rules, it is in self.key
             
-            $self->{object} = $self->{rs}->single({id => $id}) if $id;
+            #my %pk;
+            #for my $pkey ($self->{rs}->result_source->primary_columns) {
+            #    if ($pkey eq 'id') {
+            #        $pk{id} = $id;
+            #    } else {
+            #        $pk{$pkey} = $self->{$pkey};
+            #    }
+            #    croak "pk $pkey not defined for a $self->{source}" unless defined $pk{$pkey};
+            #}
+            #$self->{object} = $self->{rs}->single(\%pk);
+
+            $id //= $args->{id};
+            if ($id) {
+
+                # special case for rules, which have pk = id,cookie
+                # prefer cookie = default, unless cookie given in args
+                if ($lc_class eq 'Rule') {
+                    for my $rule ($self->{rs}->search({id => $id})) {
+                        if ($args->{cookie} && $rule->cookie ne DEFAULT) {
+                            $self->{object} = $rule;
+                            last;
+                        }
+                        $self->{object} = $rule;
+                    }
+                } else {
+                    $self->{object} = $self->{rs}->single({id => $id});
+                }
+            
+            }
         }
     };
     if ($@) {

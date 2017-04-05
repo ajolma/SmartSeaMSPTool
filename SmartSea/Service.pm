@@ -332,9 +332,6 @@ sub object_editor {
         }
     }
 
-    my $class = '';
-    my $rs = ''; #$self->{schema}->resultset($class =~ /(\w+)$/);
-    
     # to make jQuery happy:
     my $header = { 'Access-Control-Allow-Origin' => $self->{origin},
                    'Access-Control-Allow-Credentials' => 'true' };
@@ -350,17 +347,16 @@ sub object_editor {
     } elsif ($parameters{request}{modify}) {
         return http_status($header, 403) if $self->{cookie} eq DEFAULT; # forbidden
         my $obj = SmartSea::Object->new({oid => $oids->[0], url => $self->{base_uri}}, $self);
+        return http_status($header, 400) unless $obj->{object} && $obj->{source} eq 'Rule'; # bad request
         
-        my $cols = $obj->values; # todo: must be obj.object
+        my $cols = $obj->{object}->values;
         $cols->{value} = $parameters{value};
-        $cols->{id} = $obj->id;
-        $cols->{plan2use2layer} = $obj->plan2use2layer->id;
         $cols->{cookie} = $self->{cookie};
         my $a = ['current_timestamp'];
         $cols->{made} = \$a;
         eval {
-            $obj = $rs->update_or_new($cols, {key => 'primary'});
-            $obj->insert if !$obj->in_storage;
+            $obj = $obj->{rs}->update_or_new($cols, {key => 'primary'});
+            $obj->insert unless $obj->in_storage;
         };
         say STDERR "error: $@" if $@;
         return http_status($header, 500) if $@;

@@ -129,13 +129,40 @@ sub name {
     my ($self, %args) = @_;
 
     my $class = $self->layer->rule_class->name;
+    my $layer  = $self->r_layer ? $self->r_layer : undef;
+    my $dataset = $self->r_dataset ? $self->r_dataset : undef;
 
-    my $x = $self->r_layer ? 
-        $self->r_layer->name : 
-        ($self->r_dataset ? $self->r_dataset->name : 'undefined');
+    my $criteria = $dataset ? $dataset->name : ($layer ? $layer->name : 'unknown');
+
+    if ($class eq 'exclusive' || $class eq 'inclusive') {
+
+        my $sign = $class eq 'exclusive' ? '-' : '+';
+
+        my $op = $self->op->name;
+
+        unless ($args{no_value}) {
+            my $value = $self->value;
+
+            
+            my $value_semantics = $dataset ? $dataset->class_semantics : undef;
+
+            if ($value_semantics) {
+                for my $item (split /; /, $value_semantics) {
+                    my ($val, $semantics) = split / = /, $item;
+                    if ($val == $value) {
+                        $value = $semantics;
+                        last;
+                    }
+                }
+            }
+
+            return "$sign if $criteria $op $value";
+        }
+
+        return "$sign if $criteria $op";
+
+    }
     
-    my $op = $self->op->name;
-    my $value = $args{no_value} ? '' : $self->value;
     my $x_min = $self->min_value;
     my $x_max = $self->max_value;
     my $y_min = $self->value_at_min;
@@ -143,13 +170,9 @@ sub name {
     my $w = $self->weight;
     
     if ($class eq 'additive') {
-        return "+ $y_min - $w * ($y_max-$y_min)/($x_max-$x_min) * ($x - $x_min)";
-    } elsif ($class eq 'exclusive') {
-        return "- if $x $op $value";
-    } elsif ($class eq 'inclusive') {
-        return "+ if $x $op $value";
+        return "+ $y_min - $w * ($y_max-$y_min)/($x_max-$x_min) * ($criteria - $x_min)";
     } elsif ($class eq 'multiplicative') {
-        return "* $y_min - $w * ($y_max-$y_min)/($x_max-$x_min) * ($x - $x_min)";
+        return "* $y_min - $w * ($y_max-$y_min)/($x_max-$x_min) * ($criteria - $x_min)";
     }
 }
 
@@ -208,7 +231,7 @@ sub as_hashref_for_json {
 # this is needed by modify request
 sub values {
     my ($self) = @_;
-    my %values;
+    my %values = (id => $self->id, layer => $self->layer->id);
     for my $key (keys %attributes) {
         if ($attributes{$key}{input} eq 'lookup') {
             my $foreign = $self->$key;

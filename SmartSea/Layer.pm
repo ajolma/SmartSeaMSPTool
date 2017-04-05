@@ -4,7 +4,6 @@ use warnings;
 use 5.010000; # say // and //=
 use Carp;
 use PDL;
-
 use SmartSea::Core qw(:all);
 
 # a set of rules to create a layer for a use in a plan
