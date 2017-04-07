@@ -98,33 +98,6 @@ sub class_name {
     return "$class Rule";
 }
 
-sub name_with_parent {
-    my ($self, $parent) = @_;
-    my $class = $parent->rule_class->name if $parent;
-
-    my $x = $self->r_layer ? 
-        $self->r_layer->name : 
-        ($self->r_dataset ? $self->r_dataset->name : 'undefined');
-    
-    my $op = $self->op->name;
-    my $value = $self->value;
-    my $x_min = $self->min_value;
-    my $x_max = $self->max_value;
-    my $y_min = $self->value_at_min;
-    my $y_max = $self->value_at_max;
-    my $w = $self->weight;
-    
-    if ($class eq 'additive') {
-        return "+ $y_min - $w * ($y_max-$y_min)/($x_max-$x_min) * ($x - $x_min)";
-    } elsif ($class eq 'exclusive') {
-        return "- if $x $op $value";
-    } elsif ($class eq 'inclusive') {
-        return "+ if $x $op $value";
-    } elsif ($class eq 'multiplicative') {
-        return "* $y_min - $w * ($y_max-$y_min)/($x_max-$x_min) * ($x - $x_min)";
-    }
-}
-
 sub name {
     my ($self, %args) = @_;
 

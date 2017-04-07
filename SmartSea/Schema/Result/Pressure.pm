@@ -26,9 +26,14 @@ sub children_listers {
     return { impacts => {source => 'Impact', class_name => 'Impacts'} };
 }
 
+sub name {
+    my ($self) = @_;
+    return $self->activity->name.' <-> '.$self->pressure_class->name;
+}
+
 sub for_child_form {
-    my ($self, $kind, $children, $args) = @_;
-    if ($kind eq 'impacts') {
+    my ($self, $lister, $children, $args) = @_;
+    if ($lister eq 'impacts') {
         my %has;
         for my $obj (@$children) {
             $has{$obj->ecosystem_component->id} = 1;
@@ -41,11 +46,6 @@ sub for_child_form {
         return 0 if @objs == 0; # all ecosystem components have already an impact
         return drop_down(name => 'ecosystem_component', objs => \@objs);
     }
-}
-
-sub name {
-    my $self = shift;
-    return $self->activity->name.' <-> '.$self->pressure_class->name;
 }
 
 sub impacts_list {

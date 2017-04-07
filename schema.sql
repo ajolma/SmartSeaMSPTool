@@ -632,6 +632,47 @@ ALTER SEQUENCE ops_id_seq OWNED BY ops.id;
 
 
 --
+-- Name: plan2dataset_extra; Type: TABLE; Schema: tool; Owner: ajolma
+--
+
+CREATE TABLE plan2dataset_extra (
+    plan integer NOT NULL,
+    dataset integer NOT NULL,
+    id integer NOT NULL
+);
+
+
+ALTER TABLE plan2dataset_extra OWNER TO ajolma;
+
+--
+-- Name: TABLE plan2dataset_extra; Type: COMMENT; Schema: tool; Owner: ajolma
+--
+
+COMMENT ON TABLE plan2dataset_extra IS 'Extra datasets in plan''s view.';
+
+
+--
+-- Name: plan2dataset_extra_id_seq; Type: SEQUENCE; Schema: tool; Owner: ajolma
+--
+
+CREATE SEQUENCE plan2dataset_extra_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE plan2dataset_extra_id_seq OWNER TO ajolma;
+
+--
+-- Name: plan2dataset_extra_id_seq; Type: SEQUENCE OWNED BY; Schema: tool; Owner: ajolma
+--
+
+ALTER SEQUENCE plan2dataset_extra_id_seq OWNED BY plan2dataset_extra.id;
+
+
+--
 -- Name: plan2use2layer_id_seq; Type: SEQUENCE; Schema: tool; Owner: ajolma
 --
 
@@ -1125,6 +1166,13 @@ ALTER TABLE ONLY ops ALTER COLUMN id SET DEFAULT nextval('ops_id_seq'::regclass)
 -- Name: id; Type: DEFAULT; Schema: tool; Owner: ajolma
 --
 
+ALTER TABLE ONLY plan2dataset_extra ALTER COLUMN id SET DEFAULT nextval('plan2dataset_extra_id_seq'::regclass);
+
+
+--
+-- Name: id; Type: DEFAULT; Schema: tool; Owner: ajolma
+--
+
 ALTER TABLE ONLY plans ALTER COLUMN id SET DEFAULT nextval('plans_id_seq'::regclass);
 
 
@@ -1380,6 +1428,22 @@ ALTER TABLE ONLY ops
 
 
 --
+-- Name: plan2dataset_extra_pkey; Type: CONSTRAINT; Schema: tool; Owner: ajolma
+--
+
+ALTER TABLE ONLY plan2dataset_extra
+    ADD CONSTRAINT plan2dataset_extra_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: plan2dataset_extra_plan_dataset_key; Type: CONSTRAINT; Schema: tool; Owner: ajolma
+--
+
+ALTER TABLE ONLY plan2dataset_extra
+    ADD CONSTRAINT plan2dataset_extra_plan_dataset_key UNIQUE (plan, dataset);
+
+
+--
 -- Name: plan2use2layer_pkey; Type: CONSTRAINT; Schema: tool; Owner: ajolma
 --
 
@@ -1621,6 +1685,22 @@ ALTER TABLE ONLY pressure_classes
 
 ALTER TABLE ONLY layers
     ADD CONSTRAINT layers_style2_fkey FOREIGN KEY (style) REFERENCES styles(id);
+
+
+--
+-- Name: plan2dataset_extra_dataset_fkey; Type: FK CONSTRAINT; Schema: tool; Owner: ajolma
+--
+
+ALTER TABLE ONLY plan2dataset_extra
+    ADD CONSTRAINT plan2dataset_extra_dataset_fkey FOREIGN KEY (dataset) REFERENCES data.datasets(id);
+
+
+--
+-- Name: plan2dataset_extra_plan_fkey; Type: FK CONSTRAINT; Schema: tool; Owner: ajolma
+--
+
+ALTER TABLE ONLY plan2dataset_extra
+    ADD CONSTRAINT plan2dataset_extra_plan_fkey FOREIGN KEY (plan) REFERENCES plans(id);
 
 
 --
@@ -1964,6 +2044,26 @@ REVOKE ALL ON TABLE ops FROM PUBLIC;
 REVOKE ALL ON TABLE ops FROM ajolma;
 GRANT ALL ON TABLE ops TO ajolma;
 GRANT ALL ON TABLE ops TO smartsea;
+
+
+--
+-- Name: plan2dataset_extra; Type: ACL; Schema: tool; Owner: ajolma
+--
+
+REVOKE ALL ON TABLE plan2dataset_extra FROM PUBLIC;
+REVOKE ALL ON TABLE plan2dataset_extra FROM ajolma;
+GRANT ALL ON TABLE plan2dataset_extra TO ajolma;
+GRANT ALL ON TABLE plan2dataset_extra TO smartsea;
+
+
+--
+-- Name: plan2dataset_extra_id_seq; Type: ACL; Schema: tool; Owner: ajolma
+--
+
+REVOKE ALL ON SEQUENCE plan2dataset_extra_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE plan2dataset_extra_id_seq FROM ajolma;
+GRANT ALL ON SEQUENCE plan2dataset_extra_id_seq TO ajolma;
+GRANT ALL ON SEQUENCE plan2dataset_extra_id_seq TO smartsea;
 
 
 --

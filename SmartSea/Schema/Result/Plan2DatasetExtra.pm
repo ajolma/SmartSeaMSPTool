@@ -9,7 +9,10 @@ __PACKAGE__->add_columns(qw/ id plan dataset /);
 __PACKAGE__->set_primary_key(qw/ id /);
 __PACKAGE__->belongs_to(plan => 'SmartSea::Schema::Result::Plan');
 __PACKAGE__->belongs_to(dataset => 'SmartSea::Schema::Result::Dataset');
-__PACKAGE__->has_many(plans => 'SmartSea::Schema::Result::Plan', 'plan');
-__PACKAGE__->has_many(datasets => 'SmartSea::Schema::Result::Dataset', 'dataset');
+
+sub name {
+    my ($self) = @_;
+    return $self->dataset->name;
+}
 
 1;

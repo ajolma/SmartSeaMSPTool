@@ -28,7 +28,7 @@ sub order_by {
 }
 
 sub name {
-    my $self = shift;
+    my ($self) = @_;
     return $self->pressure->name.' <-> '.$self->ecosystem_component->name;
 }
 

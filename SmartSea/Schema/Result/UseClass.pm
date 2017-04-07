@@ -25,8 +25,8 @@ sub children_listers {
 }
 
 sub for_child_form {
-    my ($self, $kind, $children, $args) = @_;
-    if ($kind eq 'activities') {
+    my ($self, $lister, $children, $args) = @_;
+    if ($lister eq 'activities') {
         my %has;
         for my $obj (@$children) {
             $has{$obj->id} = 1;

@@ -34,10 +34,7 @@ my $root = 'SmartSea::Schema::Result::';
 my $parameters = {request => '', add => ''};
 
 for my $class ($schema->sources) {
-    #next if $class =~ /2/;
-    $class =~ s/([a-z])([A-Z])/$1_$2/;
-    $class = lc($class);
-    my $obj = SmartSea::Object->new({schema => $schema, url => '', lc_class => $class});
+    my $obj = SmartSea::Object->new({schema => $schema, url => '', source => $class, debug => 0});
     my $result = $obj->li([],0);
     ok(ref $result eq 'ARRAY', "$class simple HTML list");
 }

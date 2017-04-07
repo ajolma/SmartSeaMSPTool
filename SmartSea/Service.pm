@@ -389,7 +389,7 @@ sub object_editor {
         my %args = (oid => $oids->[$#$oids], url => $self->{base_uri}, id => $parameters{id});
         my $obj = SmartSea::Object->new(\%args, $self);
         if ($obj) {
-            my $error = $obj->delete();
+            my $error = $obj->delete($oids, $#$oids, \%parameters);
             my @body;
             push @body, [p => {style => 'color:red'}, $error] if $error;
             $obj = SmartSea::Object->new({oid => $oids->[0], url => $self->{base_uri}}, $self);

@@ -68,7 +68,8 @@ sub one_schema {
             DataModel => 1,
             Activity => 1,
             Activity2Pressure => 1,
-            NumberType => 1
+            NumberType => 1,
+            Plan2DatasetExtra => 1
           }]]);
 }
 

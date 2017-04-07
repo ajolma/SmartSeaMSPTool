@@ -55,10 +55,20 @@ sub children_listers {
     };
 }
 
+#sub name {
+#    my ($self) = @_;
+#    my $name = "'".$self->name."'";
+#    my $rel = $self->is_a_part_of;
+#    $name .= " of ".$rel->long_name if $rel;
+#    $rel = $self->is_derived_from;
+#    $name .= " from ".$rel->long_name if $rel;
+#    return $name;
+#}
+
 sub for_child_form {
-    my ($self, $kind) = @_;
-    return hidden(is_a_part_of => $self->id) if $kind eq 'parts';
-    return hidden(is_derived_from => $self->id) if $kind eq 'derivatives';
+    my ($self, $lister) = @_;
+    return hidden(is_a_part_of => $self->id) if $lister eq 'parts';
+    return hidden(is_derived_from => $self->id) if $lister eq 'derivatives';
 }
 
 sub my_unit {
@@ -68,21 +78,6 @@ sub my_unit {
     return $self->is_derived_from->my_unit if defined $self->is_derived_from;
     return undef;
 }
-
-sub long_name {
-    my ($self) = @_;
-    my $name = "'".$self->name."'";
-    my $rel = $self->is_a_part_of;
-    if ($rel) {
-        $name .= " of ".$rel->long_name;
-    }
-    $rel = $self->is_derived_from;
-    if ($rel) {
-        $name .= " from ".$rel->long_name;
-    }
-    return $name;
-}
-*lineage = *long_name;
 
 sub info {
     my ($self, $args) = @_;

@@ -28,8 +28,8 @@ sub children_listers {
 }
 
 sub for_child_form {
-    my ($self, $kind, $children, $args) = @_;
-    if ($kind eq 'pressure') {
+    my ($self, $lister, $children, $args) = @_;
+    if ($lister eq 'pressures') {
         my %has;
         for my $obj (@$children) {
             $has{$obj->pressure_class->id} = 1;

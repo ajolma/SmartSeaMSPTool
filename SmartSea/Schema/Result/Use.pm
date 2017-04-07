@@ -23,25 +23,21 @@ sub attributes {
 }
 
 sub name {
-    my $self = shift;
+    my ($self) = @_;
     return $self->use_class->name;
-}
-
-sub long_name {
-    my $self = shift;
     return $self->plan->name.' <-> '.$self->use_class->name;
 }
 
 sub children_listers {
     return {
         layers => {source => 'Layer', class_name => 'Layers'}, 
-        activities => {source => 'Activity', class_name => 'Activities', edit => 0}
+        activities => {source => 'Activity', class_name => 'Activities', editable_children => 0}
     };
 }
 
 sub for_child_form {
-    my ($self, $kind, $children, $args) = @_;
-    if ($kind eq 'layers') {
+    my ($self, $lister, $children, $args) = @_;
+    if ($lister eq 'layers') {
         my %has;
         for my $obj (@$children) {
             $has{$obj->layer_class->id} = 1;

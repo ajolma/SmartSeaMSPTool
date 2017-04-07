@@ -28,7 +28,7 @@ sub attributes {
 sub children_listers {
     return {
         uses => {source => 'Use', class_name => 'Uses'}, 
-        extra_datasets => {source => 'Dataset', class_name => 'Extra datasets', edit =>  0}
+        extras => {source => 'Plan2DatasetExtra', class_name => 'Extra datasets', editable_children =>  0}
     };
 }
 
@@ -41,13 +41,14 @@ sub need_form_for_child {
 # change to real class
 sub change_baby {
     my ($class, $child_class, $parameters) = @_;
-    return $child_class if $child_class eq 'Use';
+    return 'Use' if $child_class eq 'Use';
     return 'Plan2DatasetExtra' if $child_class eq 'Dataset';
+    return $child_class;
 }
 
 sub for_child_form {
-    my ($self, $kind, $children, $args) = @_;
-    if ($kind eq 'uses') {
+    my ($self, $lister, $children, $args) = @_;
+    if ($lister eq 'uses') {
         my %has;
         for my $obj (@$children) {
             $has{$obj->use_class->id} = 1;
@@ -58,7 +59,7 @@ sub for_child_form {
             push @objs, $obj;
         }
         return drop_down(name => 'use_class', objs => \@objs);
-    } elsif ($kind eq 'extra_datasets') {
+    } elsif ($lister eq 'extras') {
         my $has = $self->datasets($args);
         for my $obj (@$children) {
             $has->{$obj->id} = 1;

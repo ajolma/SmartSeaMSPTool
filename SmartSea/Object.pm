@@ -21,7 +21,6 @@ sub new {
         my $oid = $args->{oid};
         my ($source, $id) = split /:/, $oid;
         $args->{id} = $id if defined $id;
-        say STDERR "split $oid => $source,",(defined $id ? $id : 'undef') if $self->{debug};
         $source = singular($source);
         $source =~ s/^(\w)/uc($1)/e;
         $source =~ s/_(\w)/uc($1)/e;
@@ -30,6 +29,7 @@ sub new {
     } elsif ($args->{source}) {
         $self->{source} = $args->{source};
     }
+    say STDERR "new $self->{source} object,",(defined $args->{id} ? $args->{id} : 'undef') if $self->{debug};
     $self->{class} = 'SmartSea::Schema::Result::'.$self->{source};
     eval {
         $self->{rs} = $self->{schema}->resultset($self->{source});
@@ -74,6 +74,13 @@ sub new {
     bless $self, $class;
 }
 
+sub source_for_url {
+    my $self = shift;
+    my $s = $self->{source};
+    $s =~ s/([a-z])([A-Z])/$1_$2/g;
+    return lc($s);
+}
+
 sub class_name {
     my ($self, $parent, $purpose) = @_;
     return $self->{class_name} if $self->{class_name};
@@ -89,6 +96,7 @@ sub attributes {
     return $self->{object}->attributes($parent->{object});
 }
 
+# create a link from object to object
 sub create {
     my ($self, $oids, $parameters) = @_;
     my $oids_index = $#$oids;
@@ -108,6 +116,7 @@ sub create {
     return "$@";
 }
 
+# insert or update an object
 sub save {
     my ($self, $oids, $oids_index, $parameters) = @_;
 
@@ -216,15 +225,25 @@ sub save {
     
 }
 
+# delete an object or remove the link
 sub delete {
-    my ($self) = @_;
-    my $attributes = $self->attributes;
+    my ($self, $oids, $oids_index, $parameters) = @_;
+
+    my $parent = $oids_index > 0 ? SmartSea::Object->new({oid => $oids->[$oids_index-1]}, $self) : undef;
+
+    if ($parent) {
+        my $args = {
+            source => $parent->{class}->change_baby($self->{source}, $parameters), 
+            id => $parameters->{id}
+        };
+        $self = SmartSea::Object->new($args, $self);
+    }
+
     unless ($self->{object}) {
         return "there is no $self->{source} object";
     }
-    unless ($attributes) {
-        return "$self->{source} is non-editable";
-    }
+    
+    my $attributes = $self->attributes;
     my %delete;
     for my $attr (keys %$attributes) {
         if ($attributes->{$attr}{input} eq 'object') {
@@ -233,6 +252,7 @@ sub delete {
             $delete{$attributes->{$attr}{source}} = $child->id;
         }
     }
+    say STDERR "delete ",$self->{object};
     eval {
         $self->{object}->delete;
     };
@@ -249,7 +269,8 @@ sub all {
     my ($self) = @_;
     return [$self->{rs}->list] if $self->{rs}->can('list');
     # todo: use self->rs and methods in it below
-    my $order_by = $self->{class}->can('order_by') ? $self->{class}->order_by : {-asc => 'name'};
+    my $col = $self->{rs}->result_source->has_column('name') ? 'name' : 'id';
+    my $order_by = $self->{class}->can('order_by') ? $self->{class}->order_by : {-asc => $col};
     return [$self->{rs}->search(undef, {order_by => $order_by})->all];
 }
 
@@ -262,6 +283,7 @@ sub children_listers {
     return {};
 }
 
+# return object as an item
 sub li {
     my ($self, $oids, $oids_index, $children, $opt) = @_;
 
@@ -271,20 +293,16 @@ sub li {
 
     return $self->item_class($parent, $children, $opt) unless $self->{object};
     
-    my $attributes = $self->attributes($parent);
-    my $editable = $attributes && $self->{edit};
-    $attributes //= {};
+    my $attributes = $self->attributes($parent) // {};
 
     my $object = $self->{object};
     #say STDERR "object ",$object->id;
 
-    my $url = $self->{url}.'/'.lc($self->{source});
+    my $url = $self->{url}.'/'.$self->source_for_url;
 
     my @content = a(link => "Show all ".plural($self->class_name(undef, 'list')), url => plural($url));
     $url .= ':'.$object->id;
-    if ($editable) {
-        push @content, [1 => ' '], a(link => 'edit this one', url => $url.'?edit');
-    }
+    push @content, [1 => ' '], a(link => 'edit this one', url => $url.'?edit') if $self->{edit};
     
     my @li = ([li => "id: ".$object->id], [li => "name: ".$object->name]);
     my $children_listers = $self->children_listers;
@@ -318,6 +336,8 @@ sub li {
     my $next = $oids->[$oids_index+1];
     for my $lister (sort keys %$children_listers) {
         my %args = %{$children_listers->{$lister}};
+        my $editable_children = $self->{edit};
+        $editable_children = 0 if exists $args{editable_children} && $args{editable_children} == 0;
         say STDERR "source = $args{source}, oid = ",($next // 'undef') if $self->{debug};
         $args{url} = $url;
         if (defined $next) {
@@ -337,11 +357,15 @@ sub li {
         }
         say STDERR "child is open? $child_is_open" if $self->{debug};
         if ($child_is_open) {
+            $child->{edit} = 0 unless $editable_children;
             push @li, [li => $child->li($oids, $oids_index+1)];
         } else {
             delete $child->{object};
-            my %opt = (for_add => $self->for_child_form($lister, $children));
-            push @li, [li => $child->li($oids, $oids_index+1, $children, \%opt)];
+            my %opt = (
+                for_add => $self->for_child_form($lister, $children),
+                editable_children => $editable_children
+                );
+            push @li, [li => $child->item_class($self, $children, \%opt)];
         }
     }
     
@@ -351,24 +375,20 @@ sub li {
 sub item_class {
     my ($self, $parent, $children, $opt) = @_;
     $children = $self->all() unless $children;
-    my $url = $self->{url}.'/'.lc($self->{source});
-    my $editable = $self->{edit};
+    my $url = $self->{url}.'/'.$self->source_for_url;
         
     my @li;
     for my $obj (@$children) {
-        my $name = $parent ?
-            ($obj->can('name_with_parent') ? $obj->name_with_parent($parent->{object}) : $obj->name) :
-            ($obj->can('long_name') ? $obj->long_name : $obj->name);
-        $obj->{my_name} = $name;
+        $obj->{name} = $obj->name;
     }
-    for my $obj (sort {$a->{my_name} cmp $b->{my_name}} @$children) {
-        my @content = a(link => $obj->{my_name}, url => $url.':'.$obj->id);
-        if ($editable) {
+    for my $obj (sort {$a->{name} cmp $b->{name}} @$children) {
+        my @content = a(link => $obj->{name}, url => $url.':'.$obj->id);
+        if ($opt->{editable_children}) {
             push @content, [1 => ' '], a(link => 'edit', url => $url.':'.$obj->id.'?edit');
         }
         if ($self->{edit}) {
             my $source = $obj->result_source->source_name;
-            my $name = $obj->{my_name};
+            my $name = $obj->{name};
             $name =~ s/'//g;
             my $onclick = "return confirm('Are you sure you want to delete $source &quot;$name&quot;?')";
             my %attr = (name => $obj->id, value => 'Remove', onclick => $onclick);
@@ -383,7 +403,7 @@ sub item_class {
                     my %args = %{$children_listers->{$lister}};
                     $args{edit} = 0;
                     my $p = SmartSea::Object->new(\%args, $self);
-                    push @p, $p->item_class($self, \@parts);
+                    push @p, $p->item_class($self, \@parts, {editable_children => $opt->{editable_children}});
                 }
             }
             if (@p) {
@@ -432,7 +452,9 @@ sub form {
     my $parent = $oids_index > 0 ? SmartSea::Object->new({oid => $oids->[$oids_index-1]}, $self) : undef;
 
     # is this ok?
-    return unless $parent && $parent->{class}->need_form_for_child($self->{class});
+    return if $parent &&
+        $parent->{class}->can('need_form_for_child') &&
+        !$parent->{class}->need_form_for_child($self->{class});
     say STDERR "form is needed" if $self->{debug};
 
     my $attributes = $self->attributes($parent);

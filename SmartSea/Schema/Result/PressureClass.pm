@@ -10,7 +10,7 @@ use SmartSea::Impact qw(:all);
 my %attributes = (
     name     => { i => 1,  input => 'text',  size => 20 },
     ordr     => { i => 2,  input => 'text',  size => 10 },
-    category => { i => 3,  input => 'lookup', class => 'PressureCategory' },
+    category => { i => 3,  input => 'lookup', source => 'PressureCategory' },
     );
 
 __PACKAGE__->table('pressure_classes');
