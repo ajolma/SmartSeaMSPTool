@@ -13,8 +13,6 @@ use parent qw/Plack::Component/;
 
 binmode STDERR, ":utf8";
 
-our $debug = 1;
-
 sub new {
     my ($class, $self) = @_;
     $self->{data_dir} .= '/' unless $self->{data_dir} =~ /\/$/;
@@ -72,14 +70,14 @@ sub call {
 
         my $polygon = Geo::OGR::Geometry->new(WKT => $parameters->{wkt});
         $polygon->Transform($ct) if $ct;
-        say STDERR "polygon = ",$polygon->As(Format => 'WKT') if $debug;
+        say STDERR "polygon = ",$polygon->As(Format => 'WKT') if $self->{debug};
         $report = $self->make_polygon_report($polygon);
 
     } elsif ($parameters->{easting} && $parameters->{northing}) {
 
         my $point = [$parameters->{easting},$parameters->{northing}];
         $point = $ct->TransformPoint(@$point) if $ct;
-        say STDERR "location = @$point" if $debug;
+        say STDERR "location = @$point" if $self->{debug};
         $report = $self->make_point_report($point, $dataset);
 
     } else {
@@ -98,7 +96,7 @@ sub make_point_report {
     my ($self, $point, $dataset) = @_;
 
     for my $key (sort keys %{$self->{schema}{storage}}) {
-        #say STDERR "$key => $self->{schema}{storage}{$key}" if $debug;
+        #say STDERR "$key => $self->{schema}{storage}{$key}" if $self->{debug};
     }
 
     if ($dataset && $dataset->id == 78) {

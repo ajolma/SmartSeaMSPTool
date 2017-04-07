@@ -11,23 +11,23 @@ use PDL::NiceSlice;
 
 my %attributes = (
     name            => { i => 1,  input => 'text',    size => 20 },
-    custodian       => { i => 2,  input => 'lookup',  class => 'Organization', allow_null => 1 },
+    custodian       => { i => 2,  input => 'lookup',  source => 'Organization', allow_null => 1 },
     contact         => { i => 3,  input => 'text',    size => 20 },
     descr           => { i => 4,  input => 'textarea' },
-    data_model      => { i => 5,  input => 'lookup',  class => 'DataModel', allow_null => 1 },
-    is_a_part_of    => { i => 6,  input => 'lookup',  class => 'Dataset',   allow_null => 1 },
-    is_derived_from => { i => 7,  input => 'lookup',  class => 'Dataset',   allow_null => 1 },
-    license         => { i => 8,  input => 'lookup',  class => 'License',   allow_null => 1 },
+    data_model      => { i => 5,  input => 'lookup',  source => 'DataModel', allow_null => 1 },
+    is_a_part_of    => { i => 6,  input => 'lookup',  source => 'Dataset',   allow_null => 1 },
+    is_derived_from => { i => 7,  input => 'lookup',  source => 'Dataset',   allow_null => 1 },
+    license         => { i => 8,  input => 'lookup',  source => 'License',   allow_null => 1 },
     attribution     => { i => 9,  input => 'text',    size => 40 },
     disclaimer      => { i => 10, input => 'text',    size => 80 },
-    path            => { i => 11, input => 'text',    size => 30 },
+    path            => { i => 11, input => 'text',    size => 30, empty_is_null => 1 },
     db_table        => { i => 12, input => 'text',    size => 30 },
-    min_value       => { i => 13, input => 'text',    size => 20 },
-    max_value       => { i => 14, input => 'text',    size => 20 },
-    data_type       => { i => 15, input => 'lookup',  class => 'NumberType', allow_null => 1 },
-    class_semantics => { i => 16, input => 'text',    size => 40 },
-    unit            => { i => 17, input => 'lookup',  class => 'Unit',       allow_null => 1 },
-    style           => { i => 18, input => 'object',  class => 'Style' }
+    min_value       => { i => 13, input => 'text',    size => 20, empty_is_null => 1 },
+    max_value       => { i => 14, input => 'text',    size => 20, empty_is_null => 1 },
+    data_type       => { i => 15, input => 'lookup',  source => 'NumberType', allow_null => 1 },
+    class_semantics => { i => 16, input => 'text',    size => 40, empty_is_null => 1 },
+    unit            => { i => 17, input => 'lookup',  source => 'Unit',       allow_null => 1 },
+    style           => { i => 18, input => 'object',  source => 'Style' }
     );
 
 __PACKAGE__->table('datasets');
@@ -49,7 +49,10 @@ sub attributes {
 }
 
 sub children_listers {
-    return { parts => [dataset => 2], derivatives => [dataset => 2] };
+    return {
+        parts => {source => 'Dataset', class_name => 'Datasets in this group'},
+        derivatives => {source => 'Dataset', class_name => 'Derivative datasets'}
+    };
 }
 
 sub for_child_form {

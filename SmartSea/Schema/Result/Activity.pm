@@ -24,7 +24,7 @@ sub attributes {
 }
 
 sub children_listers {
-    return { pressures => [pressure => 0] };
+    return { pressures => {source => 'Pressure', class_name => 'Pressures'} };
 }
 
 sub for_child_form {

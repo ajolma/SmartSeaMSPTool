@@ -9,10 +9,10 @@ use SmartSea::Core qw(:all);
 use SmartSea::HTML qw(:all);
 
 my %attributes = (
-    use         => { i => 1, input => 'ignore', class => 'Use' },
-    layer_class => { i => 2, input => 'ignore', class => 'LayerClass' },
-    rule_class  => { i => 3, input => 'lookup', class => 'RuleClass' },
-    style       => { i => 4, input => 'object', class => 'Style', required => 1 },
+    use         => { i => 1, input => 'ignore', source => 'Use' },
+    layer_class => { i => 2, input => 'ignore', source => 'LayerClass' },
+    rule_class  => { i => 3, input => 'lookup', source => 'RuleClass' },
+    style       => { i => 4, input => 'object', source => 'Style', required => 1 },
     descr       => { i => 5, input => 'text' }
     );
 
@@ -31,7 +31,7 @@ sub attributes {
 }
 
 sub children_listers {
-    return { rules => [rule => 0] };
+    return { rules => {source => 'Rule', class_name => 'Rules'} };
 }
 
 sub order_by {

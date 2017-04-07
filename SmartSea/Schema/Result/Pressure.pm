@@ -22,12 +22,8 @@ sub attributes {
     return {range => {input => 'text'}}; # todo: show range as real units
 }
 
-sub class_name {
-    return 'Pressure';
-}
-
 sub children_listers {
-    return { impacts => [impact => 0] };
+    return { impacts => {source => 'Impact', class_name => 'Impacts'} };
 }
 
 sub for_child_form {

@@ -20,8 +20,6 @@ use parent qw/Plack::Component/;
 
 binmode STDERR, ":utf8";
 
-our $debug = 1;
-
 sub new {
     my ($class, $self) = @_;
     $self->{data_dir} .= '/' unless $self->{data_dir} =~ /\/$/;
@@ -56,10 +54,10 @@ sub call {
     $self->{origin} = $env->{HTTP_ORIGIN};
     $self->{uri} =~ s/\/$//;
     my @path = split /\//, $self->{uri};
-    say STDERR "remote user is $user" if $debug;
-    say STDERR "cookie: $self->{cookie}" if $debug;
-    say STDERR "uri: $self->{uri}" if $debug;
-    say STDERR "path: @path ",scalar(@path) if $debug;
+    say STDERR "remote user is $user" if $self->{debug};
+    say STDERR "cookie: $self->{cookie}" if $self->{debug};
+    say STDERR "uri: $self->{uri}" if $self->{debug};
+    say STDERR "path: @path ",scalar(@path) if $self->{debug};
     my @base;
     while (@path) {
         my $step = shift @path;
@@ -70,7 +68,7 @@ sub call {
         return $self->legend() if $step =~ /^legend/;
         if ($step eq 'browser') {
             $self->{base_uri} = join('/', @base);
-            say STDERR "base_uri: $self->{base_uri}" if $debug;
+            say STDERR "base_uri: $self->{base_uri}" if $self->{debug};
             return $self->object_editor(\@path);
         }
     }
@@ -116,7 +114,7 @@ sub legend {
 
 sub plans {
     my ($self, $oids) = @_;
-    say STDERR "@$oids" if $debug;
+    say STDERR "@$oids" if $self->{debug};
     my @ids = split(/_/, shift @$oids // '');
     my $plan_id = shift @ids;
     my $use_id = shift @ids;
@@ -325,10 +323,10 @@ sub object_editor {
     for my $p (sort keys %parameters) {
         if ($p eq 'request') {
             for my $r (sort keys %{$parameters{$p}}) {
-                say STDERR "request => $r" if $debug;
+                say STDERR "request => $r" if $self->{debug};
             }
         } else {
-            say STDERR "$p => ".(defined($parameters{$p})?$parameters{$p}:'undef') if $debug;
+            say STDERR "$p => ".(defined($parameters{$p})?$parameters{$p}:'undef') if $self->{debug};
         }
     }
 
@@ -379,7 +377,7 @@ sub object_editor {
             } else {
                 my @body;
                 my $error = $obj->create($oids, \%parameters);
-                push @body, [p => {style => 'color:red'}, $error] if $@;
+                push @body, [p => {style => 'color:red'}, $error] if $error;
                 push @body, a(link => 'All classes', url => $self->{base_uri});
                 $obj = SmartSea::Object->new({oid => $oids->[0], url => $self->{base_uri}}, $self);
                 push @body, [ul => [li => $obj->li($oids, 0)]];
@@ -539,14 +537,14 @@ sub pressure_table {
             #say STDERR "key = $key, value = $value";
             if (exists($attrs{$key})) {
                 if ($attrs{$key} ne $value) {
-                    say STDERR "change $key from $attrs{$key} to $value" if $debug;
+                    say STDERR "change $key from $attrs{$key} to $value" if $self->{debug};
                     my $obj = $edits->single(\%single);
                     eval {
                         $obj->update(\%params);
                     };
                 }
             } else {
-                say STDERR "insert $key as $value" if $debug;
+                say STDERR "insert $key as $value" if $self->{debug};
                 eval {
                     $edits->create(\%params);
                 };

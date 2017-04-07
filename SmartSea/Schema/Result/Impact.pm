@@ -7,8 +7,8 @@ use Scalar::Util 'blessed';
 use SmartSea::HTML qw(:all);
 
 my %attributes = (
-    pressure            => { i => 1, input => 'ignore', class => 'Pressure' },
-    ecosystem_component => { i => 2, input => 'lookup', class => 'EcosystemComponent' },
+    pressure            => { i => 1, input => 'ignore', source => 'Pressure' },
+    ecosystem_component => { i => 2, input => 'lookup', source => 'EcosystemComponent' },
     strength            => { i => 3, input => 'text', size => 10 },
     belief              => { i => 4, input => 'text', size => 10 },
     );

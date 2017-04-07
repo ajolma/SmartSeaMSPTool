@@ -161,9 +161,9 @@ sub widgets {
             if (ref $a->{objs} eq 'ARRAY') {
                 $objs = $a->{objs};
             } elsif ($a->{objs}) {
-                $objs = [$schema->resultset($a->{class})->search($a->{objs})];
+                $objs = [$schema->resultset($a->{source})->search($a->{objs})];
             } else {
-                $objs = [$schema->resultset($a->{class})->all];
+                $objs = [$schema->resultset($a->{source})->all];
             }
             my $id;
             if ($values->{$key}) {
@@ -198,7 +198,7 @@ sub widgets {
             unless ($a->{required}) {
                 push @form, [ p => checkbox(
                                   name => $key.'_is',
-                                  visual => "Define ".$a->{class},
+                                  visual => "Define ".$a->{source},
                                   checked => $values->{$key},
                                   id => 'style_cb' )
                 ];
@@ -223,7 +223,7 @@ END_CODE
             if ($values->{$key}) {
                 @style = $values->{$key}->inputs($values, $schema);
             } else {
-                my $class = 'SmartSea::Schema::Result::'.$a->{class};
+                my $class = 'SmartSea::Schema::Result::'.$a->{source};
                 @style = $class->inputs($values, $schema);
             }
             push @form, [div => {id=>'style'}, @style];

@@ -10,29 +10,27 @@ use SmartSea::HTML qw(:all);
 
 binmode STDERR, ":utf8";
 
-our $debug = 2;
-
-# in args give oid or lc_class, and possibly object or id
+# in args give oid or source, and possibly object or id
 sub new {
     my ($class, $args, $args2) = @_;
-    my $self = {};
-    for my $key (qw/schema url edit dbname user pass data_dir/) {
+    my $self = {class_name => $args->{class_name}};
+    for my $key (qw/schema url edit dbname user pass data_dir debug/) {
         $self->{$key} = $args->{$key} // $args2->{$key};
     }
-    my $oid = $args->{oid};
-    my ($lc_class, $id);
-    if ($oid) {
-        ($lc_class, $id) = split /:/, $oid;
-        say STDERR "split $oid => $lc_class,",(defined $id ? $id : 'undef') if $debug;
+    if ($args->{oid}) {
+        my $oid = $args->{oid};
+        my ($source, $id) = split /:/, $oid;
+        $args->{id} = $id if defined $id;
+        say STDERR "split $oid => $source,",(defined $id ? $id : 'undef') if $self->{debug};
+        $source = singular($source);
+        $source =~ s/^(\w)/uc($1)/e;
+        $source =~ s/_(\w)/uc($1)/e;
+        $source =~ s/(\d\w)/uc($1)/e;
+        $self->{source} = $source;
+    } elsif ($args->{source}) {
+        $self->{source} = $args->{source};
     }
-    $lc_class //= $args->{lc_class};
-    $lc_class = singular($lc_class);
-    $self->{lc_class} = $lc_class;
-    $lc_class =~ s/^(\w)/uc($1)/e;
-    $lc_class =~ s/_(\w)/uc($1)/e;
-    $lc_class =~ s/(\d\w)/uc($1)/e;
-    $self->{source} = $lc_class;
-    $self->{class} = 'SmartSea::Schema::Result::'.$lc_class;
+    $self->{class} = 'SmartSea::Schema::Result::'.$self->{source};
     eval {
         $self->{rs} = $self->{schema}->resultset($self->{source});
         if ($args->{object}) {
@@ -50,13 +48,12 @@ sub new {
             #}
             #$self->{object} = $self->{rs}->single(\%pk);
 
-            $id //= $args->{id};
-            if ($id) {
+            if ($args->{id}) {
 
                 # special case for rules, which have pk = id,cookie
                 # prefer cookie = default, unless cookie given in args
-                if ($lc_class eq 'Rule') {
-                    for my $rule ($self->{rs}->search({id => $id})) {
+                if ($self->{source} eq 'Rule') {
+                    for my $rule ($self->{rs}->search({id => $args->{id}})) {
                         if ($args->{cookie} && $rule->cookie ne DEFAULT) {
                             $self->{object} = $rule;
                             last;
@@ -64,7 +61,7 @@ sub new {
                         $self->{object} = $rule;
                     }
                 } else {
-                    $self->{object} = $self->{rs}->single({id => $id});
+                    $self->{object} = $self->{rs}->single({id => $args->{id}});
                 }
             
             }
@@ -75,11 +72,6 @@ sub new {
         return undef;
     }
     bless $self, $class;
-}
-
-sub set_class_name {
-    my ($self, $name) = @_;
-    $self->{class_name} = $name;
 }
 
 sub class_name {
@@ -99,7 +91,15 @@ sub attributes {
 
 sub create {
     my ($self, $oids, $parameters) = @_;
-    my $parent = SmartSea::Object->new({oid => $oids->[$#$oids-1]}, $self);
+    my $oids_index = $#$oids;
+    unless ($oids_index > 0) {
+        my $error = "No parent given for $self->{source}.";
+        say STDERR $error;
+        return $error;
+    }
+    my $parent = SmartSea::Object->new({oid => $oids->[$oids_index-1]}, $self);
+    my %args = (source => $parent->{class}->change_baby($self->{source}, $parameters));
+    $self = SmartSea::Object->new(\%args, $self);
     my $col_data = $self->{rs}->col_data_for_create($parent->{object}, $parameters);
     eval {
         $self->{rs}->create($col_data);
@@ -123,20 +123,20 @@ sub save {
         # this can be an aggregate object but not a composed object
         
         if ($self->{rs}->can('col_data_for_create')) {
-            say STDERR "parent oid = $oids->[$oids_index-1]" if $debug;
+            say STDERR "parent oid = $oids->[$oids_index-1]" if $self->{debug};
             my $parent = SmartSea::Object->new({oid => $oids->[$oids_index-1]}, $self);
             $col_data = $self->{rs}->col_data_for_create($parent->{object});
         }
-        for my $class_of_child (keys %$attributes) {
-            next unless $attributes->{$class_of_child}{input} eq 'object';
-            unless ($parameters->{$class_of_child.'_is'}) {
-                $col_data->{$class_of_child} = undef;
+        for my $attr (keys %$attributes) {
+            next unless $attributes->{$attr}{input} eq 'object';
+            unless ($parameters->{$attr.'_is'}) {
+                $col_data->{$attr} = undef;
                 next;
             }
-            my $child = SmartSea::Object->new({lc_class => $class_of_child}, $self);
+            my $child = SmartSea::Object->new({source => $attributes->{$attr}{source}}, $self);
             # how to consume child parameters and possibly know them from our parameters?
             $child->save($oids, $oids_index, $parameters);
-            $col_data->{$class_of_child} = $child->{object}->id;
+            $col_data->{$attr} = $child->{object}->id;
         }
         for my $col (keys %$attributes) {
             next if $attributes->{$col}{input} eq 'object';
@@ -150,7 +150,7 @@ sub save {
             return $error if $error;
         }
         eval {
-            say STDERR "create $self->{source}" if $debug;
+            say STDERR "create $self->{source}" if $self->{debug};
             $self->{object} = $self->{rs}->create($col_data); # or add_to_x??
         };
         say STDERR "Error: $@" if $@;
@@ -162,22 +162,22 @@ sub save {
     }
 
     my %delete;
-    for my $class_of_child (keys %$attributes) {
-        next unless $attributes->{$class_of_child}{input} eq 'object';
-        if ($parameters->{$class_of_child.'_is'}) {
-            unless (my $child = $self->{object}->$class_of_child) {
-                $child = SmartSea::Object->new({lc_class => $class_of_child}, $self);
+    for my $attr (keys %$attributes) {
+        next unless $attributes->{$attr}{input} eq 'object';
+        if ($parameters->{$attr.'_is'}) {
+            unless (my $child = $self->{object}->$attr) {
+                $child = SmartSea::Object->new({source => $attributes->{$attr}{source}}, $self);
                 # how to consume child parameters and possibly know them from our parameters?
                 $child->save($oids, $oids_index, $parameters);
-                $col_data->{$class_of_child} = $child->{object}->id;
+                $col_data->{$attr} = $child->{object}->id;
             } else {
-                $child = SmartSea::Object->new({lc_class => $class_of_child, object => $child}, $self);
+                $child = SmartSea::Object->new({source => $attributes->{$attr}{source}, object => $child}, $self);
                 $child->save($oids, $oids_index, $parameters);
             }
         } else {
-            $col_data->{$class_of_child} = undef;
-            if (my $child = $self->{object}->$class_of_child) {
-                $delete{$class_of_child} = $child; # todo: make child SmartSea::Object
+            $col_data->{$attr} = undef;
+            if (my $child = $self->{object}->$attr) {
+                $delete{$attr} = $child; # todo: make child SmartSea::Object
             }
         }
     }
@@ -186,6 +186,7 @@ sub save {
         next if $attributes->{$col}{input} eq 'object';
         next if $attributes->{$col}{input} eq 'ignore';
         next unless exists $parameters->{$col};
+        # todo: $parameters->{$col} may be undef?
         next if $parameters->{$col} eq '' && $attributes->{$col}{empty_is_default};
         $col_data->{$col} = $parameters->{$col} if exists $parameters->{$col};
         $col_data->{$col} = undef if $attributes->{$col}{empty_is_null} && $col_data->{$col} eq '';
@@ -197,9 +198,9 @@ sub save {
     }
 
     eval {
-        say STDERR "update $self->{source} ",$self->{object}->id if $debug;
+        say STDERR "update $self->{source} ",$self->{object}->id if $self->{debug};
         for my $col (sort keys %$col_data) {
-            say STDERR "  $col => ",(defined $col_data->{$col} ? $col_data->{$col} : 'undef') if $debug > 1;
+            say STDERR "  $col => ",(defined $col_data->{$col} ? $col_data->{$col} : 'undef') if $self->{debug} > 1;
         }
         $self->{object}->update($col_data);
     };
@@ -225,19 +226,19 @@ sub delete {
         return "$self->{source} is non-editable";
     }
     my %delete;
-    for my $class_of_child (keys %$attributes) {
-        if ($attributes->{$class_of_child}{input} eq 'object') {
-            my $child = $self->{object}->$class_of_child;
+    for my $attr (keys %$attributes) {
+        if ($attributes->{$attr}{input} eq 'object') {
+            my $child = $self->{object}->$attr;
             next unless $child;
-            $delete{$class_of_child} = $child->id;
+            $delete{$attributes->{$attr}{source}} = $child->id;
         }
     }
     eval {
         $self->{object}->delete;
     };
     say STDERR "Error: $@" if $@;
-    for my $class_of_child (keys %delete) {
-        my %args = (lc_class => $class_of_child, id => $delete{$class_of_child});
+    for my $source (keys %delete) {
+        my %args = (source => $source, id => $delete{$source});
         my $child = SmartSea::Object->new(\%args, $self);
         $child->delete;
     }
@@ -250,6 +251,15 @@ sub all {
     # todo: use self->rs and methods in it below
     my $order_by = $self->{class}->can('order_by') ? $self->{class}->order_by : {-asc => 'name'};
     return [$self->{rs}->search(undef, {order_by => $order_by})->all];
+}
+
+# returns a hash of special attribute names => hash
+# the attribute name is a name of a class method
+# the hash has keys that are suitable for arg of new
+sub children_listers {
+    my ($self) = @_;
+    return $self->{class}->children_listers if $self->{class}->can('children_listers');
+    return {};
 }
 
 sub li {
@@ -268,7 +278,7 @@ sub li {
     my $object = $self->{object};
     #say STDERR "object ",$object->id;
 
-    my $url = $self->{url}.'/'.$self->{lc_class};
+    my $url = $self->{url}.'/'.lc($self->{source});
 
     my @content = a(link => "Show all ".plural($self->class_name(undef, 'list')), url => plural($url));
     $url .= ':'.$object->id;
@@ -277,8 +287,7 @@ sub li {
     }
     
     my @li = ([li => "id: ".$object->id], [li => "name: ".$object->name]);
-    my $children_listers;
-    $children_listers = $object->children_listers if $object->can('children_listers');
+    my $children_listers = $self->children_listers;
     # simple attributes:
     for my $a (sort keys %$attributes) {
         next if $a eq 'name';
@@ -306,26 +315,17 @@ sub li {
     # open - there is $oids->[$oids_index], it opens an object, whose id is in what the method returns - or 
     # closed - otherwise
     # the method can be built-in (0), in result (1) or in result_set (2)
+    my $next = $oids->[$oids_index+1];
     for my $lister (sort keys %$children_listers) {
-        my ($class_of_child, $lister_type, $editable) = @{$children_listers->{$lister}};
-        say STDERR "class_of_child = $class_of_child, oid = ",($oids->[$oids_index+1] // 'undef') if $debug;
-        $editable = 1 if !defined $editable; # todo make this more sensible
-        $editable = $editable && $self->{edit};
-        my %args = (url => $url, lc_class => $class_of_child, edit => $editable);
-        $args{oid} = $oids->[$oids_index+1] 
-            if defined $oids->[$oids_index+1] && $oids->[$oids_index+1] =~ /$class_of_child/;
-        my $child = SmartSea::Object->new(\%args, $self);
-        my $children;
-        if ($lister_type == 2) {
-            $children = [$self->{rs}->$lister($object)];
-            my $name = $lister;
-            $name =~ s/^(\w)/uc($1)/e;
-            $child->set_class_name($name);
-        } elsif ($lister_type) {
-            $children = [$object->$lister($oids)];
-        } else {
-            $children = [$object->$lister()];
+        my %args = %{$children_listers->{$lister}};
+        say STDERR "source = $args{source}, oid = ",($next // 'undef') if $self->{debug};
+        $args{url} = $url;
+        if (defined $next) {
+            my $lc = lc($args{source});
+            $args{oid} = $next if $next =~ /$lc/;
         }
+        my $child = SmartSea::Object->new(\%args, $self);
+        my $children = [$object->$lister()];
         my $child_is_open = 0;
         if ($child->{object}) {
             for my $has_child (@$children) {
@@ -335,7 +335,7 @@ sub li {
                 }
             }
         }
-        say STDERR "child is open? $child_is_open" if $debug;
+        say STDERR "child is open? $child_is_open" if $self->{debug};
         if ($child_is_open) {
             push @li, [li => $child->li($oids, $oids_index+1)];
         } else {
@@ -351,7 +351,7 @@ sub li {
 sub item_class {
     my ($self, $parent, $children, $opt) = @_;
     $children = $self->all() unless $children;
-    my $url = $self->{url}.'/'.$self->{lc_class};
+    my $url = $self->{url}.'/'.lc($self->{source});
     my $editable = $self->{edit};
         
     my @li;
@@ -376,14 +376,13 @@ sub item_class {
         }
         if ($self->{source} eq 'Dataset') {
             my @p;
-            my $children_listers;
-            $children_listers = $obj->children_listers if $obj->can('children_listers');
+            my $children_listers = $self->children_listers;
             for my $lister (sort keys %$children_listers) {
-                my ($class_of_child, $lister_type, $editable) = @{$children_listers->{$lister}};
                 my @parts = $obj->$lister;
                 if (@parts) {
-                    my $p = SmartSea::Object->new({lc_class => $class_of_child, edit => 0}, $self);
-                    $p->set_class_name($lister);
+                    my %args = %{$children_listers->{$lister}};
+                    $args{edit} = 0;
+                    my $p = SmartSea::Object->new(\%args, $self);
                     push @p, $p->item_class($self, \@parts);
                 }
             }
@@ -428,9 +427,13 @@ sub for_child_form {
 
 sub form {
     my ($self, $oids, $oids_index, $parameters) = @_;
-    say STDERR "form for $self->{source} (@$oids) $oids_index" if $debug;
+    say STDERR "form for $self->{source} (@$oids) $oids_index" if $self->{debug};
 
     my $parent = $oids_index > 0 ? SmartSea::Object->new({oid => $oids->[$oids_index-1]}, $self) : undef;
+
+    # is this ok?
+    return unless $parent && $parent->{class}->need_form_for_child($self->{class});
+    say STDERR "form is needed" if $self->{debug};
 
     my $attributes = $self->attributes($parent);
     return unless $attributes;
@@ -472,7 +475,7 @@ sub form {
         push @widgets, hidden(id => $self->{object}->id); # should be in url...
         push @widgets, hidden(source => $self->{source});
     } else {
-        my $what = title($attributes, $col_data, $self->{schema});
+        my $what = $self->title($attributes, $col_data);
         @doing = ("Creating $what".$self->class_name($parent)," for ");
         my %from_upstream; # simple data from parent/upstream objects
         for (my $oid = 0; $oid < @$oids-1; ++$oid) {
@@ -483,7 +486,7 @@ sub form {
                 next if defined $col_data->{$key};
                 #next unless $obj->{object}->can($key);
                 next unless $obj->{object}->attributes->{$key};
-                say STDERR "getting $key from upstream $oids->[$oid]" if $debug;
+                say STDERR "getting $key from upstream $oids->[$oid]" if $self->{debug};
                 $from_upstream{$key} = $obj->{object}->$key;
             }
         }
@@ -491,7 +494,7 @@ sub form {
         for my $key (keys %$attributes) {
             next if defined $parameters->{$key};
             next unless defined $from_upstream{$key};
-            say STDERR "$key => $from_upstream{$key} is from upstream" if $debug;
+            say STDERR "$key => $from_upstream{$key} is from upstream" if $self->{debug};
             $has_upstream = 1;
             $parameters->{$key} = $from_upstream{$key};
         }
@@ -509,13 +512,13 @@ sub form {
 }
 
 sub title {
-    my ($attributes, $parameters, $schema) = @_;
+    my ($self, $attributes, $parameters) = @_;
     for my $key (keys %$attributes) {
         my $a = $attributes->{$key};
         next unless $a->{input} eq 'ignore';
         next if $key =~ /2/; # hack to select layer_class from parameters
-        say STDERR "$key $a->{class} $parameters->{$key}" if $debug;
-        my $obj = $schema->resultset($a->{class})->single({id => $parameters->{$key}});
+        say STDERR "$key $a->{source} $parameters->{$key}" if $self->{debug};
+        my $obj = $self->{schema}->resultset($a->{source})->single({id => $parameters->{$key}});
         return $obj->name.' ' if $obj;
     }
     return '';

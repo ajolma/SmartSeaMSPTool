@@ -11,14 +11,14 @@ use SmartSea::HTML qw(:all);
 use SmartSea::Layer;
 
 my %attributes = (
-    #layer =>        { i => 1,  input => 'lookup', class => 'Layer',   allow_null => 0 },
-    r_layer =>      { i => 7,  input => 'lookup', class => 'Layer',   allow_null => 1 },
-    r_dataset =>    { i => 8,  input => 'lookup', class => 'Dataset', allow_null => 1, objs => {path => {'!=',undef}} },
-    op =>           { i => 9,  input => 'lookup', class => 'Op'  },
+    #layer =>        { i => 1,  input => 'lookup', source => 'Layer',   allow_null => 0 },
+    r_layer =>      { i => 7,  input => 'lookup', source => 'Layer',   allow_null => 1 },
+    r_dataset =>    { i => 8,  input => 'lookup', source => 'Dataset', allow_null => 1, objs => {path => {'!=',undef}} },
+    op =>           { i => 9,  input => 'lookup', source => 'Op'  },
     value =>        { i => 10, input => 'text', type => 'double', empty_is_default => 1 },
     min_value =>    { i => 11, input => 'text', type => 'double', empty_is_default => 1 },
     max_value =>    { i => 12, input => 'text', type => 'double', empty_is_default => 1 },
-    value_type =>   { i => 14, input => 'lookup', class => 'NumberType' },
+    value_type =>   { i => 14, input => 'lookup', source => 'NumberType' },
     value_at_min => { i => 15, input => 'text', type => 'double', empty_is_default => 1 },
     value_at_max => { i => 16, input => 'text', type => 'double', empty_is_default => 1 },
     weight =>       { i => 17, input => 'text', type => 'double', empty_is_default => 1 }

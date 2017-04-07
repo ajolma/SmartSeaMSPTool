@@ -21,7 +21,7 @@ sub attributes {
 }
 
 sub children_listers {
-    return {activities => [activity => 0]};
+    return {activities => {source => 'Activity', class_name => 'Activities'}};
 }
 
 sub for_child_form {

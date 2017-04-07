@@ -33,7 +33,10 @@ sub long_name {
 }
 
 sub children_listers {
-    return {layers => [layer => 0], list_activities => [activity => 0, 0]};
+    return {
+        layers => {source => 'Layer', class_name => 'Layers'}, 
+        activities => {source => 'Activity', class_name => 'Activities', edit => 0}
+    };
 }
 
 sub for_child_form {
@@ -52,7 +55,7 @@ sub for_child_form {
     }
 }
 
-sub list_activities {
+sub activities {
     my ($self) = @_;
     return $self->use_class->activities;
 }

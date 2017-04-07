@@ -111,7 +111,7 @@ sub process {
     }
 
     my $debug = $params->{debug};
-     
+
     my @t = $tile->tile;
     my @pw = $tile->projwin;
     
