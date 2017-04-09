@@ -25,19 +25,24 @@ sub new {
     $self->{data_dir} .= '/' unless $self->{data_dir} =~ /\/$/;
     $self->{images} .= '/' unless $self->{images} =~ /\/$/;
     $self = Plack::Component->new($self);
-    my $dsn = "dbi:Pg:dbname=$self->{dbname}";
-    $self->{schema} = SmartSea::Schema->connect(
-        $dsn, 
-        $self->{user}, 
-        $self->{pass}, 
-        { on_connect_do => ['SET search_path TO tool,data,public'] });
+    unless ($self->{schema}) {
+        my $dsn = "dbi:Pg:dbname=$self->{dbname}";
+        $self->{schema} = SmartSea::Schema->connect(
+            $dsn,
+            $self->{user},
+            $self->{pass},
+            { on_connect_do => ['SET search_path TO tool,data,public'] });
+    }
+    $self->{sequences} = 1 unless defined $self->{sequences};
     return bless $self, $class;
 }
 
 sub call {
     my ($self, $env) = @_;
-    for my $key (sort keys %$env) {
-        #say STDERR "$key => $env->{$key}";
+    if ($self->{debug} > 2) {
+        for my $key (sort keys %$env) {
+            say STDERR "$key => $env->{$key}";
+        }
     }
     my $ret = common_responses({}, $env);
     return $ret if $ret;
@@ -51,13 +56,14 @@ sub call {
     $self->{cookie} = $cookies->{SmartSea} // DEFAULT;
     $self->{parameters} = $request->parameters;
     $self->{uri} = $env->{REQUEST_URI};
+    $self->{method} = $env->{REQUEST_METHOD}; # GET, PUT, POST, DELETE
     $self->{origin} = $env->{HTTP_ORIGIN};
     $self->{uri} =~ s/\/$//;
     my @path = split /\//, $self->{uri};
     say STDERR "remote user is $user" if $self->{debug};
     say STDERR "cookie: $self->{cookie}" if $self->{debug};
     say STDERR "uri: $self->{uri}" if $self->{debug};
-    say STDERR "path: @path ",scalar(@path) if $self->{debug};
+    say STDERR "path: @path, ",scalar(@path)," items" if $self->{debug};
     my @base;
     while (@path) {
         my $step = shift @path;
@@ -88,6 +94,10 @@ sub call {
     );
     return html200({}, SmartSea::HTML->new(html => [body => [ul => \@l]])->html);
 }
+
+# todo: sub rest
+# which responds to url, method
+# how to get the base_uri?
 
 sub legend {
     my ($self, $oids) = @_;
@@ -252,18 +262,19 @@ sub object_editor {
     #         defaults => parameters will be set to the value unless in self->parameters
     # 'NULL' parameters will be converted to undef, 
 
-    my $config = {};
     # known requests
-    $config->{create} //= 'Create';
-    $config->{add} //= 'Add';
-    $config->{delete} //= 'Delete';
-    $config->{remove} //= 'Remove';
-    $config->{store} //= 'Store';
-    $config->{save} //= 'Save';
-    $config->{modify} //= 'Modify';
-    $config->{update} //= 'Update';
-    $config->{compute} //= 'Compute';
-
+    my $config = {
+        create => 'Create',
+        add => 'Add',
+        delete => 'Delete',
+        remove => 'Remove',
+        store => 'Store',
+        save => 'Save',
+        modify => 'Modify',
+        update => 'Update',
+        compute => 'Compute',
+    };
+        
     my %parameters; # {request}{$request} = 1, key => value
 
     my %sources = map {$_ => 1} $self->{schema}->sources;
@@ -400,7 +411,7 @@ sub object_editor {
             return html200({}, SmartSea::HTML->new(html => [body => @body])->html);
         }
         
-    } elsif ($parameters{request}{store} or $parameters{request}{save}) {
+    } elsif ($parameters{request}{store} or $parameters{request}{save} or $parameters{request}{create}) {
         my %args = (oid => $oids->[$#$oids], url => $self->{base_uri}, id => $parameters{id});
         my $obj = SmartSea::Object->new(\%args, $self);
         if ($obj) {

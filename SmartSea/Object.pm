@@ -3,6 +3,7 @@ use strict;
 use warnings;
 use 5.010000; # say // and //=
 use Carp;
+use HTML::Entities;
 use Encode qw(decode encode);
 use JSON;
 use SmartSea::Core qw(:all);
@@ -14,7 +15,7 @@ binmode STDERR, ":utf8";
 sub new {
     my ($class, $args, $args2) = @_;
     my $self = {class_name => $args->{class_name}};
-    for my $key (qw/schema url edit dbname user pass data_dir debug/) {
+    for my $key (qw/schema url edit dbname user pass data_dir debug sequences/) {
         $self->{$key} = $args->{$key} // $args2->{$key};
     }
     if ($args->{oid}) {
@@ -134,7 +135,7 @@ sub save {
         if ($self->{rs}->can('col_data_for_create')) {
             say STDERR "parent oid = $oids->[$oids_index-1]" if $self->{debug};
             my $parent = SmartSea::Object->new({oid => $oids->[$oids_index-1]}, $self);
-            $col_data = $self->{rs}->col_data_for_create($parent->{object});
+            $col_data = $self->{rs}->col_data_for_create($parent->{object}, $parameters);
         }
         for my $attr (keys %$attributes) {
             next unless $attributes->{$attr}{input} eq 'object';
@@ -158,9 +159,14 @@ sub save {
             my $error = $self->{class}->is_ok($col_data);
             return $error if $error;
         }
+        $col_data->{id} = $parameters->{id} unless $self->{sequences};
         eval {
             say STDERR "create $self->{source}" if $self->{debug};
+            for my $col (sort keys %$col_data) {
+                say STDERR "  $col => ",(defined $col_data->{$col} ? $col_data->{$col} : 'undef') if $self->{debug} > 1;
+            }
             $self->{object} = $self->{rs}->create($col_data); # or add_to_x??
+            say STDERR "id of the created is ",$self->{object}->id if $self->{debug};
         };
         say STDERR "Error: $@" if $@;
 
@@ -228,19 +234,20 @@ sub save {
 # delete an object or remove the link
 sub delete {
     my ($self, $oids, $oids_index, $parameters) = @_;
-
-    my $parent = $oids_index > 0 ? SmartSea::Object->new({oid => $oids->[$oids_index-1]}, $self) : undef;
-
-    if ($parent) {
-        my $args = {
-            source => $parent->{class}->change_baby($self->{source}, $parameters), 
-            id => $parameters->{id}
-        };
-        $self = SmartSea::Object->new($args, $self);
+    if ($oids) {
+        my $parent = $oids_index > 0 ? SmartSea::Object->new({oid => $oids->[$oids_index-1]}, $self) : undef;
+        if ($parent) {
+            my $args = {
+                source => $parent->{class}->change_baby($self->{source}, $parameters), 
+                id => $parameters->{id}
+            };
+            $self = SmartSea::Object->new($args, $self);
+        }
     }
 
     unless ($self->{object}) {
-        return "there is no $self->{source} object";
+        say STDERR "Error: no $self->{source} object to delete";
+        return "You did not specify the $self->{source} object to delete.";
     }
     
     my $attributes = $self->attributes;
@@ -252,7 +259,6 @@ sub delete {
             $delete{$attributes->{$attr}{source}} = $child->id;
         }
     }
-    say STDERR "delete ",$self->{object};
     eval {
         $self->{object}->delete;
     };
@@ -304,7 +310,7 @@ sub li {
     $url .= ':'.$object->id;
     push @content, [1 => ' '], a(link => 'edit this one', url => $url.'?edit') if $self->{edit};
     
-    my @li = ([li => "id: ".$object->id], [li => "name: ".$object->name]);
+    my @li = ([li => "id: ".$object->id], [li => "name: ".encode_entities($object->name)]);
     my $children_listers = $self->children_listers;
     # simple attributes:
     for my $a (sort keys %$attributes) {
@@ -388,9 +394,10 @@ sub item_class {
         }
         if ($self->{edit}) {
             my $source = $obj->result_source->source_name;
-            my $name = $obj->{name};
+            my $name = '"'.$obj->{name}.'"';
             $name =~ s/'//g;
-            my $onclick = "return confirm('Are you sure you want to delete $source &quot;$name&quot;?')";
+            $name = encode_entities($name);
+            my $onclick = "return confirm('Are you sure you want to delete $source $name?')";
             my %attr = (name => $obj->id, value => 'Remove', onclick => $onclick);
             push @content, [1 => ' '], button(%attr); # to do: remove or delete?
         }

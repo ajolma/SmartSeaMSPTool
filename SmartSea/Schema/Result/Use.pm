@@ -35,6 +35,11 @@ sub children_listers {
     };
 }
 
+sub change_baby {
+    my ($class, $child_class, $parameters) = @_;
+    return $child_class;
+}
+
 sub for_child_form {
     my ($self, $lister, $children, $args) = @_;
     if ($lister eq 'layers') {

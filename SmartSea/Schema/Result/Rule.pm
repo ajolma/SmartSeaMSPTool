@@ -45,22 +45,24 @@ __PACKAGE__->belongs_to(value_type => 'SmartSea::Schema::Result::NumberType');
 sub attributes {
     my ($self, $parent) = @_;
     my %a = %attributes;
-    my $dataset = $self->r_dataset ? $self->r_dataset : undef;
-    my $value_semantics = $dataset ? $dataset->class_semantics : undef;
-    if ($value_semantics) {
-        my @objs;
-        my @values;
-        for my $item (split /; /, $value_semantics) {
-            my ($value, $semantics) = split / = /, $item;
-            push @objs, {id => $value, name => $semantics};
-            push @values, $value;
+    if (blessed($self)) {
+        my $dataset = $self->r_dataset ? $self->r_dataset : undef;
+        my $value_semantics = $dataset ? $dataset->class_semantics : undef;
+        if ($value_semantics) {
+            my @objs;
+            my @values;
+            for my $item (split /; /, $value_semantics) {
+                my ($value, $semantics) = split / = /, $item;
+                push @objs, {id => $value, name => $semantics};
+                push @values, $value;
+            }
+            $a{value} = {
+                i => 10,
+                input => 'lookup',
+                objs => \@objs,
+                values => \@values
+            };
         }
-        $a{value} = {
-            i => 10,
-            input => 'lookup',
-            objs => \@objs,
-            values => \@values
-        };
     }
     return \%a unless $parent;
     my $class = $parent->rule_class->name;

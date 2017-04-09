@@ -117,13 +117,14 @@ sub item {
     if ($arg{edit}) {
         #$url .= '?edit';
         push @i, ([1 => '  '], a(link => "edit", url => $uri."?edit")) if $value eq 'Delete';
+        my $ref = encode_entities($arg{ref});
         push @i, (
             [1 => '  '],
             [input => {
                 type => "submit", 
                 name => $id, 
                 value => $value,
-                onclick => "return confirm('Are you sure you want to ".lc($value)." $arg{ref}?')" 
+                onclick => "return confirm('Are you sure you want to ".lc($value)." $ref?')" 
              }]);
     }
     return \@i;
