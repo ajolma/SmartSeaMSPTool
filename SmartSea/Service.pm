@@ -67,10 +67,10 @@ sub call {
     while (@path) {
         my $step = shift @path;
         push @base, $step;
-        return $self->plans(\@path) if $step eq 'plans' || $step eq 'layers';
-        return $self->impact_network(\@path) if $step eq 'impact_network';
-        return $self->pressure_table(\@path) if $step eq 'pressure_table';
-        return $self->legend() if $step =~ /^legend/;
+        return $self->plans() if $step eq 'plans';
+        return $self->impact_network() if $step eq 'impact_network';
+        return $self->pressure_table() if $step eq 'pressure_table';
+        return $self->legend(\@path) if $step =~ /^legend/;
         if ($step eq 'browser') {
             $self->{base_uri} = join('/', @base);
             say STDERR "base_uri: $self->{base_uri}" if $self->{debug};
@@ -122,77 +122,18 @@ sub legend {
 }
 
 sub plans {
-    my ($self, $oids) = @_;
-    say STDERR "@$oids" if $self->{debug};
-    my @ids = split(/_/, shift @$oids // '');
-    my $plan_id = shift @ids;
-    my $use_id = shift @ids;
-    my $layer_id = shift @ids;
+    my ($self) = @_;
     my $schema = $self->{schema};
-    my @plans;
-    my $search = defined $plan_id ? {id => $plan_id}: undef;
-    for my $plan ($schema->resultset('Plan')->search($search, {order_by => {-desc => 'name'}})) {
-        my @uses;
-        my %data;
-        $search = defined $use_id ? {use => $use_id}: undef;
-        for my $use_class ($plan->use_classes($search, {order_by => 'id'})) {
-            my $use = $self->{schema}->
-                resultset('Use')->
-                single({plan => $plan->id, use_class => $use_class->id});
-            my @layers;
-            $search = defined $layer_id ? {layer => $layer_id}: undef;
-            for my $layer_class ($use->layer_classes($search, {order_by => {-desc => 'id'}})) {
-                my $layer = $self->{schema}->
-                    resultset('Layer')->
-                    single({use => $use->id, layer_class => $layer_class->id});
-                my @rules;
-                for my $rule (sort {$a->name cmp $b->name} $layer->rules({cookie => DEFAULT})) {
-                    push @rules, $rule->as_hashref_for_json;
-                    $data{$rule->r_dataset->id} = 1 if $rule->r_dataset;
-                }
-                push @layers, {
-                    name => $layer->layer_class->name,
-                    style => $layer->style->color_scale->name,
-                    id => $layer->layer_class->id, 
-                    use => $use->use_class->id,
-                    rule_class => $layer->rule_class->name,
-                    rules => \@rules};
-            }
-            push @uses, {name => $use_class->name, id => $use_class->id, plan => $plan->id, layers => \@layers};
-        }
-        push @plans, {name => $plan->name, id => $plan->id, uses => \@uses, data => \%data};
-    }
-    if (!defined $plan_id || $plan_id == 0) {
-        # make a "plan" from all real datasets
-        my @datasets;
-        for my $dataset ($schema->resultset('Dataset')->search(
-                             undef, 
-                             {order_by => {-asc => 'name'}})->all) 
-        {
-            next unless $dataset->path;
-            next unless $dataset->style;
-            next if defined $layer_id && $dataset->id != $layer_id;
-            my $range = '';
-            if (defined $dataset->style->min) {
-                my $u = '';
-                $u = ' '.$dataset->my_unit->name if $dataset->my_unit;
-                $range = ' ('.$dataset->style->min."$u..".$dataset->style->max."$u)";
-            }
-            push @datasets, {
-                name => $dataset->name,
-                provenance => $dataset->lineage,
-                descr => $dataset->descr,
-                style => $dataset->style->color_scale->name.$range,
-                id => $dataset->id, 
-                use => 0, 
-                rules => []};
-        }
-        push @plans, { 
+    my $plans = $schema->resultset('Plan')->array_of_trees;
+    push @$plans, { 
+        name => 'Data', 
+        id => 0, 
+        uses => [{
             name => 'Data', 
             id => 0, 
-            uses => [{name => 'Data', id => 0, plan => 0, layers => \@datasets}]};
-    }
-    #print STDERR Dumper \@plans;
+            plan => 0, 
+            layers => $schema->resultset('Dataset')->layers
+                 }]};
 
     # This is the first request made by the App, thus set the cookie
     # if there is not one. The cookie is only for the duration the
@@ -222,30 +163,15 @@ sub plans {
         say STDERR 'Error: '.$@ if $@;
 
     }
-    return json200($header, \@plans);
+    return json200($header, $plans);
 }
 
 sub impact_network {
     my $self = shift;
-
-    my %elements = (nodes => [], edges => []);
-
-    for my $activity ($self->{schema}->resultset('Activity')->all) {
-        push @{$elements{nodes}}, { data => { id => 'a'.$activity->id, name => $activity->name }};
-        for my $pressure_class ($activity->pressure_classes) {
-            push @{$elements{edges}}, { data => { 
-                source => 'a'.$activity->id, 
-                target => 'p'.$pressure_class->id }};
-            my $ap = $self->{schema}->resultset('Pressure')->
-                single({activity => $activity->id, pressure_class => $pressure_class->id});
-            for my $impacts ($ap->impacts) {
-            }
-        }
-    }
-    for my $pressure_class ($self->{schema}->resultset('PressureClass')->all) {
-        push @{$elements{nodes}}, { data => { id => 'p'.$pressure_class->id, name => $pressure_class->name }};
-    }
-
+    my @nodes;
+    my @edges;
+    $self->{schema}->resultset('Activity')->impact_network($self, \@nodes, \@edges);
+    my %elements = (nodes => \@nodes, edges => \@edges);
     return json200({}, \%elements);
 }
 
@@ -374,72 +300,62 @@ sub object_editor {
 
     return html200({}, SmartSea::HTML->new(html => [body => 'not allowed or error'])->html)
         unless $self->{edit};
+
+    my ($source, $id) = split /:/, $oids->[$#$oids];
+    $id //= $parameters{id};
+    my $obj = SmartSea::Object->new({source => $source, id => $id, url => $self->{base_uri}}, $self);
+    return http_status($header, 400) unless $obj;
     
     if ($parameters{request}{new} or $parameters{request}{add}) {
-        my $obj = SmartSea::Object->new({oid => $oids->[$#$oids], url => $self->{base_uri}}, $self);
-        if ($obj) {
-            my @form = $obj->form($oids, $#$oids, \%parameters);
-            if (@form) {
-                my $url = $self->{uri};
-                $url =~ s/\?.*$//;
-                my $form = [form => {action => $url, method => 'POST'}, @form];
-                return html200({}, SmartSea::HTML->new(html => [body => $form])->html);
-            } else {
-                my @body;
-                my $error = $obj->create($oids, \%parameters);
-                push @body, [p => {style => 'color:red'}, $error] if $error;
-                push @body, a(link => 'All classes', url => $self->{base_uri});
-                $obj = SmartSea::Object->new({oid => $oids->[0], url => $self->{base_uri}}, $self);
-                push @body, [ul => [li => $obj->li($oids, 0)]];
-                return html200({}, SmartSea::HTML->new(html => [body => \@body])->html);
-            }
+        my @form = $obj->form($oids, $#$oids, \%parameters);
+        if (@form) {
+            my $url = $self->{uri};
+            $url =~ s/\?.*$//;
+            my $form = [form => {action => $url, method => 'POST'}, @form];
+            return html200({}, SmartSea::HTML->new(html => [body => $form])->html);
+        } else {
+            my @body;
+            my $error = $obj->create($oids, \%parameters);
+            push @body, [p => {style => 'color:red'}, $error] if $error;
+            push @body, a(link => 'All classes', url => $self->{base_uri});
+            $obj = SmartSea::Object->new({oid => $oids->[0], url => $self->{base_uri}}, $self);
+            push @body, [ul => [li => $obj->li($oids, 0)]];
+            return html200({}, SmartSea::HTML->new(html => [body => \@body])->html);
         }
         
     } elsif ($parameters{request}{delete} or $parameters{request}{remove}) {
-        my %args = (oid => $oids->[$#$oids], url => $self->{base_uri}, id => $parameters{id});
-        my $obj = SmartSea::Object->new(\%args, $self);
+        my $error = $obj->delete($oids, $#$oids, \%parameters);
+        my @body;
+        push @body, [p => {style => 'color:red'}, $error] if $error;
+        $obj = SmartSea::Object->new({oid => $oids->[0], url => $self->{base_uri}}, $self);
         if ($obj) {
-            my $error = $obj->delete($oids, $#$oids, \%parameters);
-            my @body;
-            push @body, [p => {style => 'color:red'}, $error] if $error;
-            $obj = SmartSea::Object->new({oid => $oids->[0], url => $self->{base_uri}}, $self);
-            if ($obj) {
-                push @body, a(link => 'All classes', url => $self->{base_uri});
-                push @body, [ul => [li => $obj->li($oids, 0)]];
-            }
-            return html200({}, SmartSea::HTML->new(html => [body => @body])->html);
+            push @body, a(link => 'All classes', url => $self->{base_uri});
+            push @body, [ul => [li => $obj->li($oids, 0)]];
         }
+        return html200({}, SmartSea::HTML->new(html => [body => @body])->html);
         
     } elsif ($parameters{request}{store} or $parameters{request}{save} or $parameters{request}{create}) {
-        my %args = (oid => $oids->[$#$oids], url => $self->{base_uri}, id => $parameters{id});
-        my $obj = SmartSea::Object->new(\%args, $self);
-        if ($obj) {
-            my $error = $obj->save($oids, $#$oids, \%parameters);
-            if ($error) {
-                my $url = $self->{uri};
-                $url =~ s/\?.*$//;
-                my $form = [form => {action => $url, method => 'POST'}, $obj->form($oids, $#$oids, \%parameters)];
-                my @body = ([p => {style => 'color:red'}, $error], $form);
+        my $error = $obj->save($oids, $#$oids, \%parameters);
+        if ($error) {
+            my $url = $self->{uri};
+            $url =~ s/\?.*$//;
+            my $form = [form => {action => $url, method => 'POST'}, $obj->form($oids, $#$oids, \%parameters)];
+            my @body = ([p => {style => 'color:red'}, $error], $form);
+            return html200({}, SmartSea::HTML->new(html => [body => @body])->html);
+        } else {
+            $obj = SmartSea::Object->new({oid => $oids->[0], url => $self->{base_uri}}, $self);
+            if ($obj) {
+                my @body = a(link => 'All classes', url => $self->{base_uri});
+                push @body, [ul => [li => $obj->li($oids, 0)]];
                 return html200({}, SmartSea::HTML->new(html => [body => @body])->html);
-            } else {
-                $obj = SmartSea::Object->new({oid => $oids->[0], url => $self->{base_uri}}, $self);
-                if ($obj) {
-                    my @body = a(link => 'All classes', url => $self->{base_uri});
-                    push @body, [ul => [li => $obj->li($oids, 0)]];
-                    return html200({}, SmartSea::HTML->new(html => [body => @body])->html);
-                }
             }
         }
         
     } elsif ($parameters{request}{edit}) {
-        my %args = (oid => $oids->[$#$oids], url => $self->{base_uri}, id => $parameters{id});
-        my $obj = SmartSea::Object->new(\%args, $self);
-        if ($obj) {
-            my $url = $self->{uri};
-            $url =~ s/\?.*$//;
-            my $form = [form => {action => $url, method => 'POST'}, $obj->form($oids, $#$oids, \%parameters)];
-            return html200({}, SmartSea::HTML->new(html => [body => $form])->html);
-        }
+        my $url = $self->{uri};
+        $url =~ s/\?.*$//;
+        my $form = [form => {action => $url, method => 'POST'}, $obj->form($oids, $#$oids, \%parameters)];
+        return html200({}, SmartSea::HTML->new(html => [body => $form])->html);
         
     }
 
@@ -448,232 +364,16 @@ sub object_editor {
 }
 
 sub pressure_table {
-    my ($self, $x) = @_;
-    my %edits;
-    $edits{aps} = $self->{schema}->resultset('Pressure');
-    $edits{impacts} = $self->{schema}->resultset('Impact');
-    my $pressure_classes = $self->{schema}->resultset('PressureClass');
-    my %id;
-    my %pressure_classes;
-    my %cats;
-    for my $pressure_class ($pressure_classes->all) {
-        $pressure_classes{$pressure_class->name} = $pressure_class->ordr;
-        $id{pressure_classes}{$pressure_class->name} = $pressure_class->id;
-        $cats{$pressure_class->name} = $pressure_class->category->name;
-    }
-    my $activities = $self->{schema}->resultset('Activity');
-    my %activities;
-    my %name;
-    for my $activity ($activities->all) {
-        $activities{$activity->name} = $activity->ordr;
-        $id{activities}{$activity->name} = $activity->id;
-        $name{$activity->name} = $activity->name.'('.$activity->ordr.')';
-    }
-    my $components = $self->{schema}->resultset('EcosystemComponent');
-    my %components;
-    for my $component ($components->all) {
-        $components{$component->name} = $component->id;
-        $id{components}{$component->name} = $component->id;
-    }
-
-    for my $pressure_class ($pressure_classes->all) {
-        for my $activity ($activities->all) {
-            my $key = 'range_'.$pressure_class->id.'_'.$activity->id;
-            $name{$key} = $pressure_class->name.' '.$activity->name;
-
-            my $ap = $edits{aps}->single({pressure_class => $pressure_class->id, activity => $activity->id});
-            $name{$pressure_class->name}{$activity->name} = $activity->name; #.' '.$ap->id if $ap;
-        }
-    }
-
-    my %attrs;
-    my %ranges;
-    for my $ap ($edits{aps}->all) {
-        $ranges{$ap->pressure_class->name}{$ap->activity->name} = $ap->range;
-        my $key = 'range_'.$ap->pressure_class->id.'_'.$ap->activity->id;
-        $attrs{$key} = $ap->range;
-        $id{pressure}{$ap->pressure_class->name}{$ap->activity->name} = $ap->id;
-    }
-    my %impacts;
-    for my $impact ($edits{impacts}->all) {
-        my $ap = $impact->pressure;
-        my $p = $ap->pressure_class;
-        my $a = $ap->activity;
-        my $e = $impact->ecosystem_component;
-        my $name = $p->name.'+'.$a->name.' -> '.$e->name;
-        $impacts{$p->name}{$a->name}{$e->name} = [$impact->strength,$impact->belief];
-        my $key = 'strength_'.$ap->id.'_'.$e->id;
-        $attrs{$key} = $impact->strength;
-        $name{$key} = $name;
-        $key = 'belief_'.$ap->id.'_'.$e->id;
-        $attrs{$key} = $impact->belief;
-        $name{$key} = $name;
-    }
-    
-    #for my $key (sort $self->{parameters}->keys) {
-    #    say STDERR "$key $self->{parameters}{$key}";
-    #}
-
-    my @error = ();
-
-    my $submit = $self->{parameters}{submit} // '';
-    if ($submit eq 'Commit') {
-        for my $key ($self->{parameters}->keys) {
-            next if $key eq 'submit';
-            my $value = $self->{parameters}{$key};
-            my ($attr, $one, $two) = $key =~ /([a-w]+)_(\d+)_(\d+)/;
-
-            my %single;
-            my %params;
-            my $edits;
-            if ($attr eq 'range') {
-                next if $value eq '0';
-                %single = (pressure_class => $one, activity => $two);
-                %params = (pressure_class => $one, activity => $two, $attr => $value);
-                $edits = $edits{aps};
-            } else {
-                next if $value eq '-1';
-                %single = (pressure => $one, ecosystem_component => $two);
-                %params = (pressure => $one, ecosystem_component => $two, $attr => $value);
-                if (!exists($attrs{$key})) {
-                    if ($attr eq 'belief') {
-                        $params{strength} = 0;
-                    } else {
-                        $params{belief} = 0;
-                    }
-                }
-                $edits = $edits{impacts};
-            }
-            #say STDERR "key = $key, value = $value";
-            if (exists($attrs{$key})) {
-                if ($attrs{$key} ne $value) {
-                    say STDERR "change $key from $attrs{$key} to $value" if $self->{debug};
-                    my $obj = $edits->single(\%single);
-                    eval {
-                        $obj->update(\%params);
-                    };
-                }
-            } else {
-                say STDERR "insert $key as $value" if $self->{debug};
-                eval {
-                    $edits->create(\%params);
-                };
-            }
-
-            if ($@) {
-                # if not ok, signal error
-                push @error, (
-                    [p => 'Something went wrong!'], 
-                    [p => 'Error is: '.$@]
-                );
-                undef $@;
-            }
-
-        }
-
-        for my $ap ($edits{aps}->all) {
-            $ranges{$ap->pressure_class->name}{$ap->activity->name} = $ap->range;
-        }
-        for my $impact ($edits{impacts}->all) {
-            my $ap = $impact->pressure;
-            my $p = $ap->pressure_class;
-            my $a = $ap->activity;
-            my $e = $impact->ecosystem_component;
-            $impacts{$p->name}{$a->name}{$e->name} = [$impact->strength,$impact->belief];
-        }
-    }
-    
-    my @rows;
-
-    my @components = sort {$components{$a} <=> $components{$b}} keys %components;
-    my @headers = ();
-    my @tr = ([th => {colspan => 3}, '']);
-    for my $component (@components) {
-        push @tr, [th => {colspan => 2}, $component];
-    }
-    push @rows, [tr => [@tr]];
-
-    @headers = ('Pressure', 'Activity', 'Range');
-    for (@components) {
-        push @headers, qw/Impact Belief/;
-    }
-    @tr = ();
-    for my $h (@headers) {
-        push @tr, [th => $h];
-    }
-    push @rows, [tr => [@tr]];
-
-    my $c = 0;
-    my $cat = '';
-    for my $pressure_class (sort {$pressure_classes{$a} <=> $pressure_classes{$b}} keys %pressure_classes) {
-        next unless $pressure_classes{$pressure_class};
-        my @activities;
-        for my $activity (sort {$activities{$a} <=> $activities{$b}} keys %activities) {
-            next unless exists $ranges{$pressure_class}{$activity};
-            my $range = $ranges{$pressure_class}{$activity} // 0;
-            next if $range < 0;
-            push @activities, $activity;
-        }
-        my @td = ([td => {rowspan => $#activities+1}, $pressure_class]);
-        for my $activity (@activities) {
-            my $color = $c ? '#cccccc' : '#ffffff';
-            push @td, [td => {bgcolor=>$color}, $name{$pressure_class}{$activity}];
-
-            my $idp = $id{pressure_classes}{$pressure_class};
-            my $ida = $id{activities}{$activity};
-            my $idap = $id{pressure}{$pressure_class}{$activity};
-
-            my $range = $ranges{$pressure_class}{$activity} // 0;
-            $range = text_input(
-                name => 'range_'.$idp.'_'.$ida,
-                size => 1,
-                value => $range
-                ) if $self->{edit};
-            push @td, [td => {bgcolor=>$color}, $range];
-
-            $color = $c ? '#00ffff' : '#ffffff';
-            my $color2 = $c ? '#7fffd4' : '#ffffff';
-
-            for my $component (@components) {
-                my $idc = $id{components}{$component};
-                my $impact = $impacts{$pressure_class}{$activity}{$component} // [-1,-1];
-                $impact = [text_input(
-                               name => 'strength_'.$idap.'_'.$idc,
-                               size => 1,
-                               value => $impact->[0]
-                           ),
-                           text_input(
-                               name => 'belief_'.$idap.'_'.$idc,
-                               size => 1,
-                               value => $impact->[1]
-                           )] if $self->{edit};
-                push @td, ([td => {bgcolor=>$color}, $impact->[0]],[td => {bgcolor=>$color2}, $impact->[1]]);
-            }
-
-            if ($cat ne $cats{$pressure_class}) {
-                $cat = $cats{$pressure_class};
-                my @c = ([td => $cat]);
-                for (1..$#td) {
-                    push @c, [td => ''];
-                }
-                push @rows, [tr => \@c];
-            }
-
-            push @rows, [tr => [@td]];
-            @td = ();
-            $c = !$c; 
-        }
-    }
-
-    my @a = ([a => {href => $self->{uri}}, 'reload'],
-             [1 => "&nbsp;&nbsp;"]);
-    push @a, [input => {type => 'submit', name => 'submit', value => 'Commit'}] if $self->{edit};
-    push @a, [table => {border => 1}, \@rows];
-    push @a, [input => {type => 'submit', name => 'submit', value => 'Commit'}] if $self->{edit};
-    
-    my @body = (@error, [ form => {action => $self->{uri}, method => 'POST'}, \@a ]);
-
-    return html200({}, SmartSea::HTML->new(html => [body => \@body])->html);
+    my ($self) = @_;
+    my $body = $self->{schema}->resultset('Pressure')->table(
+        $self->{schema}->resultset('Impact'),
+        $self->{schema}->resultset('PressureClass'),
+        $self->{schema}->resultset('Activity'),
+        $self->{schema}->resultset('EcosystemComponent'),
+        $self->{parameters},
+        $self->{edit}
+        );
+    return html200({}, SmartSea::HTML->new(html => [body => $body])->html);
 }
 
 1;

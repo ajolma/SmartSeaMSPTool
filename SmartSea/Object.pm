@@ -19,17 +19,16 @@ sub new {
         $self->{$key} = $args->{$key} // $args2->{$key};
     }
     if ($args->{oid}) {
-        my $oid = $args->{oid};
-        my ($source, $id) = split /:/, $oid;
+        my ($source, $id) = split /:/, $args->{oid};
         $args->{id} = $id if defined $id;
-        $source = singular($source);
-        $source =~ s/^(\w)/uc($1)/e;
-        $source =~ s/_(\w)/uc($1)/e;
-        $source =~ s/(\d\w)/uc($1)/e;
         $self->{source} = $source;
     } elsif ($args->{source}) {
         $self->{source} = $args->{source};
     }
+    $self->{source} = singular($self->{source});
+    $self->{source} =~ s/^(\w)/uc($1)/e;
+    $self->{source} =~ s/_(\w)/uc($1)/e;
+    $self->{source} =~ s/(\d\w)/uc($1)/e;
     say STDERR "new $self->{source} object, id=",(defined $args->{id} ? $args->{id} : 'undef') if $self->{debug};
     $self->{class} = 'SmartSea::Schema::Result::'.$self->{source};
     eval {

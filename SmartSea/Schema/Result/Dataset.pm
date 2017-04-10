@@ -71,6 +71,14 @@ sub for_child_form {
     return hidden(is_derived_from => $self->id) if $lister eq 'derivatives';
 }
 
+sub lineage {
+    my $self = shift;
+    my $lineage = $self->name;
+    $lineage .= ' (a part of) '.$self->is_a_part_of->name if $self->is_a_part_of;
+    $lineage .= ' (derived from) '.$self->is_derived_from->name if $self->is_derived_from;
+    return $lineage;
+}
+
 sub my_unit {
     my $self = shift;
     return $self->unit if defined $self->unit;
