@@ -140,7 +140,7 @@ my $links = {
     use_class2activity => {classes => [qw/use_class activity/]}
 };
 
-$service->{debug} = 2;
+$service->{debug} = 0;
 
 # test create and delete of objects of all classes
 if (1) {for my $class (keys %$classes) {
@@ -255,7 +255,7 @@ sub create_object {
         }
     }
     my @attr = map {$_ => $attr{$_}} keys %attr;
-    say STDERR "POST $url/$class?create @attr";
+    #say STDERR "POST $url/$class?create @attr";
     return $cb->(POST "$url/$class?create", \@attr);
 }
 
