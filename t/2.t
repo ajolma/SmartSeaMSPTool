@@ -143,7 +143,7 @@ my $links = {
 $service->{debug} = 0;
 
 # test create and delete of objects of all classes
-for my $class (keys %$classes) {
+if (1) {for my $class (keys %$classes) {
     next if $classes->{$class}{embedded};
 
     test_psgi $app, sub {
@@ -176,22 +176,44 @@ for my $class (keys %$classes) {
         #$pp->pretty_print($dom);
         #print STDERR $dom->toString;
     };
-}
+}}
 
 # test links
 test_psgi $app, sub {
     my $cb = shift;
     
-    my $res = create_object($cb, 'dataset');
-    $res = create_object($cb, 'plan');
+    my $res = create_object($cb, 'dataset', {path => '1'});
+    $res = create_object($cb, 'dataset', {id => 2, name => 'test2', path => '2'});
+    #$res = $cb->(GET "/browser/datasets");
+    
+    #$res = create_object($cb, 'plan');
     #say STDERR $res->content;
     
-    my $parser = XML::LibXML->new(no_blanks => 1);
-    my $dom;
-    eval {
-        $dom = $parser->load_xml(string => $res->content);
-    };
-    ok(!$@, "create plan with extra dataset".$@);
+    $res = $cb->(POST "/browser/plan?create", [id => 1, name => 'test']);
+    #$res = $cb->(GET "/browser/plan:1");
+
+    $res = $cb->(POST "/browser/plan:1/plan2dataset_extra", [submit => 'Add', extra_dataset => 2]);
+
+    my ($n, $plan2dataset, $plan, $dataset);
+    $schema->tool->storage->dbh_do(
+        sub {
+            my ($storage, $dbh) = @_;
+            my $sth = $dbh->prepare("SELECT id,plan,dataset FROM plan2dataset_extra");
+            $sth->execute;
+            $n = 0;
+            while (my @a = $sth->fetchrow_array) {
+                ($plan2dataset, $plan, $dataset) = @a;
+                #say STDERR "Plan to Dataset: $id: $plan -> $dataset";
+                ++$n;
+            }
+        });
+    
+    #my $parser = XML::LibXML->new(no_blanks => 1);
+    #my $dom;
+    #eval {
+    #    $dom = $parser->load_xml(string => $res->content);
+    #};
+    ok($plan2dataset == 1 && $plan == 1 && $dataset == 2, "create plan to extra dataset link");
     #$pp->pretty_print($dom);
     #print STDERR $dom->toString;
 };
@@ -204,24 +226,30 @@ sub deps {
 }
 
 sub create_object {
-    my ($cb, $class) = @_;
+    my ($cb, $class, $attr) = @_;
     my $url = '/browser';
-    my @attr = (name => 'test', id => 1);
+    my %attr = (name => 'test', id => 1);
     for my $parent (deps($class, 'parents')) {
         create_object($cb, $parent->{class});
         $url .= '/'.$parent->{class}.':1';
     }
     for my $ref (deps($class, 'refs')) {
         create_object($cb, $ref->{class});
-        push @attr, ($ref->{col} => 1);
+        $attr{$ref->{col}} = 1;
     }
     for my $col (deps($class, 'cols')) {
-        push @attr, ($col->{col} => $col->{value});
+        $attr{$col->{col}} = $col->{value};
     }
     for my $part (deps($class, 'parts')) {
-        push @attr, ($part->{col}.'_is' => 1);
+        $attr{$part->{col}.'_is'} = 1;
     }
-    #say STDERR "POST $url/$class?create @attr";
+    if ($attr) { 
+        for my $key (keys %$attr) {
+            $attr{$key} = $attr->{$key};
+        }
+    }
+    my @attr = map {$_ => $attr{$_}} keys %attr;
+    say STDERR "POST $url/$class?create @attr";
     return $cb->(POST "$url/$class?create", \@attr);
 }
 

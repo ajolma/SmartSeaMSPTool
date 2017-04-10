@@ -34,7 +34,6 @@ sub children_listers {
 
 sub need_form_for_child {
     my ($class, $child_class) = @_;
-    say STDERR "need form for @_";
     return 0; # Use and Dataset are simple links
 }
 

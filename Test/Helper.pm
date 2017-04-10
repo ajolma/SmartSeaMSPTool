@@ -25,6 +25,14 @@ require Exporter;
         }
         return @s;
     }
+    sub data {
+        my $self = shift;
+        return $self->[0][0];
+    }
+    sub tool {
+        my $self = shift;
+        return $self->[1][0];
+    }
 }
 
 sub one_schema {
