@@ -140,7 +140,7 @@ my $links = {
     use_class2activity => {classes => [qw/use_class activity/]}
 };
 
-$service->{debug} = 0;
+$service->{debug} = 2;
 
 # test create and delete of objects of all classes
 if (1) {for my $class (keys %$classes) {
@@ -151,6 +151,7 @@ if (1) {for my $class (keys %$classes) {
 
         my $res = create_object($cb, $class);
         #say STDERR $res->content;
+        #pretty_print($res);
         
         my $parser = XML::LibXML->new(no_blanks => 1);
         my $dom;
@@ -184,39 +185,44 @@ test_psgi $app, sub {
     
     my $res = create_object($cb, 'dataset', {path => '1'});
     $res = create_object($cb, 'dataset', {id => 2, name => 'test2', path => '2'});
-    #$res = $cb->(GET "/browser/datasets");
-    
-    #$res = create_object($cb, 'plan');
-    #say STDERR $res->content;
-    
     $res = $cb->(POST "/browser/plan?create", [id => 1, name => 'test']);
-    #$res = $cb->(GET "/browser/plan:1");
-
     $res = $cb->(POST "/browser/plan:1/plan2dataset_extra", [submit => 'Add', extra_dataset => 2]);
 
-    my ($n, $plan2dataset, $plan, $dataset);
-    $schema->tool->storage->dbh_do(
-        sub {
-            my ($storage, $dbh) = @_;
-            my $sth = $dbh->prepare("SELECT id,plan,dataset FROM plan2dataset_extra");
-            $sth->execute;
-            $n = 0;
-            while (my @a = $sth->fetchrow_array) {
-                ($plan2dataset, $plan, $dataset) = @a;
-                #say STDERR "Plan to Dataset: $id: $plan -> $dataset";
-                ++$n;
-            }
-        });
+    my @all = select_all($schema, 'tool', 'id,plan,dataset', 'plan2dataset_extra');
     
-    #my $parser = XML::LibXML->new(no_blanks => 1);
-    #my $dom;
-    #eval {
-    #    $dom = $parser->load_xml(string => $res->content);
-    #};
-    ok($plan2dataset == 1 && $plan == 1 && $dataset == 2, "create plan to extra dataset link");
-    #$pp->pretty_print($dom);
-    #print STDERR $dom->toString;
+    my ($n, $plan2dataset, $plan, $dataset) = ($#all+1, @{$all[0]});
+    
+    ok($n == 1 && $plan2dataset == 1 && $plan == 1 && $dataset == 2, "create plan to extra dataset link");
+
+    $res = $cb->(POST "/browser/plan:1/plan2dataset_extra", [1 => 'Remove']);
+    #pretty_print($res);
+
+    @all = select_all($schema, 'tool', 'id,plan,dataset', 'plan2dataset_extra');
+
+    ok(@all == 0, "delete plan to extra dataset link");
+    
 };
+
+sub select_all {
+    my ($schema, $db, $cols, $class) = @_;
+    my @all;
+    $schema->$db->storage->dbh_do(sub {
+        my (undef, $dbh) = @_;
+        my $sth = $dbh->prepare("SELECT $cols FROM $class");
+        $sth->execute;
+        while (my @a = $sth->fetchrow_array) {
+            push @all, \@a;
+        }});
+    return @all;
+}
+
+sub pretty_print {
+    my $res = shift;
+    my $parser = XML::LibXML->new(no_blanks => 1);
+    my $dom = $parser->load_xml(string => $res->content);
+    $pp->pretty_print($dom);
+    print STDERR $dom->toString;
+}
 
 sub deps {
     my ($class, $dep) = @_;
