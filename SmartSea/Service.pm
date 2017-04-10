@@ -178,39 +178,13 @@ sub impact_network {
 sub object_editor {
     my ($self, $oids) = @_;
 
-    # oids is what's after the base in URI, 
-    # a list of object ids separated by / and possibly /new or ?edit in the end
-    # DBIx Class understands undef as NULL
-    # config: delete => value-in-the-delete-button (default is Delete)
-    #         store => value-in-the-store-button (default is Store)
-    #         empty_is_null => parameters will be converted to undef if empty strings
-    #         defaults => parameters will be set to the value unless in self->parameters
-    # 'NULL' parameters will be converted to undef, 
-
-    # known requests
-    my $config = {
-        create => 'Create',
-        add => 'Add',
-        delete => 'Delete',
-        remove => 'Remove',
-        store => 'Store',
-        save => 'Save',
-        modify => 'Modify',
-        update => 'Update',
-        compute => 'Compute',
-    };
-        
-    my %parameters; # {request}{$request} = 1, key => value
-
-    my %sources = map {$_ => 1} $self->{schema}->sources;
-
     my $url = $self->{base_uri}.'/';
     unless (@$oids) {
         my @path = split /\//, $self->{base_uri};
         pop @path;
         my @body = a(link => 'Up', url => join('/', @path));
         my @li;
-        for my $source (sort keys %sources) {
+        for my $source (sort $self->{schema}->sources) {
             next if $source =~ /2/;
             my $lc = $source;
             $lc =~ s/([a-z])([A-Z])/$1_$2/;
@@ -220,25 +194,34 @@ sub object_editor {
         return html200({}, SmartSea::HTML->new(html => [body => \@body])->html);
     }
 
+    # CRUD: 
+    # create is one-step only for links, otherwise edit (without id) + save, 
+    # read is default, 
+    # update may create, and is known as edit + save
+    # update is allowed only on rules and it is not a real update but a copy identified with cookie
+    # delete does not do deep
+
+    my %parameters = (request => 'read');
+    
     my ($oid, $request) = split /\?/, $oids->[$#$oids];
     $oids->[$#$oids] = $oid;
-    $parameters{request}{$request} = 1 if $request;
+    $parameters{request} = lc($request) if $request;
     
     # $self->{parameters} is a multivalue hash
     # we may have both object => command and object => id
     for my $key (sort keys %{$self->{parameters}}) {
         for my $value ($self->{parameters}->get_all($key)) {
             if ($key eq 'submit' && $value =~ /^Compute/) {
-                $parameters{request}{edit} = 1;
+                $parameters{request} = 'edit';
                 $parameters{compute} = $value;
                 last;
             }
             $value = decode utf8 => $value;
             my $done = 0;
-            for my $request (keys %$config) {
-                if ($value eq $config->{$request}) {
-                    $parameters{request}{$request} = 1;
-                    if ($request eq 'delete' or $request eq 'remove') {
+            for my $request (qw/create edit save delete/) {
+                if (lc($value) eq $request) {
+                    $parameters{request} = $request;
+                    if ($request eq 'delete') {
                         $parameters{id} = $key;
                     } else {
                         $parameters{$request} = $key;
@@ -256,13 +239,9 @@ sub object_editor {
         }
     }
 
-    for my $p (sort keys %parameters) {
-        if ($p eq 'request') {
-            for my $r (sort keys %{$parameters{$p}}) {
-                say STDERR "request => $r" if $self->{debug};
-            }
-        } else {
-            say STDERR "$p => ".(defined($parameters{$p})?$parameters{$p}:'undef') if $self->{debug};
+    if ($self->{debug} > 1) {
+        for my $p (sort keys %parameters) {
+            say STDERR "$p => ".(defined($parameters{$p})?$parameters{$p}:'undef') ;
         }
     }
 
@@ -270,7 +249,7 @@ sub object_editor {
     my $header = { 'Access-Control-Allow-Origin' => $self->{origin},
                    'Access-Control-Allow-Credentials' => 'true' };
 
-    if (!$parameters{request}) {
+    if ($parameters{request} eq 'read') {
         my @body = a(link => 'All classes', url => $self->{base_uri});
         my $obj = SmartSea::Object->new({oid => $oids->[0], url => $self->{base_uri}}, $self);
         if ($obj) {
@@ -278,7 +257,7 @@ sub object_editor {
             return html200({}, SmartSea::HTML->new(html => [body => @body])->html);
         }
         
-    } elsif ($parameters{request}{modify}) {
+    } elsif ($parameters{request} eq 'update') {
         return http_status($header, 403) if $self->{cookie} eq DEFAULT; # forbidden
         my $obj = SmartSea::Object->new({oid => $oids->[0], url => $self->{base_uri}}, $self);
         return http_status($header, 400) unless $obj->{object} && $obj->{source} eq 'Rule'; # bad request
@@ -298,15 +277,14 @@ sub object_editor {
 
     }
 
-    return html200({}, SmartSea::HTML->new(html => [body => 'not allowed or error'])->html)
-        unless $self->{edit};
+    return return http_status($header, 403) unless $self->{edit};
 
     my ($source, $id) = split /:/, $oids->[$#$oids];
     $id //= $parameters{id};
     my $obj = SmartSea::Object->new({source => $source, id => $id, url => $self->{base_uri}}, $self);
     return http_status($header, 400) unless $obj;
-    
-    if ($parameters{request}{new} or $parameters{request}{add}) {
+
+    if ($parameters{request} eq 'create') {
         my @form = $obj->form($oids, $#$oids, \%parameters);
         if (@form) {
             my $url = $self->{uri};
@@ -323,7 +301,7 @@ sub object_editor {
             return html200({}, SmartSea::HTML->new(html => [body => \@body])->html);
         }
         
-    } elsif ($parameters{request}{delete} or $parameters{request}{remove}) {
+    } elsif ($parameters{request} eq 'delete') {
         my $error = $obj->delete($oids, $#$oids, \%parameters);
         my @body;
         push @body, [p => {style => 'color:red'}, $error] if $error;
@@ -334,7 +312,7 @@ sub object_editor {
         }
         return html200({}, SmartSea::HTML->new(html => [body => @body])->html);
         
-    } elsif ($parameters{request}{store} or $parameters{request}{save} or $parameters{request}{create}) {
+    } elsif ($parameters{request} eq 'save') {
         my $error = $obj->save($oids, $#$oids, \%parameters);
         if ($error) {
             my $url = $self->{uri};
@@ -351,7 +329,7 @@ sub object_editor {
             }
         }
         
-    } elsif ($parameters{request}{edit}) {
+    } elsif ($parameters{request} eq 'edit') {
         my $url = $self->{uri};
         $url =~ s/\?.*$//;
         my $form = [form => {action => $url, method => 'POST'}, $obj->form($oids, $#$oids, \%parameters)];

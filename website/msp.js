@@ -619,8 +619,8 @@ MSP.prototype = {
                 withCredentials: true
             }
         });
-        $.post( 'http://'+self.server+'/core/browser/rule:'+self.ruleInEdit.id, 
-                { submit: 'Modify', value: value }, 
+        $.post( 'http://'+self.server+'/core/browser/rule:'+self.ruleInEdit.id+'?update',
+                { value: value }, 
                 function(data) {
                     self.ruleInEdit.value = data.object.value;
                     self.removeSite();
@@ -634,28 +634,6 @@ MSP.prototype = {
                 else
                     alert(data.responseText);
             });
-        /*
-        $.ajax({
-            type: 'post',
-            url: 'http://'+self.server+'/core/browser/rules/'+self.ruleInEdit.id, 
-            crossDomain: true,
-            dataType: "json",
-            xhrFields: {
-                withCredentials: true
-            },
-            data: { submit: 'Modify', value: value },
-            success: function(data) {
-                self.ruleInEdit.value = data.object.value;
-                self.removeSite();
-                self.createLayers(true);
-                self.ruleEdited.notify();
-                self.addSite();
-            },
-            error: function(data) {
-                alert(data.responseText);
-            }
-        });
-        */
     },
     initSite: function() {
         var self = this;

@@ -389,7 +389,7 @@ sub item_class {
             $name =~ s/'//g;
             $name = encode_entities($name);
             my $onclick = "return confirm('Are you sure you want to delete $source $name?')";
-            my %attr = (name => $obj->id, value => 'Remove', onclick => $onclick);
+            my %attr = (name => $obj->id, value => 'Delete', onclick => $onclick);
             push @content, [1 => ' '], button(%attr); # to do: remove or delete?
         }
         if ($self->{source} eq 'Dataset') {
@@ -423,7 +423,7 @@ sub item_class {
         if ($can_add) {
             my @content;
             push @content, $extra, [0=>' '] if $extra;
-            push @content, button(value => 'Add');
+            push @content, button(value => 'Create');
             push @li, [li => \@content] if @content;
         }
     }

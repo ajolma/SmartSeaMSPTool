@@ -145,6 +145,7 @@ $service->{debug} = 0;
 # test create and delete of objects of all classes
 if (1) {for my $class (keys %$classes) {
     next if $classes->{$class}{embedded};
+    #next unless $class eq 'layer';
 
     test_psgi $app, sub {
         my $cb = shift;
@@ -177,7 +178,10 @@ if (1) {for my $class (keys %$classes) {
         #$pp->pretty_print($dom);
         #print STDERR $dom->toString;
     };
-}}
+        }}
+#exit;
+
+$service->{debug} = 0;
 
 # test links
 test_psgi $app, sub {
@@ -185,8 +189,8 @@ test_psgi $app, sub {
     
     my $res = create_object($cb, 'dataset', {path => '1'});
     $res = create_object($cb, 'dataset', {id => 2, name => 'test2', path => '2'});
-    $res = $cb->(POST "/browser/plan?create", [id => 1, name => 'test']);
-    $res = $cb->(POST "/browser/plan:1/plan2dataset_extra", [submit => 'Add', extra_dataset => 2]);
+    $res = $cb->(POST "/browser/plan?save", [id => 1, name => 'test']);
+    $res = $cb->(POST "/browser/plan:1/plan2dataset_extra", [submit => 'Create', extra_dataset => 2]);
 
     my @all = select_all($schema, 'tool', 'id,plan,dataset', 'plan2dataset_extra');
     
@@ -194,7 +198,7 @@ test_psgi $app, sub {
     
     ok($n == 1 && $plan2dataset == 1 && $plan == 1 && $dataset == 2, "create plan to extra dataset link");
 
-    $res = $cb->(POST "/browser/plan:1/plan2dataset_extra", [1 => 'Remove']);
+    $res = $cb->(POST "/browser/plan:1/plan2dataset_extra", [1 => 'Delete']);
     #pretty_print($res);
 
     @all = select_all($schema, 'tool', 'id,plan,dataset', 'plan2dataset_extra');
@@ -211,7 +215,7 @@ test_psgi $app, sub {
     my $res = create_object($cb, 'use_class', {id => 2});
     $res = create_object($cb, 'activity');
     
-    $res = $cb->(POST "/browser/use_class:2/use_class2activity", [submit => 'Add', activity => 1]);
+    $res = $cb->(POST "/browser/use_class:2/use_class2activity", [submit => 'Create', activity => 1]);
     #pretty_print($res);
 
     my @all = select_all($schema, 'tool', 'id,use_class,activity', 'use_class2activity');
@@ -220,7 +224,7 @@ test_psgi $app, sub {
     
     ok($n == 1 && $id == 1 && $use_class == 2 && $activity == 1, "create use_class to activity link");
 
-    $res = $cb->(POST "/browser/use_class:2/use_class2activity", [1 => 'Remove']);
+    $res = $cb->(POST "/browser/use_class:2/use_class2activity", [1 => 'Delete']);
     #pretty_print($res);
 
     @all = select_all($schema, 'tool', 'id,plan,dataset', 'plan2dataset_extra');
@@ -237,7 +241,7 @@ sub select_all {
         my $sth = $dbh->prepare("SELECT $cols FROM $class");
         $sth->execute;
         while (my @a = $sth->fetchrow_array) {
-            #say STDERR "$cols from $class";
+            say STDERR "$cols from $class" if $service->{debug};
             push @all, \@a;
         }});
     return @all;
@@ -282,8 +286,9 @@ sub create_object {
         }
     }
     my @attr = map {$_ => $attr{$_}} keys %attr;
-    #say STDERR "POST $url/$class?create @attr";
-    return $cb->(POST "$url/$class?create", \@attr);
+    $url = "$url/$class?save";
+    say STDERR "POST $url @attr" if $service->{debug};
+    return $cb->(POST $url, \@attr);
 }
 
 sub delete_object {
@@ -293,8 +298,9 @@ sub delete_object {
     for my $parent (deps($class, 'parents')) {
         $url .= '/'.$parent->{class}.':1';
     }
-    #say STDERR "POST $url/$class?delete @attr";
-    my $ret = $cb->(POST "$url/$class?delete", \@attr);
+    $url = "$url/$class?delete";
+    say STDERR "POST $url @attr" if $service->{debug};
+    my $ret = $cb->(POST $url, \@attr);
     for my $ref (deps($class, 'refs')) {
         delete_object($cb, $ref->{class});
     }
@@ -305,34 +311,3 @@ sub delete_object {
 }
 
 done_testing();
-
-__DATA__
-for my $class (keys %$classes) {
-    next if $classes->{$class}{parents};
-
-    test_psgi $app, sub {
-        my $cb = shift;
-        my $res = $cb->(POST "/browser/$class?create", [name => 'test', id => 1]);
-        my $parser = XML::LibXML->new(no_blanks => 1);
-        my $dom;
-        eval {
-            $dom = $parser->load_xml(string => $res->content);
-        };
-        ok(!$@, "create $class");
-        #$pp->pretty_print($dom);
-        #print STDERR $dom->toString;
-    };
-    
-    test_psgi $app, sub {
-        my $cb = shift;
-        my $res = $cb->(POST "/browser/$class?delete", [1 => 'Delete']);
-        my $parser = XML::LibXML->new(no_blanks => 1);
-        my $dom;
-        eval {
-            $dom = $parser->load_xml(string => $res->content);
-        };
-        ok(!$@, "delete $class");
-        #$pp->pretty_print($dom);
-        #print STDERR $dom->toString;
-    };
-}
