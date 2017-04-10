@@ -30,7 +30,7 @@ sub new {
     } elsif ($args->{source}) {
         $self->{source} = $args->{source};
     }
-    say STDERR "new $self->{source} object,",(defined $args->{id} ? $args->{id} : 'undef') if $self->{debug};
+    say STDERR "new $self->{source} object, id=",(defined $args->{id} ? $args->{id} : 'undef') if $self->{debug};
     $self->{class} = 'SmartSea::Schema::Result::'.$self->{source};
     eval {
         $self->{rs} = $self->{schema}->resultset($self->{source});
@@ -100,16 +100,18 @@ sub attributes {
 # create a link from object to object
 sub create {
     my ($self, $oids, $parameters) = @_;
-    my $oids_index = $#$oids;
-    unless ($oids_index > 0) {
-        my $error = "No parent given for $self->{source}.";
+    my $parent = $oids && @$oids > 0 ? SmartSea::Object->new({oid => $oids->[$#$oids-1]}, $self) : undef;
+    unless ($parent && $parent->{object}) {
+        my $error = "Can't create link: parent missing.";
         say STDERR $error;
         return $error;
     }
-    my $parent = SmartSea::Object->new({oid => $oids->[$oids_index-1]}, $self);
-    my %args = (source => $parent->{class}->change_baby($self->{source}, $parameters));
-    $self = SmartSea::Object->new(\%args, $self);
     my $col_data = $self->{rs}->col_data_for_create($parent->{object}, $parameters);
+    if ($self->{debug} > 1) {
+        for my $col (sort keys %$col_data) {
+            say STDERR "  $col => ",(defined $col_data->{$col} ? $col_data->{$col} : 'undef');
+        }
+    }
     eval {
         $self->{rs}->create($col_data);
     };
@@ -234,16 +236,6 @@ sub save {
 # delete an object or remove the link
 sub delete {
     my ($self, $oids, $oids_index, $parameters) = @_;
-    if ($oids) {
-        my $parent = $oids_index > 0 ? SmartSea::Object->new({oid => $oids->[$oids_index-1]}, $self) : undef;
-        if ($parent) {
-            my $args = {
-                source => $parent->{class}->change_baby($self->{source}, $parameters), 
-                id => $parameters->{id}
-            };
-            $self = SmartSea::Object->new($args, $self);
-        }
-    }
 
     unless ($self->{object}) {
         say STDERR "Error: no $self->{source} object to delete";
@@ -461,7 +453,7 @@ sub form {
     # is this ok?
     return if $parent &&
         $parent->{class}->can('need_form_for_child') &&
-        !$parent->{class}->need_form_for_child($self->{class});
+        !$parent->{class}->need_form_for_child($self->{source});
     say STDERR "form is needed" if $self->{debug};
 
     my $attributes = $self->attributes($parent);

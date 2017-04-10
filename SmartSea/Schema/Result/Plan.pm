@@ -33,16 +33,8 @@ sub children_listers {
 }
 
 sub need_form_for_child {
-    my ($class, $child_class) = @_;
+    my ($class, $child_source) = @_;
     return 0; # Use and Dataset are simple links
-}
-
-# change to real class
-sub change_baby {
-    my ($class, $child_class, $parameters) = @_;
-    return 'Use' if $child_class eq 'Use';
-    return 'Plan2DatasetExtra' if $child_class eq 'Dataset';
-    return $child_class;
 }
 
 sub for_child_form {

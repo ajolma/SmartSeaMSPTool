@@ -26,11 +26,6 @@ sub children_listers {
     return { impacts => {source => 'Impact', class_name => 'Impacts'} };
 }
 
-sub change_baby {
-    my ($class, $child_class, $parameters) = @_;
-    return $child_class;
-}
-
 sub name {
     my ($self) = @_;
     return $self->activity->name.' <-> '.$self->pressure_class->name;

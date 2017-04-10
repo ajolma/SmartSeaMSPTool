@@ -34,11 +34,6 @@ sub children_listers {
     return { rules => {source => 'Rule', class_name => 'Rules'} };
 }
 
-sub change_baby {
-    my ($class, $child_class, $parameters) = @_;
-    return $child_class;
-}
-
 sub order_by {
     return {-asc => 'id'};
 }

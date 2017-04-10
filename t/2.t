@@ -199,7 +199,33 @@ test_psgi $app, sub {
 
     @all = select_all($schema, 'tool', 'id,plan,dataset', 'plan2dataset_extra');
 
-    ok(@all == 0, "delete plan to extra dataset link");
+    ok(@all == 0, "delete the link");
+    
+};
+
+$service->{debug} = 0;
+
+test_psgi $app, sub {
+    my $cb = shift;
+    
+    my $res = create_object($cb, 'use_class', {id => 2});
+    $res = create_object($cb, 'activity');
+    
+    $res = $cb->(POST "/browser/use_class:2/use_class2activity", [submit => 'Add', activity => 1]);
+    #pretty_print($res);
+
+    my @all = select_all($schema, 'tool', 'id,use_class,activity', 'use_class2activity');
+    
+    my ($n, $id, $use_class, $activity) = ($#all+1, @{$all[0]});
+    
+    ok($n == 1 && $id == 1 && $use_class == 2 && $activity == 1, "create use_class to activity link");
+
+    $res = $cb->(POST "/browser/use_class:2/use_class2activity", [1 => 'Remove']);
+    #pretty_print($res);
+
+    @all = select_all($schema, 'tool', 'id,plan,dataset', 'plan2dataset_extra');
+
+    ok(@all == 0, "delete the link");
     
 };
 
@@ -211,6 +237,7 @@ sub select_all {
         my $sth = $dbh->prepare("SELECT $cols FROM $class");
         $sth->execute;
         while (my @a = $sth->fetchrow_array) {
+            #say STDERR "$cols from $class";
             push @all, \@a;
         }});
     return @all;

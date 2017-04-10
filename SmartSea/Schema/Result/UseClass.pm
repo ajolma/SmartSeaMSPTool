@@ -24,6 +24,12 @@ sub children_listers {
     return {activities => {source => 'Activity', class_name => 'Activities'}};
 }
 
+sub need_form_for_child {
+    my ($class, $child_source) = @_;
+    return 1 if $child_source eq 'Use'; # plan needs to be asked from the user
+    return 0; # link to Activity can be created directly
+}
+
 sub for_child_form {
     my ($self, $lister, $children, $args) = @_;
     if ($lister eq 'activities') {
