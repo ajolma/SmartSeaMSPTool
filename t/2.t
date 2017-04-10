@@ -142,10 +142,9 @@ my $links = {
 
 $service->{debug} = 0;
 
+# test create and delete of objects of all classes
 for my $class (keys %$classes) {
     next if $classes->{$class}{embedded};
-    #next unless $classes->{$class}{parents};
-    #next unless $class eq 'rule';
 
     test_psgi $app, sub {
         my $cb = shift;
@@ -178,6 +177,24 @@ for my $class (keys %$classes) {
         #print STDERR $dom->toString;
     };
 }
+
+# test links
+test_psgi $app, sub {
+    my $cb = shift;
+    
+    my $res = create_object($cb, 'dataset');
+    $res = create_object($cb, 'plan');
+    #say STDERR $res->content;
+    
+    my $parser = XML::LibXML->new(no_blanks => 1);
+    my $dom;
+    eval {
+        $dom = $parser->load_xml(string => $res->content);
+    };
+    ok(!$@, "create plan with extra dataset".$@);
+    #$pp->pretty_print($dom);
+    #print STDERR $dom->toString;
+};
 
 sub deps {
     my ($class, $dep) = @_;

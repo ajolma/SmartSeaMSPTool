@@ -862,7 +862,7 @@ ALTER TABLE rules OWNER TO ajolma;
 -- Name: COLUMN rules.r_layer; Type: COMMENT; Schema: tool; Owner: ajolma
 --
 
-COMMENT ON COLUMN rules.r_layer IS 'reference to other pul';
+COMMENT ON COLUMN rules.r_layer IS 'data for this this rule (alternative to r_dataset)';
 
 
 --
@@ -876,7 +876,7 @@ COMMENT ON COLUMN rules.value IS 'threshold, used together with op';
 -- Name: COLUMN rules.r_dataset; Type: COMMENT; Schema: tool; Owner: ajolma
 --
 
-COMMENT ON COLUMN rules.r_dataset IS 'data for this this rule (alternative to reference pul)';
+COMMENT ON COLUMN rules.r_dataset IS 'data for this this rule (alternative to r_layer)';
 
 
 --
