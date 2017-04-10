@@ -218,9 +218,10 @@ sub object_editor {
             }
             $value = decode utf8 => $value;
             my $done = 0;
-            for my $request (qw/create edit save delete/) {
+            for my $request (qw/create edit save delete remove/) {
                 if (lc($value) eq $request) {
                     $parameters{request} = $request;
+                    $parameters{request} = 'delete' if $request eq 'remove';
                     if ($request eq 'delete') {
                         $parameters{id} = $key;
                     } else {

@@ -28,7 +28,11 @@ sub attributes {
 sub children_listers {
     return {
         uses => {source => 'Use', class_name => 'Uses'}, 
-        extras => {source => 'Plan2DatasetExtra', class_name => 'Extra datasets', editable_children =>  0}
+        extras => {
+            source => 'Plan2DatasetExtra',
+            class_name => 'Extra datasets',
+            to => 'dataset',
+            editable_children =>  0}
     };
 }
 

@@ -11,6 +11,15 @@ use SmartSea::HTML qw(:all);
 
 binmode STDERR, ":utf8";
 
+sub table2source {
+    my $table = shift;
+    $table = singular($table);
+    $table =~ s/^(\w)/uc($1)/e;
+    $table =~ s/_(\w)/uc($1)/e;
+    $table =~ s/(\d\w)/uc($1)/e;
+    return $table;
+}
+
 # in args give oid or source, and possibly object or id
 sub new {
     my ($class, $args, $args2) = @_;
@@ -25,10 +34,7 @@ sub new {
     } elsif ($args->{source}) {
         $self->{source} = $args->{source};
     }
-    $self->{source} = singular($self->{source});
-    $self->{source} =~ s/^(\w)/uc($1)/e;
-    $self->{source} =~ s/_(\w)/uc($1)/e;
-    $self->{source} =~ s/(\d\w)/uc($1)/e;
+    $self->{source} = table2source($self->{source});
     say STDERR "new $self->{source} object, id=",(defined $args->{id} ? $args->{id} : 'undef') if $self->{debug};
     $self->{class} = 'SmartSea::Schema::Result::'.$self->{source};
     eval {
@@ -72,6 +78,15 @@ sub new {
         return undef;
     }
     bless $self, $class;
+}
+
+sub to {
+    my ($self, $to) = @_;
+    $self->{object} = $self->{object}->$to;
+    delete $self->{class_name};
+    $self->{source} = table2source($to);
+    $self->{class} = 'SmartSea::Schema::Result::'.$self->{source};
+    $self->{rs} = $self->{schema}->resultset($self->{source});
 }
 
 sub source_for_url {
@@ -283,17 +298,20 @@ sub children_listers {
 # return object as an item
 sub li {
     my ($self, $oids, $oids_index, $children, $opt) = @_;
+    say STDERR "item for $self->{source}" if $self->{debug};
 
     # todo: ecosystem component has an expected impact, which can be computed
 
     my $parent = $oids_index > 0 ? SmartSea::Object->new({oid => $oids->[$oids_index-1]}, $self) : undef;
+
+    $opt->{editable_children} = $self->{edit} unless defined $opt->{editable_children};
 
     return $self->item_class($parent, $children, $opt) unless $self->{object};
     
     my $attributes = $self->attributes($parent) // {};
 
     my $object = $self->{object};
-    #say STDERR "object ",$object->id;
+    say STDERR "object ",$object->id if $self->{debug};
 
     my $url = $self->{url}.'/'.$self->source_for_url;
 
@@ -335,17 +353,20 @@ sub li {
         my %args = %{$children_listers->{$lister}};
         my $editable_children = $self->{edit};
         $editable_children = 0 if exists $args{editable_children} && $args{editable_children} == 0;
-        say STDERR "source = $args{source}, oid = ",($next // 'undef') if $self->{debug};
+        say STDERR "children: source = $args{source}, child oid = ",($next // 'undef') if $self->{debug};
         $args{url} = $url;
         if (defined $next) {
-            my $lc = lc($args{source});
-            $args{oid} = $next if $next =~ /$lc/;
+            my ($table, $id) = split /:/, $next;
+            if (table2source($table) eq $args{source}) {
+                $args{id} = $id;
+            }
         }
         my $child = SmartSea::Object->new(\%args, $self);
         my $children = [$object->$lister()];
         my $child_is_open = 0;
         if ($child->{object}) {
             for my $has_child (@$children) {
+                say STDERR "has child: ",$has_child->id if $self->{debug} > 1;
                 if ($has_child->id == $child->{object}->id) {
                     $child_is_open = 1;
                     last;
@@ -354,6 +375,8 @@ sub li {
         }
         say STDERR "child is open? $child_is_open" if $self->{debug};
         if ($child_is_open) {
+            my $to = $children_listers->{$lister}{to};
+            $child->to($to) if $to;
             $child->{edit} = 0 unless $editable_children;
             push @li, [li => $child->li($oids, $oids_index+1)];
         } else {
@@ -388,8 +411,11 @@ sub item_class {
             my $name = '"'.$obj->{name}.'"';
             $name =~ s/'//g;
             $name = encode_entities($name);
-            my $onclick = "return confirm('Are you sure you want to delete $source $name?')";
-            my %attr = (name => $obj->id, value => 'Delete', onclick => $onclick);
+            my $onclick = $opt->{editable_children} ?
+                "return confirm('Are you sure you want to delete $source $name?')" :
+                "return confirm('Are you sure you want to remove the link to $source $name?')";
+            my $value = $opt->{editable_children} ? 'Delete' : 'Remove';
+            my %attr = (name => $obj->id, value => $value, onclick => $onclick);
             push @content, [1 => ' '], button(%attr); # to do: remove or delete?
         }
         if ($self->{source} eq 'Dataset') {
