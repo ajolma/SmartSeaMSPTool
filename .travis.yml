@@ -5,7 +5,7 @@ perl:
   - "5.16"
 
 before_install:
-  - sudo apt-get install sqlite3 libgd-dev
+  - sudo apt-get install sqlite3 libgd2-noxpm-dev
 
 install:
   - cpanm -v --installdeps --notest . 
