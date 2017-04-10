@@ -6,6 +6,7 @@ use base qw/DBIx::Class::Core/;
 use Scalar::Util 'blessed';
 use Encode qw(decode encode);
 use Imager::Color;
+use GD;
 use Geo::GDAL;
 use SmartSea::Core;
 use SmartSea::HTML qw(:all);

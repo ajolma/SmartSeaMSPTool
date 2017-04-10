@@ -14,7 +14,6 @@ use SmartSea::Schema;
 use SmartSea::Object;
 use Data::Dumper;
 use Data::GUID;
-use GD;
 
 use parent qw/Plack::Component/;
 
