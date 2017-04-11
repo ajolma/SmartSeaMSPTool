@@ -20,7 +20,7 @@ sub table2source {
     return $table;
 }
 
-# in args give oid or source, and possibly object or id
+# in args give oid or source, and possibly object, id, or search
 sub new {
     my ($class, $args, $args2) = @_;
     my $self = {class_name => $args->{class_name}};
@@ -41,6 +41,13 @@ sub new {
         $self->{rs} = $self->{schema}->resultset($self->{source});
         if ($args->{object}) {
             $self->{object} = $args->{object};
+        } elsif ($args->{search}) {
+            if ($self->{debug}) {
+                for my $key (sort keys %{$args->{search}}) {
+                    say STDERR "search term $key => $args->{search}{$key}";
+                }
+            }
+            $self->{object} = $self->{rs}->single($args->{search});
         } else {
             
             #my %pk;
@@ -80,13 +87,55 @@ sub new {
     bless $self, $class;
 }
 
-sub to {
-    my ($self, $to) = @_;
-    $self->{object} = $self->{object}->$to;
-    delete $self->{class_name};
-    $self->{source} = table2source($to);
-    $self->{class} = 'SmartSea::Schema::Result::'.$self->{source};
-    $self->{rs} = $self->{schema}->resultset($self->{source});
+# children_listers is a hash
+# whose keys are object methods that return an array of children objects
+# the values are hashes with keys
+# for_child_form: subroutine which returns a widget for the child form
+# source: the child source
+# link_source: for many to many: the link source
+# col: the column, which the rs of link_source knows and needs in order to return col data for create
+#      needs to be something to be able to tell the link_source for create
+# ref_to_me: the col referring to the parent (in link or child)
+# ref_to_child: the col referring to the child in link
+sub children_listers {
+    my ($self) = @_;
+    return $self->{class}->children_listers if $self->{class}->can('children_listers');
+    return {};
+}
+
+sub source_of_link {
+    my $self = shift;
+    my $listers = $self->children_listers;
+    if (@_ == 1) {
+        # this is for create, the source of the child
+        my ($parameters) = @_;
+        for my $lister (keys %$listers) {
+            my $l = $listers->{$lister};
+            return $l->{link_source} // $l->{source} if $parameters->{$l->{col}};
+        }
+    } elsif (@_ == 2) {
+        # this is for delete, the source of the child and how to identify it
+        my ($source_of_child, $child_id) = @_;
+        for my $lister (keys %$listers) {
+            my $l = $listers->{$lister};
+            if ($source_of_child eq $l->{source}) {
+                return {
+                    source => $l->{link_source} // $l->{source},
+                    search => {
+                        $l->{ref_to_me} => $self->{object}->id,
+                        $l->{ref_to_child} // id => $child_id,
+                    }
+                }
+            }
+        }
+        return {source => $source_of_child, id => $child_id};
+    }
+}
+
+sub col_data_for_create {
+    my $self = shift;
+    return $self->{class}->col_data_for_create(@_) if $self->{class}->can('col_data_for_create');
+    return {};
 }
 
 sub source_for_url {
@@ -105,22 +154,25 @@ sub class_name {
 }
 
 sub attributes {
-    my ($self, $parent) = @_;
-    return undef unless $self->{class}->can('attributes');
-    return $self->{class}->attributes($parent->{object}) unless $self->{object};
-    return $self->{object}->attributes($parent->{object});
+    my ($self) = @_;
+    return {} unless $self->{class}->can('attributes');
+    return $self->{class}->attributes unless $self->{object};
+    return $self->{object}->attributes;
 }
 
 # create a link from object to object
 sub create {
     my ($self, $oids, $parameters) = @_;
+    say STDERR "create a link to $self->{source}" if $self->{debug};
     my $parent = $oids && @$oids > 0 ? SmartSea::Object->new({oid => $oids->[$#$oids-1]}, $self) : undef;
     unless ($parent && $parent->{object}) {
         my $error = "Can't create link: parent missing.";
         say STDERR $error;
         return $error;
     }
-    my $col_data = $self->{rs}->col_data_for_create($parent->{object}, $parameters);
+    # the actual link object to create
+    $self = SmartSea::Object->new({source => $parent->source_of_link($parameters)}, $self);
+    my $col_data = $self->col_data_for_create($parent->{object}, $parameters);
     if ($self->{debug} > 1) {
         for my $col (sort keys %$col_data) {
             say STDERR "  $col => ",(defined $col_data->{$col} ? $col_data->{$col} : 'undef');
@@ -139,8 +191,7 @@ sub save {
 
     my $parent = $oids_index > 0 ? SmartSea::Object->new({oid => $oids->[$oids_index-1]}, $self) : undef;
 
-    my $attributes = $self->attributes($parent);
-    return "$self->{source} is non-editable" unless $attributes;
+    my $attributes = $self->attributes;
     my $col_data = {};
 
     unless ($self->{object}) {
@@ -148,11 +199,10 @@ sub save {
         # content = the child does not exist on its own nor can be used by other objects (composition)
         # this can be an aggregate object but not a composed object
         
-        if ($self->{rs}->can('col_data_for_create')) {
-            say STDERR "parent oid = $oids->[$oids_index-1]" if $self->{debug};
-            my $parent = SmartSea::Object->new({oid => $oids->[$oids_index-1]}, $self);
-            $col_data = $self->{rs}->col_data_for_create($parent->{object}, $parameters);
-        }
+        say STDERR "parent oid = $oids->[$oids_index-1]" if $self->{debug};
+        my $parent = SmartSea::Object->new({oid => $oids->[$oids_index-1]}, $self);
+        $col_data = $self->col_data_for_create($parent->{object}, $parameters);
+
         for my $attr (keys %$attributes) {
             next unless $attributes->{$attr}{input} eq 'object';
             unless ($parameters->{$attr.'_is'}) {
@@ -250,7 +300,17 @@ sub save {
 # delete an object or remove the link
 sub delete {
     my ($self, $oids, $oids_index, $parameters) = @_;
+    
+    say STDERR "delete $self->{source}" if $self->{debug};
 
+    # is it actually a link that needs to be deleted?
+    my $parent = $oids && @$oids > 1 ? SmartSea::Object->new({oid => $oids->[$#$oids-1]}, $self) : undef;
+    if ($parent) {
+        # we need the object which links parent to self
+        $self = SmartSea::Object->new($parent->source_of_link($self->{source}, $parameters->{id}), $self);
+        say STDERR "actually, delete $self->{source}" if $self->{debug};
+    }
+    
     unless ($self->{object}) {
         say STDERR "Error: no $self->{source} object to delete";
         return "You did not specify the $self->{source} object to delete.";
@@ -286,15 +346,6 @@ sub all {
     return [$self->{rs}->search(undef, {order_by => $order_by})->all];
 }
 
-# returns a hash of special attribute names => hash
-# the attribute name is a name of a class method
-# the hash has keys that are suitable for arg of new
-sub children_listers {
-    my ($self) = @_;
-    return $self->{class}->children_listers if $self->{class}->can('children_listers');
-    return {};
-}
-
 # return object as an item
 sub li {
     my ($self, $oids, $oids_index, $children, $opt) = @_;
@@ -308,7 +359,7 @@ sub li {
 
     return $self->item_class($parent, $children, $opt) unless $self->{object};
     
-    my $attributes = $self->attributes($parent) // {};
+    my $attributes = $self->attributes;
 
     my $object = $self->{object};
     say STDERR "object ",$object->id if $self->{debug};
@@ -353,7 +404,7 @@ sub li {
         my %args = %{$children_listers->{$lister}};
         my $editable_children = $self->{edit};
         $editable_children = 0 if exists $args{editable_children} && $args{editable_children} == 0;
-        say STDERR "children: source = $args{source}, child oid = ",($next // 'undef') if $self->{debug};
+        say STDERR "$lister, children: source = $args{source}, child oid = ",($next // 'undef') if $self->{debug};
         $args{url} = $url;
         if (defined $next) {
             my ($table, $id) = split /:/, $next;
@@ -375,15 +426,14 @@ sub li {
         }
         say STDERR "child is open? $child_is_open" if $self->{debug};
         if ($child_is_open) {
-            my $to = $children_listers->{$lister}{to};
-            $child->to($to) if $to;
             $child->{edit} = 0 unless $editable_children;
             push @li, [li => $child->li($oids, $oids_index+1)];
         } else {
             delete $child->{object};
             my %opt = (
-                for_add => $self->for_child_form($lister, $children),
-                editable_children => $editable_children
+                for_add => $children_listers->{$lister}{for_child_form}->($self, $children),
+                editable_children => $editable_children,
+                cannot_add_remove_children => $children_listers->{$lister}{cannot_add_remove_children}
                 );
             push @li, [li => $child->item_class($self, $children, \%opt)];
         }
@@ -406,15 +456,13 @@ sub item_class {
         if ($opt->{editable_children}) {
             push @content, [1 => ' '], a(link => 'edit', url => $url.':'.$obj->id.'?edit');
         }
-        if ($self->{edit}) {
+        if ($self->{edit} && !$opt->{cannot_add_remove_children}) {
             my $source = $obj->result_source->source_name;
             my $name = '"'.$obj->{name}.'"';
             $name =~ s/'//g;
             $name = encode_entities($name);
-            my $onclick = $opt->{editable_children} ?
-                "return confirm('Are you sure you want to delete $source $name?')" :
-                "return confirm('Are you sure you want to remove the link to $source $name?')";
-            my $value = $opt->{editable_children} ? 'Delete' : 'Remove';
+            my $onclick = "return confirm('Are you sure you want to remove the link to $source $name?')";
+            my $value = 'Remove';
             my %attr = (name => $obj->id, value => $value, onclick => $onclick);
             push @content, [1 => ' '], button(%attr); # to do: remove or delete?
         }
@@ -427,7 +475,7 @@ sub item_class {
                     my %args = %{$children_listers->{$lister}};
                     $args{edit} = 0;
                     my $p = SmartSea::Object->new(\%args, $self);
-                    push @p, $p->item_class($self, \@parts, {editable_children => $opt->{editable_children}});
+                    push @p, [li => $p->item_class($self, \@parts, {editable_children => $opt->{editable_children}})];
                 }
             }
             if (@p) {
@@ -436,7 +484,7 @@ sub item_class {
         }
         push @li, [li => @content];
     }
-    if ($self->{edit}) {
+    if ($self->{edit} && !$opt->{cannot_add_remove_children}) {
         my $can_add = 1;
         my $extra = 0;
         if ($opt && defined $opt->{for_add}) {
@@ -462,13 +510,6 @@ sub item_class {
     return [[b => plural($self->class_name)], $ul];
 }
 
-sub for_child_form {
-    my ($self, $lister, $children) = @_;
-    if ($self->{object}->can('for_child_form')) {
-        return $self->{object}->for_child_form($lister, $children, $self);
-    }
-}
-
 sub form {
     my ($self, $oids, $oids_index, $parameters) = @_;
     say STDERR "form for $self->{source} (@$oids) $oids_index" if $self->{debug};
@@ -481,18 +522,14 @@ sub form {
         !$parent->{class}->need_form_for_child($self->{source});
     say STDERR "form is needed" if $self->{debug};
 
-    my $attributes = $self->attributes($parent);
-    return unless $attributes;
+    my $attributes = $self->attributes;
     my @widgets;
 
-    my $col_data = {};
-    if ($self->{rs}->can('col_data_for_create')) {
-        # these cannot be changed, so no widgets for these
-        $col_data = $self->{rs}->col_data_for_create($parent->{object}, $parameters);
-        for my $col (keys %$col_data) {
-            push @widgets, hidden($col => $col_data->{$col});
-        }
-    }   
+    my $col_data = $self->col_data_for_create($parent->{object}, $parameters);
+    for my $col (keys %$col_data) {
+        push @widgets, hidden($col => $col_data->{$col});
+        delete $attributes->{$col};
+    }
 
     # todo, what if there is no oids and this is a layer etc? bail out?
     my @doing;

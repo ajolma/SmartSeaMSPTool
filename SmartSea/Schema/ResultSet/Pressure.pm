@@ -5,11 +5,6 @@ use warnings;
 
 use base 'DBIx::Class::ResultSet';
 
-sub col_data_for_create {
-    my ($self, $parent, $parameters) = @_;
-    return {activity => $parent->id, pressure_class => $parameters->{pressure_class}};
-}
-
 sub table {
     my ($self, $impact_rs, $pressure_class_rs, $activity_rs, $ecosystem_component_rs, $parameters, $edit) = @_;
     my %id;

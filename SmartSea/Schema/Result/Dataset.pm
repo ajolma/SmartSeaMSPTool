@@ -50,8 +50,22 @@ sub attributes {
 
 sub children_listers {
     return {
-        parts => {source => 'Dataset', class_name => 'Datasets in this group'},
-        derivatives => {source => 'Dataset', class_name => 'Derivative datasets'}
+        parts => {
+            source => 'Dataset',
+            class_name => 'Datasets in this group',
+            for_child_form => sub {
+                my ($self, $children) = @_;
+                return hidden(is_a_part_of => $self->{object}->id);
+            }
+        },
+        derivatives => {
+            source => 'Dataset', 
+            class_name => 'Derivative datasets',
+            for_child_form => sub {
+                my ($self, $children) = @_;
+                return hidden(is_derived_from => $self->{object}->id);
+            }
+        }
     };
 }
 
@@ -64,12 +78,6 @@ sub children_listers {
 #    $name .= " from ".$rel->long_name if $rel;
 #    return $name;
 #}
-
-sub for_child_form {
-    my ($self, $lister) = @_;
-    return hidden(is_a_part_of => $self->id) if $lister eq 'parts';
-    return hidden(is_derived_from => $self->id) if $lister eq 'derivatives';
-}
 
 sub lineage {
     my $self = shift;

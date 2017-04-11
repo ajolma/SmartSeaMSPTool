@@ -24,24 +24,28 @@ sub attributes {
 }
 
 sub children_listers {
-    return { pressures => {source => 'Pressure', class_name => 'Pressures'} };
-}
-
-sub for_child_form {
-    my ($self, $lister, $children, $args) = @_;
-    if ($lister eq 'pressures') {
-        my %has;
-        for my $obj (@$children) {
-            $has{$obj->pressure_class->id} = 1;
+    return { 
+        pressures => {
+            col => 'pressure_class',
+            source => 'Pressure',
+            ref_to_me => 'activity',
+            class_name => 'Pressures',
+            for_child_form => sub {
+                my ($self, $children) = @_;
+                my %has;
+                for my $obj (@$children) {
+                    $has{$obj->pressure_class->id} = 1;
+                }
+                my @objs;
+                for my $obj ($self->{schema}->resultset('PressureClass')->all) {
+                    next if $has{$obj->id};
+                    push @objs, $obj;
+                }
+                return 0 if @objs == 0; # this activity causes all kinds of pressures already
+                return drop_down(name => 'pressure_class', objs => \@objs);
+            }
         }
-        my @objs;
-        for my $obj ($args->{schema}->resultset('PressureClass')->all) {
-            next if $has{$obj->id};
-            push @objs, $obj;
-        }
-        return 0 if @objs == 0; # this activity causes all kinds of pressures already
-        return drop_down(name => 'pressure_class', objs => \@objs);
-    }
+    };
 }
 
 1;

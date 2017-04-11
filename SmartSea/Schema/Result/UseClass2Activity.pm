@@ -14,6 +14,12 @@ sub order_by {
     return {-asc => 'id'};
 }
 
+sub col_data_for_create {
+    my ($self, $parent, $parameters) = @_;
+    return {} unless $parent;
+    return {use_class => $parent->id, activity => $parameters->{activity}};
+}
+
 sub name {
     my $self = shift;
     return $self->use_class->name.' <-> '.$self->activity->name;

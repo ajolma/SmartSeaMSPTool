@@ -27,6 +27,12 @@ sub order_by {
     return {-asc => 'id'};
 }
 
+sub col_data_for_create {
+    my ($self, $parent, $parameters) = @_;
+    return {} unless $parent;
+    return {pressure => $parent->id, ecosystem_component => $parameters->{ecosystem_component}};
+}
+
 sub name {
     my ($self) = @_;
     return $self->pressure->name.' <-> '.$self->ecosystem_component->name;

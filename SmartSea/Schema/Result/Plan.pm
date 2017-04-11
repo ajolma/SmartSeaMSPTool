@@ -27,45 +27,53 @@ sub attributes {
 
 sub children_listers {
     return {
-        uses => {source => 'Use', class_name => 'Uses'}, 
-        extras => {
-            source => 'Plan2DatasetExtra',
+        uses => {
+            col => 'use_class',
+            source => 'Use',
+            ref_to_me => 'plan',
+            class_name => 'Uses',
+            for_child_form => sub {
+                my ($self, $children) = @_;
+                my %has;
+                for my $obj (@$children) {
+                    $has{$obj->use_class->id} = 1;
+                }
+                my @objs;
+                for my $obj ($self->{schema}->resultset('UseClass')->all) {
+                    next if $has{$obj->id};
+                    push @objs, $obj;
+                }
+                return drop_down(name => 'use_class', objs => \@objs);
+            }
+        },
+        extra_datasets => {
+            col => 'extra_dataset',
+            source => 'Dataset',
+            link_source => 'Plan2DatasetExtra',
+            ref_to_me => 'plan',
+            ref_to_child => 'dataset',
             class_name => 'Extra datasets',
-            to => 'dataset',
-            editable_children =>  0}
+            editable_children => 0,
+            for_child_form => sub {
+                my ($self, $children) = @_;
+                my $has = $self->{object}->datasets($self);
+                for my $obj (@$children) {
+                    $has->{$obj->id} = 1;
+                }
+                my @objs;
+                for my $obj ($self->{schema}->resultset('Dataset')->search({path => { '!=', undef }})) {
+                    next if $has->{$obj->id};
+                    push @objs, $obj;
+                }
+                return drop_down(name => 'extra_dataset', objs => \@objs);
+            }
+        }
     };
 }
 
 sub need_form_for_child {
     my ($class, $child_source) = @_;
     return 0; # Use and Dataset are simple links
-}
-
-sub for_child_form {
-    my ($self, $lister, $children, $args) = @_;
-    if ($lister eq 'uses') {
-        my %has;
-        for my $obj (@$children) {
-            $has{$obj->use_class->id} = 1;
-        }
-        my @objs;
-        for my $obj ($args->{schema}->resultset('UseClass')->all) {
-            next if $has{$obj->id};
-            push @objs, $obj;
-        }
-        return drop_down(name => 'use_class', objs => \@objs);
-    } elsif ($lister eq 'extras') {
-        my $has = $self->datasets($args);
-        for my $obj (@$children) {
-            $has->{$obj->id} = 1;
-        }
-        my @objs;
-        for my $obj ($args->{schema}->resultset('Dataset')->search({path => { '!=', undef }})) {
-            next if $has->{$obj->id};
-            push @objs, $obj;
-        }
-        return drop_down(name => 'extra_dataset', objs => \@objs);
-    }
 }
 
 # datasets referenced by this plan through rules

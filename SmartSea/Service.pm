@@ -222,7 +222,7 @@ sub object_editor {
                 if (lc($value) eq $request) {
                     $parameters{request} = $request;
                     $parameters{request} = 'delete' if $request eq 'remove';
-                    if ($request eq 'delete') {
+                    if ($parameters{request} eq 'delete') {
                         $parameters{id} = $key;
                     } else {
                         $parameters{$request} = $key;

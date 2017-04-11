@@ -145,7 +145,7 @@ $service->{debug} = 0;
 # test create and delete of objects of all classes
 if (1) {for my $class (keys %$classes) {
     next if $classes->{$class}{embedded};
-    #next unless $class eq 'layer';
+    #next unless $class eq 'dataset';
 
     test_psgi $app, sub {
         my $cb = shift;
@@ -168,6 +168,7 @@ if (1) {for my $class (keys %$classes) {
         my $cb = shift;
 
         my $res = delete_object($cb, $class);
+        #say STDERR $res->content;
         
         my $parser = XML::LibXML->new(no_blanks => 1);
         my $dom;
@@ -179,7 +180,6 @@ if (1) {for my $class (keys %$classes) {
         #print STDERR $dom->toString;
     };
         }}
-#exit;
 
 $service->{debug} = 0;
 

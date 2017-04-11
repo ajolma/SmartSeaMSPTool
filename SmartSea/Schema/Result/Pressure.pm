@@ -19,33 +19,42 @@ sub order_by {
 }
 
 sub attributes {
-    return {range => {input => 'text'}}; # todo: show range as real units
+    return {range => {input => 'text'}}; # todo: show range as real units, add activity and pressure_class
 }
 
 sub children_listers {
-    return { impacts => {source => 'Impact', class_name => 'Impacts'} };
+    return { 
+        impacts => {
+            source => 'Impact',
+            ref_to_me => 'pressure',
+            class_name => 'Impacts',
+            for_child_form => sub {
+                my ($self, $children) = @_;
+                my %has;
+                for my $obj (@$children) {
+                    $has{$obj->ecosystem_component->id} = 1;
+                }
+                my @objs;
+                for my $obj ($self->{schema}->resultset('EcosystemComponent')->all) {
+                    next if $has{$obj->id};
+                    push @objs, $obj;
+                }
+                return 0 if @objs == 0; # all ecosystem components have already an impact
+                return drop_down(name => 'ecosystem_component', objs => \@objs);
+            }
+        } 
+    };
+}
+
+sub col_data_for_create {
+    my ($self, $parent, $parameters) = @_;
+    return {} unless $parent;
+    return {activity => $parent->id, pressure_class => $parameters->{pressure_class}};
 }
 
 sub name {
     my ($self) = @_;
     return $self->activity->name.' <-> '.$self->pressure_class->name;
-}
-
-sub for_child_form {
-    my ($self, $lister, $children, $args) = @_;
-    if ($lister eq 'impacts') {
-        my %has;
-        for my $obj (@$children) {
-            $has{$obj->ecosystem_component->id} = 1;
-        }
-        my @objs;
-        for my $obj ($args->{schema}->resultset('EcosystemComponent')->all) {
-            next if $has{$obj->id};
-            push @objs, $obj;
-        }
-        return 0 if @objs == 0; # all ecosystem components have already an impact
-        return drop_down(name => 'ecosystem_component', objs => \@objs);
-    }
 }
 
 sub impacts_list {

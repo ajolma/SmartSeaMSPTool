@@ -23,7 +23,6 @@ __PACKAGE__->belongs_to(use => 'SmartSea::Schema::Result::Use');
 __PACKAGE__->belongs_to(layer_class => 'SmartSea::Schema::Result::LayerClass');
 __PACKAGE__->belongs_to(rule_class => 'SmartSea::Schema::Result::RuleClass');
 __PACKAGE__->belongs_to(style => 'SmartSea::Schema::Result::Style');
-
 __PACKAGE__->has_many(rules => 'SmartSea::Schema::Result::Rule', 'layer');
 
 sub attributes {
@@ -31,7 +30,23 @@ sub attributes {
 }
 
 sub children_listers {
-    return { rules => {source => 'Rule', class_name => 'Rules'} };
+    return { 
+        rules => {
+            source => 'Rule',
+            ref_to_me => 'layer',
+            class_name => 'Rules',
+            for_child_form => sub {
+                my ($self, $children) = @_;
+                return undef;
+            }
+        }
+    };
+}
+
+sub col_data_for_create {
+    my ($self, $parent, $parameters) = @_;
+    return {} unless $parent;
+    return {use => $parent->id, layer_class => $parameters->{layer_class}};
 }
 
 sub order_by {
@@ -47,8 +62,7 @@ sub class_name {
 
 sub name {
     my ($self) = @_;
-#    return $self->use->name.' <-> '.$self->layer_class->name;
-    return $self->layer_class->name;
+    return $self->use->plan->name.'.'.$self->use->use_class->name.'.'.$self->layer_class->name;
 }
 
 sub my_unit {

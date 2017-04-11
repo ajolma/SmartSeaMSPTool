@@ -11,7 +11,7 @@ use SmartSea::HTML qw(:all);
 use SmartSea::Layer;
 
 my %attributes = (
-    #layer =>        { i => 1,  input => 'lookup', source => 'Layer',   allow_null => 0 },
+    layer =>        { i => 1,  input => 'lookup', source => 'Layer',   allow_null => 0 },
     r_layer =>      { i => 7,  input => 'lookup', source => 'Layer',   allow_null => 1 },
     r_dataset =>    { i => 8,  input => 'lookup', source => 'Dataset', allow_null => 1, objs => {path => {'!=',undef}} },
     op =>           { i => 9,  input => 'lookup', source => 'Op'  },
@@ -63,21 +63,26 @@ sub attributes {
                 values => \@values
             };
         }
-    }
-    return \%a unless $parent;
-    my $class = $parent->rule_class->name;
-    if ($class eq 'additive' or $class eq 'multiplicative') {
-        delete $a{op};
-        delete $a{value};
-        delete $a{value_type};
-    } else {
-        delete $a{min_value};
-        delete $a{max_value};
-        delete $a{value_at_min};
-        delete $a{value_at_max};
-        delete $a{weight};
+        my $class = $self->layer->rule_class->name;
+        if ($class eq 'additive' or $class eq 'multiplicative') {
+            delete $a{op};
+            delete $a{value};
+            delete $a{value_type};
+        } else {
+            delete $a{min_value};
+            delete $a{max_value};
+            delete $a{value_at_min};
+            delete $a{value_at_max};
+            delete $a{weight};
+        }
     }
     return \%a;
+}
+
+sub col_data_for_create {
+    my ($self, $parent) = @_;
+    return {} unless $parent;
+    return {layer => $parent->id};
 }
 
 sub is_ok {

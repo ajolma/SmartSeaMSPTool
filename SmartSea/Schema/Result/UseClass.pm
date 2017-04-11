@@ -21,29 +21,36 @@ sub attributes {
 }
 
 sub children_listers {
-    return {activities => {source => 'Activity', class_name => 'Activities', editable_children => 0}};
+    return {
+        activities => {
+            col => 'activity',
+            source => 'Activity',
+            link_source => 'UseClass2Activity',
+            ref_to_me => 'use_class',
+            ref_to_child => 'activity',
+            class_name => 'Activities', 
+            editable_children => 0,
+            for_child_form => sub {
+                my ($self, $children) = @_;
+                my %has;
+                for my $obj (@$children) {
+                    $has{$obj->id} = 1;
+                }
+                my @objs;
+                for my $obj ($self->{schema}->resultset('Activity')->all) {
+                    next if $has{$obj->id};
+                    push @objs, $obj;
+                }
+                return drop_down(name => 'activity', objs => \@objs);
+            }
+        }
+    };
 }
 
 sub need_form_for_child {
     my ($class, $child_source) = @_;
     return 1 if $child_source eq 'Use'; # plan needs to be asked from the user
     return 0; # link to Activity can be created directly
-}
-
-sub for_child_form {
-    my ($self, $lister, $children, $args) = @_;
-    if ($lister eq 'activities') {
-        my %has;
-        for my $obj (@$children) {
-            $has{$obj->id} = 1;
-        }
-        my @objs;
-        for my $obj ($args->{schema}->resultset('Activity')->all) {
-            next if $has{$obj->id};
-            push @objs, $obj;
-        }
-        return drop_down(name => 'activity', objs => \@objs);
-    }
 }
 
 1;
