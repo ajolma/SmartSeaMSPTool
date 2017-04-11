@@ -3,6 +3,7 @@ use strict;
 use warnings;
 use 5.010000;
 use base qw/DBIx::Class::Core/;
+use Storable qw(dclone);
 use Scalar::Util 'blessed';
 use SmartSea::HTML qw(:all);
 
@@ -20,7 +21,7 @@ __PACKAGE__->belongs_to(pressure => 'SmartSea::Schema::Result::Pressure');
 __PACKAGE__->belongs_to(ecosystem_component => 'SmartSea::Schema::Result::EcosystemComponent');
 
 sub attributes {
-    return \%attributes;
+    return dclone(\%attributes);
 }
 
 sub order_by {

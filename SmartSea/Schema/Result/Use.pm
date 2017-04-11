@@ -18,7 +18,10 @@ sub order_by {
 }
 
 sub attributes {
-    return {plan => {input => 'ignore'}, use_class => {input => 'ignore'}};
+    return {
+        plan => {input => 'lookup', source => 'Plan' }, 
+        use_class => {input => 'lookup', source => 'UseClass' }
+    };
 }
 
 sub name {

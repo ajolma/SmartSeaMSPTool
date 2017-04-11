@@ -3,6 +3,7 @@ use strict;
 use warnings;
 use 5.010000;
 use base qw/DBIx::Class::Core/;
+use Storable qw(dclone);
 use Scalar::Util 'blessed';
 use Encode qw(decode encode);
 use Imager::Color;
@@ -39,7 +40,7 @@ __PACKAGE__->set_primary_key('id');
 __PACKAGE__->belongs_to(color_scale => 'SmartSea::Schema::Result::ColorScale');
 
 sub attributes {
-    return \%attributes;
+    return dclone(\%attributes);
 }
 
 sub order_by {

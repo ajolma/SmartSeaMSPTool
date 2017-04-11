@@ -96,6 +96,7 @@ sub new {
 # col: the column, which the rs of link_source knows and needs in order to return col data for create
 #      needs to be something to be able to tell the link_source for create
 # ref_to_me: the col referring to the parent (in link or child)
+# self_ref: the col in the child, only the col needs to be set
 # ref_to_child: the col referring to the child in link
 sub children_listers {
     my ($self) = @_;
@@ -122,9 +123,10 @@ sub source_of_link {
                 return {
                     source => $l->{link_source} // $l->{source},
                     search => {
-                        $l->{ref_to_me} => $self->{object}->id,
+                        $l->{ref_to_me} // $l->{self_ref} => $self->{object}->id,
                         $l->{ref_to_child} // id => $child_id,
-                    }
+                    },
+                    self_ref => $l->{self_ref}
                 }
             }
         }
@@ -307,7 +309,16 @@ sub delete {
     my $parent = $oids && @$oids > 1 ? SmartSea::Object->new({oid => $oids->[$#$oids-1]}, $self) : undef;
     if ($parent) {
         # we need the object which links parent to self
-        $self = SmartSea::Object->new($parent->source_of_link($self->{source}, $parameters->{id}), $self);
+        my $args = $parent->source_of_link($self->{source}, $parameters->{id});
+        if ($args->{self_ref}) {
+            eval {
+                $self->{object}->update({$args->{self_ref} => undef});
+            };
+            say STDERR "Error: $@" if $@;
+            return "$@";
+        }
+        delete $args->{self_ref};
+        $self = SmartSea::Object->new($args, $self);
         say STDERR "actually, delete $self->{source}" if $self->{debug};
     }
     
@@ -461,8 +472,10 @@ sub item_class {
             my $name = '"'.$obj->{name}.'"';
             $name =~ s/'//g;
             $name = encode_entities($name);
-            my $onclick = "return confirm('Are you sure you want to remove the link to $source $name?')";
-            my $value = 'Remove';
+            my $onclick = $parent ?
+                "return confirm('Are you sure you want to remove the link to $source $name?')" :
+                "return confirm('Are you sure you want to delete the $source $name?')";
+            my $value = $parent ? 'Remove' : 'Delete';
             my %attr = (name => $obj->id, value => $value, onclick => $onclick);
             push @content, [1 => ' '], button(%attr); # to do: remove or delete?
         }

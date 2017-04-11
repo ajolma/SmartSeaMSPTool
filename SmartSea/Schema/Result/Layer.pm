@@ -3,14 +3,14 @@ use strict;
 use warnings;
 use 5.010000;
 use base qw/DBIx::Class::Core/;
-
+use Storable qw(dclone);
 use Scalar::Util 'blessed';
 use SmartSea::Core qw(:all);
 use SmartSea::HTML qw(:all);
 
 my %attributes = (
-    use         => { i => 1, input => 'ignore', source => 'Use' },
-    layer_class => { i => 2, input => 'ignore', source => 'LayerClass' },
+    use         => { i => 1, input => 'lookup', source => 'Use' },
+    layer_class => { i => 2, input => 'lookup', source => 'LayerClass' },
     rule_class  => { i => 3, input => 'lookup', source => 'RuleClass' },
     style       => { i => 4, input => 'object', source => 'Style', required => 1 },
     descr       => { i => 5, input => 'text' }
@@ -26,7 +26,7 @@ __PACKAGE__->belongs_to(style => 'SmartSea::Schema::Result::Style');
 __PACKAGE__->has_many(rules => 'SmartSea::Schema::Result::Rule', 'layer');
 
 sub attributes {
-    return \%attributes;
+    return dclone(\%attributes);
 }
 
 sub children_listers {

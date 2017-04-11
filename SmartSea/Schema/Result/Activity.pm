@@ -3,6 +3,7 @@ use strict;
 use warnings;
 use 5.010000;
 use base qw/DBIx::Class::Core/;
+use Storable qw(dclone);
 use Scalar::Util 'blessed';
 use SmartSea::HTML qw(:all);
 
@@ -20,7 +21,7 @@ __PACKAGE__->has_many(use_class2activity => 'SmartSea::Schema::Result::UseClass2
 __PACKAGE__->many_to_many(use_classes => 'use_class2activity', 'activity');
 
 sub attributes {
-    return \%attributes;
+    return dclone(\%attributes);
 }
 
 sub children_listers {

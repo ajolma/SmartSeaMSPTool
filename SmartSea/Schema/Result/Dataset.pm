@@ -3,6 +3,7 @@ use strict;
 use warnings;
 use 5.010000;
 use base qw/DBIx::Class::Core/;
+use Storable qw(dclone);
 use Scalar::Util 'blessed';
 use SmartSea::Core;
 use SmartSea::HTML qw(:all);
@@ -45,22 +46,26 @@ __PACKAGE__->has_many(parts => 'SmartSea::Schema::Result::Dataset', 'is_a_part_o
 __PACKAGE__->has_many(derivatives => 'SmartSea::Schema::Result::Dataset', 'is_derived_from');
 
 sub attributes {
-    return \%attributes;
+    return dclone(\%attributes);
 }
 
 sub children_listers {
     return {
         parts => {
             source => 'Dataset',
+            self_ref => 'is_a_part_of',
             class_name => 'Datasets in this group',
+            cannot_add_remove_children => 1,
             for_child_form => sub {
                 my ($self, $children) = @_;
                 return hidden(is_a_part_of => $self->{object}->id);
             }
         },
         derivatives => {
-            source => 'Dataset', 
+            source => 'Dataset',
+            self_ref => 'is_derived_from',
             class_name => 'Derivative datasets',
+            cannot_add_remove_children => 1,
             for_child_form => sub {
                 my ($self, $children) = @_;
                 return hidden(is_derived_from => $self->{object}->id);

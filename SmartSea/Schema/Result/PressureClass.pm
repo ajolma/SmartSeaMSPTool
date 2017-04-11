@@ -3,6 +3,7 @@ use strict;
 use warnings;
 use 5.010000;
 use base qw/DBIx::Class::Core/;
+use Storable qw(dclone);
 use Scalar::Util 'blessed';
 use SmartSea::HTML qw(:all);
 use SmartSea::Impact qw(:all);
@@ -21,7 +22,7 @@ __PACKAGE__->many_to_many(activities => 'pressure', 'activity');
 __PACKAGE__->belongs_to(category => 'SmartSea::Schema::Result::PressureCategory');
 
 sub attributes {
-    return \%attributes;
+    return dclone(\%attributes);
 }
 
 1;

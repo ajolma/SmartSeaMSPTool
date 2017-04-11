@@ -3,9 +3,9 @@ use strict;
 use warnings;
 use 5.010000;
 use base qw/DBIx::Class::Core/;
+use Storable qw(dclone);
 use Scalar::Util 'blessed';
 use PDL;
-
 use SmartSea::Core qw(:all);
 use SmartSea::HTML qw(:all);
 use SmartSea::Layer;
@@ -44,7 +44,7 @@ __PACKAGE__->belongs_to(value_type => 'SmartSea::Schema::Result::NumberType');
 
 sub attributes {
     my ($self, $parent) = @_;
-    my %a = %attributes;
+    my $a = dclone(\%attributes);
     if (blessed($self)) {
         my $dataset = $self->r_dataset ? $self->r_dataset : undef;
         my $value_semantics = $dataset ? $dataset->class_semantics : undef;
@@ -56,7 +56,7 @@ sub attributes {
                 push @objs, {id => $value, name => $semantics};
                 push @values, $value;
             }
-            $a{value} = {
+            $a->{value} = {
                 i => 10,
                 input => 'lookup',
                 objs => \@objs,
@@ -65,18 +65,18 @@ sub attributes {
         }
         my $class = $self->layer->rule_class->name;
         if ($class eq 'additive' or $class eq 'multiplicative') {
-            delete $a{op};
-            delete $a{value};
-            delete $a{value_type};
+            delete $a->{op};
+            delete $a->{value};
+            delete $a->{value_type};
         } else {
-            delete $a{min_value};
-            delete $a{max_value};
-            delete $a{value_at_min};
-            delete $a{value_at_max};
-            delete $a{weight};
+            delete $a->{min_value};
+            delete $a->{max_value};
+            delete $a->{value_at_min};
+            delete $a->{value_at_max};
+            delete $a->{weight};
         }
     }
-    return \%a;
+    return $a;
 }
 
 sub col_data_for_create {
