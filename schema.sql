@@ -383,7 +383,8 @@ ALTER TABLE color_scales OWNER TO ajolma;
 
 CREATE TABLE ecosystem_components (
     id integer NOT NULL,
-    name text NOT NULL
+    name text NOT NULL,
+    dataset integer
 );
 
 
@@ -1653,6 +1654,14 @@ ALTER TABLE ONLY pressures
 
 ALTER TABLE ONLY pressures
     ADD CONSTRAINT activity2impact_type_impact_type_fkey FOREIGN KEY (pressure_class) REFERENCES pressure_classes(id);
+
+
+--
+-- Name: ecosystem_components_dataset_fkey; Type: FK CONSTRAINT; Schema: tool; Owner: ajolma
+--
+
+ALTER TABLE ONLY ecosystem_components
+    ADD CONSTRAINT ecosystem_components_dataset_fkey FOREIGN KEY (dataset) REFERENCES data.datasets(id);
 
 
 --
