@@ -74,16 +74,6 @@ sub children_listers {
     };
 }
 
-#sub name {
-#    my ($self) = @_;
-#    my $name = "'".$self->name."'";
-#    my $rel = $self->is_a_part_of;
-#    $name .= " of ".$rel->long_name if $rel;
-#    $rel = $self->is_derived_from;
-#    $name .= " from ".$rel->long_name if $rel;
-#    return $name;
-#}
-
 sub lineage {
     my $self = shift;
     my $lineage = $self->name;

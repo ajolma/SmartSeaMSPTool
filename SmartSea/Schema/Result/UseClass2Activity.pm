@@ -22,7 +22,7 @@ sub col_data_for_create {
 
 sub name {
     my $self = shift;
-    return $self->use_class->name.' <-> '.$self->activity->name;
+    return $self->use_class->name.' -> '.$self->activity->name;
 }
 
 1;

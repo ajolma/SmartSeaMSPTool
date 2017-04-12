@@ -19,7 +19,11 @@ sub order_by {
 }
 
 sub attributes {
-    return {range => {input => 'text'}}; # todo: show range as real units, add activity and pressure_class
+    return {
+        range => {input => 'text'},# todo: show range as real units
+        activity => {input => 'lookup', source => 'Activity'},
+        pressure_class => {input => 'lookup', source => 'PressureClass'}
+    };
 }
 
 sub children_listers {
@@ -54,7 +58,7 @@ sub col_data_for_create {
 
 sub name {
     my ($self) = @_;
-    return $self->activity->name.' <-> '.$self->pressure_class->name;
+    return $self->activity->name.' -> '.$self->pressure_class->name;
 }
 
 sub impacts_list {

@@ -12,7 +12,14 @@ __PACKAGE__->belongs_to(dataset => 'SmartSea::Schema::Result::Dataset');
 
 sub name {
     my ($self) = @_;
-    return $self->dataset->name;
+    return $self->plan->name . ' -> ' . $self->dataset->name;
+}
+
+sub attributes {
+    return {
+        plan => { input => 'lookup', source => 'Plan' },
+        dataset => { input => 'lookup', source => 'Dataset' },
+    };
 }
 
 sub col_data_for_create {

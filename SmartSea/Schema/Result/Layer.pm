@@ -53,13 +53,6 @@ sub order_by {
     return {-asc => 'id'};
 }
 
-sub class_name {
-    my ($self, $parent, $purpose) = @_;
-    return 'Layer' if blessed($self) && $purpose && $purpose eq 'list';
-    return $self->layer_class->name.' Layer' if blessed($self);
-    return 'Layer';
-}
-
 sub name {
     my ($self) = @_;
     return $self->use->plan->name.'.'.$self->use->use_class->name.'.'.$self->layer_class->name;

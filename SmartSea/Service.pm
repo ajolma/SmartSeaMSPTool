@@ -86,7 +86,6 @@ sub call {
     my @l;
     push @l, (
         [li => a(link => 'plans', url  => $uri.'plans')],
-        [li => a(link => 'layers', url  => $uri.'layers')],
         [li => a(link => 'browser', url  => $uri.'browser')],
         [li => a(link => 'impact_network', url  => $uri.'impact_network')],
         [li => a(link => 'pressure table', url  => $uri.'pressure_table')]
@@ -170,7 +169,7 @@ sub impact_network {
     my $self = shift;
     my @nodes;
     my @edges;
-    $self->{schema}->resultset('Activity')->impact_network($self, \@nodes, \@edges);
+    $self->{schema}->resultset('Activity')->impact_network(\@nodes, \@edges);
     my %elements = (nodes => \@nodes, edges => \@edges);
     return json200({}, \%elements);
 }
@@ -250,13 +249,11 @@ sub object_editor {
     my $header = { 'Access-Control-Allow-Origin' => $self->{origin},
                    'Access-Control-Allow-Credentials' => 'true' };
 
+    my @body = [p => a(link => 'All classes', url => $self->{base_uri})];
+
     if ($parameters{request} eq 'read') {
-        my @body = a(link => 'All classes', url => $self->{base_uri});
-        my $obj = SmartSea::Object->new({oid => $oids->[0], url => $self->{base_uri}}, $self);
-        if ($obj) {
-            push @body, [ul => [li => $obj->li($oids, 0)]];
-            return html200({}, SmartSea::HTML->new(html => [body => @body])->html);
-        }
+        $self->read_object($oids, \@body);
+        return html200({}, SmartSea::HTML->new(html => [body => @body])->html);
         
     } elsif ($parameters{request} eq 'update') {
         return http_status($header, 403) if $self->{cookie} eq DEFAULT; # forbidden
@@ -266,8 +263,7 @@ sub object_editor {
         my $cols = $obj->{object}->values;
         $cols->{value} = $parameters{value};
         $cols->{cookie} = $self->{cookie};
-        my $a = ['current_timestamp'];
-        $cols->{made} = \$a;
+        $cols->{made} = \['current_timestamp'];
         eval {
             $obj = $obj->{rs}->update_or_new($cols, {key => 'primary'});
             $obj->insert unless $obj->in_storage;
@@ -285,72 +281,72 @@ sub object_editor {
     my $obj = SmartSea::Object->new({source => $source, id => $id, url => $self->{base_uri}}, $self);
     return http_status($header, 400) unless $obj;
 
+    $url = $self->{uri};
+    $url =~ s/\?.*$//;
+
     if ($parameters{request} eq 'create') {
-        my @form = $obj->form($oids, $#$oids, \%parameters);
-        if (@form) {
-            my $url = $self->{uri};
-            $url =~ s/\?.*$//;
-            my $form = [form => {action => $url, method => 'POST'}, @form];
-            return html200({}, SmartSea::HTML->new(html => [body => $form])->html);
-        } else {
-            my @body;
-            my $error = $obj->create($oids, \%parameters);
-            push @body, [p => {style => 'color:red'}, $error] if $error;
-            push @body, a(link => 'All classes', url => $self->{base_uri});
-            $obj = SmartSea::Object->new({oid => $oids->[0], url => $self->{base_uri}}, $self);
-            push @body, [ul => [li => $obj->li($oids, 0)]];
-            return html200({}, SmartSea::HTML->new(html => [body => \@body])->html);
-        }
+        $self->edit_object($obj, $oids, \%parameters, $url, \@body);
         
     } elsif ($parameters{request} eq 'delete') {
         my $error = $obj->delete($oids, $#$oids, \%parameters);
-        my @body;
-        push @body, [p => {style => 'color:red'}, $error] if $error;
-        $obj = SmartSea::Object->new({oid => $oids->[0], url => $self->{base_uri}}, $self);
-        if ($obj) {
-            push @body, a(link => 'All classes', url => $self->{base_uri});
-            push @body, [ul => [li => $obj->li($oids, 0)]];
-        }
-        return html200({}, SmartSea::HTML->new(html => [body => @body])->html);
+        push @body, error_message($error) if $error;
+        $self->read_object($oids, \@body);
         
     } elsif ($parameters{request} eq 'save') {
         my $error = $obj->save($oids, $#$oids, \%parameters);
         if ($error) {
-            my $url = $self->{uri};
-            $url =~ s/\?.*$//;
-            my $form = [form => {action => $url, method => 'POST'}, $obj->form($oids, $#$oids, \%parameters)];
-            my @body = ([p => {style => 'color:red'}, $error], $form);
-            return html200({}, SmartSea::HTML->new(html => [body => @body])->html);
+            push @body, error_message($error);
+            $self->edit_object($obj, $oids, \%parameters, $url, \@body);
         } else {
-            $obj = SmartSea::Object->new({oid => $oids->[0], url => $self->{base_uri}}, $self);
-            if ($obj) {
-                my @body = a(link => 'All classes', url => $self->{base_uri});
-                push @body, [ul => [li => $obj->li($oids, 0)]];
-                return html200({}, SmartSea::HTML->new(html => [body => @body])->html);
-            }
+            $self->read_object($oids, \@body);
         }
         
     } elsif ($parameters{request} eq 'edit') {
-        my $url = $self->{uri};
-        $url =~ s/\?.*$//;
-        my $form = [form => {action => $url, method => 'POST'}, $obj->form($oids, $#$oids, \%parameters)];
-        return html200({}, SmartSea::HTML->new(html => [body => $form])->html);
+        $self->edit_object($obj, $oids, \%parameters, $url, \@body);
         
+    } else {
+        return http_status($header, 400);
     }
 
-    return html200({}, SmartSea::HTML->new(html => [body => 'error'])->html);
+    return html200({}, SmartSea::HTML->new(html => [body => @body])->html);
     
+}
+
+sub read_object {
+    my ($self, $oids, $body) = @_;
+    my $obj = SmartSea::Object->new({oid => $oids->[0], url => $self->{base_uri}}, $self);
+    if ($obj) {
+        push @$body, [ul => [li => $obj->li($oids, 0)]];
+    } else {
+        push @$body, [p => {style => 'color:red'}, $@];
+    }
+}
+
+sub edit_object {
+    my ($self, $obj, $oids, $parameters, $url, $body) = @_;
+    my @form = $obj->form($oids, $#$oids, $parameters);
+    if (@form) {
+        push @$body, [form => {action => $url, method => 'POST'}, @form];
+    } else {
+        # object can be created with supplied information
+        my $error = $obj->create($oids, $parameters);
+        push @$body, error_message($error) if $error;
+        $self->read_object($oids, $body);
+    }
+}
+
+sub error_message {
+    my $error = shift;
+    return [p => {style => 'color:red'}, $error];
 }
 
 sub pressure_table {
     my ($self) = @_;
     my $body = $self->{schema}->resultset('Pressure')->table(
-        $self->{schema}->resultset('Impact'),
-        $self->{schema}->resultset('PressureClass'),
-        $self->{schema}->resultset('Activity'),
-        $self->{schema}->resultset('EcosystemComponent'),
+        $self->{schema},
         $self->{parameters},
-        $self->{edit}
+        $self->{edit},
+        $self->{uri}
         );
     return html200({}, SmartSea::HTML->new(html => [body => $body])->html);
 }

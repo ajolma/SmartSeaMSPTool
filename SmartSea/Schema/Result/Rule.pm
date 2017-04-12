@@ -97,14 +97,6 @@ sub order_by {
     return {-asc => 'id'};
 }
 
-sub class_name {
-    my ($self, $parent) = @_;
-    #say STDERR "class name for rule: @_";
-    return 'Rule' unless $self && $parent;
-    my $class = $parent->rule_class->name;
-    return "$class Rule";
-}
-
 sub name {
     my ($self, %args) = @_;
 

@@ -190,15 +190,18 @@ test_psgi $app, sub {
     my $res = create_object($cb, 'dataset', {path => '1'});
     $res = create_object($cb, 'dataset', {id => 2, name => 'test2', path => '2'});
     $res = $cb->(POST "/browser/plan?save", [id => 1, name => 'test']);
-    $res = $cb->(POST "/browser/plan:1/plan2dataset_extra", [submit => 'Create', extra_dataset => 2]);
+    $res = $cb->(POST "/browser/plan:1/dataset", [submit => 'Create', extra_dataset => 2]);
 
     my @all = select_all($schema, 'tool', 'id,plan,dataset', 'plan2dataset_extra');
+    for my $row (@all) {
+        say STDERR "plan2dataset_extra table = @$row" if $service->{debug} > 1;
+    }
     
     my ($n, $plan2dataset, $plan, $dataset) = ($#all+1, @{$all[0]});
     
     ok($n == 1 && $plan2dataset == 1 && $plan == 1 && $dataset == 2, "create plan to extra dataset link");
 
-    $res = $cb->(POST "/browser/plan:1/plan2dataset_extra", [1 => 'Delete']);
+    $res = $cb->(POST "/browser/plan:1/dataset", [2 => 'Delete']);
     #pretty_print($res);
 
     @all = select_all($schema, 'tool', 'id,plan,dataset', 'plan2dataset_extra');
@@ -215,7 +218,7 @@ test_psgi $app, sub {
     my $res = create_object($cb, 'use_class', {id => 2});
     $res = create_object($cb, 'activity');
     
-    $res = $cb->(POST "/browser/use_class:2/use_class2activity", [submit => 'Create', activity => 1]);
+    $res = $cb->(POST "/browser/use_class:2/activity", [submit => 'Create', activity => 1]);
     #pretty_print($res);
 
     my @all = select_all($schema, 'tool', 'id,use_class,activity', 'use_class2activity');
@@ -224,7 +227,7 @@ test_psgi $app, sub {
     
     ok($n == 1 && $id == 1 && $use_class == 2 && $activity == 1, "create use_class to activity link");
 
-    $res = $cb->(POST "/browser/use_class:2/use_class2activity", [1 => 'Delete']);
+    $res = $cb->(POST "/browser/use_class:2/activity", [1 => 'Delete']);
     #pretty_print($res);
 
     @all = select_all($schema, 'tool', 'id,plan,dataset', 'plan2dataset_extra');

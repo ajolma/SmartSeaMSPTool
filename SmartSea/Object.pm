@@ -48,7 +48,7 @@ sub new {
                 }
             }
             $self->{object} = $self->{rs}->single($args->{search});
-        } else {
+        } elsif ($args->{id}) {
             
             #my %pk;
             #for my $pkey ($self->{rs}->result_source->primary_columns) {
@@ -60,26 +60,24 @@ sub new {
             #    croak "pk $pkey not defined for a $self->{source}" unless defined $pk{$pkey};
             #}
             #$self->{object} = $self->{rs}->single(\%pk);
-
-            if ($args->{id}) {
-
-                # special case for rules, which have pk = id,cookie
-                # prefer cookie = default, unless cookie given in args
-                if ($self->{source} eq 'Rule') {
-                    for my $rule ($self->{rs}->search({id => $args->{id}})) {
-                        if ($args->{cookie} && $rule->cookie ne DEFAULT) {
-                            $self->{object} = $rule;
-                            last;
-                        }
-                        $self->{object} = $rule;
-                    }
-                } else {
-                    $self->{object} = $self->{rs}->single({id => $args->{id}});
-                }
             
+            # special case for rules, which have pk = id,cookie
+            # prefer cookie = default, unless cookie given in args
+            if ($self->{source} eq 'Rule') {
+                for my $rule ($self->{rs}->search({id => $args->{id}})) {
+                    if ($args->{cookie} && $rule->cookie ne DEFAULT) {
+                        $self->{object} = $rule;
+                        last;
+                    }
+                    $self->{object} = $rule;
+                }
+            } else {
+                $self->{object} = $self->{rs}->single({id => $args->{id}});
             }
+            
         }
     };
+    $self->{class_name} //= $self->{source};
     if ($@) {
         say STDERR "Error: $@" if $@;
         return undef;
@@ -145,14 +143,6 @@ sub source_for_url {
     my $s = $self->{source};
     $s =~ s/([a-z])([A-Z])/$1_$2/g;
     return lc($s);
-}
-
-sub class_name {
-    my ($self, $parent, $purpose) = @_;
-    return $self->{class_name} if $self->{class_name};
-    return $self->{source} unless $self->{class}->can('class_name');
-    return $self->{class}->class_name($parent->{object}, $purpose) unless $self->{object};
-    return $self->{object}->class_name($parent->{object}, $purpose);
 }
 
 sub attributes {
@@ -267,7 +257,6 @@ sub save {
 
     for my $col (keys %$attributes) {
         next if $attributes->{$col}{input} eq 'object';
-        next if $attributes->{$col}{input} eq 'ignore';
         next unless exists $parameters->{$col};
         # todo: $parameters->{$col} may be undef?
         next if $parameters->{$col} eq '' && $attributes->{$col}{empty_is_default};
@@ -323,8 +312,9 @@ sub delete {
     }
     
     unless ($self->{object}) {
-        say STDERR "Error: no $self->{source} object to delete";
-        return "You did not specify the $self->{source} object to delete.";
+        my $error = "Could not find the requested $self->{source}.";
+        say STDERR "Error: $error";
+        return $error;
     }
     
     my $attributes = $self->attributes;
@@ -377,7 +367,7 @@ sub li {
 
     my $url = $self->{url}.'/'.$self->source_for_url;
 
-    my @content = a(link => "Show all ".plural($self->class_name(undef, 'list')), url => plural($url));
+    my @content = a(link => "Show all ".plural($self->{class_name}), url => plural($url));
     $url .= ':'.$object->id;
     push @content, [1 => ' '], a(link => 'edit this one', url => $url.'?edit') if $self->{edit};
     
@@ -387,7 +377,6 @@ sub li {
     for my $a (sort keys %$attributes) {
         next if $a eq 'name';
         next if $children_listers->{$a};
-        next if $attributes->{$a}{input} eq 'ignore';
         next if $attributes->{$a}{input} eq 'hidden';
         next if $attributes->{$a}{input} eq 'object' && !$object->$a;
         # todo what if style, ie object?
@@ -520,7 +509,7 @@ sub item_class {
     } else {
         $ul = [ul => \@li];
     }
-    return [[b => plural($self->class_name)], $ul];
+    return [[b => plural($self->{class_name})], $ul];
 }
 
 sub form {
@@ -537,22 +526,24 @@ sub form {
 
     my $attributes = $self->attributes;
     my @widgets;
+    my $title = ($self->{object} ? 'Editing ' : 'Creating ');
+    $title .= $self->{source};
+    push @widgets, [p => $title];
 
     my $col_data = $self->col_data_for_create($parent->{object}, $parameters);
     for my $col (keys %$col_data) {
+        next unless defined $col_data->{$col};
+        my $rs = $self->{schema}->resultset($attributes->{$col}{source});
+        my $val = $rs->single({id => $col_data->{$col}})->name;
+        push @widgets, [p => [1 => "$col: $val"]];
         push @widgets, hidden($col => $col_data->{$col});
         delete $attributes->{$col};
     }
 
     # todo, what if there is no oids and this is a layer etc? bail out?
-    my @doing;
-    my $trace = '';
     if ($self->{object}) {
-        @doing = ('Editing '.$self->class_name($parent),' in ');
         for (my $oid = 0; $oid < @$oids-1; ++$oid) {
             my $obj = SmartSea::Object->new({oid => $oids->[$oid]}, $self);
-            $trace .= ' -> ' if $trace;
-            $trace .= $obj->class_name.' '.$obj->{object}->name;
         }
         for my $key (keys %$attributes) {
             next if defined $col_data->{$key};
@@ -571,16 +562,11 @@ sub form {
         push @widgets, hidden(id => $self->{object}->id); # should be in url...
         push @widgets, hidden(source => $self->{source});
     } else {
-        my $what = $self->title($attributes, $col_data);
-        @doing = ("Creating $what".$self->class_name($parent)," for ");
         my %from_upstream; # simple data from parent/upstream objects
         for (my $oid = 0; $oid < @$oids-1; ++$oid) {
             my $obj = SmartSea::Object->new({oid => $oids->[$oid]}, $self);
-            $trace .= ' -> ' if $trace;
-            $trace .= $obj->class_name.' '.$obj->{object}->name;
             for my $key (keys %$attributes) {
                 next if defined $col_data->{$key};
-                #next unless $obj->{object}->can($key);
                 next unless $obj->{object}->attributes->{$key};
                 say STDERR "getting $key from upstream $oids->[$oid]" if $self->{debug};
                 $from_upstream{$key} = $obj->{object}->$key;
@@ -599,25 +585,9 @@ sub form {
                         'Please delete or overwrite them.'] 
                             if $has_upstream;
     }
-    my $p = $doing[0];
-    $p .= $doing[1].$trace if $trace;
-    push @widgets, [p => $p.'.'];
     push @widgets, widgets($attributes, $parameters, $self->{schema});
     push @widgets, button(value => 'Save'), [1 => ' '], button(value => 'Cancel');
     return @widgets;
-}
-
-sub title {
-    my ($self, $attributes, $parameters) = @_;
-    for my $key (keys %$attributes) {
-        my $a = $attributes->{$key};
-        next unless $a->{input} eq 'ignore';
-        next if $key =~ /2/; # hack to select layer_class from parameters
-        say STDERR "$key $a->{source} $parameters->{$key}" if $self->{debug};
-        my $obj = $self->{schema}->resultset($a->{source})->single({id => $parameters->{$key}});
-        return $obj->name.' ' if $obj;
-    }
-    return '';
 }
 
 sub singular {

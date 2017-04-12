@@ -2,34 +2,34 @@ package SmartSea::Schema::ResultSet::Pressure;
 
 use strict; 
 use warnings;
-
 use base 'DBIx::Class::ResultSet';
+use SmartSea::HTML qw(:all);
 
 sub table {
-    my ($self, $impact_rs, $pressure_class_rs, $activity_rs, $ecosystem_component_rs, $parameters, $edit) = @_;
+    my ($self, $schema, $parameters, $edit, $uri) = @_;
     my %id;
     my %pressure_classes;
     my %cats;
-    for my $pressure_class ($pressure_class_rs->all) {
+    for my $pressure_class ($schema->resultset('PressureClass')->all) {
         $pressure_classes{$pressure_class->name} = $pressure_class->ordr;
         $id{pressure_classes}{$pressure_class->name} = $pressure_class->id;
         $cats{$pressure_class->name} = $pressure_class->category->name;
     }
     my %activities;
     my %name;
-    for my $activity ($activity_rs->all) {
+    for my $activity ($schema->resultset('Activity')->all) {
         $activities{$activity->name} = $activity->ordr;
         $id{activities}{$activity->name} = $activity->id;
         $name{$activity->name} = $activity->name.'('.$activity->ordr.')';
     }
     my %components;
-    for my $component ($ecosystem_component_rs->all) {
+    for my $component ($schema->resultset('EcosystemComponent')->all) {
         $components{$component->name} = $component->id;
         $id{components}{$component->name} = $component->id;
     }
 
-    for my $pressure_class ($pressure_class_rs->all) {
-        for my $activity ($activity_rs->all) {
+    for my $pressure_class ($schema->resultset('PressureClass')->all) {
+        for my $activity ($schema->resultset('Activity')->all) {
             my $key = 'range_'.$pressure_class->id.'_'.$activity->id;
             $name{$key} = $pressure_class->name.' '.$activity->name;
 
@@ -47,7 +47,7 @@ sub table {
         $id{pressure}{$ap->pressure_class->name}{$ap->activity->name} = $ap->id;
     }
     my %impacts;
-    for my $impact ($impact_rs->all) {
+    for my $impact ($schema->resultset('Impact')->all) {
         my $ap = $impact->pressure;
         my $p = $ap->pressure_class;
         my $a = $ap->activity;
@@ -90,7 +90,7 @@ sub table {
                         $params{belief} = 0;
                     }
                 }
-                $edits = $impact_rs;
+                $edits = $schema->resultset('Impact');
             }
             #say STDERR "key = $key, value = $value";
             if (exists($attrs{$key})) {
@@ -122,7 +122,7 @@ sub table {
         for my $ap ($self->all) {
             $ranges{$ap->pressure_class->name}{$ap->activity->name} = $ap->range;
         }
-        for my $impact ($impact_rs->all) {
+        for my $impact ($schema->resultset('Impact')->all) {
             my $ap = $impact->pressure;
             my $p = $ap->pressure_class;
             my $a = $ap->activity;
@@ -213,13 +213,13 @@ sub table {
         }
     }
 
-    my @a = ([a => {href => $self->{uri}}, 'reload'],
+    my @a = ([a => {href => $uri}, 'reload'],
              [1 => "&nbsp;&nbsp;"]);
     push @a, [input => {type => 'submit', name => 'submit', value => 'Commit'}] if $edit;
     push @a, [table => {border => 1}, \@rows];
     push @a, [input => {type => 'submit', name => 'submit', value => 'Commit'}] if $edit;
     
-    return [@error, [ form => {action => $self->{uri}, method => 'POST'}, \@a ]];
+    return [@error, [ form => {action => $uri, method => 'POST'}, \@a ]];
 }
 
 
