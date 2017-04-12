@@ -10,7 +10,7 @@ __PACKAGE__->set_primary_key('id');
 __PACKAGE__->has_many(pressure_classes => 'SmartSea::Schema::Result::PressureClass', 'category');
 
 sub attributes {
-    return {name => {input => 'text'}};
+    return {name => {i => 0, input => 'text'}};
 }
 
 1;

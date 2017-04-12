@@ -10,7 +10,7 @@ __PACKAGE__->add_columns(qw/ id name /);
 __PACKAGE__->set_primary_key('id');
 
 sub attributes {
-    return {name => {input => 'text'}};
+    return {name => {i => 0, input => 'text'}};
 }
 
 sub color_table {

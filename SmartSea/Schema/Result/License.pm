@@ -10,7 +10,7 @@ __PACKAGE__->add_columns(qw/ id name url /);
 __PACKAGE__->set_primary_key('id');
 
 sub attributes {
-    return {name => {input => 'text'}, url => {input => 'text'}};
+    return {name => {i => 0, input => 'text'}, url => {i => 1, input => 'text'}};
 }
 
 1;

@@ -20,9 +20,9 @@ sub order_by {
 
 sub attributes {
     return {
-        range => {input => 'text'},# todo: show range as real units
-        activity => {input => 'lookup', source => 'Activity'},
-        pressure_class => {input => 'lookup', source => 'PressureClass'}
+        range => {i => 0, input => 'text'},# todo: show range as real units
+        activity => {i => 1, input => 'lookup', source => 'Activity'},
+        pressure_class => {i => 2, input => 'lookup', source => 'PressureClass'}
     };
 }
 

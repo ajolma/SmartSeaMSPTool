@@ -17,7 +17,7 @@ __PACKAGE__->has_many(extras => 'SmartSea::Schema::Result::Plan2DatasetExtra', '
 __PACKAGE__->many_to_many(extra_datasets => 'extras', 'dataset');
 
 sub attributes {
-    return {name => {input => 'text'}};
+    return {name => {i => 0, input => 'text'}};
 }
 
 sub children_listers {

@@ -17,8 +17,8 @@ sub name {
 
 sub attributes {
     return {
-        plan => { input => 'lookup', source => 'Plan' },
-        dataset => { input => 'lookup', source => 'Dataset' },
+        plan => { i => 0, input => 'lookup', source => 'Plan' },
+        dataset => { i => 1, input => 'lookup', source => 'Dataset' },
     };
 }
 

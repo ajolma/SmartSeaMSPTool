@@ -14,7 +14,7 @@ __PACKAGE__->has_many(layers => 'SmartSea::Schema::Result::Layer', 'layer_class'
 __PACKAGE__->many_to_many(uses => 'layer', 'use');
 
 sub attributes {
-    return {name => {input => 'text'}};
+    return {name => {i => 0, input => 'text'}};
 }
 
 1;

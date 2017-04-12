@@ -17,7 +17,7 @@ __PACKAGE__->has_many(use_class2activity => 'SmartSea::Schema::Result::UseClass2
 __PACKAGE__->many_to_many(activities => 'use_class2activity', 'activity');
 
 sub attributes {
-    return {name => {input => 'text'}};
+    return {name => {i => 0, input => 'text'}};
 }
 
 sub children_listers {
