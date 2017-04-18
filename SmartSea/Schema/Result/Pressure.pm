@@ -12,6 +12,7 @@ __PACKAGE__->add_columns(qw/ id activity pressure_class range /);
 __PACKAGE__->set_primary_key(qw/ id /);
 __PACKAGE__->belongs_to(activity => 'SmartSea::Schema::Result::Activity');
 __PACKAGE__->belongs_to(pressure_class => 'SmartSea::Schema::Result::PressureClass');
+__PACKAGE__->belongs_to(range => 'SmartSea::Schema::Result::Range');
 __PACKAGE__->has_many(impacts => 'SmartSea::Schema::Result::Impact', 'pressure');
 
 sub order_by {
@@ -20,7 +21,7 @@ sub order_by {
 
 sub attributes {
     return {
-        range => {i => 0, input => 'text'},# todo: show range as real units
+        range => {i => 0, input => 'lookup', source => 'Range'},
         activity => {i => 1, input => 'lookup', source => 'Activity'},
         pressure_class => {i => 2, input => 'lookup', source => 'PressureClass'}
     };

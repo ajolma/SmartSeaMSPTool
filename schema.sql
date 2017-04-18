@@ -366,6 +366,18 @@ ALTER SEQUENCE activity2impact_type_id_seq OWNED BY pressures.id;
 
 
 --
+-- Name: beliefs; Type: TABLE; Schema: tool; Owner: ajolma
+--
+
+CREATE TABLE beliefs (
+    id integer NOT NULL,
+    description text
+);
+
+
+ALTER TABLE beliefs OWNER TO ajolma;
+
+--
 -- Name: color_scales; Type: TABLE; Schema: tool; Owner: ajolma
 --
 
@@ -416,6 +428,49 @@ ALTER TABLE ecosystem_components_id_seq OWNER TO ajolma;
 --
 
 ALTER SEQUENCE ecosystem_components_id_seq OWNED BY ecosystem_components.id;
+
+
+--
+-- Name: impact_strengths; Type: TABLE; Schema: tool; Owner: ajolma
+--
+
+CREATE TABLE impact_strengths (
+    id integer NOT NULL,
+    recovery text,
+    extent text,
+    resilience text,
+    temporal_extent text
+);
+
+
+ALTER TABLE impact_strengths OWNER TO ajolma;
+
+--
+-- Name: COLUMN impact_strengths.recovery; Type: COMMENT; Schema: tool; Owner: ajolma
+--
+
+COMMENT ON COLUMN impact_strengths.recovery IS 'palautuminen';
+
+
+--
+-- Name: COLUMN impact_strengths.extent; Type: COMMENT; Schema: tool; Owner: ajolma
+--
+
+COMMENT ON COLUMN impact_strengths.extent IS 'vaikutus ekosysteemiin';
+
+
+--
+-- Name: COLUMN impact_strengths.resilience; Type: COMMENT; Schema: tool; Owner: ajolma
+--
+
+COMMENT ON COLUMN impact_strengths.resilience IS 'ekosysteemin kyky sietää painetta';
+
+
+--
+-- Name: COLUMN impact_strengths.temporal_extent; Type: COMMENT; Schema: tool; Owner: ajolma
+--
+
+COMMENT ON COLUMN impact_strengths.temporal_extent IS 'ajallinen ulottuvuus';
 
 
 --
@@ -800,6 +855,25 @@ ALTER TABLE pressures_id_seq OWNER TO ajolma;
 --
 
 ALTER SEQUENCE pressures_id_seq OWNED BY pressure_categories.id;
+
+
+--
+-- Name: ranges; Type: TABLE; Schema: tool; Owner: ajolma
+--
+
+CREATE TABLE ranges (
+    id integer NOT NULL,
+    d double precision NOT NULL
+);
+
+
+ALTER TABLE ranges OWNER TO ajolma;
+
+--
+-- Name: COLUMN ranges.d; Type: COMMENT; Schema: tool; Owner: ajolma
+--
+
+COMMENT ON COLUMN ranges.d IS 'Distance from activity to which pressure is caused [m]';
 
 
 --
@@ -1333,6 +1407,14 @@ ALTER TABLE ONLY units
 SET search_path = tool, pg_catalog;
 
 --
+-- Name: ImpactStrength_pkey; Type: CONSTRAINT; Schema: tool; Owner: ajolma
+--
+
+ALTER TABLE ONLY impact_strengths
+    ADD CONSTRAINT "ImpactStrength_pkey" PRIMARY KEY (id);
+
+
+--
 -- Name: activities_pkey; Type: CONSTRAINT; Schema: tool; Owner: ajolma
 --
 
@@ -1354,6 +1436,14 @@ ALTER TABLE ONLY pressures
 
 ALTER TABLE ONLY pressures
     ADD CONSTRAINT activity2pressure_activity_pressure_key UNIQUE (activity, pressure_class);
+
+
+--
+-- Name: beliefs_pkey; Type: CONSTRAINT; Schema: tool; Owner: ajolma
+--
+
+ALTER TABLE ONLY beliefs
+    ADD CONSTRAINT beliefs_pkey PRIMARY KEY (id);
 
 
 --
@@ -1506,6 +1596,14 @@ ALTER TABLE ONLY pressure_categories
 
 ALTER TABLE ONLY pressure_categories
     ADD CONSTRAINT pressures_title_key UNIQUE (name);
+
+
+--
+-- Name: ranges_pkey; Type: CONSTRAINT; Schema: tool; Owner: ajolma
+--
+
+ALTER TABLE ONLY ranges
+    ADD CONSTRAINT ranges_pkey PRIMARY KEY (id);
 
 
 --
@@ -1689,6 +1787,14 @@ ALTER TABLE ONLY pressure_classes
 
 
 --
+-- Name: impacts_strength_fkey; Type: FK CONSTRAINT; Schema: tool; Owner: ajolma
+--
+
+ALTER TABLE ONLY impacts
+    ADD CONSTRAINT impacts_strength_fkey FOREIGN KEY (strength) REFERENCES impact_strengths(id);
+
+
+--
 -- Name: layers_style2_fkey; Type: FK CONSTRAINT; Schema: tool; Owner: ajolma
 --
 
@@ -1742,6 +1848,14 @@ ALTER TABLE ONLY uses
 
 ALTER TABLE ONLY uses
     ADD CONSTRAINT plan2use_use_fkey FOREIGN KEY (use_class) REFERENCES use_classes(id);
+
+
+--
+-- Name: pressures_range_fkey; Type: FK CONSTRAINT; Schema: tool; Owner: ajolma
+--
+
+ALTER TABLE ONLY pressures
+    ADD CONSTRAINT pressures_range_fkey FOREIGN KEY (range) REFERENCES ranges(id);
 
 
 --
@@ -1943,6 +2057,16 @@ GRANT ALL ON SEQUENCE activity2impact_type_id_seq TO smartsea;
 
 
 --
+-- Name: beliefs; Type: ACL; Schema: tool; Owner: ajolma
+--
+
+REVOKE ALL ON TABLE beliefs FROM PUBLIC;
+REVOKE ALL ON TABLE beliefs FROM ajolma;
+GRANT ALL ON TABLE beliefs TO ajolma;
+GRANT ALL ON TABLE beliefs TO smartsea;
+
+
+--
 -- Name: color_scales; Type: ACL; Schema: tool; Owner: ajolma
 --
 
@@ -1960,6 +2084,16 @@ REVOKE ALL ON TABLE ecosystem_components FROM PUBLIC;
 REVOKE ALL ON TABLE ecosystem_components FROM ajolma;
 GRANT ALL ON TABLE ecosystem_components TO ajolma;
 GRANT ALL ON TABLE ecosystem_components TO smartsea;
+
+
+--
+-- Name: impact_strengths; Type: ACL; Schema: tool; Owner: ajolma
+--
+
+REVOKE ALL ON TABLE impact_strengths FROM PUBLIC;
+REVOKE ALL ON TABLE impact_strengths FROM ajolma;
+GRANT ALL ON TABLE impact_strengths TO ajolma;
+GRANT ALL ON TABLE impact_strengths TO smartsea;
 
 
 --
@@ -2135,6 +2269,16 @@ REVOKE ALL ON TABLE pressure_categories FROM ajolma;
 GRANT ALL ON TABLE pressure_categories TO ajolma;
 GRANT SELECT ON TABLE pressure_categories TO PUBLIC;
 GRANT ALL ON TABLE pressure_categories TO smartsea;
+
+
+--
+-- Name: ranges; Type: ACL; Schema: tool; Owner: ajolma
+--
+
+REVOKE ALL ON TABLE ranges FROM PUBLIC;
+REVOKE ALL ON TABLE ranges FROM ajolma;
+GRANT ALL ON TABLE ranges TO ajolma;
+GRANT ALL ON TABLE ranges TO smartsea;
 
 
 --

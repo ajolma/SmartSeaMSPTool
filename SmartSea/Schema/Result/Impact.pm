@@ -10,8 +10,8 @@ use SmartSea::HTML qw(:all);
 my %attributes = (
     pressure            => { i => 1, input => 'lookup', source => 'Pressure' },
     ecosystem_component => { i => 2, input => 'lookup', source => 'EcosystemComponent' },
-    strength            => { i => 3, input => 'text', size => 10 },
-    belief              => { i => 4, input => 'text', size => 10 },
+    strength            => { i => 3, input => 'lookup', size => 'ImpactStrength' },
+    belief              => { i => 4, input => 'lookup', size => 'Belief' },
     );
 
 __PACKAGE__->table('impacts');
@@ -19,6 +19,8 @@ __PACKAGE__->add_columns(qw/ id pressure ecosystem_component strength belief /);
 __PACKAGE__->set_primary_key('id');
 __PACKAGE__->belongs_to(pressure => 'SmartSea::Schema::Result::Pressure');
 __PACKAGE__->belongs_to(ecosystem_component => 'SmartSea::Schema::Result::EcosystemComponent');
+__PACKAGE__->belongs_to(strength => 'SmartSea::Schema::Result::ImpactStrength');
+__PACKAGE__->belongs_to(belief => 'SmartSea::Schema::Result::Belief');
 
 sub attributes {
     return dclone(\%attributes);

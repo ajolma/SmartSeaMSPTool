@@ -3,7 +3,7 @@ use strict;
 use warnings;
 use 5.010000; # say // and //=
 use Carp;
-use HTML::Entities;
+use HTML::Entities qw/encode_entities_numeric/;
 use Encode qw(decode encode);
 use JSON;
 use SmartSea::Core qw(:all);
@@ -24,7 +24,7 @@ sub table2source {
 sub new {
     my ($class, $args, $args2) = @_;
     my $self = {class_name => $args->{class_name}};
-    for my $key (qw/schema url edit dbname user pass data_dir debug sequences/) {
+    for my $key (qw/schema url edit dbname user pass data_dir debug sequences no_js/) {
         $self->{$key} = $args->{$key} // $args2->{$key};
     }
     if ($args->{oid}) {
@@ -371,7 +371,7 @@ sub li {
     $url .= ':'.$object->id;
     push @content, [1 => ' '], a(link => 'edit this one', url => $url.'?edit') if $self->{edit};
     
-    my @li = ([li => "id: ".$object->id], [li => "name: ".encode_entities($object->name)]);
+    my @li = ([li => "id: ".$object->id], [li => "name: ".encode_entities_numeric($object->name)]);
     my $children_listers = $self->children_listers;
     # simple attributes:
     for my $a (sort keys %$attributes) {
@@ -389,7 +389,7 @@ sub li {
                 }
             }
         }
-        push @li, [li => "$a: ".$v];
+        push @li, [li => "$a: ".encode_entities_numeric($v)];
     }
     if ($object->can('info')) {
         my $info = $object->info($self);
@@ -460,12 +460,13 @@ sub item_class {
             my $source = $obj->result_source->source_name;
             my $name = '"'.$obj->{name}.'"';
             $name =~ s/'//g;
-            $name = encode_entities($name);
+            $name = encode_entities_numeric($name);
             my $onclick = $parent ?
                 "return confirm('Are you sure you want to remove the link to $source $name?')" :
                 "return confirm('Are you sure you want to delete the $source $name?')";
             my $value = $parent ? 'Remove' : 'Delete';
-            my %attr = (name => $obj->id, value => $value, onclick => $onclick);
+            my %attr = (name => $obj->id, value => $value);
+            $attr{onclick} = $onclick unless $self->{no_js};
             push @content, [1 => ' '], button(%attr); # to do: remove or delete?
         }
         if ($self->{source} eq 'Dataset') {

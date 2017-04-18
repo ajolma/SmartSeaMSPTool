@@ -34,7 +34,8 @@ my $service = SmartSea::Service->new(
         images => '',
         debug => 0,
         edit => 1,
-        sequences => 0
+        sequences => 0,
+        no_js => 1
     });
 my $app = $service->to_app;
 
@@ -96,15 +97,40 @@ $classes->{pressure_class} = {
     refs => [{col => 'category', class => 'pressure_category'}]
 };
 
+$classes->{range} = {
+    cols => [
+        {col => 'id', value => 1},
+        {col => 'd', value => 1},
+        ]
+};
+
 $classes->{pressure} = {
     parents => [{col => 'activity', 'class' => 'activity'}], 
-    refs => [{col => 'pressure_class', 'class' => 'pressure_class'}],
-    cols => [{col => 'range', value => 1}]
+    refs => [
+        {col => 'pressure_class', 'class' => 'pressure_class'},
+        {col => 'range', 'class' => 'range'}
+        ]
+};
+
+$classes->{impact_strength} = {
+    cols => [
+        {col => 'id', value => 1},
+        ]
+};
+
+$classes->{belief} = {
+    cols => [
+        {col => 'id', value => 1},
+        ]
 };
 
 $classes->{impact} = {
     parents => [{col => 'pressure', class => 'pressure'}], 
-    refs => [{col => 'ecosystem_component', class => 'ecosystem_component'}]
+    refs => [
+        {col => 'ecosystem_component', class => 'ecosystem_component'},
+        {col => 'strength', class => 'impact_strength'},
+        {col => 'belief', class => 'belief'}
+        ]
 };
 
 $classes->{layer} = {

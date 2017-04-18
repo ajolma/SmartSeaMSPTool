@@ -2,7 +2,7 @@ package SmartSea::HTML;
 use strict;
 use warnings;
 use Carp;
-use HTML::Entities;
+use HTML::Entities qw/encode_entities_numeric/;
 use Scalar::Util 'blessed';
 use Geo::OGC::Service;
 use SmartSea::Core qw/:all/;
@@ -10,7 +10,7 @@ use SmartSea::Core qw/:all/;
 require Exporter;
 
 our @ISA = qw(Exporter Geo::OGC::Service::XMLWriter);
-our @EXPORT_OK = qw(a button checkbox text_input textarea drop_down hidden item widgets);
+our @EXPORT_OK = qw(a button checkbox text_input textarea drop_down hidden widgets);
 our %EXPORT_TAGS = (all => \@EXPORT_OK);
 
 sub new {
@@ -31,7 +31,7 @@ sub html {
 }
 sub a {
     my (%arg) = @_;
-    return [a => {href=>$arg{url}}, encode_entities($arg{link})];
+    return [a => {href=>$arg{url}}, encode_entities_numeric($arg{link})];
 }
 sub button {
     my (%arg) = @_;
@@ -45,13 +45,13 @@ sub checkbox {
     my $attr = {type => 'checkbox', name => $arg{name}, value => $arg{value}};
     $attr->{id} = $arg{id} if $arg{id};
     $attr->{checked} = 'checked' if $arg{checked};
-    return [input => $attr, encode_entities($arg{visual})];
+    return [input => $attr, encode_entities_numeric($arg{visual})];
 }
 sub text_input {
     my (%arg) = @_;
     return [input => { type => 'text', 
                        name => $arg{name},
-                       value => encode_entities($arg{value}),
+                       value => encode_entities_numeric($arg{value}),
                        size => $arg{size} // 10,
             }
         ];
@@ -89,7 +89,7 @@ sub drop_down {
     for my $value (@$values) {
         my $attr = {value => $value};
         $attr->{selected} = 'selected' if $value eq $selected;
-        push @options, [option => $attr, encode_entities($visuals->{$value})];
+        push @options, [option => $attr, encode_entities_numeric($visuals->{$value})];
     }
     return [select => {name => $name}, \@options];
 }
@@ -106,28 +106,6 @@ sub spinner {
                       max => $arg{max}, 
                       step => $arg{step}, 
                       value => $arg{value}}];
-}
-sub item {
-    my ($name, $id, %arg) = @_;
-    return ref($name) ? [$name] : [[0 => $name]] unless $arg{uri};
-    my $uri = $arg{uri}.'/'.$id;
-    my @i = (a(link => $name, url => $uri));
-    my $value = $arg{action} // 'Delete';
-    return $i[0] if $arg{action} eq 'None';
-    if ($arg{edit}) {
-        #$url .= '?edit';
-        push @i, ([1 => '  '], a(link => "edit", url => $uri."?edit")) if $value eq 'Delete';
-        my $ref = encode_entities($arg{ref});
-        push @i, (
-            [1 => '  '],
-            [input => {
-                type => "submit", 
-                name => $id, 
-                value => $value,
-                onclick => "return confirm('Are you sure you want to ".lc($value)." $ref?')" 
-             }]);
-    }
-    return \@i;
 }
 sub widgets {
     my ($attributes, $values, $schema) = @_;
