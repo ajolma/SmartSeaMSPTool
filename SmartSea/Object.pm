@@ -85,6 +85,10 @@ sub new {
     bless $self, $class;
 }
 
+# parent can have children in many ways:
+# parent <- link -> child # child can be a part of parent or independent
+# parent -> object <- child # object can be a part of parent or independent
+# parent <- child # child can be a part of parent or independent
 # children_listers is a hash
 # whose keys are object methods that return an array of children objects
 # the values are hashes with keys
@@ -118,10 +122,12 @@ sub source_of_link {
         for my $lister (keys %$listers) {
             my $l = $listers->{$lister};
             if ($source_of_child eq $l->{source}) {
+                my $ref_to_me = $l->{ref_to_me} // $l->{self_ref};
+                return unless defined $ref_to_me; # we already have the child
                 return {
                     source => $l->{link_source} // $l->{source},
                     search => {
-                        $l->{ref_to_me} // $l->{self_ref} => $self->{object}->id,
+                        $ref_to_me => $self->{object}->id,
                         $l->{ref_to_child} // id => $child_id,
                     },
                     self_ref => $l->{self_ref}
@@ -146,10 +152,10 @@ sub source_for_url {
 }
 
 sub attributes {
-    my ($self) = @_;
+    my ($self, $parent) = @_;
     return {} unless $self->{class}->can('attributes');
-    return $self->{class}->attributes unless $self->{object};
-    return $self->{object}->attributes;
+    return $self->{class}->attributes($parent->{object}) unless $self->{object};
+    return $self->{object}->attributes($parent->{object});
 }
 
 # create a link from object to object
@@ -215,6 +221,7 @@ sub save {
         }
         if ($self->{class}->can('is_ok')) {
             my $error = $self->{class}->is_ok($col_data);
+            say STDERR "Not ok: $error" if $error;
             return $error if $error;
         }
         $col_data->{id} = $parameters->{id} unless $self->{sequences};
@@ -299,16 +306,18 @@ sub delete {
     if ($parent) {
         # we need the object which links parent to self
         my $args = $parent->source_of_link($self->{source}, $parameters->{id});
-        if ($args->{self_ref}) {
-            eval {
-                $self->{object}->update({$args->{self_ref} => undef});
-            };
-            say STDERR "Error: $@" if $@;
-            return "$@";
+        if ($args) {
+            if ($args->{self_ref}) {
+                eval {
+                    $self->{object}->update({$args->{self_ref} => undef});
+                };
+                say STDERR "Error: $@" if $@;
+                return "$@";
+            }
+            delete $args->{self_ref};
+            $self = SmartSea::Object->new($args, $self);
+            say STDERR "actually, delete $self->{source}" if $self->{debug};
         }
-        delete $args->{self_ref};
-        $self = SmartSea::Object->new($args, $self);
-        say STDERR "actually, delete $self->{source}" if $self->{debug};
     }
     
     unless ($self->{object}) {
@@ -413,7 +422,8 @@ sub li {
             }
         }
         my $child = SmartSea::Object->new(\%args, $self);
-        my $children = [$object->$lister()];
+        my $children = [$object->$lister];
+        next if @$children == 1 && !$children->[0];
         my $child_is_open = 0;
         if ($child->{object}) {
             for my $has_child (@$children) {
@@ -525,7 +535,7 @@ sub form {
         !$parent->{class}->need_form_for_child($self->{source});
     say STDERR "form is needed" if $self->{debug};
 
-    my $attributes = $self->attributes;
+    my $attributes = $self->attributes($parent);
     my @widgets;
     my $title = ($self->{object} ? 'Editing ' : 'Creating ');
     $title .= $self->{source};

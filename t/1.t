@@ -15,12 +15,14 @@ my ($name,$path,$suffix) = fileparse($0, 'pl', 't');
 my ($tables, $deps, $indexes) = read_postgresql_dump($path.'../schema.sql');
 my $schemas = create_sqlite_schemas($tables, $deps, $indexes);
 
-my $schema = one_schema();
+my $options = {on_connect_do => ["ATTACH 'data.db' AS aux"]};
+my $schema = SmartSea::Schema->connect('dbi:SQLite:tool.db', undef, undef, $options);
 
 $schema->resultset('Plan')->new({id => 1, name => 'plan'})->insert;
 $schema->resultset('UseClass')->new({id => 1, name => 'use_class'})->insert;
 $schema->resultset('LayerClass')->new({id => 1, name => 'layer_class'})->insert;
 $schema->resultset('RuleClass')->new({id => 1, name => 'rule_class'})->insert;
+$schema->resultset('RuleSystem')->new({id => 1, rule_class => 1})->insert;
 $schema->resultset('ColorScale')->new({id => 1, name => 'color_scale'})->insert;
 $schema->resultset('Style')->new({id => 1, color_scale => 1})->insert;
 
@@ -28,7 +30,7 @@ $schema->resultset('Plan')->single({id => 1})->
     create_related('uses', {id => 1, plan => 1, 'use_class' => 1});
 
 $schema->resultset('LayerClass')->single({id => 1})->
-    create_related('layers', {id => 1, use => 1, rule_class => 1, style => 1});
+    create_related('layers', {id => 1, use => 1, rule_system => 1, style => 1});
 
 my $root = 'SmartSea::Schema::Result::';
 my $parameters = {request => '', add => ''};
@@ -39,8 +41,7 @@ for my $class ($schema->sources) {
     ok(ref $result eq 'ARRAY', "$class simple HTML list");
 }
 
-for my $schema (keys %$schemas) {
-    unlink "$schema.db";
-}
+unlink "tool.db";
+unlink "data.db";
 
 done_testing();

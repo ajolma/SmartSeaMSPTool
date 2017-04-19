@@ -22,7 +22,7 @@ sub order_by {
 sub attributes {
     return {
         range => {i => 0, input => 'lookup', source => 'Range'},
-        activity => {i => 1, input => 'lookup', source => 'Activity'},
+        activity => {i => 1, input => 'lookup', source => 'Activity', parent => 1},
         pressure_class => {i => 2, input => 'lookup', source => 'PressureClass'}
     };
 }

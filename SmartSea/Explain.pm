@@ -58,8 +58,9 @@ sub call {
     my $plan_id = $request->query_parameters->get('plan');
     my $use_id = $request->query_parameters->get('use');
     my $layer_id = $request->query_parameters->get('layer');
+    say STDERR "plan = $plan_id, use = $use_id, layer = $layer_id";
     my $dataset;
-    if ($use_id == 0) {
+    if (defined $use_id && $use_id == 0) {
         $dataset = $self->{schema}->resultset('Dataset')->single({id => $layer_id});
         say STDERR $dataset->db_table;
     }

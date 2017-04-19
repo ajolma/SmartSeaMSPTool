@@ -23,7 +23,8 @@ my ($name,$path,$suffix) = fileparse($0, 'pl', 't');
 
 create_sqlite_schemas(read_postgresql_dump($path.'../schema.sql'));
 
-my $schema = one_schema();
+my $options = {on_connect_do => ["ATTACH 'data.db' AS aux"]};
+my $schema = SmartSea::Schema->connect('dbi:SQLite:tool.db', undef, undef, $options);
 
 my $pp = XML::LibXML::PrettyPrint->new(indent_string => "  ");
 
@@ -39,31 +40,28 @@ my $service = SmartSea::Service->new(
     });
 my $app = $service->to_app;
 
-test_psgi $app, sub {
-    my $cb = shift;
-    my $res = $cb->(GET "/");
-    #say STDERR $res->content;
-    my $parser = XML::LibXML->new(no_blanks => 1);
-    my $dom;
-    eval {
-        $dom = $parser->load_xml(string => $res->content);
+if (1) {
+    test_psgi $app, sub {
+        my $cb = shift;
+        my $res = $cb->(GET "/");
+        my $parser = XML::LibXML->new(no_blanks => 1);
+        my $dom;
+        eval {
+            $dom = $parser->load_xml(string => $res->content);
+        };
+        ok(!$@, "get root");
     };
-    ok(!$@, "get root");
-    #$pp->pretty_print($dom);
-    #print STDERR $dom->toString;
-};
-
-test_psgi $app, sub {
-    my $cb = shift;
-    my $res = $cb->(GET "/plans");
-    #say STDERR $res->content;
-    my $plans;
-    eval {
-        $plans  = decode_json $res->content;
+    
+    test_psgi $app, sub {
+        my $cb = shift;
+        my $res = $cb->(GET "/plans");
+        my $plans;
+        eval {
+            $plans  = decode_json $res->content;
+        };
+        ok($plans->[0]{name} eq 'Data' && @{$plans->[0]{uses}[0]{layers}} == 0, "empty plans");
     };
-    ok($plans->[0]{name} eq 'Data' && @{$plans->[0]{uses}[0]{layers}} == 0, "empty plans");
-    #print STDERR Dumper($plans);
-};
+}
 
 # todo: REST API tests (todo REST API first)
 # my $res = $cb->(PUT "/browser/plans?add", [name => 'test', id => 1]);
@@ -72,94 +70,56 @@ test_psgi $app, sub {
 
 # classes
 
-my $classes = {
-    # these do not need other objects
-    plan => {},
-    activity => {},
-    color_scale => {},
-    ecosystem_component => {},
-    layer_class=> {},
-    pressure_category=> {},
-    number_type=> {},
-    op=> {},
-    rule_class=> {},
-    use_class=> {},
-    data_model=> {},
-    dataset=> {},
-    license=> {},
-    organization=> {},
-    unit=> {}
-};
+my $classes = {};
+my $id = {};
 
-# these need one or more other objects
+for my $source (sort $schema->sources) {
+    my $table = source2table($source);
+    my $class = "SmartSea::Schema::Result::$source";
+    my $attr = $class->attributes;
+    my $parents = [];
+    my $refs = [];
+    my $parts = [];
+    my $cols = [];
+    for my $col (sort keys %$attr) {
+        my $item = {col => $col};
+        $item->{class} = source2table($attr->{$col}{source}) if $attr->{$col}{source};
+        for my $key (keys %{$attr->{$col}}) {
+            $item->{$key} = $attr->{$col}{$key};
+        }
+        next if $attr->{$col}{self_ref};
+        next if $attr->{$col}{optional};
+        if ($attr->{$col}{input} eq 'object') {
+            push @$parts, $item;
+            next;
+        }
+        if ($attr->{$col}{input} eq 'lookup') {
+            if ($attr->{$col}{parent}) {
+                push @$parents, $item;
+            } else {
+                push @$refs, $item;
+            }
+            next;
+        }
+        if ($attr->{$col}{required}) {
+            $item->{value} = 1; # this should be based on the type of the col
+            push @$cols, $item;
+        }
+    }
+    $classes->{$table} = {
+        parents => $parents,
+        refs => $refs,
+        parts => $parts,
+        cols => $cols
+    };
+}
 
-$classes->{pressure_class} = {
-    refs => [{col => 'category', class => 'pressure_category'}]
-};
-
-$classes->{range} = {
-    cols => [
-        {col => 'id', value => 1},
-        {col => 'd', value => 1},
-        ]
-};
-
-$classes->{pressure} = {
-    parents => [{col => 'activity', 'class' => 'activity'}], 
-    refs => [
-        {col => 'pressure_class', 'class' => 'pressure_class'},
-        {col => 'range', 'class' => 'range'}
-        ]
-};
-
-$classes->{impact_strength} = {
-    cols => [
-        {col => 'id', value => 1},
-        ]
-};
-
-$classes->{belief} = {
-    cols => [
-        {col => 'id', value => 1},
-        ]
-};
-
-$classes->{impact} = {
-    parents => [{col => 'pressure', class => 'pressure'}], 
-    refs => [
-        {col => 'ecosystem_component', class => 'ecosystem_component'},
-        {col => 'strength', class => 'impact_strength'},
-        {col => 'belief', class => 'belief'}
-        ]
-};
-
-$classes->{layer} = {
-    parents => [{col => 'use', class => 'use'}],
-    refs => [
-        {col => 'layer_class', class => 'layer_class'},
-        {col => 'rule_class', class => 'rule_class'}
-        ],
-    parts => [{col => 'style', class => 'style'}],
-};
-
-$classes->{rule} = {
-    parents => [{col => 'layer', class => 'layer'}],
-    refs => [
-        {col => 'op', class => 'op'},
-        {col => 'number_type', class => 'number_type'},
-        {col => 'r_dataset', class => 'dataset'}
-        ]
-};
-
-$classes->{style} = {
-    embedded => 1,
-    refs => [{col => 'color_scale', class => 'color_scale'}]
-};
-
-$classes->{use} = {
-    parents => [{col => 'plan', class => 'plan'}], 
-    refs => [{col => 'use_class', class => 'use_class'}]
-};
+sub source2table {
+    my $source = shift;
+    $source =~ s/([a-z])([A-Z])/$1_$2/;
+    $source =~ s/([A-Z])/lc($1)/ge;
+    return $source;
+}
 
 my $links = {
     plan2dataset_extra => {classes => [qw/plan dataset/]},
@@ -171,7 +131,7 @@ $service->{debug} = 0;
 # test create and delete of objects of all classes
 if (1) {for my $class (keys %$classes) {
     next if $classes->{$class}{embedded};
-    #next unless $class eq 'dataset';
+    #next unless $class eq 'rule_system';
 
     test_psgi $app, sub {
         my $cb = shift;
@@ -206,6 +166,8 @@ if (1) {for my $class (keys %$classes) {
         #print STDERR $dom->toString;
     };
         }}
+done_testing();
+exit;
 
 $service->{debug} = 0;
 
@@ -287,14 +249,25 @@ sub pretty_print {
 sub deps {
     my ($class, $dep) = @_;
     my $deps = $classes->{$class}{$dep};
-    return @$deps if $deps;
-    return ();
+    return @$deps;
+}
+
+sub attrs {
+    my ($cb, $class, $attr) = @_;
+    for my $ref (deps($class, 'refs')) {
+        create_object($cb, $ref->{class});
+        $attr->{$ref->{col}} = 1;
+    }
+    for my $col (deps($class, 'cols')) {
+        $attr->{$col->{col}} = $col->{value};
+    }
 }
 
 sub create_object {
     my ($cb, $class, $attr) = @_;
     my $url = '/browser';
-    my %attr = (name => 'test', id => 1);
+    $id->{$class}++;
+    my %attr = (name => 'test', id => $id->{$class});
     for my $parent (deps($class, 'parents')) {
         create_object($cb, $parent->{class});
         $url .= '/'.$parent->{class}.':1';
@@ -308,6 +281,8 @@ sub create_object {
     }
     for my $part (deps($class, 'parts')) {
         $attr{$part->{col}.'_is'} = 1;
+        # what attrs part requires
+        attrs($cb, $part->{class}, \%attr); 
     }
     if ($attr) { 
         for my $key (keys %$attr) {
@@ -323,7 +298,8 @@ sub create_object {
 sub delete_object {
     my ($cb, $class) = @_;
     my $url = '/browser';
-    my @attr = (1 => 'Delete');
+    my @attr = ($id->{$class} => 'Delete');
+    $id->{$class}--;
     for my $parent (deps($class, 'parents')) {
         $url .= '/'.$parent->{class}.':1';
     }

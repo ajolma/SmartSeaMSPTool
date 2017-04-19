@@ -16,7 +16,8 @@ my ($name,$path,$suffix) = fileparse($0, 'pl', 't');
 my ($tables, $deps, $indexes) = read_postgresql_dump($path.'../schema.sql');
 my $schemas = create_sqlite_schemas($tables, $deps, $indexes);
 
-my $schema = one_schema();
+my $options = {on_connect_do => ["ATTACH 'data.db' AS aux"]};
+my $schema = SmartSea::Schema->connect('dbi:SQLite:tool.db', undef, undef, $options);
 
 # the tile that we'll ask the layer to compute
 {
@@ -61,7 +62,7 @@ my $data_dir = '/vsimem/';
 
 $schema->resultset('Plan')->new({id => 1, name => 'plan'})->insert;
 $schema->resultset('UseClass')->new({id => 1, name => 'use_class'})->insert;
-for my $i (1..3) {
+for my $i (1..4) {
     $schema->resultset('LayerClass')->new({id => $i, name => 'layer_'.$i})->insert;
 }
 
@@ -119,7 +120,7 @@ test_a_dataset_layer(debug => 0);
 test_inclusive_rules(debug => 0);
 test_exclusive_rules(debug => 0);
 test_multiplicative_rules(debug => 0);
-#test_additive_rules(debug => 2);
+#test_additive_rules(debug => 0);
 
 done_testing();
 
@@ -132,19 +133,27 @@ sub test_additive_rules {
     
     my $rule_class = $rule_class_rs->single({id=>4}); # additive
     my $layer = make_layer(
-        1,1,4, 
-        {
+        plan_id => 1,
+        use_id => 1,
+        layer_class_id => 4,
+        style => {
             color_scale => $color_scale, 
             min => 0, 
             max => 12,
             classes => 4
-        },$rule_class,[{
-            based => { dataset_id => $dataset_1 },
-            data => { x_min => 1, x_max => 10, y_min => 0, y_max => 1, weight => 2 }
-           },{
-            based => { dataset_id => $dataset_2 },
-            data => { x_min => 1, x_max => 10, y_min => 0, y_max => 1, weight => 1 }
-           }]
+        },
+        rule_class => $rule_class,
+        rules => [
+            {
+                based => { dataset_id => $dataset_1 },
+                data => { 
+                    x_min => 1, x_max => 10, y_min => 0, y_max => 1, weight => 2 
+                }
+            },{
+                based => { dataset_id => $dataset_2 },
+                data => { x_min => 1, x_max => 10, y_min => 0, y_max => 1, weight => 1 }
+            }
+        ]
         );
     my $result = $layer->compute($args{debug});
     
@@ -164,16 +173,21 @@ sub test_multiplicative_rules {
     
     my $rule_class = $rule_class_rs->single({id=>3}); # multiplicative
     my $layer = make_layer(
-        1,1,3, 
-        {
+        plan_id => 1,
+        use_id => 1,
+        layer_class_id => 3,
+        style => {
             color_scale => $color_scale,
             min => 0, 
             max => 2, 
             classes => 3
-        },$rule_class,[{
-            based => { dataset_id => $dataset_id },
-            data => { x_min => 1, x_max => 200, y_min => 0, y_max => 1, weight => 2 }
-           }]
+        },
+        rule_class => $rule_class,
+        rules => [
+            {
+                based => { dataset_id => $dataset_id },
+                data => { x_min => 1, x_max => 200, y_min => 0, y_max => 1, weight => 2 }
+            }]
         );
     my $result = $layer->compute($args{debug});
     
@@ -193,16 +207,21 @@ sub test_exclusive_rules {
  
     my $rule_class = $rule_class_rs->single({id=>2});
     my $layer = make_layer(
-        1,1,2, 
-        {
+        plan_id => 1,
+        use_id => 1,
+        layer_class_id => 2, 
+        style => {
             color_scale => $color_scale,
             min => 0, 
             max => 1, 
             classes => 2
-        },$rule_class,[{
-            based => { dataset_id => $dataset_id },
-            data => { reduce => 1, op_id => 1, value => 5.0, index => 1 }
-           }]
+        },
+        rule_class => $rule_class,
+        rules => [
+            {
+                based => { dataset_id => $dataset_id },
+                data => { reduce => 1, op_id => 1, value => 5.0, index => 1 }
+            }]
         );
     my $result = $layer->compute($args{debug});
     my $exp = [[255,1,1],[0,0,0],[1,0,0]];
@@ -220,16 +239,21 @@ sub test_inclusive_rules {
  
     my $rule_class = $rule_class_rs->single({id=>1});
     my $layer = make_layer(
-        1,1,1, 
-        {
+        plan_id => 1,
+        use_id => 1,
+        layer_class_id => 1, 
+        style => {
             color_scale => $color_scale,
             min => 0, 
             max => 1, 
             classes => 2
-        },$rule_class,[{
-            based => { dataset_id => $dataset_id },
-            data => { reduce => 1, op_id => 1, value => 5.0, index => 1 }
-           }]
+        },
+        rule_class => $rule_class,
+        rules => [
+            {
+                based => { dataset_id => $dataset_id },
+                data => { reduce => 1, op_id => 1, value => 5.0, index => 1 }
+            }]
         );
     my $result = $layer->compute($args{debug});
 
@@ -249,7 +273,7 @@ sub test_a_dataset_layer {
        
                 print Geo::GDAL::Open(Name => $data_dir.$dataset_id.'.tiff')->Band->Piddle if $args{debug};
                 
-                my $layer = make_layer(0,0,$dataset_id);
+                my $layer = make_layer(plan_id => 0, use_id => 0, layer_class_id => $dataset_id);
                 my $result = $layer->compute($args{debug});
                 my $output = $result->Band->ReadTile;
                 
@@ -273,29 +297,30 @@ sub test_a_dataset_layer {
 }
 
 sub make_layer {
-    my ($plan_id, $use_id, $layer_class_id, $style, $rule_class, $rules) = @_;
-    if ($use_id > 0) {
+    my %arg = @_;
+    if ($arg{use_id} > 0) {
         $style_rs->new({
             id => $style_id, 
-            color_scale => $style->{color_scale}->id,
-            min => $style->{min},
-            max => $style->{max},
-            classes => $style->{classes} })->insert;
-        $schema->resultset('LayerClass')->single({id => $layer_class_id})->create_related
-            ( 'layers', 
-              {
-                  id => $layer_id,
-                  use => 1,
-                  rule_class => $rule_class->id,
-                  style => $style_id
-              });
+            color_scale => $arg{style}->{color_scale}->id,
+            min => $arg{style}->{min},
+            max => $arg{style}->{max},
+            classes => $arg{style}->{classes} })->insert;
+        $schema->resultset('RuleSystem')->create({
+            id => $layer_id, 
+            rule_class => $arg{rule_class}->id });
+        $schema->resultset('Layer')->create({
+            id => $layer_id,
+            layer_class => $arg{layer_class_id},
+            use => 1,
+            rule_system => $layer_id,
+            style => $style_id });
         ++$style_id;
+        ++$layer_id;
     }
-    for my $rule (@$rules) {
+    for my $rule (@{$arg{rules}}) {
         # $args->{rule_class}->id and $rule->{data} must match...
-        add_rule($layer_id, $rule->{based}, $rule->{data});
+        add_rule($arg{layer_class_id}, $rule->{based}, $rule->{data});
     }
-    ++$layer_id;
     return SmartSea::Layer->new({
         epsg => $epsg,
         tile => $tile,
@@ -303,7 +328,7 @@ sub make_layer {
         data_dir => $data_dir,
         GDALVectorDataset => undef,
         cookie => '', 
-        trail => $plan_id.'_'.$use_id.'_'.$layer_class_id});
+        trail => $arg{plan_id}.'_'.$arg{use_id}.'_'.$arg{layer_class_id} });
 }
 
 sub add_rule {
@@ -314,7 +339,7 @@ sub add_rule {
         max_value => 1,
         cookie => '',
         made => undef,
-        layer => $pul
+        rule_system => $pul
     };
     if ($based->{pul}) {
         $rule->{r_plan} = $based->{pul}{plan_id};

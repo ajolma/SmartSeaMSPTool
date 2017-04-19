@@ -10,6 +10,13 @@ __PACKAGE__->set_primary_key(qw/ id /);
 __PACKAGE__->belongs_to(use_class => 'SmartSea::Schema::Result::UseClass');
 __PACKAGE__->belongs_to(activity => 'SmartSea::Schema::Result::Activity');
 
+sub attributes {
+    return {
+        activity => {i => 1, input => 'lookup', source => 'Activity'},
+        use_class => {i => 2, input => 'lookup', source => 'UseClass'}
+    };
+}
+
 sub order_by {
     return {-asc => 'id'};
 }

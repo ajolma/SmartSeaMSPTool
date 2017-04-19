@@ -11,9 +11,9 @@ use SmartSea::HTML qw(:all);
 use SmartSea::Layer;
 
 my %attributes = (
-    layer =>        { i => 1,  input => 'lookup', source => 'Layer',   allow_null => 0 },
-    r_layer =>      { i => 7,  input => 'lookup', source => 'Layer',   allow_null => 1 },
-    r_dataset =>    { i => 8,  input => 'lookup', source => 'Dataset', allow_null => 1, objs => {path => {'!=',undef}} },
+    rule_system =>  { i => 1,  input => 'lookup', source => 'RuleSystem', allow_null => 0 },
+    r_layer =>      { i => 7,  input => 'lookup', source => 'Layer',      allow_null => 1, optional => 1 },
+    r_dataset =>    { i => 8,  input => 'lookup', source => 'Dataset',    allow_null => 1, objs => {path => {'!=',undef}} },
     op =>           { i => 9,  input => 'lookup', source => 'Op'  },
     value =>        { i => 10, input => 'text', type => 'double', empty_is_default => 1 },
     min_value =>    { i => 11, input => 'text', type => 'double', empty_is_default => 1 },
@@ -33,10 +33,10 @@ my %attributes = (
 # suitability = multiply_all(w_r_1 ... w_r_n)
 
 __PACKAGE__->table('rules');
-__PACKAGE__->add_columns('id', 'cookie', 'made', 'layer', keys %attributes);
+__PACKAGE__->add_columns('id', 'cookie', 'made', 'rule_system', keys %attributes);
 __PACKAGE__->set_primary_key('id', 'cookie');
 
-__PACKAGE__->belongs_to(layer => 'SmartSea::Schema::Result::Layer');
+__PACKAGE__->belongs_to(rule_system => 'SmartSea::Schema::Result::RuleSystem');
 __PACKAGE__->belongs_to(r_layer => 'SmartSea::Schema::Result::Layer');
 __PACKAGE__->belongs_to(r_dataset => 'SmartSea::Schema::Result::Dataset');
 __PACKAGE__->belongs_to(op => 'SmartSea::Schema::Result::Op');
@@ -63,7 +63,10 @@ sub attributes {
                 values => \@values
             };
         }
-        my $class = $self->layer->rule_class->name;
+    }
+    if ($parent) {
+        my $class = $parent->rule_system->rule_class->name;
+        say STDERR "rule class = $class";
         if ($class eq 'additive' or $class eq 'multiplicative') {
             delete $a->{op};
             delete $a->{value};
@@ -82,7 +85,9 @@ sub attributes {
 sub col_data_for_create {
     my ($self, $parent) = @_;
     return {} unless $parent;
-    return {layer => $parent->id};
+    return {rule_system => $parent->rule_system->id} if ref $parent eq 'SmartSea::Schema::Result::Layer';
+    return {rule_system => $parent->distribution->id} if ref $parent eq 'SmartSea::Schema::Result::EcosystemComponent';
+    return {};
 }
 
 sub is_ok {
@@ -100,7 +105,7 @@ sub order_by {
 sub name {
     my ($self, %args) = @_;
 
-    my $class = $self->layer->rule_class->name;
+    my $class = $self->rule_system->rule_class->name;
     my $layer  = $self->r_layer ? $self->r_layer : undef;
     my $dataset = $self->r_dataset ? $self->r_dataset : undef;
 
@@ -173,7 +178,7 @@ sub as_hashref_for_json {
         $rule{max} = $dataset->max_value;
         $rule{type} = 'integer';
     } else {
-        my $class = $self->layer->rule_class->name;
+        my $class = $self->rule_system->rule_class->name;
         if ($class eq 'exclusive' || $class eq 'inclusive') {
             my $dataset = $self->r_dataset;
             my $style = $dataset ? $dataset->style : undef;
@@ -203,7 +208,7 @@ sub as_hashref_for_json {
 # this is needed by modify request
 sub values {
     my ($self) = @_;
-    my %values = (id => $self->id, layer => $self->layer->id);
+    my %values = (id => $self->id, rule_system => $self->rule_system->id);
     for my $key (keys %attributes) {
         if ($attributes{$key}{input} eq 'lookup') {
             my $foreign = $self->$key;

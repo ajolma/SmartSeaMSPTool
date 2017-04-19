@@ -8,10 +8,16 @@ use SmartSea::HTML qw(:all);
 use SmartSea::Impact qw(:all);
 
 __PACKAGE__->table('ecosystem_components');
-__PACKAGE__->add_columns(qw/ id name dataset /);
+__PACKAGE__->add_columns(qw/ id name distribution /);
 __PACKAGE__->set_primary_key('id');
 __PACKAGE__->has_many(impacts => 'SmartSea::Schema::Result::Impact', 'ecosystem_component');
-__PACKAGE__->belongs_to(dataset => 'SmartSea::Schema::Result::Dataset');
+__PACKAGE__->belongs_to(distribution => 'SmartSea::Schema::Result::RuleSystem');
+__PACKAGE__->has_many(rules => 'SmartSea::Schema::Result::Rule', {'foreign.rule_system' => 'self.distribution'});
+
+sub rule_system {
+    my $self = shift;
+    return $self->distribution;
+}
 
 sub attributes {
     return {
@@ -19,13 +25,31 @@ sub attributes {
             i => 0,
             input => 'text',
         },
-        dataset => {
+        distribution => {
             i => 1,
-            input => 'lookup',  
-            source => 'Dataset', 
-            objs => {path => {'!=',undef}}
+            input => 'object',
+            source => 'RuleSystem'
         }
     };
+}
+
+sub children_listers {
+    return { 
+        _rules => {
+            source => 'Rule',
+            class_name => 'Rules',
+            for_child_form => sub {
+                my ($self, $children) = @_;
+                return undef;
+            }
+        }
+    };
+}
+
+sub _rules {
+    my $self = shift;
+    return $self->rules if $self->distribution;
+    return (undef);
 }
 
 sub order {

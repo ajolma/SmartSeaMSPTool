@@ -8,10 +8,10 @@ use Scalar::Util 'blessed';
 use SmartSea::HTML qw(:all);
 
 my %attributes = (
-    pressure            => { i => 1, input => 'lookup', source => 'Pressure' },
+    pressure            => { i => 1, input => 'lookup', source => 'Pressure', parent => 1 },
     ecosystem_component => { i => 2, input => 'lookup', source => 'EcosystemComponent' },
-    strength            => { i => 3, input => 'lookup', size => 'ImpactStrength' },
-    belief              => { i => 4, input => 'lookup', size => 'Belief' },
+    strength            => { i => 3, input => 'lookup', source => 'ImpactStrength' },
+    belief              => { i => 4, input => 'lookup', source => 'Belief' },
     );
 
 __PACKAGE__->table('impacts');

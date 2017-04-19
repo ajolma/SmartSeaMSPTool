@@ -19,7 +19,7 @@ sub order_by {
 
 sub attributes {
     return {
-        plan => {i => 0, input => 'lookup', source => 'Plan' }, 
+        plan => {i => 0, input => 'lookup', source => 'Plan', parent => 1 }, 
         use_class => {i => 1, input => 'lookup', source => 'UseClass' }
     };
 }

@@ -9,9 +9,9 @@ use SmartSea::Core qw(:all);
 use SmartSea::HTML qw(:all);
 
 my %attributes = (
-    use         => { i => 1, input => 'lookup', source => 'Use' },
+    use         => { i => 1, input => 'lookup', source => 'Use', parent => 1 },
     layer_class => { i => 2, input => 'lookup', source => 'LayerClass' },
-    rule_class  => { i => 3, input => 'lookup', source => 'RuleClass' },
+    rule_system => { i => 3, input => 'object', source => 'RuleSystem', required => 1 },
     style       => { i => 4, input => 'object', source => 'Style', required => 1 },
     descr       => { i => 5, input => 'text' }
     );
@@ -21,9 +21,9 @@ __PACKAGE__->add_columns('id', keys %attributes);
 __PACKAGE__->set_primary_key(qw/ id /);
 __PACKAGE__->belongs_to(use => 'SmartSea::Schema::Result::Use');
 __PACKAGE__->belongs_to(layer_class => 'SmartSea::Schema::Result::LayerClass');
-__PACKAGE__->belongs_to(rule_class => 'SmartSea::Schema::Result::RuleClass');
+__PACKAGE__->belongs_to(rule_system => 'SmartSea::Schema::Result::RuleSystem');
 __PACKAGE__->belongs_to(style => 'SmartSea::Schema::Result::Style');
-__PACKAGE__->has_many(rules => 'SmartSea::Schema::Result::Rule', 'layer');
+__PACKAGE__->has_many(rules => 'SmartSea::Schema::Result::Rule', {'foreign.rule_system' => 'self.rule_system'});
 
 sub attributes {
     return dclone(\%attributes);
@@ -33,7 +33,6 @@ sub children_listers {
     return { 
         rules => {
             source => 'Rule',
-            ref_to_me => 'layer',
             class_name => 'Rules',
             for_child_form => sub {
                 my ($self, $children) = @_;

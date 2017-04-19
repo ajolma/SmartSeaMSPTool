@@ -217,6 +217,11 @@ MSPView.prototype = {
                         var layer = use.layers[event.data.layer.index];
                         self.model.selectLayer(use.id, layer.id);
                     }
+                    if (self.model.layer)
+                        self.elements.site.html(self.model.layer.name);
+                    else
+                        self.elements.site.html("");
+                        
                 });
                 var slider = $('li#use'+use.index+' input.opacity'+layer.index);
                 if (layer.visible) {
@@ -244,7 +249,6 @@ MSPView.prototype = {
         var use = this.model.use;
         var layer = this.model.layer;
         $("#l"+use.id+'_'+layer.id).css("background-color","yellow");
-        //this.elements.color_scale.html("Colors are "+layer.style);
         var url = 'http://'+self.server+'/core/legend';
         this.elements.color_scale.html(
             element('img',{src:url+'?layer='+plan.id+'_'+use.id+'_'+layer.id},'')
@@ -263,6 +267,9 @@ MSPView.prototype = {
             else if (layer.rule_class == "inclusive") 
                 this.elements.rule_info.html("Value is a sum of rules.");
         }
+        if (layer.visible) {
+            this.elements.site.html(layer.name);
+        }
     },
     unselectLayer: function(use, layer) {
         $("#l"+use+'_'+layer).css("background-color","white");
@@ -270,6 +277,7 @@ MSPView.prototype = {
         this.elements.rule_info.html("");
         this.elements.color_scale.html('');
         this.elements.rules.empty();
+        this.elements.site.html("");
     },
     fillRulesPanel: function(layer) {
         var self = this;

@@ -10,7 +10,7 @@ __PACKAGE__->add_columns(qw/id d/);
 __PACKAGE__->set_primary_key('id');
 
 sub attributes {
-    return {d => {i => 0, input => 'text'}};
+    return {d => {i => 0, input => 'text', required => 1}};
 }
 
 sub name {

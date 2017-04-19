@@ -396,7 +396,7 @@ ALTER TABLE color_scales OWNER TO ajolma;
 CREATE TABLE ecosystem_components (
     id integer NOT NULL,
     name text NOT NULL,
-    dataset integer
+    distribution integer
 );
 
 
@@ -585,9 +585,9 @@ CREATE TABLE layers (
     use integer NOT NULL,
     layer_class integer NOT NULL,
     id integer NOT NULL,
-    rule_class integer DEFAULT 1 NOT NULL,
     descr text,
-    style integer NOT NULL
+    style integer NOT NULL,
+    rule_system integer NOT NULL
 );
 
 
@@ -910,6 +910,39 @@ ALTER SEQUENCE rule_classes_id_seq OWNED BY rule_classes.id;
 
 
 --
+-- Name: rule_systems; Type: TABLE; Schema: tool; Owner: ajolma
+--
+
+CREATE TABLE rule_systems (
+    id integer NOT NULL,
+    rule_class integer NOT NULL
+);
+
+
+ALTER TABLE rule_systems OWNER TO ajolma;
+
+--
+-- Name: rule_systems_id_seq; Type: SEQUENCE; Schema: tool; Owner: ajolma
+--
+
+CREATE SEQUENCE rule_systems_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE rule_systems_id_seq OWNER TO ajolma;
+
+--
+-- Name: rule_systems_id_seq; Type: SEQUENCE OWNED BY; Schema: tool; Owner: ajolma
+--
+
+ALTER SEQUENCE rule_systems_id_seq OWNED BY rule_systems.id;
+
+
+--
 -- Name: rules; Type: TABLE; Schema: tool; Owner: ajolma
 --
 
@@ -926,8 +959,8 @@ CREATE TABLE rules (
     value_at_min double precision DEFAULT 0 NOT NULL,
     value_at_max double precision DEFAULT 1 NOT NULL,
     weight double precision DEFAULT 1 NOT NULL,
-    layer integer NOT NULL,
-    value_type integer DEFAULT 1 NOT NULL
+    value_type integer DEFAULT 1 NOT NULL,
+    rule_system integer NOT NULL
 );
 
 
@@ -976,13 +1009,6 @@ COMMENT ON COLUMN rules.weight IS 'for additive and multiplicative rules';
 
 
 --
--- Name: COLUMN rules.layer; Type: COMMENT; Schema: tool; Owner: ajolma
---
-
-COMMENT ON COLUMN rules.layer IS 'which layer this rule is used to create';
-
-
---
 -- Name: COLUMN rules.value_type; Type: COMMENT; Schema: tool; Owner: ajolma
 --
 
@@ -1016,7 +1042,7 @@ ALTER SEQUENCE rules_id_seq OWNED BY rules.id;
 
 CREATE TABLE styles (
     id integer NOT NULL,
-    color_scale integer,
+    color_scale integer NOT NULL,
     min double precision,
     max double precision,
     classes integer,
@@ -1277,6 +1303,13 @@ ALTER TABLE ONLY pressures ALTER COLUMN id SET DEFAULT nextval('activity2impact_
 --
 
 ALTER TABLE ONLY rule_classes ALTER COLUMN id SET DEFAULT nextval('rule_classes_id_seq'::regclass);
+
+
+--
+-- Name: id; Type: DEFAULT; Schema: tool; Owner: ajolma
+--
+
+ALTER TABLE ONLY rule_systems ALTER COLUMN id SET DEFAULT nextval('rule_systems_id_seq'::regclass);
 
 
 --
@@ -1615,6 +1648,14 @@ ALTER TABLE ONLY rule_classes
 
 
 --
+-- Name: rule_systems_pkey; Type: CONSTRAINT; Schema: tool; Owner: ajolma
+--
+
+ALTER TABLE ONLY rule_systems
+    ADD CONSTRAINT rule_systems_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: rules_pkey; Type: CONSTRAINT; Schema: tool; Owner: ajolma
 --
 
@@ -1755,11 +1796,11 @@ ALTER TABLE ONLY pressures
 
 
 --
--- Name: ecosystem_components_dataset_fkey; Type: FK CONSTRAINT; Schema: tool; Owner: ajolma
+-- Name: ecosystem_components_existence_fkey; Type: FK CONSTRAINT; Schema: tool; Owner: ajolma
 --
 
 ALTER TABLE ONLY ecosystem_components
-    ADD CONSTRAINT ecosystem_components_dataset_fkey FOREIGN KEY (dataset) REFERENCES data.datasets(id);
+    ADD CONSTRAINT ecosystem_components_existence_fkey FOREIGN KEY (distribution) REFERENCES rule_systems(id);
 
 
 --
@@ -1768,6 +1809,14 @@ ALTER TABLE ONLY ecosystem_components
 
 ALTER TABLE ONLY impacts
     ADD CONSTRAINT impacts_activity2impact_type_fkey FOREIGN KEY (pressure) REFERENCES pressures(id);
+
+
+--
+-- Name: impacts_belief_fkey; Type: FK CONSTRAINT; Schema: tool; Owner: ajolma
+--
+
+ALTER TABLE ONLY impacts
+    ADD CONSTRAINT impacts_belief_fkey FOREIGN KEY (belief) REFERENCES beliefs(id);
 
 
 --
@@ -1792,6 +1841,14 @@ ALTER TABLE ONLY pressure_classes
 
 ALTER TABLE ONLY impacts
     ADD CONSTRAINT impacts_strength_fkey FOREIGN KEY (strength) REFERENCES impact_strengths(id);
+
+
+--
+-- Name: layers_rules_fkey; Type: FK CONSTRAINT; Schema: tool; Owner: ajolma
+--
+
+ALTER TABLE ONLY layers
+    ADD CONSTRAINT layers_rules_fkey FOREIGN KEY (rule_system) REFERENCES rule_systems(id);
 
 
 --
@@ -1827,14 +1884,6 @@ ALTER TABLE ONLY layers
 
 
 --
--- Name: plan2use2layer_rule_class_fkey; Type: FK CONSTRAINT; Schema: tool; Owner: ajolma
---
-
-ALTER TABLE ONLY layers
-    ADD CONSTRAINT plan2use2layer_rule_class_fkey FOREIGN KEY (rule_class) REFERENCES rule_classes(id);
-
-
---
 -- Name: plan2use_plan_fkey; Type: FK CONSTRAINT; Schema: tool; Owner: ajolma
 --
 
@@ -1859,11 +1908,11 @@ ALTER TABLE ONLY pressures
 
 
 --
--- Name: rules_plan2use2layer_fkey; Type: FK CONSTRAINT; Schema: tool; Owner: ajolma
+-- Name: rule_systems_rule_class_fkey; Type: FK CONSTRAINT; Schema: tool; Owner: ajolma
 --
 
-ALTER TABLE ONLY rules
-    ADD CONSTRAINT rules_plan2use2layer_fkey FOREIGN KEY (layer) REFERENCES layers(id);
+ALTER TABLE ONLY rule_systems
+    ADD CONSTRAINT rule_systems_rule_class_fkey FOREIGN KEY (rule_class) REFERENCES rule_classes(id);
 
 
 --
@@ -1888,6 +1937,14 @@ ALTER TABLE ONLY rules
 
 ALTER TABLE ONLY rules
     ADD CONSTRAINT rules_r_op_fkey FOREIGN KEY (op) REFERENCES ops(id);
+
+
+--
+-- Name: rules_rule_system_fkey; Type: FK CONSTRAINT; Schema: tool; Owner: ajolma
+--
+
+ALTER TABLE ONLY rules
+    ADD CONSTRAINT rules_rule_system_fkey FOREIGN KEY (rule_system) REFERENCES rule_systems(id);
 
 
 --
@@ -2289,6 +2346,26 @@ REVOKE ALL ON TABLE rule_classes FROM PUBLIC;
 REVOKE ALL ON TABLE rule_classes FROM ajolma;
 GRANT ALL ON TABLE rule_classes TO ajolma;
 GRANT ALL ON TABLE rule_classes TO smartsea;
+
+
+--
+-- Name: rule_systems; Type: ACL; Schema: tool; Owner: ajolma
+--
+
+REVOKE ALL ON TABLE rule_systems FROM PUBLIC;
+REVOKE ALL ON TABLE rule_systems FROM ajolma;
+GRANT ALL ON TABLE rule_systems TO ajolma;
+GRANT ALL ON TABLE rule_systems TO smartsea;
+
+
+--
+-- Name: rule_systems_id_seq; Type: ACL; Schema: tool; Owner: ajolma
+--
+
+REVOKE ALL ON SEQUENCE rule_systems_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE rule_systems_id_seq FROM ajolma;
+GRANT ALL ON SEQUENCE rule_systems_id_seq TO ajolma;
+GRANT ALL ON SEQUENCE rule_systems_id_seq TO smartsea;
 
 
 --

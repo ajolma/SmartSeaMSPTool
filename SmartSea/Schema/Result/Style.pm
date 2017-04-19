@@ -27,7 +27,7 @@ use SmartSea::HTML qw(:all);
 #     255 for transparent
 
 my %attributes = (
-    color_scale =>  { i => 1, input => 'lookup', source => 'ColorScale', allow_null => 0 },
+    color_scale =>  { i => 1, input => 'lookup', source => 'ColorScale', allow_null => 0, required => 1 },
     min =>          { i => 3, input => 'text', size => 20, empty_is_null => 1 },
     max =>          { i => 4, input => 'text', size => 20, empty_is_null => 1 },
     classes =>      { i => 5, input => 'text', size => 20, empty_is_null => 1 },

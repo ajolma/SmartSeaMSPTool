@@ -165,7 +165,7 @@ sub compute {
 
     my $result = zeroes($self->{tile}->tile);
 
-    my $method = $self->{duck}->rule_class->name;
+    my $method = $self->{duck}->rule_system->rule_class->name;
 
     unless ($method =~ /^incl/) {
         $result += 1;
@@ -196,7 +196,9 @@ sub compute {
     }
 
     if ($method =~ /^add/) {
+        say STDERR "$self";
         $result /= $self->max; # ?? there is $self->{pu}l->additive_max
+        say STDERR "$result";
         $result->where($result > 1) .= 1;
     }
 
