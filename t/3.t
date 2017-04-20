@@ -62,9 +62,10 @@ test_psgi $app, sub {
     return if $@;
 
     # is the plans what it should be?
-    my $ok = @$plans == 2;
+    my $ok = @$plans == 3;
     $ok = $plans->[0]{name} eq 'plan' if $ok;
-    $ok = $plans->[1]{name} eq 'Data' if $ok;
+    $ok = $plans->[1]{name} eq 'Data' && $plans->[1]{id} == 0 if $ok;
+    $ok = $plans->[2]{name} eq 'Ecosystem' && $plans->[2]{id} == 1 if $ok;
     print STDERR Dumper $plans unless $ok;
     ok($ok, "/plans has ok structure");
 };

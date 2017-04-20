@@ -396,7 +396,8 @@ ALTER TABLE color_scales OWNER TO ajolma;
 CREATE TABLE ecosystem_components (
     id integer NOT NULL,
     name text NOT NULL,
-    distribution integer
+    distribution integer,
+    style integer
 );
 
 
@@ -1592,14 +1593,6 @@ ALTER TABLE ONLY uses
 
 
 --
--- Name: plan2use_plan_use_key; Type: CONSTRAINT; Schema: tool; Owner: ajolma
---
-
-ALTER TABLE ONLY uses
-    ADD CONSTRAINT plan2use_plan_use_key UNIQUE (plan, use_class);
-
-
---
 -- Name: plans_pkey; Type: CONSTRAINT; Schema: tool; Owner: ajolma
 --
 
@@ -1688,19 +1681,27 @@ ALTER TABLE ONLY use_class2activity
 
 
 --
--- Name: use2activity_use_activity_key; Type: CONSTRAINT; Schema: tool; Owner: ajolma
+-- Name: use_class2activity_use_class_activity_key; Type: CONSTRAINT; Schema: tool; Owner: ajolma
 --
 
 ALTER TABLE ONLY use_class2activity
-    ADD CONSTRAINT use2activity_use_activity_key UNIQUE (use_class, activity);
+    ADD CONSTRAINT use_class2activity_use_class_activity_key UNIQUE (use_class, activity);
 
 
 --
--- Name: uses_pkey; Type: CONSTRAINT; Schema: tool; Owner: ajolma
+-- Name: use_classes_pkey; Type: CONSTRAINT; Schema: tool; Owner: ajolma
 --
 
 ALTER TABLE ONLY use_classes
-    ADD CONSTRAINT uses_pkey PRIMARY KEY (id);
+    ADD CONSTRAINT use_classes_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: uses_plan_use_class_key; Type: CONSTRAINT; Schema: tool; Owner: ajolma
+--
+
+ALTER TABLE ONLY uses
+    ADD CONSTRAINT uses_plan_use_class_key UNIQUE (plan, use_class);
 
 
 --
@@ -1804,6 +1805,14 @@ ALTER TABLE ONLY ecosystem_components
 
 
 --
+-- Name: ecosystem_components_style_fkey; Type: FK CONSTRAINT; Schema: tool; Owner: ajolma
+--
+
+ALTER TABLE ONLY ecosystem_components
+    ADD CONSTRAINT ecosystem_components_style_fkey FOREIGN KEY (style) REFERENCES styles(id);
+
+
+--
 -- Name: impacts_activity2impact_type_fkey; Type: FK CONSTRAINT; Schema: tool; Owner: ajolma
 --
 
@@ -1892,14 +1901,6 @@ ALTER TABLE ONLY uses
 
 
 --
--- Name: plan2use_use_fkey; Type: FK CONSTRAINT; Schema: tool; Owner: ajolma
---
-
-ALTER TABLE ONLY uses
-    ADD CONSTRAINT plan2use_use_fkey FOREIGN KEY (use_class) REFERENCES use_classes(id);
-
-
---
 -- Name: pressures_range_fkey; Type: FK CONSTRAINT; Schema: tool; Owner: ajolma
 --
 
@@ -1972,19 +1973,27 @@ ALTER TABLE ONLY use_class2activity
 
 
 --
--- Name: use2activity_use_fkey; Type: FK CONSTRAINT; Schema: tool; Owner: ajolma
---
-
-ALTER TABLE ONLY use_class2activity
-    ADD CONSTRAINT use2activity_use_fkey FOREIGN KEY (use_class) REFERENCES use_classes(id);
-
-
---
 -- Name: use2layer_layer_fkey; Type: FK CONSTRAINT; Schema: tool; Owner: ajolma
 --
 
 ALTER TABLE ONLY layers
     ADD CONSTRAINT use2layer_layer_fkey FOREIGN KEY (layer_class) REFERENCES layer_classes(id);
+
+
+--
+-- Name: use_class2activity_use_class_fkey; Type: FK CONSTRAINT; Schema: tool; Owner: ajolma
+--
+
+ALTER TABLE ONLY use_class2activity
+    ADD CONSTRAINT use_class2activity_use_class_fkey FOREIGN KEY (use_class) REFERENCES use_classes(id);
+
+
+--
+-- Name: uses_use_class_fkey; Type: FK CONSTRAINT; Schema: tool; Owner: ajolma
+--
+
+ALTER TABLE ONLY uses
+    ADD CONSTRAINT uses_use_class_fkey FOREIGN KEY (use_class) REFERENCES use_classes(id);
 
 
 --

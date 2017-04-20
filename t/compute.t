@@ -61,13 +61,13 @@ my $data_dir = '/vsimem/';
 # set up the test database
 
 $schema->resultset('Plan')->new({id => 1, name => 'plan'})->insert;
-$schema->resultset('UseClass')->new({id => 1, name => 'use_class'})->insert;
+$schema->resultset('UseClass')->new({id => 2, name => 'use_class'})->insert;
 for my $i (1..4) {
     $schema->resultset('LayerClass')->new({id => $i, name => 'layer_'.$i})->insert;
 }
 
 $schema->resultset('Plan')->single({id => 1})
-    ->create_related('uses', {id => 1, plan => 1, 'use_class' => 1});
+    ->create_related('uses', {id => 1, plan => 1, 'use_class' => 2});
 
 my $rule_class_rs = $schema->resultset('RuleClass');
 $rule_class_rs->new({id => 1, name => 'inclusive'})->insert;
@@ -134,7 +134,7 @@ sub test_additive_rules {
     my $rule_class = $rule_class_rs->single({id=>4}); # additive
     my $layer = make_layer(
         plan_id => 1,
-        use_id => 1,
+        use_class_id => 2,
         layer_class_id => 4,
         style => {
             color_scale => $color_scale, 
@@ -174,7 +174,7 @@ sub test_multiplicative_rules {
     my $rule_class = $rule_class_rs->single({id=>3}); # multiplicative
     my $layer = make_layer(
         plan_id => 1,
-        use_id => 1,
+        use_class_id => 2,
         layer_class_id => 3,
         style => {
             color_scale => $color_scale,
@@ -208,7 +208,7 @@ sub test_exclusive_rules {
     my $rule_class = $rule_class_rs->single({id=>2});
     my $layer = make_layer(
         plan_id => 1,
-        use_id => 1,
+        use_class_id => 2,
         layer_class_id => 2, 
         style => {
             color_scale => $color_scale,
@@ -240,7 +240,7 @@ sub test_inclusive_rules {
     my $rule_class = $rule_class_rs->single({id=>1});
     my $layer = make_layer(
         plan_id => 1,
-        use_id => 1,
+        use_class_id => 2,
         layer_class_id => 1, 
         style => {
             color_scale => $color_scale,
@@ -273,7 +273,7 @@ sub test_a_dataset_layer {
        
                 print Geo::GDAL::Open(Name => $data_dir.$dataset_id.'.tiff')->Band->Piddle if $args{debug};
                 
-                my $layer = make_layer(plan_id => 0, use_id => 0, layer_class_id => $dataset_id);
+                my $layer = make_layer(plan_id => 0, use_class_id => 0, layer_class_id => $dataset_id);
                 my $result = $layer->compute($args{debug});
                 my $output = $result->Band->ReadTile;
                 
@@ -298,7 +298,7 @@ sub test_a_dataset_layer {
 
 sub make_layer {
     my %arg = @_;
-    if ($arg{use_id} > 0) {
+    if ($arg{use_class_id} > 1) {
         $style_rs->new({
             id => $style_id, 
             color_scale => $arg{style}->{color_scale}->id,
@@ -328,7 +328,7 @@ sub make_layer {
         data_dir => $data_dir,
         GDALVectorDataset => undef,
         cookie => '', 
-        trail => $arg{plan_id}.'_'.$arg{use_id}.'_'.$arg{layer_class_id} });
+        trail => $arg{plan_id}.'_'.$arg{use_class_id}.'_'.$arg{layer_class_id} });
 }
 
 sub add_rule {
