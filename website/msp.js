@@ -142,7 +142,7 @@ MSPView.prototype = {
     buildPlans: function() {
         var self = this;
         $.each(self.model.plans, function(i, plan) {
-            if (plan.id > 0)
+            if (plan.id > 1) // not Ecosystem and Data, which are "pseudo plans"
                 self.elements.plans.append(element('option',{value:plan.id},plan.name));
         });
     },
@@ -305,11 +305,8 @@ MSPView.prototype = {
                         if (rule.value_semantics) value = rule.value_semantics[value];
                         name += ' '+rule.op+' '+value;
                     }
-                    item = element(
-                        'input', 
-                        attr, 
-                        element('a', {id:"rule", rule:rule.id}, name)
-                    );
+                    item = element('a', {id:"rule", rule:rule.id}, name);
+                    if (layer.use > 1) item = element('input', attr, item);
                 }
                 self.elements.rules.append(item);
                 rule.active = true;
@@ -512,7 +509,7 @@ MSP.prototype = {
         if (self.plan) {
             var newUses = [];
             for (var i = 0; i < this.plan.uses.length; ++i) {
-                if (this.plan.uses[i].id != 0)
+                if (this.plan.uses[i].id > 1) // not a pseudo plan
                     newUses.push(this.plan.uses[i]);
             }
             this.plan.uses = newUses;
@@ -520,14 +517,20 @@ MSP.prototype = {
         self.plan = null;
         self.use = null;
         self.layer = null;
+        // pseudo plans, note reserved use class id's
         var datasets = {id:0, name:"Data", open:false, plan:0, layers:[]};
+        var ecosystem = {id:1, name:"Ecosystem", open:false, plan:1, layers:[]};
         $.each(self.plans, function(i, plan) {
             if (id == plan.id) self.plan = plan;
-            if (plan.id == 0) {
-                //datasets = plan.uses[0];
+            if (plan.id == 0) { // a pseudo plan Data
                 $.each(plan.uses[0].layers, function(i, dataset) {
                     if (self.plan.data[dataset.id])
                         datasets.layers.push(dataset);
+                });
+            }
+            if (plan.id == 1) { // a pseudo plan Ecosystem
+                $.each(plan.uses[0].layers, function(i, component) {
+                    ecosystem.layers.push(component);
                 });
             }
             $.each(plan.uses, function(i, use) {
@@ -536,7 +539,8 @@ MSP.prototype = {
                 });
             });
         });
-        // add datasets as an extra use
+        // add datasets and ecosystem as an extra use
+        self.plan.uses.push(ecosystem);
         self.plan.uses.push(datasets);
         if (self.plan) self.planChanged.notify({ plan: self.plan });
     },

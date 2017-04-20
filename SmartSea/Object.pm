@@ -369,7 +369,7 @@ sub li {
 
     return $self->item_class($parent, $children, $opt) unless $self->{object};
     
-    my $attributes = $self->attributes;
+    my $attributes = $self->attributes($parent);
 
     my $object = $self->{object};
     say STDERR "object ",$object->id if $self->{debug};

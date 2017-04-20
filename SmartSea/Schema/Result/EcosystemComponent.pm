@@ -8,10 +8,11 @@ use SmartSea::HTML qw(:all);
 use SmartSea::Impact qw(:all);
 
 __PACKAGE__->table('ecosystem_components');
-__PACKAGE__->add_columns(qw/ id name distribution /);
+__PACKAGE__->add_columns(qw/ id name distribution style /);
 __PACKAGE__->set_primary_key('id');
 __PACKAGE__->has_many(impacts => 'SmartSea::Schema::Result::Impact', 'ecosystem_component');
 __PACKAGE__->belongs_to(distribution => 'SmartSea::Schema::Result::RuleSystem');
+__PACKAGE__->belongs_to(style => 'SmartSea::Schema::Result::Style');
 __PACKAGE__->has_many(rules => 'SmartSea::Schema::Result::Rule', {'foreign.rule_system' => 'self.distribution'});
 
 sub rule_system {
@@ -28,7 +29,12 @@ sub attributes {
         distribution => {
             i => 1,
             input => 'object',
-            source => 'RuleSystem'
+            source => 'RuleSystem',
+        },
+        style => { 
+            i => 4, 
+            input => 'object', 
+            source => 'Style',
         }
     };
 }
@@ -50,6 +56,10 @@ sub _rules {
     my $self = shift;
     return $self->rules if $self->distribution;
     return (undef);
+}
+
+sub my_unit {
+    return '';
 }
 
 sub order {

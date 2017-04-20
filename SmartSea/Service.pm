@@ -124,16 +124,27 @@ sub plans {
     my ($self) = @_;
     my $schema = $self->{schema};
     my $plans = $schema->resultset('Plan')->array_of_trees;
+    
+    # two pseudo plans, these will be shown as uses in all real plans
+    
     push @$plans, { 
         name => 'Data', 
-        id => 0, 
+        id => 0, # reserved plan id, see msp.js and Layer.pm
         uses => [{
             name => 'Data', 
-            id => 0, 
-            plan => 0, 
-            layers => $schema->resultset('Dataset')->layers
-                 }]};
+            id => 0, # reserved use_class id, see msp.js and Layer.pm
+            layers => $schema->resultset('Dataset')->layers }]
+    };
 
+    push @$plans, {
+        name => 'Ecosystem',
+        id => 1, # reserved plan id, see msp.js and Layer.pm
+        uses => [{
+            name => 'Ecosystem',
+            id => 1, # reserved use_class id, see msp.js and Layer.pm
+            layers => $schema->resultset('EcosystemComponent')->layers }]
+    };
+        
     # This is the first request made by the App, thus set the cookie
     # if there is not one. The cookie is only for the duration the
     # browser is open.

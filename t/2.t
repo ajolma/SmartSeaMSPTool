@@ -55,6 +55,7 @@ if (1) {
     test_psgi $app, sub {
         my $cb = shift;
         my $res = $cb->(GET "/plans");
+        #say STDERR $res->content;
         my $plans;
         eval {
             $plans  = decode_json $res->content;
@@ -62,6 +63,7 @@ if (1) {
         ok($plans->[0]{name} eq 'Data' && @{$plans->[0]{uses}[0]{layers}} == 0, "empty plans");
     };
 }
+#exit;
 
 # todo: REST API tests (todo REST API first)
 # my $res = $cb->(PUT "/browser/plans?add", [name => 'test', id => 1]);

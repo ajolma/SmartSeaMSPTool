@@ -109,6 +109,7 @@ sub spinner {
 }
 sub widgets {
     my ($attributes, $values, $schema) = @_;
+    my @fcts;
     my @form;
     for my $key (sort {$attributes->{$a}{i} <=> $attributes->{$b}{i}} keys %$attributes) {
         my $a = $attributes->{$key};
@@ -174,26 +175,28 @@ sub widgets {
         }
         if ($a->{input} eq 'object') {
             unless ($a->{required}) {
+                my $fct = $key.'_fct';
+                my $cb = $key.'_cb';
                 push @form, [ p => checkbox(
                                   name => $key.'_is',
                                   visual => "Define ".$a->{source},
                                   checked => $values->{$key},
-                                  id => 'style_cb' )
+                                  id => $cb )
                 ];
-                my $code =<< 'END_CODE';
-function dim(cb,id){
-  document.getElementById(id).style.display=(cb.checked)?'':'none';
-}
-window.onload = function() {
-  var cb = document.getElementById("style_cb");
-  var id = "style";
-  if (!cb.checked) dim(this,id);
+                my $code =<< "END_CODE";
+function $fct() {
+  var cb = document.getElementById("$cb");
+  var id = "$key";
+  if (!cb.checked) {
+    document.getElementById(id).style.display=(cb.checked)?'':'none';
+  }
   cb.addEventListener("change", function() {
-    dim(this,id);
+    document.getElementById(id).style.display=(this.checked)?'':'none';
   }, false);
 };
 END_CODE
                 push @form, [script => $code];
+                push @fcts, "\$(document).ready($fct);";
             } else {
                 push @form, hidden($key.'_is', 1);
             }
@@ -204,7 +207,7 @@ END_CODE
                 my $class = 'SmartSea::Schema::Result::'.$a->{source};
                 @style = $class->inputs($values, $schema);
             }
-            push @form, [div => {id=>'style'}, @style];
+            push @form, [div => {id=>$key}, @style];
         } else {
             if ($a->{input} eq 'hidden') {
                 push @form, $input if defined $input;
@@ -213,6 +216,8 @@ END_CODE
             }
         }
     }
+    push @form, [script => {src=>"http://code.jquery.com/jquery-1.10.2.js"}, ''];
+    push @form, [script => join("\n",@fcts)];
     return @form;
 }
 1;

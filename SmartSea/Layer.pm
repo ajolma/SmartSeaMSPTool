@@ -29,6 +29,21 @@ sub new {
     if ($use_class_id == 0) {
         $self->{dataset} = $self->{schema}->resultset('Dataset')->single({ id => $layer_class_id });
         $self->{duck} = $self->{dataset};
+    } elsif ($use_class_id == 1) {
+        $self->{duck} = $self->{schema}->resultset('EcosystemComponent')->single({ id => $layer_class_id });
+        # all rules always
+        my %rules;
+        for my $rule ($self->{duck}->rules) {
+            # prefer id/cookie pair to id/default, they have the same id
+            if (exists $rules{$rule->id}) {
+                $rules{$rule->id} = $rule if $rule->cookie eq $self->{cookie};
+            } else {
+                $rules{$rule->id} = $rule;
+            }
+        }
+        for my $i (sort {$rules{$a}->name cmp $rules{$b}->name} keys %rules) {
+            push @{$self->{rules}}, $rules{$i};
+        }
     } else {
         my $plan = $self->{schema}->resultset('Plan')->single({ id => $plan_id });
         my $use_class = $self->{schema}->resultset('UseClass')->single({ id => $use_class_id });
@@ -83,9 +98,9 @@ sub new {
     # $color_scale =~ s/-/_/g;
     # $color_scale =~ s/\W.*$//g;
     
-    $self->{duck}->style->prepare;
     $self->{style} = $self->{duck}->style;
-
+    $self->{style}->prepare;
+    
     return bless $self, $class;
 }
 
