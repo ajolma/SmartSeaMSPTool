@@ -27,6 +27,7 @@ sub children_listers {
             source => 'Use',
             ref_to_me => 'plan',
             class_name => 'Uses',
+            child_is_mine => 1,
             for_child_form => sub {
                 my ($self, $children) = @_;
                 my %has;

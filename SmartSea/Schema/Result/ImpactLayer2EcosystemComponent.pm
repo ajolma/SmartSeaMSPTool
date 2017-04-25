@@ -22,9 +22,8 @@ sub order_by {
 
 sub col_data_for_create {
     my ($self, $parent, $parameters) = @_;
-    #return {} unless $parent;
-    #return {use_class => $parent->id, activity => $parameters->{activity}};
-    return {};
+    return {} unless $parent;
+    return {impact_layer => $parent->super->id, ecosystem_component => $parameters->{ecosystem_component}};
 }
 
 sub name {

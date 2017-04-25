@@ -481,7 +481,7 @@ ALTER TABLE impact_layer2ecosystem_component OWNER TO ajolma;
 --
 
 CREATE TABLE impact_layers (
-    id integer NOT NULL,
+    super integer NOT NULL,
     allocation integer NOT NULL,
     computation_method integer NOT NULL
 );
@@ -1566,7 +1566,7 @@ ALTER TABLE ONLY impact_computation_methods
 --
 
 ALTER TABLE ONLY impact_layers
-    ADD CONSTRAINT impact_layers_pkey PRIMARY KEY (id);
+    ADD CONSTRAINT impact_layers_pkey PRIMARY KEY (super);
 
 
 --
@@ -1906,7 +1906,7 @@ ALTER TABLE ONLY impact_layer2ecosystem_component
 --
 
 ALTER TABLE ONLY impact_layer2ecosystem_component
-    ADD CONSTRAINT impact_layer2ecosystem_component_impact_layer_fkey FOREIGN KEY (impact_layer) REFERENCES impact_layers(id);
+    ADD CONSTRAINT impact_layer2ecosystem_component_impact_layer_fkey FOREIGN KEY (impact_layer) REFERENCES impact_layers(super);
 
 
 --
@@ -1930,7 +1930,7 @@ ALTER TABLE ONLY impact_layers
 --
 
 ALTER TABLE ONLY impact_layers
-    ADD CONSTRAINT impact_layers_id_fkey FOREIGN KEY (id) REFERENCES layers(id);
+    ADD CONSTRAINT impact_layers_id_fkey FOREIGN KEY (super) REFERENCES layers(id);
 
 
 --

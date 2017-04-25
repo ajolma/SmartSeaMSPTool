@@ -44,6 +44,7 @@ sub children_listers {
         _rules => {
             source => 'Rule',
             class_name => 'Rules',
+            child_is_mine => 1,
             for_child_form => sub {
                 my ($self, $children) = @_;
                 return undef;

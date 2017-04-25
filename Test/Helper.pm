@@ -2,7 +2,7 @@ package Test::Helper;
 
 require Exporter;
 @ISA = qw(Exporter);
-@EXPORT = qw(read_postgresql_dump create_sqlite_schemas);
+@EXPORT = qw(read_postgresql_dump create_sqlite_schemas select_all);
 
 sub read_postgresql_dump {
     my ($dump) = @_;
@@ -123,6 +123,20 @@ sub topo_sort {
     }
     push @$result, $item;
     $in_result->{$item} = 1;
+}
+
+sub select_all {
+    my ($schema, $db, $cols, $class) = @_;
+    my @all;
+    $schema->$db->storage->dbh_do(sub {
+        my (undef, $dbh) = @_;
+        my $sth = $dbh->prepare("SELECT $cols FROM $class");
+        $sth->execute;
+        while (my @a = $sth->fetchrow_array) {
+            say STDERR "$cols from $class" if $service->{debug};
+            push @all, \@a;
+        }});
+    return @all;
 }
 
 1;

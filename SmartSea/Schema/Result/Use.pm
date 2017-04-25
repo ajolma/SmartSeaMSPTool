@@ -35,6 +35,7 @@ sub children_listers {
             source => 'Layer',
             ref_to_me => 'use',
             class_name => 'Layers',
+            child_is_mine => 1,
             for_child_form => sub {
                 my ($self, $children) = @_;
                 my %has;

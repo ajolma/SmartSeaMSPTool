@@ -81,6 +81,7 @@ for my $source (sort $schema->sources) {
     next if $source =~ /2/; # skip links
     my $table = source2table($source);
     my $class = "SmartSea::Schema::Result::$source";
+    next if $class->can('superclass'); # skip subclasses
     my $attr = $class->attributes;
     my $parents = [];
     my $refs = [];
@@ -222,20 +223,6 @@ test_psgi $app, sub {
     ok(@all == 0, "delete the link");
     
 };
-
-sub select_all {
-    my ($schema, $db, $cols, $class) = @_;
-    my @all;
-    $schema->$db->storage->dbh_do(sub {
-        my (undef, $dbh) = @_;
-        my $sth = $dbh->prepare("SELECT $cols FROM $class");
-        $sth->execute;
-        while (my @a = $sth->fetchrow_array) {
-            say STDERR "$cols from $class" if $service->{debug};
-            push @all, \@a;
-        }});
-    return @all;
-}
 
 sub pretty_print {
     my $res = shift;

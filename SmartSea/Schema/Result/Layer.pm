@@ -25,6 +25,13 @@ __PACKAGE__->belongs_to(rule_system => 'SmartSea::Schema::Result::RuleSystem');
 __PACKAGE__->belongs_to(style => 'SmartSea::Schema::Result::Style');
 __PACKAGE__->has_many(rules => 'SmartSea::Schema::Result::Rule', {'foreign.rule_system' => 'self.rule_system'});
 
+# subclassing made with a new table with id pointing to superclass table's if
+# use this method to tell whether an entry is required into this table too
+sub subclass {
+    my ($self, $parameters) = @_;
+    return 'ImpactLayer' if $self->layer_class->name eq 'Impact';
+}
+
 sub attributes {
     return dclone(\%attributes);
 }
@@ -34,6 +41,7 @@ sub children_listers {
         rules => {
             source => 'Rule',
             class_name => 'Rules',
+            child_is_mine => 1,
             for_child_form => sub {
                 my ($self, $children) = @_;
                 return undef;

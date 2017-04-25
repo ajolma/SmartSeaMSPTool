@@ -228,7 +228,7 @@ sub object_editor {
             }
             $value = decode utf8 => $value;
             my $done = 0;
-            for my $request (qw/create edit save delete remove/) {
+            for my $request (qw/add create edit save delete remove/) {
                 if (lc($value) eq $request) {
                     $parameters{request} = $request;
                     $parameters{request} = 'delete' if $request eq 'remove';
@@ -296,7 +296,7 @@ sub object_editor {
     $url = $self->{uri};
     $url =~ s/\?.*$//;
 
-    if ($parameters{request} eq 'create') {
+    if ($parameters{request} eq 'add' or $parameters{request} eq 'create') {
         $self->edit_object($obj, $oids, \%parameters, $url, \@body);
         
     } elsif ($parameters{request} eq 'delete') {
@@ -305,14 +305,11 @@ sub object_editor {
         $self->read_object($oids, \@body);
         
     } elsif ($parameters{request} eq 'save') {
-        my $error;
-        if ($obj->{object}) {
-            $error = $obj->update($oids, $#$oids, \%parameters);
-        } else {
-            $error = $obj->create($oids, $#$oids, \%parameters);
-        }
-        if ($error) {
-            push @body, error_message($error);
+        eval {
+            $obj->update_or_create($oids, $#$oids, \%parameters);
+        };
+        if ($@) {
+            push @body, error_message($@);
             $self->edit_object($obj, $oids, \%parameters, $url, \@body);
         } else {
             $self->read_object($oids, \@body);
@@ -345,16 +342,18 @@ sub edit_object {
     if (@form) {
         push @$body, [form => {action => $url, method => 'POST'}, @form];
     } else {
-        # object can be created with supplied information
-        my $error = $obj->create($oids, $#$oids, $parameters);
-        push @$body, error_message($error) if $error;
+        eval {
+            $obj->link($oids, $#$oids, $parameters);
+        };
+        push @$body, error_message($@) if $@;
         $self->read_object($oids, $body);
     }
 }
 
 sub error_message {
     my $error = shift;
-    return [p => {style => 'color:red'}, $error];
+    say STDERR "Error: $@";
+    return [p => {style => 'color:red'}, "$error"];
 }
 
 sub pressure_table {
