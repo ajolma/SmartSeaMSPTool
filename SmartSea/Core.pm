@@ -10,7 +10,10 @@ use constant DEFAULT => 'default'; # not user changed object, used for cookie at
 
 require Exporter;
 our @ISA = qw(Exporter);
-our @EXPORT_OK = qw(common_responses html200 json200 http_status DEFAULT warn_unknowns); 
+our @EXPORT_OK = qw(
+    common_responses html200 json200 http_status DEFAULT warn_unknowns
+    source2table table2source singular plural
+);
 our %EXPORT_TAGS = (all => \@EXPORT_OK);
 
 sub common_responses {
@@ -93,6 +96,48 @@ sub warn_unknowns {
     for my $key (keys %$arg) {
         warn "unknown named argument: $key" unless $known{$key};
     }
+}
+
+sub source2table {
+    my $source = shift;
+    $source =~ s/([a-z])([A-Z])/$1_$2/g;
+    $source =~ s/([A-Z])/lc($1)/ge;
+    return $source;
+}
+
+sub table2source {
+    my $table = shift;
+    $table = singular($table);
+    $table =~ s/^(\w)/uc($1)/e;
+    $table =~ s/_(\w)/uc($1)/ge;
+    $table =~ s/(\d\w)/uc($1)/e;
+    return $table;
+}
+
+sub singular {
+    my ($w) = @_;
+    if ($w =~ /ies$/) {
+        $w =~ s/ies$/y/;
+    } elsif ($w =~ /sses$/) {
+        $w =~ s/sses$/ss/;
+    } elsif ($w =~ /ss$/) {
+    } else {
+        $w =~ s/s$//;
+    }
+    return $w;
+}
+
+sub plural {
+    my ($w) = @_;
+    if ($w =~ /y$/) {
+        $w =~ s/y$/ies/;
+    } elsif ($w =~ /ss$/) {
+        $w =~ s/ss$/sses/;
+    } elsif ($w =~ /s$/) {
+    } else {
+        $w .= 's';
+    }
+    return $w;
 }
 
 1;

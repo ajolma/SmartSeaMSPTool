@@ -274,7 +274,8 @@ sub object_editor {
         my $cols = $obj->{object}->values;
         $cols->{value} = $parameters{value};
         $cols->{cookie} = $self->{cookie};
-        $cols->{made} = \['current_timestamp'];
+        my $tmp = ['current_timestamp'];
+        $cols->{made} = \$tmp;
         eval {
             $obj = $obj->{rs}->update_or_new($cols, {key => 'primary'});
             $obj->insert unless $obj->in_storage;
@@ -304,7 +305,12 @@ sub object_editor {
         $self->read_object($oids, \@body);
         
     } elsif ($parameters{request} eq 'save') {
-        my $error = $obj->save($oids, $#$oids, \%parameters);
+        my $error;
+        if ($obj->{object}) {
+            $error = $obj->update($oids, $#$oids, \%parameters);
+        } else {
+            $error = $obj->create($oids, $#$oids, \%parameters);
+        }
         if ($error) {
             push @body, error_message($error);
             $self->edit_object($obj, $oids, \%parameters, $url, \@body);
@@ -340,7 +346,7 @@ sub edit_object {
         push @$body, [form => {action => $url, method => 'POST'}, @form];
     } else {
         # object can be created with supplied information
-        my $error = $obj->create($oids, $parameters);
+        my $error = $obj->create($oids, $#$oids, $parameters);
         push @$body, error_message($error) if $error;
         $self->read_object($oids, $body);
     }

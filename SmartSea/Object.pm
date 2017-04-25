@@ -11,15 +11,6 @@ use SmartSea::HTML qw(:all);
 
 binmode STDERR, ":utf8";
 
-sub table2source {
-    my $table = shift;
-    $table = singular($table);
-    $table =~ s/^(\w)/uc($1)/e;
-    $table =~ s/_(\w)/uc($1)/e;
-    $table =~ s/(\d\w)/uc($1)/e;
-    return $table;
-}
-
 # in args give oid or source, and possibly object, id, or search
 sub new {
     my ($class, $args, $args2) = @_;
@@ -144,13 +135,6 @@ sub col_data_for_create {
     return {};
 }
 
-sub source_for_url {
-    my $self = shift;
-    my $s = $self->{source};
-    $s =~ s/([a-z])([A-Z])/$1_$2/g;
-    return lc($s);
-}
-
 sub attributes {
     my ($self, $parent) = @_;
     return {} unless $self->{class}->can('attributes');
@@ -158,49 +142,22 @@ sub attributes {
     return $self->{object}->attributes($parent->{object});
 }
 
-# create a link from object to object
+# create an object or a link from object to object
 sub create {
-    my ($self, $oids, $parameters) = @_;
-    say STDERR "create a link to $self->{source}" if $self->{debug};
-    my $parent = $oids && @$oids > 0 ? SmartSea::Object->new({oid => $oids->[$#$oids-1]}, $self) : undef;
-    unless ($parent && $parent->{object}) {
-        my $error = "Can't create link: parent missing.";
-        say STDERR $error;
-        return $error;
-    }
-    # the actual link object to create
-    $self = SmartSea::Object->new({source => $parent->source_of_link($parameters)}, $self);
-    my $col_data = $self->col_data_for_create($parent->{object}, $parameters);
-    if ($self->{debug} > 1) {
-        for my $col (sort keys %$col_data) {
-            say STDERR "  $col => ",(defined $col_data->{$col} ? $col_data->{$col} : 'undef');
-        }
-    }
-    eval {
-        $self->{rs}->create($col_data);
-    };
-    say STDERR "Error: $@" if $@;
-    return "$@";
-}
-
-# insert or update an object
-sub save {
     my ($self, $oids, $oids_index, $parameters) = @_;
-
+      
     my $parent = $oids_index > 0 ? SmartSea::Object->new({oid => $oids->[$oids_index-1]}, $self) : undef;
 
-    my $attributes = $self->attributes;
-    my $col_data = {};
-
     unless ($self->{object}) {
-        # create content objects, create this, and possibly link this into parents
-        # content = the child does not exist on its own nor can be used by other objects (composition)
-        # this can be an aggregate object but not a composed object
+        say STDERR "create a $self->{source}" if $self->{debug};
         
-        say STDERR "parent oid = $oids->[$oids_index-1]" if $self->{debug};
-        my $parent = SmartSea::Object->new({oid => $oids->[$oids_index-1]}, $self);
+        my $attributes = $self->attributes;
+        my $col_data = {};
+        
         $col_data = $self->col_data_for_create($parent->{object}, $parameters);
 
+        # create embedded child objects
+        # the child does not exist on its own nor can be used by other objects (composition)
         for my $attr (keys %$attributes) {
             next unless $attributes->{$attr}{input} eq 'object';
             unless ($parameters->{$attr.'_is'}) {
@@ -209,9 +166,10 @@ sub save {
             }
             my $child = SmartSea::Object->new({source => $attributes->{$attr}{source}}, $self);
             # how to consume child parameters and possibly know them from our parameters?
-            $child->save($oids, $oids_index, $parameters);
+            $child->create($oids, $oids_index, $parameters);
             $col_data->{$attr} = $child->{object}->id;
         }
+        # collect creation data from input
         for my $col (keys %$attributes) {
             next if $attributes->{$col}{input} eq 'object';
             next unless exists $parameters->{$col};
@@ -219,27 +177,63 @@ sub save {
             $col_data->{$col} = $parameters->{$col} if exists $parameters->{$col};
             $col_data->{$col} = undef if $attributes->{$col}{empty_is_null} && $col_data->{$col} eq '';
         }
+        # 
         if ($self->{class}->can('is_ok')) {
             my $error = $self->{class}->is_ok($col_data);
             say STDERR "Not ok: $error" if $error;
             return $error if $error;
         }
-        $col_data->{id} = $parameters->{id} unless $self->{sequences};
+        unless ($self->{sequences}) {
+            # this is probably only in tests, sqlite does not have sequences
+            my $id = 1;
+            for my $row ($self->{rs}->all) {
+                $id = $row->id + 1 if $id <= $row->id;
+            }
+            $col_data->{id} = $id;
+        }
         eval {
-            say STDERR "create $self->{source}" if $self->{debug};
             for my $col (sort keys %$col_data) {
                 say STDERR "  $col => ",(defined $col_data->{$col} ? $col_data->{$col} : 'undef') if $self->{debug} > 1;
             }
             $self->{object} = $self->{rs}->create($col_data); # or add_to_x??
-            say STDERR "id of the created is ",$self->{object}->id if $self->{debug};
+            say STDERR "id of the new $self->{source} is ",$self->{object}->id if $self->{debug};
         };
-        say STDERR "Error: $@" if $@;
-
         # add links to parents?
-
-        return "$@";
+        
+    } else {
+    
+        unless ($parent && $parent->{object}) {
+            my $error = "Can't create link: parent missing.";
+            say STDERR $error;
+            return $error;
+        }
+        say STDERR "create a link from $parent->{source} to $self->{source}" if $self->{debug};
+        
+        # the actual link object to create
+        $self = SmartSea::Object->new({source => $parent->source_of_link($parameters)}, $self);
+        my $col_data = $self->col_data_for_create($parent->{object}, $parameters);
+        if ($self->{debug} > 1) {
+            for my $col (sort keys %$col_data) {
+                say STDERR "  $col => ",(defined $col_data->{$col} ? $col_data->{$col} : 'undef');
+            }
+        }
+        eval {
+            $self->{rs}->create($col_data);
+        };
         
     }
+    
+    say STDERR "Error: $@" if $@;
+    return "$@";
+}
+
+sub update {
+    my ($self, $oids, $oids_index, $parameters) = @_;
+
+    my $parent = $oids_index > 0 ? SmartSea::Object->new({oid => $oids->[$oids_index-1]}, $self) : undef;
+
+    my $attributes = $self->attributes;
+    my $col_data = {};
 
     my %delete;
     for my $attr (keys %$attributes) {
@@ -374,7 +368,7 @@ sub li {
     my $object = $self->{object};
     say STDERR "object ",$object->id if $self->{debug};
 
-    my $url = $self->{url}.'/'.$self->source_for_url;
+    my $url = $self->{url}.'/'.source2table($self->{source});
 
     my @content = a(link => "Show all ".plural($self->{class_name}), url => plural($url));
     $url .= ':'.$object->id;
@@ -455,7 +449,7 @@ sub li {
 sub item_class {
     my ($self, $parent, $children, $opt) = @_;
     $children = $self->all() unless $children;
-    my $url = $self->{url}.'/'.$self->source_for_url;
+    my $url = $self->{url}.'/'.source2table($self->{source});
         
     my @li;
     for my $obj (@$children) {
@@ -599,32 +593,6 @@ sub form {
     push @widgets, widgets($attributes, $parameters, $self->{schema});
     push @widgets, button(value => 'Save'), [1 => ' '], button(value => 'Cancel');
     return @widgets;
-}
-
-sub singular {
-    my ($w) = @_;
-    if ($w =~ /ies$/) {
-        $w =~ s/ies$/y/;
-    } elsif ($w =~ /sses$/) {
-        $w =~ s/sses$/ss/;
-    } elsif ($w =~ /ss$/) {
-    } else {
-        $w =~ s/s$//;
-    }
-    return $w;
-}
-
-sub plural {
-    my ($w) = @_;
-    if ($w =~ /y$/) {
-        $w =~ s/y$/ies/;
-    } elsif ($w =~ /ss$/) {
-        $w =~ s/ss$/sses/;
-    } elsif ($w =~ /s$/) {
-    } else {
-        $w .= 's';
-    }
-    return $w;
 }
 
 1;

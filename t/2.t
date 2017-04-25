@@ -13,6 +13,8 @@ use Data::Dumper;
 use lib '.';
 use Test::Helper;
 
+use SmartSea::Core qw(:all);
+
 use_ok('SmartSea::Schema');
 use_ok('SmartSea::Object');
 use_ok('SmartSea::Service');
@@ -76,6 +78,7 @@ my $classes = {};
 my $id = {};
 
 for my $source (sort $schema->sources) {
+    next if $source =~ /2/; # skip links
     my $table = source2table($source);
     my $class = "SmartSea::Schema::Result::$source";
     my $attr = $class->attributes;
@@ -116,16 +119,10 @@ for my $source (sort $schema->sources) {
     };
 }
 
-sub source2table {
-    my $source = shift;
-    $source =~ s/([a-z])([A-Z])/$1_$2/;
-    $source =~ s/([A-Z])/lc($1)/ge;
-    return $source;
-}
-
 my $links = {
     plan2dataset_extra => {classes => [qw/plan dataset/]},
-    use_class2activity => {classes => [qw/use_class activity/]}
+    use_class2activity => {classes => [qw/use_class activity/]},
+    impact_layer2ecosystem_component => {classes => [qw/impact_layer ecosystem_component/]}
 };
 
 $service->{debug} = 0;
@@ -133,7 +130,7 @@ $service->{debug} = 0;
 # test create and delete of objects of all classes
 if (1) {for my $class (keys %$classes) {
     next if $classes->{$class}{embedded};
-    #next unless $class eq 'rule_system';
+    #next unless $class eq 'impact_layer2ecosystem_component';
 
     test_psgi $app, sub {
         my $cb = shift;
