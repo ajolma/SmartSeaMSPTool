@@ -470,11 +470,33 @@ ALTER SEQUENCE impact_comp_method_id_seq OWNED BY impact_computation_methods.id;
 
 CREATE TABLE impact_layer2ecosystem_component (
     impact_layer integer NOT NULL,
-    ecosystem_component integer NOT NULL
+    ecosystem_component integer NOT NULL,
+    id integer NOT NULL
 );
 
 
 ALTER TABLE impact_layer2ecosystem_component OWNER TO ajolma;
+
+--
+-- Name: impact_layer2ecosystem_component_id_seq; Type: SEQUENCE; Schema: tool; Owner: ajolma
+--
+
+CREATE SEQUENCE impact_layer2ecosystem_component_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE impact_layer2ecosystem_component_id_seq OWNER TO ajolma;
+
+--
+-- Name: impact_layer2ecosystem_component_id_seq; Type: SEQUENCE OWNED BY; Schema: tool; Owner: ajolma
+--
+
+ALTER SEQUENCE impact_layer2ecosystem_component_id_seq OWNED BY impact_layer2ecosystem_component.id;
+
 
 --
 -- Name: impact_layers; Type: TABLE; Schema: tool; Owner: ajolma
@@ -1298,6 +1320,13 @@ ALTER TABLE ONLY impact_computation_methods ALTER COLUMN id SET DEFAULT nextval(
 -- Name: id; Type: DEFAULT; Schema: tool; Owner: ajolma
 --
 
+ALTER TABLE ONLY impact_layer2ecosystem_component ALTER COLUMN id SET DEFAULT nextval('impact_layer2ecosystem_component_id_seq'::regclass);
+
+
+--
+-- Name: id; Type: DEFAULT; Schema: tool; Owner: ajolma
+--
+
 ALTER TABLE ONLY impacts ALTER COLUMN id SET DEFAULT nextval('impacts_id_seq1'::regclass);
 
 
@@ -1559,6 +1588,14 @@ ALTER TABLE ONLY ecosystem_components
 
 ALTER TABLE ONLY impact_computation_methods
     ADD CONSTRAINT impact_comp_method_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: impact_layer2ecosystem_component_pkey; Type: CONSTRAINT; Schema: tool; Owner: ajolma
+--
+
+ALTER TABLE ONLY impact_layer2ecosystem_component
+    ADD CONSTRAINT impact_layer2ecosystem_component_pkey PRIMARY KEY (id);
 
 
 --

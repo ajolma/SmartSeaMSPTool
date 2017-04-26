@@ -11,7 +11,8 @@ use SmartSea::HTML qw(:all);
 
 binmode STDERR, ":utf8";
 
-# in args give oid or source, and possibly object, id, or search
+# in args give oid or source, and possibly id (or search or object)
+# polymorphic: returns the subclass object if this is one
 sub new {
     my ($class, $args, $args2) = @_;
     my $self = {class_name => $args->{class_name}};
@@ -30,9 +31,9 @@ sub new {
     $self->{class} = 'SmartSea::Schema::Result::'.$self->{source};
     eval {
         $self->{rs} = $self->{schema}->resultset($self->{source});
-        if ($args->{object}) {
+        if ($args->{object}) { # do not use unless you know what you're doing
             $self->{object} = $args->{object};
-        } elsif ($args->{search}) {
+        } elsif ($args->{search}) { # needed for getting a link object in some cases
             if ($self->{debug}) {
                 for my $key (sort keys %{$args->{search}}) {
                     say STDERR "search term $key => $args->{search}{$key}";
@@ -64,18 +65,18 @@ sub new {
                 }
             } else {
                 $self->{object} = $self->{rs}->single({id => $args->{id}});
-                # is this in fact a subclass object?
-                if ($self->{object} && $self->{object}->can('subclass')) {
-                    my $source = $self->{object}->subclass;
-                    if ($source) {
-                        $self->{source} = $source;
-                        $self->{class} = 'SmartSea::Schema::Result::'.$self->{source};
-                        $self->{rs} = $self->{schema}->resultset($self->{source});
-                        $self->{object} = $self->{rs}->single({super => $args->{id}});
-                    }
+                
+            }
+            # is this in fact a subclass object?
+            if ($self->{object} && $self->{object}->can('subclass')) {
+                my $source = $self->{object}->subclass;
+                if ($source) {
+                    $self->{source} = $source;
+                    $self->{class} = 'SmartSea::Schema::Result::'.$self->{source};
+                    $self->{rs} = $self->{schema}->resultset($self->{source});
+                    $self->{object} = $self->{rs}->single({super => $args->{id}});
                 }
             }
-            
         }
     };
     $self->{class_name} //= $self->{source};
@@ -267,6 +268,13 @@ sub create {
 
 sub update {
     my ($self, $oids, $oids_index, $parameters) = @_;
+
+    say STDERR "update $self->{source} ",$self->{object}->id if $self->{debug};
+    if ($self->{debug} && $self->{debug} > 1) {
+        for my $param (sort keys %$parameters) {
+            say STDERR "  param $param => ",(defined $parameters->{$param} ? $parameters->{$param} : 'undef');
+        }
+    }
     
     my $attributes = $self->attributes;
     my $col_data = {};
@@ -275,9 +283,14 @@ sub update {
     my %delete;
     for my $attr (keys %$attributes) {
         next unless $attributes->{$attr}{input} eq 'object';
-        if ($parameters->{$attr.'_is'}) {
+        if ($attributes->{$attr}{required}) {
+            my $child = $self->{object}->$attr;
+            $child = SmartSea::Object->new({source => $attributes->{$attr}{source}, object => $child}, $self);
+            $child->update($oids, $oids_index, $parameters);
+        } elsif ($parameters->{$attr.'_is'}) {
             # todo: child attributes are now in parameters and may mix with parameters for self
-            unless (my $child = $self->{object}->$attr) {
+            my $child = $self->{object}->$attr;
+            unless ($child) {
                 $child = SmartSea::Object->new({source => $attributes->{$attr}{source}}, $self);
                 $child->create($oids, $oids_index, $parameters);
                 $col_data->{$attr} = $child->{object}->id;
@@ -308,16 +321,23 @@ sub update {
         croak $error if $error;
     }
 
-    say STDERR "update $self->{source} ",$self->{object}->id if $self->{debug};
-    for my $col (sort keys %$col_data) {
-        say STDERR "  $col => ",(defined $col_data->{$col} ? $col_data->{$col} : 'undef') if $self->{debug} > 1;
+    if ($self->{debug} && $self->{debug} > 1) {
+        for my $col (sort keys %$col_data) {
+            say STDERR "  $col => ",(defined $col_data->{$col} ? $col_data->{$col} : 'undef');
+        }
     }
     $self->{object}->update($col_data);
 
     # delete children:
-    
     for my $class_of_child (keys %delete) {
         $delete{$class_of_child}->delete;
+    }
+
+    # update superclass:
+    my $superclass = $self->superclass;
+    if ($superclass) {
+        my $super = SmartSea::Object->new({source => $superclass, object => $self->{object}->super}, $self);
+        $super->update($oids, $oids_index, $parameters);
     }
     
 }
@@ -362,16 +382,21 @@ sub delete {
             $delete{$attributes->{$attr}{source}} = $child->id;
         }
     }
-    eval {
-        $self->{object}->delete;
-    };
-    say STDERR "Error: $@" if $@;
+    $self->{object}->delete;
+
+    # delete children:
     for my $source (keys %delete) {
         my %args = (source => $source, id => $delete{$source});
         my $child = SmartSea::Object->new(\%args, $self);
         $child->delete;
     }
-    return "$@";
+
+    # delete superclass:
+    my $superclass = $self->superclass;
+    if ($superclass) {
+        my $super = SmartSea::Object->new({source => $superclass, object => $self->{object}->super}, $self);
+        $super->delete($oids, $oids_index, $parameters);
+    }
 }
 
 sub all {

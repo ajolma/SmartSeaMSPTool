@@ -67,6 +67,13 @@ sub need_form_for_child {
 
 sub attributes {
     return dclone(\%attributes);
+    my $a = dclone(\%attributes);
+    my $superclass = 'SmartSea::Schema::Result::'.superclass();
+    my $sa = $superclass->attributes;
+    for my $key (keys %$sa) {
+        $a->{$key} = $sa->{$key};
+    }
+    return $a;
 }
 
 sub name {

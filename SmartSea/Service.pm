@@ -296,12 +296,16 @@ sub object_editor {
     $url = $self->{uri};
     $url =~ s/\?.*$//;
 
+    # TODO: all actions should be wrapped in begin; commit;
+
     if ($parameters{request} eq 'add' or $parameters{request} eq 'create') {
         $self->edit_object($obj, $oids, \%parameters, $url, \@body);
         
     } elsif ($parameters{request} eq 'delete') {
-        my $error = $obj->delete($oids, $#$oids, \%parameters);
-        push @body, error_message($error) if $error;
+        eval {
+            $obj->delete($oids, $#$oids, \%parameters);
+        };
+        push @body, error_message($@) if $@;
         $self->read_object($oids, \@body);
         
     } elsif ($parameters{request} eq 'save') {

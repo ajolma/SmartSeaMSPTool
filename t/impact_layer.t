@@ -69,14 +69,14 @@ test_psgi $app, sub {
     eval {
         $parser->load_xml(string => $res->content);
     };
-    ok(!$@, "Impact layer creation seems to work");
+    ok(!$@, "Impact layer creation 1/2");
     my $i = 0;
     my @layer;
     for my $layer ($schema->resultset('ImpactLayer')->all) {
         @layer = ($layer->super->id, $layer->allocation->id);
         ++$i;
     }
-    ok($layer[0] == 2 && $layer[1] == 1, "Impact layer created");
+    ok($layer[0] == 2 && $layer[1] == 1, "Impact layer creation 2/2");
     $post = [
         ecosystem_component => 1,
         submit => 'Add'
@@ -90,5 +90,22 @@ test_psgi $app, sub {
     }
     ok($layer[0] == 2 && $layer[1] == 1, "Link to ecosystem component created");
 };
+
+my $layer = SmartSea::Object->new({source => 'Layer', id => 2}, {schema => $schema});
+ok($layer->{source} eq 'ImpactLayer' && ref($layer->{object}) eq 'SmartSea::Schema::Result::ImpactLayer', 
+   "Polymorphic new gives: $layer->{object}");
+
+my $descr = 'this is description';
+$layer->update(undef, -1, {descr => $descr});
+ok($schema->resultset('Layer')->single({id => 2})->descr eq $descr, "Set superclass attribute.");
+
+$layer->delete(undef, -1);
+my $i = 0;
+my $layer_id;
+for my $layer ($schema->resultset('Layer')->all) {
+    $layer_id = $layer->id;
+    ++$i;
+}
+ok($i == 1 && $layer_id == 1, "Delete ImpactLayer.");
 
 done_testing();

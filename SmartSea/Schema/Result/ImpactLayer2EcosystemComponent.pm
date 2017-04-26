@@ -5,7 +5,8 @@ use 5.010000;
 use base qw/DBIx::Class::Core/;
 
 __PACKAGE__->table('impact_layer2ecosystem_component');
-__PACKAGE__->add_columns(qw/ impact_layer ecosystem_component /);
+__PACKAGE__->add_columns(qw/ id impact_layer ecosystem_component /);
+__PACKAGE__->set_primary_key('id');
 __PACKAGE__->belongs_to(impact_layer => 'SmartSea::Schema::Result::ImpactLayer');
 __PACKAGE__->belongs_to(ecosystem_component => 'SmartSea::Schema::Result::EcosystemComponent');
 
