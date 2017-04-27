@@ -74,7 +74,7 @@ sub call {
         if ($step eq 'browser') {
             $self->{base_uri} = join('/', @base);
             say STDERR "base_uri: $self->{base_uri}" if $self->{debug};
-            return $self->object_editor(\@path);
+            return $self->object_editor(SmartSea::OIDS->new(\@path));
         }
     }
     @path = split /\//, $self->{uri};
@@ -189,7 +189,7 @@ sub object_editor {
     my ($self, $oids) = @_;
 
     my $url = $self->{base_uri}.'/';
-    unless (@$oids) {
+    if ($oids->is_empty) {
         my @path = split /\//, $self->{base_uri};
         pop @path;
         my @body = a(link => 'Up', url => join('/', @path));
@@ -211,11 +211,7 @@ sub object_editor {
     # update is allowed only on rules and it is not a real update but a copy identified with cookie
     # delete does not do deep
 
-    my %parameters = (request => 'read');
-    
-    my ($oid, $request) = split /\?/, $oids->[$#$oids];
-    $oids->[$#$oids] = $oid;
-    $parameters{request} = lc($request) if $request;
+    my %parameters = (request => $oids->request // 'read');
     
     # $self->{parameters} is a multivalue hash
     # we may have both object => command and object => id
@@ -268,7 +264,7 @@ sub object_editor {
         
     } elsif ($parameters{request} eq 'update') {
         return http_status($header, 403) if $self->{cookie} eq DEFAULT; # forbidden
-        my $obj = SmartSea::Object->new({oid => $oids->[0], url => $self->{base_uri}}, $self);
+        my $obj = SmartSea::Object->new({oid => $oids->first, url => $self->{base_uri}}, $self);
         return http_status($header, 400) unless $obj->{object} && $obj->{source} eq 'Rule'; # bad request
         
         my $cols = $obj->{object}->values;
@@ -288,7 +284,7 @@ sub object_editor {
 
     return return http_status($header, 403) unless $self->{edit};
 
-    my ($source, $id) = split /:/, $oids->[$#$oids];
+    my ($source, $id) = split /:/, $oids->last;
     $id //= $parameters{id};
     my $obj = SmartSea::Object->new({source => $source, id => $id, url => $self->{base_uri}}, $self);
     return http_status($header, 400) unless $obj;
@@ -303,14 +299,14 @@ sub object_editor {
         
     } elsif ($parameters{request} eq 'delete') {
         eval {
-            $obj->delete($oids, $#$oids, \%parameters);
+            $obj->delete($oids->with_index('last'), \%parameters);
         };
         push @body, error_message($@) if $@;
         $self->read_object($oids, \@body);
         
     } elsif ($parameters{request} eq 'save') {
         eval {
-            $obj->update_or_create($oids, $#$oids, \%parameters);
+            $obj->update_or_create($oids->with_index('last'), \%parameters);
         };
         if ($@) {
             push @body, error_message($@);
@@ -332,9 +328,9 @@ sub object_editor {
 
 sub read_object {
     my ($self, $oids, $body) = @_;
-    my $obj = SmartSea::Object->new({oid => $oids->[0], url => $self->{base_uri}}, $self);
+    my $obj = SmartSea::Object->new({oid => $oids->first, url => $self->{base_uri}}, $self);
     if ($obj) {
-        push @$body, [ul => [li => $obj->li($oids, 0)]];
+        push @$body, [ul => [li => $obj->item($oids->with_index(0))]];
     } else {
         push @$body, [p => {style => 'color:red'}, $@];
     }
@@ -342,15 +338,15 @@ sub read_object {
 
 sub edit_object {
     my ($self, $obj, $oids, $parameters, $url, $body) = @_;
-    my @form = $obj->form($oids, $#$oids, $parameters);
+    my @form = $obj->form($oids->with_index('last'), $parameters);
     if (@form) {
         push @$body, [form => {action => $url, method => 'POST'}, @form];
     } else {
         eval {
-            $obj->link($oids, $#$oids, $parameters);
+            $obj->link($oids->with_index('last'), $parameters);
         };
         push @$body, error_message($@) if $@;
-        $self->read_object($oids, $body);
+        $self->read_object($oids->with_index(0), $body);
     }
 }
 

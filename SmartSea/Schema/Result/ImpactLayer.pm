@@ -19,6 +19,7 @@ __PACKAGE__->add_columns(keys %attributes);
 __PACKAGE__->set_primary_key(qw/ super /);
 __PACKAGE__->belongs_to(super => 'SmartSea::Schema::Result::Layer');
 __PACKAGE__->belongs_to(allocation => 'SmartSea::Schema::Result::Layer');
+__PACKAGE__->belongs_to(computation_method => 'SmartSea::Schema::Result::ImpactComputationMethod');
 
 __PACKAGE__->has_many(il2ec => 'SmartSea::Schema::Result::ImpactLayer2EcosystemComponent', 'impact_layer');
 __PACKAGE__->many_to_many(ecosystem_components => 'il2ec', 'ecosystem_component');
@@ -67,19 +68,12 @@ sub need_form_for_child {
 
 sub attributes {
     return dclone(\%attributes);
-    my $a = dclone(\%attributes);
-    my $superclass = 'SmartSea::Schema::Result::'.superclass();
-    my $sa = $superclass->attributes;
-    for my $key (keys %$sa) {
-        $a->{$key} = $sa->{$key};
-    }
-    return $a;
 }
 
 sub name {
     my $self = shift;
-    my $use = $self->id->use;
-    return $use->plan->name.'.'.$use->use_class->name.'.'.$self->id->layer_class->name;
+    my $use = $self->super->use;
+    return $use->plan->name.'.'.$use->use_class->name.'.'.$self->super->layer_class->name;
 }
 
 1;

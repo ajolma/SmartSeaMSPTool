@@ -5,6 +5,7 @@ use Plack::Test;
 use HTTP::Request::Common;
 use Plack::Builder;
 use JSON;
+use XML::SemanticDiff;
 
 use Data::Dumper;
 
@@ -91,15 +92,84 @@ test_psgi $app, sub {
     ok($layer[0] == 2 && $layer[1] == 1, "Link to ecosystem component created");
 };
 
+{
+    # read list
+    my $layer = SmartSea::Object->new({source => 'ImpactLayer'}, {schema => $schema});
+    my $dom = $parser->load_xml(string => SmartSea::HTML->new([xml => $layer->item])->html);
+    my $expected = <<'END_XML';
+<?xml version="1.0"?>
+<xml>
+  <b>ImpactLayers</b>
+  <ul><li><a href="/impact_layer:2">plan.use_class.Impact</a></li></ul>
+</xml>
+END_XML
+    my $diff = XML::SemanticDiff->new();
+    my @diff = $diff->compare($dom->toString, $expected);
+    my $n = @diff;
+    if ($n) {
+        $pp->pretty_print($dom);
+        print STDERR "Got:\n",$pp->pretty_print($dom)->toString;
+        $dom = $parser->load_xml(string => $expected);
+        print STDERR "Expected:\n",$pp->pretty_print($dom)->toString;
+    }
+    is $n, 0, "Read ImpactLayer as a list";
+}
+
 my $layer = SmartSea::Object->new({source => 'Layer', id => 2}, {schema => $schema});
 ok($layer->{source} eq 'ImpactLayer' && ref($layer->{object}) eq 'SmartSea::Schema::Result::ImpactLayer', 
    "Polymorphic new gives: $layer->{object}");
 
 my $descr = 'this is description';
-$layer->update(undef, -1, {descr => $descr});
+$layer->update(undef, {descr => $descr});
 ok($schema->resultset('Layer')->single({id => 2})->descr eq $descr, "Set superclass attribute.");
 
-$layer->delete(undef, -1);
+{
+    # read item
+    my $dom = $parser->load_xml(string => SmartSea::HTML->new([xml => $layer->item])->html);
+    my $expected = <<'END_XML';
+<?xml version="1.0"?>
+<xml>
+  <b><a href="/impact_layers">Show all ImpactLayers</a></b>
+  <ul>
+    <li>id: 2</li>
+    <li>name: plan.use_class.Impact</li>
+    <li>allocation: plan.use_class.Allocation</li>
+    <li>computation_method: method_1</li>
+    <li>descr: this is description</li>
+    <li>layer_class: Impact</li>
+    <li>rule_system: rule class 0 rules for plan.use_class.Impact.</li>
+    <li>style: color scale</li>
+    <li>use: plan.use_class</li>
+    <li><b>Ecosystem components</b>
+      <ul><li><a href="/impact_layer:2/ecosystem_component:1">component_1</a></li></ul>
+    </li>
+    <li><b>Rules</b><ul/></li>
+  </ul>
+</xml>
+END_XML
+    my $diff = XML::SemanticDiff->new();
+    my @diff = $diff->compare($dom->toString, $expected);
+    my $n = @diff;
+    if ($n) {
+        $pp->pretty_print($dom);
+        print STDERR "Got:\n",$pp->pretty_print($dom)->toString;
+        $dom = $parser->load_xml(string => $expected);
+        print STDERR "Expected:\n",$pp->pretty_print($dom)->toString;
+    }
+    is $n, 0, "Read ImpactLayer as an item";
+}
+
+{
+    # read item with open child
+    $layer->{debug} = 0;
+    my $item = $layer->item(SmartSea::OIDS->new(['layer:2','ecosystem_component:1']));
+    my $dom = $parser->load_xml(string => SmartSea::HTML->new([xml => $item])->html);
+    #$pp->pretty_print($dom);
+    #print STDERR $dom->toString;
+    $layer->{debug} = 0;
+}
+
+$layer->delete;
 my $i = 0;
 my $layer_id;
 for my $layer ($schema->resultset('Layer')->all) {

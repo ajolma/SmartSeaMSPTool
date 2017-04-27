@@ -140,4 +140,82 @@ sub plural {
     return $w;
 }
 
+{
+    package SmartSea::OIDS;
+    # a path of oids
+    # oid = table:id
+    sub new {
+        my ($class, $oids) = @_;
+        my $self = {request => ''};
+        if ($oids && @$oids) {
+            my ($oid, $request) = split /\?/, $oids->[$#$oids];
+            $oids->[$#$oids] = $oid;
+            $request //= '';
+            $self->{request} = lc($request);
+        } else {
+            $oids = [];
+        }
+        $self->{oids} = $oids;
+        $self->{n} = $#$oids+1;
+        $self->{index} = $self->{n} > 0 ? 0 : -1;
+        bless $self, $class;
+    }
+    sub with_index {
+        my ($self, $index) = @_;
+        if ($index eq 'last') {
+            $self->{index} = $self->{n}-1;
+        } elsif ($index eq 'next') {
+            $self->{index} = $self->{index}+1;
+        } else {
+            $self->{index} = $index;
+        }
+        $self->{index} = -1 unless $self->{index} < $self->{n};
+        return $self;
+    }
+    sub count {
+        my $self = shift;
+        return $self->{n};
+    }
+    sub at {
+        my ($self, $i) = @_;
+        $i //= $self->{index};
+        return undef if $i < 0 || $i >= $self->{n};
+        return $self->{oids}[$i];
+    }
+    sub is_empty {
+        my $self = shift;
+        return $self->{n} == 0;
+    }
+    sub request {
+        my $self = shift;
+        return $self->{request};
+    }
+    sub first {
+        my $self = shift;
+        return undef if $self->{n} == 0;
+        return $self->{oids}[0];
+    }
+    sub last {
+        my $self = shift;
+        return undef if $self->{n} == 0;
+        return $self->{oids}[$self->{n}-1];
+    }
+    sub has_next {
+        my $self = shift;
+        return $self->{index}+1 < $self->{n};
+    }
+    sub next {
+        my $self = shift;
+        return $self->{oids}[$self->{index}+1];
+    }
+    sub has_prev {
+        my $self = shift;
+        return $self->{index}-1 >= 0;
+    }
+    sub prev {
+        my $self = shift;
+        return $self->{oids}[$self->{index}-1];
+    }
+}
+
 1;

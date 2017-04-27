@@ -16,6 +16,7 @@ requires 'DBIx::Class::Schema';
 requires 'HTTP::Request::Common';
 requires 'XML::LibXML';
 requires 'XML::LibXML::PrettyPrint';
+requires 'XML::SemanticDiff';
 requires 'Plack::Builder';
 requires 'Plack::Component';
 requires 'Plack::App::File';

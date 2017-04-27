@@ -16,8 +16,11 @@ binmode STDERR, ":utf8";
 sub new {
     my ($class, $args, $args2) = @_;
     my $self = {class_name => $args->{class_name}};
-    for my $key (qw/schema url edit dbname user pass data_dir debug sequences no_js/) {
+    for my $key (qw/schema edit debug sequences no_js/) {
         $self->{$key} = $args->{$key} // $args2->{$key};
+    }
+    for my $key (qw/url dbname user pass data_dir/) {
+        $self->{$key} = $args->{$key} // $args2->{$key} // '';
     }
     if ($args->{oid}) {
         my ($source, $id) = split /:/, $args->{oid};
@@ -171,11 +174,45 @@ sub attributes {
     return $self->{object}->attributes($parent->{object});
 }
 
+sub simple_attribute_values {
+    my ($self, $parent) = @_;
+    my $attributes = $self->attributes($parent);
+    my $children_listers = $self->children_listers;
+    my $object = $self->{object};
+    my %a;
+    for my $a (sort keys %$attributes) {
+        next if $a eq 'id';
+        next if $a eq 'name';
+        next if $a eq 'super';
+        next if $children_listers->{$a};
+        next if $attributes->{$a}{input} eq 'hidden';
+        next if $attributes->{$a}{input} eq 'object' && !$object->$a;
+        # todo what if style, ie object?
+        my $v = $object->$a // '';
+        if (ref $v) {
+            for my $b (qw/name id data/) {
+                if ($v->can($b)) {
+                    $v = $v->$b;
+                    last;
+                }
+            }
+        }
+        $a{$a} = $v;
+    }
+    my $superclass = $self->superclass;
+    if ($superclass) {
+        # subclass attributes have preference
+        my $super = SmartSea::Object->new({source => $superclass, object => $object->super}, $self);
+        %a = (%{$super->simple_attribute_values($parent)}, %a);
+    }
+    return \%a;
+}
+
 # link an object to an object
 sub link {
-    my ($self, $oids, $oids_index, $parameters) = @_;
+    my ($self, $oids, $parameters) = @_;
       
-    my $parent = $oids_index > 0 ? SmartSea::Object->new({oid => $oids->[$oids_index-1]}, $self) : undef;
+    my $parent = $oids->has_prev ? SmartSea::Object->new({oid => $oids->prev}, $self) : undef;
     
     unless ($parent && $parent->{object}) {
         my $error = "Can't create link: parent missing.";
@@ -196,19 +233,19 @@ sub link {
 }
 
 sub update_or_create {
-    my ($self, $oids, $oids_index, $parameters) = @_;
+    my ($self, $oids, $parameters) = @_;
     if ($self->{object}) {
-        $self->update($oids, $oids_index, $parameters);
+        $self->update($oids, $parameters);
     } else {
-        $self->create($oids, $oids_index, $parameters);
+        $self->create($oids, $parameters);
     }
 }
 
 sub create {
-    my ($self, $oids, $oids_index, $parameters) = @_;
+    my ($self, $oids, $parameters) = @_;
     say STDERR "create a $self->{source}" if $self->{debug};
-        
-    my $parent = $oids_index > 0 ? SmartSea::Object->new({oid => $oids->[$oids_index-1]}, $self) : undef;
+
+    my $parent = ($oids && $oids->has_prev) ? SmartSea::Object->new({oid => $oids->prev}, $self) : undef;
     
     my $attributes = $self->attributes;
     my $col_data = $self->col_data_for_create($parent, $parameters);
@@ -223,7 +260,7 @@ sub create {
         }
         my $child = SmartSea::Object->new({source => $attributes->{$attr}{source}}, $self);
         # how to consume child parameters and possibly know them from our parameters?
-        $child->create($oids, $oids_index, $parameters);
+        $child->create($oids, $parameters);
         $col_data->{$attr} = $child->{object}->id;
     }
     # collect creation data from input
@@ -262,12 +299,12 @@ sub create {
         say STDERR "Create $class subclass object with id $id" if $self->{debug};
         my $obj = SmartSea::Object->new({source => $class}, $self);
         $parameters->{super} = $id;
-        $obj->create($oids, $oids_index, $parameters);
+        $obj->create($oids, $parameters);
     }
 }
 
 sub update {
-    my ($self, $oids, $oids_index, $parameters) = @_;
+    my ($self, $oids, $parameters) = @_;
 
     say STDERR "update $self->{source} ",$self->{object}->id if $self->{debug};
     if ($self->{debug} && $self->{debug} > 1) {
@@ -286,17 +323,17 @@ sub update {
         if ($attributes->{$attr}{required}) {
             my $child = $self->{object}->$attr;
             $child = SmartSea::Object->new({source => $attributes->{$attr}{source}, object => $child}, $self);
-            $child->update($oids, $oids_index, $parameters);
+            $child->update($oids, $parameters);
         } elsif ($parameters->{$attr.'_is'}) {
             # todo: child attributes are now in parameters and may mix with parameters for self
             my $child = $self->{object}->$attr;
             unless ($child) {
                 $child = SmartSea::Object->new({source => $attributes->{$attr}{source}}, $self);
-                $child->create($oids, $oids_index, $parameters);
+                $child->create($oids, $parameters);
                 $col_data->{$attr} = $child->{object}->id;
             } else {
                 $child = SmartSea::Object->new({source => $attributes->{$attr}{source}, object => $child}, $self);
-                $child->update($oids, $oids_index, $parameters);
+                $child->update($oids, $parameters);
             }
         } else {
             $col_data->{$attr} = undef;
@@ -337,19 +374,19 @@ sub update {
     my $superclass = $self->superclass;
     if ($superclass) {
         my $super = SmartSea::Object->new({source => $superclass, object => $self->{object}->super}, $self);
-        $super->update($oids, $oids_index, $parameters);
+        $super->update($oids, $parameters);
     }
     
 }
 
 # delete an object or remove the link
 sub delete {
-    my ($self, $oids, $oids_index, $parameters) = @_;
+    my ($self, $oids, $parameters) = @_;
     
     say STDERR "delete $self->{source}" if $self->{debug};
 
     # is it actually a link that needs to be deleted?
-    my $parent = $oids && @$oids > 1 ? SmartSea::Object->new({oid => $oids->[$#$oids-1]}, $self) : undef;
+    my $parent = ($oids && $oids->has_prev) ? SmartSea::Object->new({oid => $oids->prev}, $self) : undef;
     if ($parent) {
         # we need the object which links parent to self
         my $args = $parent->source_of_link($self->{source}, $parameters->{id});
@@ -395,7 +432,7 @@ sub delete {
     my $superclass = $self->superclass;
     if ($superclass) {
         my $super = SmartSea::Object->new({source => $superclass, object => $self->{object}->super}, $self);
-        $super->delete($oids, $oids_index, $parameters);
+        $super->delete($oids, $parameters);
     }
 }
 
@@ -414,24 +451,21 @@ sub all {
     return [$self->{rs}->search(undef, {order_by => $order_by})->all];
 }
 
-# return object as an item
-sub li {
-    my ($self, $oids, $oids_index, $children, $opt) = @_;
+# return object as an item for HTML lists
+sub item {
+    my ($self, $oids, $children, $opt) = @_;
     say STDERR "item for $self->{source}" if $self->{debug};
 
-    # todo: ecosystem component has an expected impact, which can be computed
-
-    my $parent = $oids_index > 0 ? SmartSea::Object->new({oid => $oids->[$oids_index-1]}, $self) : undef;
+    my $parent = ($oids && $oids->has_prev) ? SmartSea::Object->new({oid => $oids->prev}, $self) : undef;
 
     $opt->{editable_children} = $self->{edit} unless defined $opt->{editable_children};
 
-    return $self->item_class($parent, $children, $opt) unless $self->{object};
-    
-    my $attributes = $self->attributes($parent);
-
     my $object = $self->{object};
-    say STDERR "object ",$object->id if $self->{debug};
+    
+    return $self->item_class($parent, $children, $opt) unless $object;
 
+    say STDERR "object ",$object->id if $self->{debug};
+    
     my $url = $self->{url}.'/'.source2table($self->{source});
 
     my @content = a(link => "Show all ".plural($self->{class_name}), url => plural($url));
@@ -439,34 +473,34 @@ sub li {
     push @content, [1 => ' '], a(link => 'edit this one', url => $url.'?edit') if $self->{edit};
     
     my @li = ([li => "id: ".$object->id], [li => "name: ".encode_entities_numeric($object->name)]);
-    my $children_listers = $self->children_listers;
-    # simple attributes:
+
+    my $attributes = $self->simple_attribute_values($parent);
     for my $a (sort keys %$attributes) {
-        next if $a eq 'name';
-        next if $children_listers->{$a};
-        next if $attributes->{$a}{input} eq 'hidden';
-        next if $attributes->{$a}{input} eq 'object' && !$object->$a;
-        # todo what if style, ie object?
-        my $v = $object->$a // '';
-        if (ref $v) {
-            for my $b (qw/name id data/) {
-                if ($v->can($b)) {
-                    $v = $v->$b;
-                    last;
-                }
-            }
-        }
-        push @li, [li => "$a: ".encode_entities_numeric($v)];
+        push @li, [li => "$a: ".encode_entities_numeric($attributes->{$a})];
     }
+    
     if ($object->can('info')) {
         my $info = $object->info($self);
         push @li, [li => $info] if $info;
     }
-    # children, which can be 
-    # open - there is $oids->[$oids_index], it opens an object, whose id is in what the method returns - or 
-    # closed - otherwise
-    # the method can be built-in (0), in result (1) or in result_set (2)
-    my $next = $oids->[$oids_index+1];
+    
+    for my $item ($self->children_items($url, $oids)) {
+        push @li, $item;
+    }
+    
+    return [[b => @content], [ul => \@li]];
+}
+
+# return children items, 
+# children are listed by the result method children_listers
+sub children_items {
+    my ($self, $url, $oids) = @_;
+    my $next = ($oids && $oids->has_next) ? $oids->next : undef;
+    # children can be open or closed
+    # open if there is $next whose source is what children lister tells
+    # TODO: what if there are more than one children with the same source?
+    my @items;
+    my $children_listers = $self->children_listers;
     for my $lister (sort keys %$children_listers) {
         my %args = %{$children_listers->{$lister}};
         my $editable_children = $self->{edit};
@@ -480,7 +514,7 @@ sub li {
             }
         }
         my $child = SmartSea::Object->new(\%args, $self);
-        my $children = [$object->$lister];
+        my $children = [$self->{object}->$lister];
         next if @$children == 1 && !$children->[0];
         my $child_is_open = 0;
         if ($child->{object}) {
@@ -495,7 +529,7 @@ sub li {
         say STDERR "child is open? $child_is_open" if $self->{debug};
         if ($child_is_open) {
             $child->{edit} = 0 unless $editable_children;
-            push @li, [li => $child->li($oids, $oids_index+1)];
+            push @items, [li => $child->item($oids->with_index('next'))];
         } else {
             delete $child->{object};
             my %opt = (
@@ -504,11 +538,19 @@ sub li {
                 cannot_add_remove_children => $children_listers->{$lister}{cannot_add_remove_children},
                 button => $children_listers->{$lister}{child_is_mine} ? 'Create' : 'Add',
                 );
-            push @li, [li => $child->item_class($self, $children, \%opt)];
+            push @items, [li => $child->item_class($self, $children, \%opt)];
         }
     }
-    
-    return [[b => @content], [ul => \@li]];
+    my $superclass = $self->superclass;
+    if ($superclass) {
+        my $super = SmartSea::Object->new(
+            {
+                source => $superclass, 
+                object => $self->{object}->super
+            }, $self);
+        push @items, $super->children_items($url, $oids);
+    }
+    return @items;
 }
 
 sub item_class {
@@ -583,10 +625,10 @@ sub item_class {
 }
 
 sub form {
-    my ($self, $oids, $oids_index, $parameters) = @_;
-    say STDERR "form for $self->{source} (@$oids) $oids_index" if $self->{debug};
+    my ($self, $oids, $parameters) = @_;
+    say STDERR "form for $self->{source}" if $self->{debug};
 
-    my $parent = $oids_index > 0 ? SmartSea::Object->new({oid => $oids->[$oids_index-1]}, $self) : undef;
+    my $parent = $oids->has_prev ? SmartSea::Object->new({oid => $oids->prev}, $self) : undef;
 
     # is this ok?
     return if $parent && !$parent->need_form_for_child($self);
@@ -610,9 +652,6 @@ sub form {
 
     # todo, what if there is no oids and this is a layer etc? bail out?
     if ($self->{object}) {
-        for (my $oid = 0; $oid < @$oids-1; ++$oid) {
-            my $obj = SmartSea::Object->new({oid => $oids->[$oid]}, $self);
-        }
         for my $key (keys %$attributes) {
             next if defined $col_data->{$key};
             next unless defined $self->{object}->$key;
@@ -631,12 +670,12 @@ sub form {
         push @widgets, hidden(source => $self->{source});
     } else {
         my %from_upstream; # simple data from parent/upstream objects
-        for (my $oid = 0; $oid < @$oids-1; ++$oid) {
-            my $obj = SmartSea::Object->new({oid => $oids->[$oid]}, $self);
+        for my $id (0..$oids->count-1) {
+            my $obj = SmartSea::Object->new({oid => $oids->at($id)}, $self);
             for my $key (keys %$attributes) {
                 next if defined $col_data->{$key};
                 next unless $obj->{object}->attributes->{$key};
-                say STDERR "getting $key from upstream $oids->[$oid]" if $self->{debug};
+                say STDERR "getting $key from upstream" if $self->{debug};
                 $from_upstream{$key} = $obj->{object}->$key;
             }
         }
