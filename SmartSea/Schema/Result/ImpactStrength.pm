@@ -12,10 +12,10 @@ __PACKAGE__->set_primary_key('id');
 
 sub attributes {
     return {
-        recovery => {i => 0, input => 'text'},
-        extent => {i => 0, input => 'text'},
-        resilience => {i => 0, input => 'text'},
-        temporal_extent => {i => 0, input => 'text'},
+        recovery        => {i => 0, input => 'text'},
+        extent          => {i => 1, input => 'text'},
+        resilience      => {i => 2, input => 'text'},
+        temporal_extent => {i => 3, input => 'text'},
     };
 }
 

@@ -58,6 +58,8 @@ sub new {
             
             # special case for rules, which have pk = id,cookie
             # prefer cookie = default, unless cookie given in args
+            my @pk = $self->{class}->primary_columns;
+            # todo: right now there is only one pk except for rules, which has two
             if ($self->{source} eq 'Rule') {
                 for my $rule ($self->{rs}->search({id => $args->{id}})) {
                     if ($args->{cookie} && $rule->cookie ne DEFAULT) {
@@ -67,7 +69,8 @@ sub new {
                     $self->{object} = $rule;
                 }
             } else {
-                $self->{object} = $self->{rs}->single({id => $args->{id}});
+                my $pk = $pk[0];
+                $self->{object} = $self->{rs}->single({$pk => $args->{id}});
                 
             }
             # is this in fact a subclass object?
@@ -670,7 +673,7 @@ sub form {
         push @widgets, hidden(source => $self->{source});
     } else {
         my %from_upstream; # simple data from parent/upstream objects
-        for my $id (0..$oids->count-1) {
+        for my $id (0..$oids->count-2) {
             my $obj = SmartSea::Object->new({oid => $oids->at($id)}, $self);
             for my $key (keys %$attributes) {
                 next if defined $col_data->{$key};

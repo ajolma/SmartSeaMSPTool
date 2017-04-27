@@ -9,7 +9,7 @@ use SmartSea::Core qw(:all);
 use SmartSea::HTML qw(:all);
 
 my %attributes = (
-    super              => { input => '' },
+    super              => { i => 0, input => '' },
     allocation         => { i => 1, input => 'lookup', source => 'Layer' },
     computation_method => { i => 2, input => 'lookup', source => 'ImpactComputationMethod' }
     );

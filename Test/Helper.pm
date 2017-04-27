@@ -1,8 +1,11 @@
 package Test::Helper;
 
+use XML::LibXML;
+use XML::LibXML::PrettyPrint;
+
 require Exporter;
 @ISA = qw(Exporter);
-@EXPORT = qw(read_postgresql_dump create_sqlite_schemas select_all);
+@EXPORT = qw(read_postgresql_dump create_sqlite_schemas select_all pretty_print_XML_response);
 
 sub read_postgresql_dump {
     my ($dump) = @_;
@@ -137,6 +140,20 @@ sub select_all {
             push @all, \@a;
         }});
     return @all;
+}
+
+sub pretty_print_XML_response {
+    my $res = shift;
+    my $parser = XML::LibXML->new(no_blanks => 1);
+    my $pp = XML::LibXML::PrettyPrint->new(indent_string => "  ");
+    eval {
+        my $dom = $parser->load_xml(string => $res->content);
+        $pp->pretty_print($dom);
+        print STDERR $dom->toString;
+    };
+    if ($@) {
+        say STDERR $res->content;
+    }
 }
 
 1;

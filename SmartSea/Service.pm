@@ -195,10 +195,9 @@ sub object_editor {
         my @body = a(link => 'Up', url => join('/', @path));
         my @li;
         for my $source (sort $self->{schema}->sources) {
-            next if $source =~ /2/;
-            my $lc = $source;
-            $lc =~ s/([a-z])([A-Z])/$1_$2/;
-            push @li, [li => a(link => SmartSea::Object::plural($source), url => $url.lc($lc))]
+            #$self->{schema}->resultset($source)->
+            my $table = source2table($source);
+            push @li, [li => a(link => SmartSea::Object::plural($source), url => $url.$table)]
         }
         push @body, [ul=>\@li];
         return html200({}, SmartSea::HTML->new(html => [body => \@body])->html);
@@ -248,7 +247,7 @@ sub object_editor {
 
     if ($self->{debug} > 1) {
         for my $p (sort keys %parameters) {
-            say STDERR "$p => ".(defined($parameters{$p})?$parameters{$p}:'undef') ;
+            say STDERR "$p => '".(defined($parameters{$p})?$parameters{$p}:'undef')."'";
         }
     }
 

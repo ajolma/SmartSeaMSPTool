@@ -2311,6 +2311,46 @@ GRANT ALL ON TABLE ecosystem_components TO smartsea;
 
 
 --
+-- Name: impact_computation_methods; Type: ACL; Schema: tool; Owner: ajolma
+--
+
+REVOKE ALL ON TABLE impact_computation_methods FROM PUBLIC;
+REVOKE ALL ON TABLE impact_computation_methods FROM ajolma;
+GRANT ALL ON TABLE impact_computation_methods TO ajolma;
+GRANT ALL ON TABLE impact_computation_methods TO smartsea;
+
+
+--
+-- Name: impact_comp_method_id_seq; Type: ACL; Schema: tool; Owner: ajolma
+--
+
+REVOKE ALL ON SEQUENCE impact_comp_method_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE impact_comp_method_id_seq FROM ajolma;
+GRANT ALL ON SEQUENCE impact_comp_method_id_seq TO ajolma;
+GRANT ALL ON SEQUENCE impact_comp_method_id_seq TO smartsea;
+
+
+--
+-- Name: impact_layer2ecosystem_component; Type: ACL; Schema: tool; Owner: ajolma
+--
+
+REVOKE ALL ON TABLE impact_layer2ecosystem_component FROM PUBLIC;
+REVOKE ALL ON TABLE impact_layer2ecosystem_component FROM ajolma;
+GRANT ALL ON TABLE impact_layer2ecosystem_component TO ajolma;
+GRANT ALL ON TABLE impact_layer2ecosystem_component TO smartsea;
+
+
+--
+-- Name: impact_layers; Type: ACL; Schema: tool; Owner: ajolma
+--
+
+REVOKE ALL ON TABLE impact_layers FROM PUBLIC;
+REVOKE ALL ON TABLE impact_layers FROM ajolma;
+GRANT ALL ON TABLE impact_layers TO ajolma;
+GRANT ALL ON TABLE impact_layers TO smartsea;
+
+
+--
 -- Name: impact_strengths; Type: ACL; Schema: tool; Owner: ajolma
 --
 

@@ -101,8 +101,7 @@ sub warn_unknowns {
 sub source2table {
     my $source = shift;
     $source =~ s/([a-z])([A-Z])/$1_$2/g;
-    $source =~ s/([A-Z])/lc($1)/ge;
-    return $source;
+    return lc($source);
 }
 
 sub table2source {
@@ -146,12 +145,11 @@ sub plural {
     # oid = table:id
     sub new {
         my ($class, $oids) = @_;
-        my $self = {request => ''};
+        my $self = {};
         if ($oids && @$oids) {
             my ($oid, $request) = split /\?/, $oids->[$#$oids];
             $oids->[$#$oids] = $oid;
-            $request //= '';
-            $self->{request} = lc($request);
+            $self->{request} = lc($request) if $request;
         } else {
             $oids = [];
         }
