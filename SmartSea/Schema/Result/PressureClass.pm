@@ -10,8 +10,8 @@ use SmartSea::Impact qw(:all);
 
 my @columns = (
     id       => {},
-    name     => { data_type => 'text',  size => 30 },
-    ordr     => { data_type => 'text',  size => 10 },
+    name     => { data_type => 'text',  html_size => 30 },
+    ordr     => { data_type => 'text',  html_size => 10 },
     category => { is_foreign_key => 1, source => 'PressureCategory' },
     );
 

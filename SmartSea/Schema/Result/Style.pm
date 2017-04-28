@@ -29,10 +29,10 @@ use SmartSea::HTML qw(:all);
 my @columns = (
     id           => {},
     color_scale =>  { is_foreign_key => 1, source => 'ColorScale', allow_null => 0, required => 1 },
-    min =>          { data_type => 'text', size => 20, empty_is_null => 1 },
-    max =>          { data_type => 'text', size => 20, empty_is_null => 1 },
-    classes =>      { data_type => 'text', size => 20, empty_is_null => 1 },
-    class_labels => { data_type => 'text', size => 40 }
+    min =>          { data_type => 'text', html_size => 20, empty_is_null => 1 },
+    max =>          { data_type => 'text', html_size => 20, empty_is_null => 1 },
+    classes =>      { data_type => 'text', html_size => 20, empty_is_null => 1 },
+    class_labels => { data_type => 'text', html_size => 40 }
     );
 
 __PACKAGE__->table('styles');

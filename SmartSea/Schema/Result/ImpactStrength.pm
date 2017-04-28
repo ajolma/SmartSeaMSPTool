@@ -8,10 +8,10 @@ use SmartSea::HTML qw(:all);
 
 my @columns = (
     id              => {},
-    recovery        => {data_type => 'text'},
-    extent          => {data_type => 'text'},
-    resilience      => {data_type => 'text'},
-    temporal_extent => {data_type => 'text'},
+    recovery        => {data_type => 'text', html_size => 30},
+    extent          => {data_type => 'text', html_size => 30},
+    resilience      => {data_type => 'text', html_size => 30},
+    temporal_extent => {data_type => 'text', html_size => 30},
     );
 
 __PACKAGE__->table('impact_strengths');
