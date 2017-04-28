@@ -140,8 +140,28 @@ ok($schema->resultset('Layer')->single({id => 2})->descr eq $descr, "Set supercl
     <li>rule_system: rule class 0 rules for plan.use_class.Impact.</li>
     <li>style: color scale</li>
     <li>use: plan.use_class</li>
+    <li><b>RuleSystem</b>
+      <ul>
+        <li>id: 2</li> 
+        <li>name: rule class 0 rules for plan.use_class.Impact.</li>
+        <li>rule_class: rule class</li>
+      </ul>
+    </li>
+    <li><b>Style</b>
+      <ul>
+        <li>id: 2</li>
+        <li>name: color scale</li>
+        <li>class_labels:</li>
+        <li>classes:</li>
+        <li>color_scale: color scale</li>
+        <li>max:</li>
+        <li>min:</li>
+      </ul>
+    </li>
     <li><b>Ecosystem components</b>
-      <ul><li><a href="/layer:2/ecosystem_component:1">component_1</a></li></ul>
+      <ul>
+        <li><a href="/layer:2/ecosystem_component:1">component_1</a></li>
+      </ul>
     </li>
     <li><b>Rules</b><ul/></li>
   </ul>

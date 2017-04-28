@@ -11,7 +11,7 @@ use SmartSea::HTML qw(:all);
 
 binmode STDERR, ":utf8";
 
-# in args give oid or source, and possibly id (or search or object)
+# in args give oid or object, or source and possibly id or search
 # polymorphic: returns the subclass object if this is one
 sub new {
     my ($class, $args, $args2) = @_;
@@ -26,17 +26,24 @@ sub new {
         my ($source, $id) = split /:/, $args->{oid};
         $args->{id} = $id if defined $id;
         $self->{source} = $source;
+    } elsif (defined $args->{object}) {
+        $self->{object} = $args->{object};
+        $self->{class} = ref $self->{object}; # class = result_source
+        # $self->{schema} = $self->{class}->schema;
+        ($self->{source}) = $self->{class} =~ /(\w+)$/;
+        $self->{class_name} //= $self->{source};
+        # $self->{rs} = $self->{class}->resultset; # rs = resultset
+        $self->{rs} = $self->{schema}->resultset($self->{source});
+        return bless $self, $class;
     } elsif ($args->{source}) {
         $self->{source} = $args->{source};
-    }
+    } 
     $self->{source} = table2source($self->{source});
     say STDERR "new $self->{source} object, id=",(defined $args->{id} ? $args->{id} : 'undef') if $self->{debug};
     $self->{class} = 'SmartSea::Schema::Result::'.$self->{source};
     eval {
         $self->{rs} = $self->{schema}->resultset($self->{source});
-        if ($args->{object}) { # do not use unless you know what you're doing
-            $self->{object} = $args->{object};
-        } elsif ($args->{search}) { # needed for getting a link object in some cases
+        if ($args->{search}) { # needed for getting a link object in some cases
             if ($self->{debug}) {
                 for my $key (sort keys %{$args->{search}}) {
                     say STDERR "search term $key => $args->{search}{$key}";
@@ -160,9 +167,11 @@ sub superclass {
 
 sub super {
     my ($self) = @_;
-    return unless $self->{object};
     my $class = $self->superclass;
-    return SmartSea::Object->new({ source => $class, object => $self->{object}->super }, $self) if $class;
+    return unless $class && $self->{object};
+    my $super = $self->{object}->super;
+    return unless $super;
+    return SmartSea::Object->new({ object => $super }, $self) if $class;
 }
 
 sub subclass {
@@ -368,7 +377,7 @@ sub update {
         next unless $columns->{$col}{is_composition};
         if ($columns->{$col}{required}) {
             my $child = $self->{object}->$col;
-            $child = SmartSea::Object->new({source => $columns->{$col}{source}, object => $child}, $self);
+            $child = SmartSea::Object->new({object => $child}, $self);
             $child->update($oids, $parameters);
         } elsif ($parameters->{$col.'_is'}) {
             # todo: child columns are now in parameters and may mix with parameters for self
@@ -378,7 +387,7 @@ sub update {
                 $child->create($oids, $parameters);
                 $col_data->{$col} = $child->{object}->id;
             } else {
-                $child = SmartSea::Object->new({source => $columns->{$col}{source}, object => $child}, $self);
+                $child = SmartSea::Object->new({object => $child}, $self);
                 $child->update($oids, $parameters);
             }
         } else {
@@ -494,6 +503,7 @@ sub all {
 # return object as an item for HTML lists
 sub item {
     my ($self, $oids, $children, $opt) = @_;
+    $opt //= {};
     say STDERR "item for $self->{source}" if $self->{debug};
 
     my $parent = ($oids && $oids->has_prev) ? SmartSea::Object->new({oid => $oids->prev}, $self) : undef;
@@ -509,9 +519,15 @@ sub item {
     my $source = $self->superclass // $self->{source};
     my $url = $self->{url}.'/'.source2table($source);
 
-    my @content = a(link => "Show all ".plural($self->{class_name}), url => plural($url));
-    $url .= ':'.$object->id;
-    push @content, [1 => ' '], a(link => 'edit this one', url => $url.'?edit') if $self->{edit};
+    my @content;
+    if ($opt->{composed}) {
+        @content = ([1 => $self->{source}]);
+        $url .= ':'.$object->id;
+    } else {
+        @content = a(link => "Show all ".plural($self->{class_name}), url => plural($url));
+        $url .= ':'.$object->id;
+        push @content, [1 => ' '], a(link => 'edit this one', url => $url.'?edit') if $self->{edit};
+    }
     
     my @li = ([li => "id: ".$object->id], [li => "name: ".encode_entities_numeric($object->name)]);
 
@@ -519,17 +535,35 @@ sub item {
     for my $col (sort keys %$values) {
         push @li, [li => "$col: ".encode_entities_numeric($values->{$col})];
     }
+
+    push @li, $self->composed_object_items($parent, $oids, $children, $opt);
     
     if ($object->can('info')) {
         my $info = $object->info($self);
         push @li, [li => $info] if $info;
     }
     
-    for my $item ($self->children_items($url, $oids)) {
-        push @li, $item;
-    }
+    push @li, $self->children_items($url, $oids);
     
     return [[b => @content], [ul => \@li]];
+}
+
+sub composed_object_items {
+    my ($self, $parent, $oids, $children, $opt) = @_;
+    my $super = $self->super;
+    my @items;
+    @items = $super->composed_object_items($parent, $oids, $children, $opt) if $super;
+    my $columns = $self->columns($parent);
+    for my $col (sort keys %$columns) {
+        next unless $columns->{$col}{is_composition};
+        my $composed = $self->{object}->$col;
+        next unless $composed;
+        my $obj = SmartSea::Object->new({object => $composed}, $self);
+        my %opt = %$opt;
+        $opt{composed} = 1;
+        push @items, [li => $obj->item($oids, $children, \%opt)];
+    }
+    return @items;
 }
 
 # return children items, 
@@ -571,7 +605,7 @@ sub children_items {
         say STDERR "child is open? $child_is_open" if $self->{debug};
         if ($child_is_open) {
             $child->{edit} = 0 unless $editable_children;
-            push @items, [li => $child->item($oids->with_index('next'))];
+            push @items, [li => $child->item($oids->with_index('next'), [], {})];
         } else {
             delete $child->{object};
             my %opt = (
