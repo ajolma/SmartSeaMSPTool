@@ -101,7 +101,7 @@ test_psgi $app, sub {
         push @href, $href;
         #say STDERR "input: ",$href;
     }
-    ok(@href == 12, "12 input elements in impact layer form");
+    ok(@href == 10, "10 input elements in impact layer form");
     @href = ();
     for my $a ($dom->documentElement->findnodes('//select')) {
         my $href = $a->getAttribute('name');

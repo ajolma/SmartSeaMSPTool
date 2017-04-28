@@ -708,9 +708,6 @@ sub form {
         #    $parameters->{min} = $b->GetMinimum;
         #    $parameters->{max} = $b->GetMaximum;
 
-        # todo: these are in url...?
-        push @widgets, hidden(id => $self->{object}->id);
-        push @widgets, hidden(source => $self->{source});
     } else {
         # create
         my %from_upstream; # simple data from parent/upstream objects
