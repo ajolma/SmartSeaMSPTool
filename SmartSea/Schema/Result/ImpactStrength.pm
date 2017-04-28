@@ -6,18 +6,17 @@ use utf8;
 use base qw/DBIx::Class::Core/;
 use SmartSea::HTML qw(:all);
 
-__PACKAGE__->table('impact_strengths');
-__PACKAGE__->add_columns(qw/id recovery extent resilience temporal_extent/);
-__PACKAGE__->set_primary_key('id');
+my @columns = (
+    id              => {},
+    recovery        => {data_type => 'text'},
+    extent          => {data_type => 'text'},
+    resilience      => {data_type => 'text'},
+    temporal_extent => {data_type => 'text'},
+    );
 
-sub attributes {
-    return {
-        recovery        => {i => 0, input => 'text'},
-        extent          => {i => 1, input => 'text'},
-        resilience      => {i => 2, input => 'text'},
-        temporal_extent => {i => 3, input => 'text'},
-    };
-}
+__PACKAGE__->table('impact_strengths');
+__PACKAGE__->add_columns(@columns);
+__PACKAGE__->set_primary_key('id');
 
 sub name {
     my $self = shift;

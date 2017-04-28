@@ -8,14 +8,23 @@ use Scalar::Util 'blessed';
 use SmartSea::Core qw(:all);
 use SmartSea::HTML qw(:all);
 
-my %attributes = (
-    super              => { i => 0, input => '' },
-    allocation         => { i => 1, input => 'lookup', source => 'Layer' },
-    computation_method => { i => 2, input => 'lookup', source => 'ImpactComputationMethod' }
+my @columns = (
+    super => { 
+        input => '', 
+    },
+    allocation => { 
+        is_foreign_key => 1,
+        source => 'Layer',
+        objs => sub {my $obj = shift; return $obj->layer_class->name eq 'Allocation' },
+    },
+    computation_method => { 
+        is_foreign_key => 1,
+        source => 'ImpactComputationMethod'
+    }
     );
 
 __PACKAGE__->table('impact_layers');
-__PACKAGE__->add_columns(keys %attributes);
+__PACKAGE__->add_columns(@columns);
 __PACKAGE__->set_primary_key(qw/ super /);
 __PACKAGE__->belongs_to(super => 'SmartSea::Schema::Result::Layer');
 __PACKAGE__->belongs_to(allocation => 'SmartSea::Schema::Result::Layer');
@@ -64,10 +73,6 @@ sub need_form_for_child {
     my ($class, $child_source) = @_;
     return 1 if $child_source eq 'Rule'; # Rule is embedded
     return 0; # link to EcosystemComponent can be created directly
-}
-
-sub attributes {
-    return dclone(\%attributes);
 }
 
 sub name {

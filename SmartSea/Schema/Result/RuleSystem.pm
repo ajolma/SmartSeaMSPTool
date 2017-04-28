@@ -7,21 +7,18 @@ use Storable qw(dclone);
 use Scalar::Util 'blessed';
 use SmartSea::HTML qw(:all);
 
-my %attributes = (
-    rule_class  => { i => 0, input => 'lookup', source => 'RuleClass', required => 1 }
+my @columns = (
+    id         => {},
+    rule_class => { is_foreign_key => 1, source => 'RuleClass', required => 1 }
     );
 
 __PACKAGE__->table('rule_systems');
-__PACKAGE__->add_columns(qw/id rule_class/);
+__PACKAGE__->add_columns(@columns);
 __PACKAGE__->set_primary_key('id');
 __PACKAGE__->belongs_to(rule_class => 'SmartSea::Schema::Result::RuleClass');
 __PACKAGE__->has_many(layer => 'SmartSea::Schema::Result::Layer', 'rule_system'); # 0 or 1
 __PACKAGE__->has_many(ecosystem_component => 'SmartSea::Schema::Result::EcosystemComponent', 'distribution'); # 0 or 1
 __PACKAGE__->has_many(rules => 'SmartSea::Schema::Result::Rule', 'rule_system');
-
-sub attributes {
-    return dclone(\%attributes);
-}
 
 sub name {
     my $self = shift;
@@ -33,18 +30,6 @@ sub name {
     @layer = $self->ecosystem_component;
     $name .= " for ".$layer[0]->name if @layer;
     return $name.'.';
-}
-
-sub inputs {
-    my ($self, $values, $schema) = @_;
-    if ($self and blessed($self) and $self->isa('SmartSea::Schema::Result::RuleSystem')) {
-        for my $key (keys %attributes) {
-            next unless defined $self->$key;
-            next if defined $values->{$key};
-            $values->{$key} = $self->$key;
-        }
-    }
-    return widgets(\%attributes, $values, $schema);
 }
 
 1;

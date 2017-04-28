@@ -10,7 +10,7 @@ use SmartSea::Core qw/:all/;
 require Exporter;
 
 our @ISA = qw(Exporter Geo::OGC::Service::XMLWriter);
-our @EXPORT_OK = qw(a button checkbox text_input textarea drop_down hidden widgets);
+our @EXPORT_OK = qw(a button checkbox text_input textarea drop_down hidden);
 our %EXPORT_TAGS = (all => \@EXPORT_OK);
 
 sub new {
@@ -106,118 +106,5 @@ sub spinner {
                       max => $arg{max}, 
                       step => $arg{step}, 
                       value => $arg{value}}];
-}
-sub widgets {
-    my ($attributes, $values, $schema) = @_;
-    my @fcts;
-    my @form;
-    for my $key (sort {$attributes->{$a}{i} <=> $attributes->{$b}{i}} keys %$attributes) {
-        my $a = $attributes->{$key};
-        my $input;
-        if ($a->{input} eq 'hidden') {
-            if (exists $values->{$key}) {
-                if (ref $values->{$key}) {
-                    $input = hidden($key, $values->{$key}->id);
-                } else {
-                    $input = hidden($key, $values->{$key});
-                }
-            }
-        } elsif ($a->{input} eq 'text') {
-            $input = text_input(
-                name => $key,
-                size => ($a->{size} // 10),
-                value => $values->{$key} // ''
-            );
-        } elsif ($a->{input} eq 'textarea') {
-            $input = textarea(
-                name => $key,
-                rows => $a->{rows},
-                cols => $a->{cols},
-                value => $values->{$key} // ''
-            );
-        } elsif ($a->{input} eq 'lookup') {
-            my $objs;
-            if (ref $a->{objs} eq 'ARRAY') {
-                $objs = $a->{objs};
-            } elsif ($a->{objs}) {
-                $objs = [$schema->resultset($a->{source})->search($a->{objs})];
-            } else {
-                $objs = [$schema->resultset($a->{source})->all];
-            }
-            my $id;
-            if ($values->{$key}) {
-                if (ref $values->{$key}) {
-                    $id = $values->{$key}->id;
-                } else {
-                    $id = $values->{$key};
-                }
-            }
-            $input = drop_down(
-                name => $key,
-                objs => $objs,
-                selected => $id,
-                values => $a->{values},
-                allow_null => $a->{allow_null}
-            );
-        } elsif ($a->{input} eq 'checkbox') {
-            $input = checkbox(
-                name => $key,
-                visual => $a->{cue},
-                checked => $values->{$key}
-            );
-        } elsif ($a->{input} eq 'spinner') {
-            $input = spinner(
-                name => $key,
-                min => $a->{min},
-                max => $a->{max},
-                value => $values->{$key} // 1
-            );
-        }
-        if ($a->{input} eq 'object') {
-            unless ($a->{required}) {
-                my $fct = $key.'_fct';
-                my $cb = $key.'_cb';
-                push @form, [ p => checkbox(
-                                  name => $key.'_is',
-                                  visual => "Define ".$a->{source},
-                                  checked => $values->{$key},
-                                  id => $cb )
-                ];
-                my $code =<< "END_CODE";
-function $fct() {
-  var cb = document.getElementById("$cb");
-  var id = "$key";
-  if (!cb.checked) {
-    document.getElementById(id).style.display=(cb.checked)?'':'none';
-  }
-  cb.addEventListener("change", function() {
-    document.getElementById(id).style.display=(this.checked)?'':'none';
-  }, false);
-};
-END_CODE
-                push @form, [script => $code];
-                push @fcts, "\$(document).ready($fct);";
-            } else {
-                push @form, hidden($key.'_is', 1);
-            }
-            my @style;
-            if ($values->{$key}) {
-                @style = $values->{$key}->inputs($values, $schema);
-            } else {
-                my $class = 'SmartSea::Schema::Result::'.$a->{source};
-                @style = $class->inputs($values, $schema);
-            }
-            push @form, [div => {id=>$key}, @style];
-        } else {
-            if ($a->{input} eq 'hidden') {
-                push @form, $input if defined $input;
-            } else {
-                push @form, [ p => [[1 => "$key: "], $input] ];
-            }
-        }
-    }
-    push @form, [script => {src=>"http://code.jquery.com/jquery-1.10.2.js"}, ''];
-    push @form, [script => join("\n",@fcts)];
-    return @form;
 }
 1;

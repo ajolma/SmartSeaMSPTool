@@ -5,13 +5,14 @@ use 5.010000;
 use base qw/DBIx::Class::Core/;
 use Geo::GDAL;
 
-__PACKAGE__->table('color_scales');
-__PACKAGE__->add_columns(qw/ id name /);
-__PACKAGE__->set_primary_key('id');
+my @columns = (
+    id   => {},
+    name => {data_type => 'text', html_size => 30}
+    );
 
-sub attributes {
-    return {name => {i => 0, input => 'text'}};
-}
+__PACKAGE__->table('color_scales');
+__PACKAGE__->add_columns(@columns);
+__PACKAGE__->set_primary_key('id');
 
 sub color_table {
     my ($self, $n) = @_;

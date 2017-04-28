@@ -6,7 +6,7 @@ use Carp;
 use Encode qw(decode encode);
 use JSON;
 
-use constant DEFAULT => 'default'; # not user changed object, used for cookie attribute
+use constant DEFAULT => 'default'; # not user changed object, used for cookie column
 
 require Exporter;
 our @ISA = qw(Exporter);

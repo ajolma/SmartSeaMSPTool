@@ -10,18 +10,22 @@ use SmartSea::Core qw(:all);
 use SmartSea::HTML qw(:all);
 use SmartSea::Layer;
 
-my %attributes = (
-    rule_system =>  { i => 1,  input => 'lookup', source => 'RuleSystem', allow_null => 0 },
-    r_layer =>      { i => 7,  input => 'lookup', source => 'Layer',      allow_null => 1, optional => 1 },
-    r_dataset =>    { i => 8,  input => 'lookup', source => 'Dataset',    allow_null => 1, objs => {path => {'!=',undef}} },
-    op =>           { i => 9,  input => 'lookup', source => 'Op'  },
-    value =>        { i => 10, input => 'text', type => 'double', empty_is_default => 1 },
-    min_value =>    { i => 11, input => 'text', type => 'double', empty_is_default => 1 },
-    max_value =>    { i => 12, input => 'text', type => 'double', empty_is_default => 1 },
-    value_type =>   { i => 14, input => 'lookup', source => 'NumberType' },
-    value_at_min => { i => 15, input => 'text', type => 'double', empty_is_default => 1 },
-    value_at_max => { i => 16, input => 'text', type => 'double', empty_is_default => 1 },
-    weight =>       { i => 17, input => 'text', type => 'double', empty_is_default => 1 }
+my @columns = (
+    id           => {},
+    cookie       => {},
+    made         => {},
+    rule_system  => {},
+    rule_system  => { is_foreign_key => 1, source => 'RuleSystem', allow_null => 0 },
+    r_layer      => { is_foreign_key => 1, source => 'Layer',      allow_null => 1, optional => 1 },
+    r_dataset    => { is_foreign_key => 1, source => 'Dataset',    allow_null => 1, objs => {path => {'!=',undef}} },
+    op           => { is_foreign_key => 1, source => 'Op'  },
+    value        => { data_type => 'text', type => 'double', empty_is_default => 1 },
+    min_value    => { data_type => 'text', type => 'double', empty_is_default => 1 },
+    max_value    => { data_type => 'text', type => 'double', empty_is_default => 1 },
+    value_type   => { is_foreign_key => 1, source => 'NumberType' },
+    value_at_min => { data_type => 'text', type => 'double', empty_is_default => 1 },
+    value_at_max => { data_type => 'text', type => 'double', empty_is_default => 1 },
+    weight       => { data_type => 'text', type => 'double', empty_is_default => 1 }
     );
 
 # how to compute the weighted value for x:
@@ -33,7 +37,7 @@ my %attributes = (
 # suitability = multiply_all(w_r_1 ... w_r_n)
 
 __PACKAGE__->table('rules');
-__PACKAGE__->add_columns('id', 'cookie', 'made', 'rule_system', keys %attributes);
+__PACKAGE__->add_columns(@columns);
 __PACKAGE__->set_primary_key('id', 'cookie');
 
 __PACKAGE__->belongs_to(rule_system => 'SmartSea::Schema::Result::RuleSystem');
@@ -42,49 +46,54 @@ __PACKAGE__->belongs_to(r_dataset => 'SmartSea::Schema::Result::Dataset');
 __PACKAGE__->belongs_to(op => 'SmartSea::Schema::Result::Op');
 __PACKAGE__->belongs_to(value_type => 'SmartSea::Schema::Result::NumberType');
 
-sub attributes {
+sub context_based_columns {
     my ($self, $parent) = @_;
-    my $a = dclone(\%attributes);
-    if (blessed($self)) {
-        my $dataset = $self->r_dataset ? $self->r_dataset : undef;
-        my $value_semantics = $dataset ? $dataset->class_semantics : undef;
-        if ($value_semantics) {
-            my @objs;
-            my @values;
-            for my $item (split /; /, $value_semantics) {
-                my ($value, $semantics) = split / = /, $item;
-                push @objs, {id => $value, name => $semantics};
-                push @values, $value;
+    my @col;
+    my %col_info;
+    my $class;
+    $class = $parent->rule_system->rule_class->name if $parent;
+    for (my $i = 0; $i < @columns; $i += 2) {
+        my $col = $columns[$i];
+        if ($parent) {
+            if ($class eq 'additive' or $class eq 'multiplicative') {
+                next if $col eq 'op';
+                next if $col eq 'value';
+                next if $col eq 'value_type';
+            } else {
+                next if $col eq 'min_value';
+                next if $col eq 'max_value';
+                next if $col eq 'value_at_min';
+                next if $col eq 'value_at_max';
+                next if $col eq 'weight';
             }
-            $a->{value} = {
-                i => 10,
-                input => 'lookup',
-                objs => \@objs,
-                values => \@values
-            };
         }
-    }
-    if ($parent) {
-        my $class = $parent->rule_system->rule_class->name;
-        say STDERR "rule class = $class";
-        if ($class eq 'additive' or $class eq 'multiplicative') {
-            delete $a->{op};
-            delete $a->{value};
-            delete $a->{value_type};
-        } else {
-            delete $a->{min_value};
-            delete $a->{max_value};
-            delete $a->{value_at_min};
-            delete $a->{value_at_max};
-            delete $a->{weight};
+        my %info = (%{$columns[$i+1]});
+        if (blessed($self) && $col eq 'value') {
+            my $dataset = $self->r_dataset ? $self->r_dataset : undef;
+            my $value_semantics = $dataset ? $dataset->class_semantics : undef;
+            if ($value_semantics) {
+                my @objs;
+                my @values;
+                for my $item (split /; /, $value_semantics) {
+                    my ($value, $semantics) = split / = /, $item;
+                    push @objs, {id => $value, name => $semantics};
+                    push @values, $value;
+                }
+                %info = (
+                    is_foreign_key => 1,
+                    objs => \@objs,
+                    values => \@values
+                );
+            }
         }
+        push @col, $col;
+        $col_info{$col} = \%info;
     }
-    return $a;
+    return (\@col, \%col_info);
 }
 
-sub col_data_for_create {
-    my ($self, $parent) = @_;
-    return {} unless $parent;
+sub column_values_from_context {
+    my ($self, $parent, $parameters) = @_;
     return {rule_system => $parent->rule_system->id} if ref $parent eq 'SmartSea::Schema::Result::Layer';
     return {rule_system => $parent->distribution->id} if ref $parent eq 'SmartSea::Schema::Result::EcosystemComponent';
     return {};
@@ -92,9 +101,7 @@ sub col_data_for_create {
 
 sub is_ok {
     my ($self, $col_data) = @_;
-    return "Rule must be based either on a layer or on a dataset." if 
-        (!defined($col_data->{r_dataset}) && !defined($col_data->{r_layer})) ||
-        (defined($col_data->{r_dataset}) && defined($col_data->{r_layer}));
+    return "Rule must be based either on a layer or on a dataset." unless $col_data->{r_dataset} || $col_data->{r_layer};
     return undef;
 }
 
@@ -209,12 +216,12 @@ sub as_hashref_for_json {
 sub values {
     my ($self) = @_;
     my %values = (id => $self->id, rule_system => $self->rule_system->id);
-    for my $key (keys %attributes) {
-        if ($attributes{$key}{input} eq 'lookup') {
-            my $foreign = $self->$key;
-            $values{$key} = $self->$key->id if $foreign;
+    for my $col (@columns) {
+        if ($col->{is_foreign_key}) {
+            my $foreign = $self->$col;
+            $values{$col} = $self->$col->id if $foreign;
         } else {
-            $values{$key} = $self->$key;
+            $values{$col} = $self->$col;
         }
     }
     return \%values;

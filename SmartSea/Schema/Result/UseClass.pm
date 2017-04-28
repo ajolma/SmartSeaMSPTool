@@ -6,8 +6,13 @@ use base qw/DBIx::Class::Core/;
 use Scalar::Util 'blessed';
 use SmartSea::HTML qw(:all);
 
+my @columns = (
+    id   => {},
+    name => {data_type => 'text', html_size => 30}
+    );
+
 __PACKAGE__->table('use_classes');
-__PACKAGE__->add_columns('id', 'name');
+__PACKAGE__->add_columns(@columns);
 __PACKAGE__->set_primary_key('id');
 
 __PACKAGE__->has_many(use => 'SmartSea::Schema::Result::Use', 'use_class');
@@ -15,10 +20,6 @@ __PACKAGE__->many_to_many(plans => 'use', 'plan');
 
 __PACKAGE__->has_many(use_class2activity => 'SmartSea::Schema::Result::UseClass2Activity', 'use_class');
 __PACKAGE__->many_to_many(activities => 'use_class2activity', 'activity');
-
-sub attributes {
-    return {name => {i => 0, input => 'text'}};
-}
 
 sub children_listers {
     return {

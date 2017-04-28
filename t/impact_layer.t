@@ -129,7 +129,7 @@ ok($schema->resultset('Layer')->single({id => 2})->descr eq $descr, "Set supercl
     my $expected = <<'END_XML';
 <?xml version="1.0"?>
 <xml>
-  <b><a href="/impact_layers">Show all ImpactLayers</a></b>
+  <b><a href="/layers">Show all ImpactLayers</a></b>
   <ul>
     <li>id: 2</li>
     <li>name: plan.use_class.Impact</li>
@@ -141,7 +141,7 @@ ok($schema->resultset('Layer')->single({id => 2})->descr eq $descr, "Set supercl
     <li>style: color scale</li>
     <li>use: plan.use_class</li>
     <li><b>Ecosystem components</b>
-      <ul><li><a href="/impact_layer:2/ecosystem_component:1">component_1</a></li></ul>
+      <ul><li><a href="/layer:2/ecosystem_component:1">component_1</a></li></ul>
     </li>
     <li><b>Rules</b><ul/></li>
   </ul>

@@ -58,32 +58,35 @@ for my $source (sort $schema->sources) {
     my $table = source2table($source);
     my $class = "SmartSea::Schema::Result::$source";
     next if $class->can('superclass'); # skip subclasses
-    my $attr = $class->attributes;
+    my @cols = $class->columns;
+    my $cols_info = $class->columns_info;
     my $parents = [];
     my $refs = [];
     my $parts = [];
     my $cols = [];
-    for my $col (sort keys %$attr) {
+    for my $col (@cols) {
         my $item = {col => $col};
-        $item->{class} = source2table($attr->{$col}{source}) if $attr->{$col}{source};
-        for my $key (keys %{$attr->{$col}}) {
-            $item->{$key} = $attr->{$col}{$key};
+        my $info = $cols_info->{$col};
+        $item->{class} = source2table($info->{source}) if $info->{source};
+        for my $key (keys %$info) {
+            $item->{$key} = $info->{$key};
         }
-        next if $attr->{$col}{self_ref};
-        next if $attr->{$col}{optional};
-        if ($attr->{$col}{input} eq 'object') {
-            push @$parts, $item;
-            next;
-        }
-        if ($attr->{$col}{input} eq 'lookup') {
-            if ($attr->{$col}{parent}) {
-                push @$parents, $item;
+        next if $info->{self_ref};
+        next if $info->{optional};
+        if ($info->{is_foreign_key}) {
+            if ($info->{is_composition}) {
+                push @$parts, $item;
+                next;
             } else {
-                push @$refs, $item;
+                if ($info->{parent}) {
+                    push @$parents, $item;
+                } else {
+                    push @$refs, $item;
+                }
+                next;
             }
-            next;
         }
-        if ($attr->{$col}{required}) {
+        if ($info->{required}) {
             $item->{value} = 1; # this should be based on the type of the col
             push @$cols, $item;
         }
@@ -107,7 +110,7 @@ $service->{debug} = 0;
 # test create and delete of objects of all classes
 if (1) {for my $class (keys %$classes) {
     next if $classes->{$class}{embedded};
-    #next unless $class eq 'impact_layer2ecosystem_component';
+    #next unless $class eq 'rule';
     
     test_psgi $app, sub {
         my $cb = shift;

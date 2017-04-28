@@ -20,6 +20,9 @@ my $schema = SmartSea::Schema->connect('dbi:SQLite:tool.db', undef, undef, $opti
 for my $source (sort $schema->sources) {
     my $rs = $schema->resultset($source);
     can_ok($rs->result_class, qw/id name/);
+    $rs = 'SmartSea::Schema::Result::'.$source;
+    my @cols = $rs->columns;
+    my $info = $rs->columns_info;
 }
 
 unlink "tool.db";

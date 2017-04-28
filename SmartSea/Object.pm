@@ -71,16 +71,23 @@ sub new {
             } else {
                 my $pk = $pk[0];
                 $self->{object} = $self->{rs}->single({$pk => $args->{id}});
-                
+                say STDERR "object: ",($self->{object} // 'undef') if $self->{debug} && $self->{debug} > 1;
             }
             # is this in fact a subclass object?
             if ($self->{object} && $self->{object}->can('subclass')) {
                 my $source = $self->{object}->subclass;
                 if ($source) {
-                    $self->{source} = $source;
-                    $self->{class} = 'SmartSea::Schema::Result::'.$self->{source};
-                    $self->{rs} = $self->{schema}->resultset($self->{source});
-                    $self->{object} = $self->{rs}->single({super => $args->{id}});
+                    my $object = $self->{schema}->resultset($source)->single({super => $args->{id}});
+                    if ($object) {
+                        # ok
+                        $self->{source} = $source;
+                        $self->{class} = 'SmartSea::Schema::Result::'.$self->{source};
+                        $self->{rs} = $self->{schema}->resultset($source);
+                        $self->{object} = $object;
+                        say STDERR $self->{object} if $self->{debug} && $self->{debug} > 1;
+                    } else {
+                        say STDERR "Error in db, missing subclass object for $self->{source}:$args->{id}";
+                    }
                 }
             }
         }
@@ -151,6 +158,13 @@ sub superclass {
     return $self->{class}->superclass if $self->{class}->can('superclass');
 }
 
+sub super {
+    my ($self) = @_;
+    return unless $self->{object};
+    my $class = $self->superclass;
+    return SmartSea::Object->new({ source => $class, object => $self->{object}->super }, $self) if $class;
+}
+
 sub subclass {
     my ($self, $parameters) = @_;
     croak "Must have result object to call subclass." unless $self->{object};
@@ -163,35 +177,68 @@ sub need_form_for_child {
     return 1;
 }
 
-sub col_data_for_create {
+sub recursive_column_value {
+    my ($self, $column) = @_;
+    return $self->{object}->$column if $self->{object}->can($column);
+    my $super = $self->super;
+    return $super->recursive_column_value($column) if $super;
+}
+
+sub column_values_from_context {
     my ($self, $parent, $parameters) = @_;
-    return $self->{class}->col_data_for_create($parent->{object}, $parameters) 
-        if $self->{class}->can('col_data_for_create');
-    return {};
+    return {} unless $self->{class}->can('column_values_from_context');
+    return {} unless $parent && $parent->{object};
+    return $self->{class}->column_values_from_context($parent->{object}, $parameters);
 }
 
-sub attributes {
-    my ($self, $parent) = @_;
-    return {} unless $self->{class}->can('attributes');
-    return $self->{class}->attributes($parent->{object}) unless $self->{object};
-    return $self->{object}->attributes($parent->{object});
+sub recursive_column_values_from_context {
+    my ($self, $parent, $parameters) = @_;
+    my $data = $self->column_values_from_context($parent, $parameters);
+    my $super = $self->super;
+    if ($super) {
+        my $from_super = $super->recursive_column_values_from_context($parent, $parameters);
+        %$data = (%$from_super, %$data);
+    }
+    return $data;
 }
 
-sub simple_attribute_values {
+sub columns {
     my ($self, $parent) = @_;
-    my $attributes = $self->attributes($parent);
+    if ($self->{class}->can('context_based_columns')) {
+        my $who = $self->{object} // $self->{class};
+        my $parent_object = ($parent && $parent->{object}) ? $parent->object : undef;
+        my ($columns, $columns_info) = $who->context_based_columns($parent_object);
+        return $columns_info;
+    } else {
+        return $self->{class}->columns_info;
+    }
+}
+
+sub recursive_columns {
+    my ($self, $parent) = @_;
+    my $data = $self->columns($parent);
+    my $super = $self->super;
+    if ($super) {
+        my $from_super = $super->recursive_columns($parent);
+        %$data = (%$from_super, %$data);
+    }
+    return $data;
+}
+
+sub simple_column_values {
+    my ($self, $parent) = @_;
+    my $columns = $self->columns($parent);
     my $children_listers = $self->children_listers;
     my $object = $self->{object};
-    my %a;
-    for my $a (sort keys %$attributes) {
-        next if $a eq 'id';
-        next if $a eq 'name';
-        next if $a eq 'super';
-        next if $children_listers->{$a};
-        next if $attributes->{$a}{input} eq 'hidden';
-        next if $attributes->{$a}{input} eq 'object' && !$object->$a;
+    my %values;
+    for my $col (sort keys %$columns) {
+        next if $col eq 'id';
+        next if $col eq 'name';
+        next if $col eq 'super';
+        next if $children_listers->{$col};
+        next if $columns->{$col}{is_foreign_key} && $columns->{$col}{is_composition} && !$object->$col;
         # todo what if style, ie object?
-        my $v = $object->$a // '';
+        my $v = $object->$col // '';
         if (ref $v) {
             for my $b (qw/name id data/) {
                 if ($v->can($b)) {
@@ -200,15 +247,12 @@ sub simple_attribute_values {
                 }
             }
         }
-        $a{$a} = $v;
+        $values{$col} = $v;
     }
-    my $superclass = $self->superclass;
-    if ($superclass) {
-        # subclass attributes have preference
-        my $super = SmartSea::Object->new({source => $superclass, object => $object->super}, $self);
-        %a = (%{$super->simple_attribute_values($parent)}, %a);
-    }
-    return \%a;
+    my $super = $self->super;
+    # subclass columns have preference
+    %values = (%{$super->simple_column_values($parent)}, %values) if $super;
+    return \%values;
 }
 
 # link an object to an object
@@ -226,7 +270,7 @@ sub link {
         
     # the actual link object to create
     $self = SmartSea::Object->new({source => $parent->source_of_link($parameters)}, $self);
-    my $col_data = $self->col_data_for_create($parent, $parameters);
+    my $col_data = $self->column_values_from_context($parent, $parameters);
     if ($self->{debug} > 1) {
         for my $col (sort keys %$col_data) {
             say STDERR "  $col => ",(defined $col_data->{$col} ? $col_data->{$col} : 'undef');
@@ -250,31 +294,30 @@ sub create {
 
     my $parent = ($oids && $oids->has_prev) ? SmartSea::Object->new({oid => $oids->prev}, $self) : undef;
     
-    my $attributes = $self->attributes;
-    my $col_data = $self->col_data_for_create($parent, $parameters);
+    my $columns = $self->columns($parent);
+    my $col_data = $self->column_values_from_context($parent, $parameters);
 
-    # create embedded child objects
-    # the child does not exist on its own nor can be used by other objects (composition)
-    for my $attr (keys %$attributes) {
-        next unless $attributes->{$attr}{input} eq 'object';
-        if (!$attributes->{$attr}{required} && !$parameters->{$attr.'_is'}) {
-            $col_data->{$attr} = undef;
-            next;
-        }
-        my $child = SmartSea::Object->new({source => $attributes->{$attr}{source}}, $self);
-        # how to consume child parameters and possibly know them from our parameters?
-        $child->create($oids, $parameters);
-        $col_data->{$attr} = $child->{object}->id;
-    }
     # collect creation data from input
-    for my $col (keys %$attributes) {
-        next if $attributes->{$col}{input} eq 'object';
-        next unless exists $parameters->{$col};
-        next if $parameters->{$col} eq '' && $attributes->{$col}{empty_is_default};
-        $col_data->{$col} = $parameters->{$col} if exists $parameters->{$col};
-        $col_data->{$col} = undef if $attributes->{$col}{empty_is_null} && $col_data->{$col} eq '';
-    }
-    # 
+    for my $col (keys %$columns) {
+        if ($columns->{$col}{is_composition}) {
+            if (!$columns->{$col}{required} && !$parameters->{$col.'_is'}) {
+                $col_data->{$col} = undef;
+            } else {
+                # create embedded child objects
+                # the child does not exist on its own nor can be used by other objects (composition)
+                my $child = SmartSea::Object->new({source => $columns->{$col}{source}}, $self);
+                # how to consume child parameters and possibly know them from our parameters?
+                $child->create($oids, $parameters);
+                $col_data->{$col} = $child->{object}->id;
+            }
+        } else {
+            next unless exists $parameters->{$col};
+            next unless defined $parameters->{$col};
+            next if $parameters->{$col} eq '' && $columns->{$col}{empty_is_default};
+            $col_data->{$col} = $parameters->{$col};
+            $col_data->{$col} = undef if $columns->{$col}{empty_is_null} && $col_data->{$col} eq '';
+        }
+    } 
     if ($self->{class}->can('is_ok')) {
         my $error = $self->{class}->is_ok($col_data);
         croak $error if $error;
@@ -316,44 +359,44 @@ sub update {
         }
     }
     
-    my $attributes = $self->attributes;
+    my $columns = $self->columns;
     my $col_data = {};
 
     # create, update or delete embedded child objects
     my %delete;
-    for my $attr (keys %$attributes) {
-        next unless $attributes->{$attr}{input} eq 'object';
-        if ($attributes->{$attr}{required}) {
-            my $child = $self->{object}->$attr;
-            $child = SmartSea::Object->new({source => $attributes->{$attr}{source}, object => $child}, $self);
+    for my $col (keys %$columns) {
+        next unless $columns->{$col}{is_composition};
+        if ($columns->{$col}{required}) {
+            my $child = $self->{object}->$col;
+            $child = SmartSea::Object->new({source => $columns->{$col}{source}, object => $child}, $self);
             $child->update($oids, $parameters);
-        } elsif ($parameters->{$attr.'_is'}) {
-            # todo: child attributes are now in parameters and may mix with parameters for self
-            my $child = $self->{object}->$attr;
+        } elsif ($parameters->{$col.'_is'}) {
+            # todo: child columns are now in parameters and may mix with parameters for self
+            my $child = $self->{object}->$col;
             unless ($child) {
-                $child = SmartSea::Object->new({source => $attributes->{$attr}{source}}, $self);
+                $child = SmartSea::Object->new({source => $columns->{$col}{source}}, $self);
                 $child->create($oids, $parameters);
-                $col_data->{$attr} = $child->{object}->id;
+                $col_data->{$col} = $child->{object}->id;
             } else {
-                $child = SmartSea::Object->new({source => $attributes->{$attr}{source}, object => $child}, $self);
+                $child = SmartSea::Object->new({source => $columns->{$col}{source}, object => $child}, $self);
                 $child->update($oids, $parameters);
             }
         } else {
-            $col_data->{$attr} = undef;
-            if (my $child = $self->{object}->$attr) {
-                $delete{$attr} = $child; # todo: make child SmartSea::Object
+            $col_data->{$col} = undef;
+            if (my $child = $self->{object}->$col) {
+                $delete{$col} = $child; # todo: make child SmartSea::Object
             }
         }
     }
 
     # collect update data from input
-    for my $col (keys %$attributes) {
-        next if $attributes->{$col}{input} eq 'object';
+    for my $col (keys %$columns) {
+        next if $columns->{$col}{is_composition};
         next unless exists $parameters->{$col};
         # todo: $parameters->{$col} may be undef?
-        next if $parameters->{$col} eq '' && $attributes->{$col}{empty_is_default};
+        next if $parameters->{$col} eq '' && $columns->{$col}{empty_is_default};
         $col_data->{$col} = $parameters->{$col} if exists $parameters->{$col};
-        $col_data->{$col} = undef if $attributes->{$col}{empty_is_null} && $col_data->{$col} eq '';
+        $col_data->{$col} = undef if $columns->{$col}{empty_is_null} && $col_data->{$col} eq '';
     }
 
     if ($self->{class}->can('is_ok')) {
@@ -374,11 +417,8 @@ sub update {
     }
 
     # update superclass:
-    my $superclass = $self->superclass;
-    if ($superclass) {
-        my $super = SmartSea::Object->new({source => $superclass, object => $self->{object}->super}, $self);
-        $super->update($oids, $parameters);
-    }
+    my $super = $self->super;
+    $super->update($oids, $parameters) if $super;
     
 }
 
@@ -413,13 +453,13 @@ sub delete {
         return $error;
     }
     
-    my $attributes = $self->attributes;
+    my $columns = $self->columns;
     my %delete;
-    for my $attr (keys %$attributes) {
-        if ($attributes->{$attr}{input} eq 'object') {
-            my $child = $self->{object}->$attr;
+    for my $col (keys %$columns) {
+        if ($columns->{$col}{is_foreign_key} && $columns->{$col}{is_composition}) {
+            my $child = $self->{object}->$col;
             next unless $child;
-            $delete{$attributes->{$attr}{source}} = $child->id;
+            $delete{$columns->{$col}{source}} = $child->id;
         }
     }
     $self->{object}->delete;
@@ -432,11 +472,8 @@ sub delete {
     }
 
     # delete superclass:
-    my $superclass = $self->superclass;
-    if ($superclass) {
-        my $super = SmartSea::Object->new({source => $superclass, object => $self->{object}->super}, $self);
-        $super->delete($oids, $parameters);
-    }
+    my $super = $self->super;
+    $super->delete($oids, $parameters) if $super;
 }
 
 sub all {
@@ -468,8 +505,9 @@ sub item {
     return $self->item_class($parent, $children, $opt) unless $object;
 
     say STDERR "object ",$object->id if $self->{debug};
-    
-    my $url = $self->{url}.'/'.source2table($self->{source});
+
+    my $source = $self->superclass // $self->{source};
+    my $url = $self->{url}.'/'.source2table($source);
 
     my @content = a(link => "Show all ".plural($self->{class_name}), url => plural($url));
     $url .= ':'.$object->id;
@@ -477,9 +515,9 @@ sub item {
     
     my @li = ([li => "id: ".$object->id], [li => "name: ".encode_entities_numeric($object->name)]);
 
-    my $attributes = $self->simple_attribute_values($parent);
-    for my $a (sort keys %$attributes) {
-        push @li, [li => "$a: ".encode_entities_numeric($attributes->{$a})];
+    my $values = $self->simple_column_values($parent);
+    for my $col (sort keys %$values) {
+        push @li, [li => "$col: ".encode_entities_numeric($values->{$col})];
     }
     
     if ($object->can('info')) {
@@ -521,6 +559,7 @@ sub children_items {
         next if @$children == 1 && !$children->[0];
         my $child_is_open = 0;
         if ($child->{object}) {
+            say STDERR scalar(@$children)," children" if $self->{debug};
             for my $has_child (@$children) {
                 say STDERR "has child: ",$has_child->id if $self->{debug} > 1;
                 if ($has_child->id == $child->{object}->id) {
@@ -544,15 +583,8 @@ sub children_items {
             push @items, [li => $child->item_class($self, $children, \%opt)];
         }
     }
-    my $superclass = $self->superclass;
-    if ($superclass) {
-        my $super = SmartSea::Object->new(
-            {
-                source => $superclass, 
-                object => $self->{object}->super
-            }, $self);
-        push @items, $super->children_items($url, $oids);
-    }
+    my $super = $self->super;
+    push @items, $super->children_items($url, $oids) if $super;
     return @items;
 }
 
@@ -631,35 +663,42 @@ sub form {
     my ($self, $oids, $parameters) = @_;
     say STDERR "form for $self->{source}" if $self->{debug};
 
-    my $parent = $oids->has_prev ? SmartSea::Object->new({oid => $oids->prev}, $self) : undef;
+    my $parent = ($oids && $oids->has_prev) ? SmartSea::Object->new({oid => $oids->prev}, $self) : undef;
 
     # is this ok?
     return if $parent && !$parent->need_form_for_child($self);
     say STDERR "form is needed" if $self->{debug};
 
-    my $attributes = $self->attributes($parent);
+    my $columns = $self->recursive_columns($parent);
     my @widgets;
-    my $title = ($self->{object} ? 'Editing ' : 'Creating ');
-    $title .= $self->{source};
+    my $title = $self->{object} ? 'Editing ' : 'Creating ';
+    $title .= $self->{object} ? $self->{object}->name : $self->{source};
     push @widgets, [p => $title];
 
-    my $col_data = $self->col_data_for_create($parent, $parameters);
+    # if the form is in the context of a parent
+    my %skip;
+    my $col_data = $self->recursive_column_values_from_context($parent, $parameters);
     for my $col (keys %$col_data) {
         next unless defined $col_data->{$col};
-        my $rs = $self->{schema}->resultset($attributes->{$col}{source});
-        my $val = $rs->single({id => $col_data->{$col}})->name;
+        my $val = $self->{schema}->
+            resultset($columns->{$col}{source})->
+            single({id => $col_data->{$col}})->name;
         push @widgets, [p => [1 => "$col: $val"]];
         push @widgets, hidden($col => $col_data->{$col});
-        delete $attributes->{$col};
+        delete $columns->{$col};
+        $skip{$col} = 1;
     }
 
+    # obtain default values for widgets
     # todo, what if there is no oids and this is a layer etc? bail out?
     if ($self->{object}) {
-        for my $key (keys %$attributes) {
-            next if defined $col_data->{$key};
-            next unless defined $self->{object}->$key;
-            next if defined $parameters->{$key};
-            $parameters->{$key} = $self->{object}->$key;
+        # edit
+        for my $col (keys %$columns) {
+            next if defined $col_data->{$col};
+            next if defined $parameters->{$col};
+            my $val = $self->recursive_column_value($col);
+            next unless defined $val;
+            $parameters->{$col} = $val;
         }
 
         # todo: dataset have in-form button for computing min and max
@@ -668,22 +707,24 @@ sub form {
         #    $b->ComputeStatistics(0);
         #    $parameters->{min} = $b->GetMinimum;
         #    $parameters->{max} = $b->GetMaximum;
-        
-        push @widgets, hidden(id => $self->{object}->id); # should be in url...
+
+        # todo: these are in url...?
+        push @widgets, hidden(id => $self->{object}->id);
         push @widgets, hidden(source => $self->{source});
     } else {
+        # create
         my %from_upstream; # simple data from parent/upstream objects
         for my $id (0..$oids->count-2) {
             my $obj = SmartSea::Object->new({oid => $oids->at($id)}, $self);
-            for my $key (keys %$attributes) {
+            for my $key (keys %$columns) {
                 next if defined $col_data->{$key};
-                next unless $obj->{object}->attributes->{$key};
+                next unless $obj->{object}->columns->{$key};
                 say STDERR "getting $key from upstream" if $self->{debug};
                 $from_upstream{$key} = $obj->{object}->$key;
             }
         }
         my $has_upstream;
-        for my $key (keys %$attributes) {
+        for my $key (keys %$columns) {
             next if defined $parameters->{$key};
             next unless defined $from_upstream{$key};
             say STDERR "$key => $from_upstream{$key} is from upstream" if $self->{debug};
@@ -695,9 +736,135 @@ sub form {
                         'Please delete or overwrite them.'] 
                             if $has_upstream;
     }
-    push @widgets, widgets($attributes, $parameters, $self->{schema});
+    my $super = $self->super;
+    push @widgets, [fieldset => [[legend => $super->{source}], $super->widgets($parent, $parameters, \%skip)]] if $super;
+    push @widgets, $self->widgets($parent, $parameters, \%skip);
     push @widgets, button(value => 'Save'), [1 => ' '], button(value => 'Cancel');
-    return @widgets;
+    return [fieldset => [[legend => $self->{source}], @widgets]];
+}
+
+sub widgets {
+    my ($self, $parent, $values, $skip) = @_;
+    my $schema = $self->{schema};
+    my @fcts;
+    my @form;
+    my $columns_info;
+    my @columns;
+    if ($self->{class}->can('context_based_columns')) {
+        my $who = $self->{object} // $self->{class};
+        my $parent_object = ($parent && $parent->{object}) ? $parent->object : undef;
+        my $columns;
+        ($columns, $columns_info) = $who->context_based_columns($parent_object);
+        @columns = @$columns;
+    } else {
+        # standard DBIx
+        $columns_info = $self->{class}->columns_info;
+        @columns = $self->{class}->columns;
+    }
+    for my $col (@columns) {
+        next if $skip->{$col};
+        my $info = $columns_info->{$col};
+        my $input;
+        for my $info_text (qw/data_type html_input/) {
+            $info->{$info_text} = '' unless $info->{$info_text};
+        }
+        if ($info->{data_type} eq 'text') {
+            $input = text_input(
+                name => $col,
+                size => ($info->{html_size} // 10),
+                value => $values->{$col} // ''
+            );
+        } elsif ($info->{data_type} eq 'textarea') {
+            $input = textarea(
+                name => $col,
+                rows => $info->{rows},
+                cols => $info->{cols},
+                value => $values->{$col} // ''
+            );
+        } elsif ($info->{is_foreign_key} && !$info->{is_composition}) {
+            my $objs;
+            if (ref $info->{objs} eq 'ARRAY') {
+                $objs = $info->{objs};
+            } elsif (ref $info->{objs} eq 'CODE') {
+                $objs = [];
+                for my $obj ($schema->resultset($info->{source})->all) {
+                    if ($info->{objs}->($obj)) {
+                        push @$objs, $obj;
+                    }
+                }
+            } elsif ($info->{objs}) {
+                $objs = [$schema->resultset($info->{source})->search($info->{objs})];
+            } else {
+                $objs = [$schema->resultset($info->{source})->all];
+            }
+            my $id;
+            if ($values->{$col}) {
+                if (ref $values->{$col}) {
+                    $id = $values->{$col}->id;
+                } else {
+                    $id = $values->{$col};
+                }
+            }
+            $input = drop_down(
+                name => $col,
+                objs => $objs,
+                selected => $id,
+                values => $info->{values},
+                allow_null => $info->{allow_null}
+            );
+        } elsif ($info->{html_input} eq 'checkbox') {
+            $input = checkbox(
+                name => $col,
+                visual => $info->{cue},
+                checked => $values->{$col}
+            );
+        } elsif ($info->{html_input} eq 'spinner') {
+            $input = spinner(
+                name => $col,
+                min => $info->{min},
+                max => $info->{max},
+                value => $values->{$col} // 1
+            );
+        }
+        if ($info->{is_composition}) {
+            unless ($info->{required}) {
+                my $fct = $col.'_fct';
+                my $cb = $col.'_cb';
+                push @form, [ p => checkbox(
+                                  name => $col.'_is',
+                                  visual => "Define ".$info->{source},
+                                  checked => $values->{$col},
+                                  id => $cb )
+                ];
+                my $code =<< "END_CODE";
+function $fct() {
+  var cb = document.getElementById("$cb");
+  var id = "$col";
+  if (!cb.checked) {
+    document.getElementById(id).style.display=(cb.checked)?'':'none';
+  }
+  cb.addEventListener("change", function() {
+    document.getElementById(id).style.display=(this.checked)?'':'none';
+  }, false);
+};
+END_CODE
+                push @form, [script => $code];
+                push @fcts, "\$(document).ready($fct);";
+            } else {
+                push @form, hidden($col.'_is', 1);
+            }
+            my $composed = SmartSea::Object->new({source => $info->{source}, object => $values->{$col}}, $self);
+            my @style = $composed->widgets(undef, $values);
+            push @form, [fieldset => [[legend => $composed->{source}], @style]];
+        } else {
+            push @form, [ p => [[1 => "$col: "], $input] ] if $input;
+        }
+    }
+    if (@fcts) {
+        push @form, [script => {src=>"http://code.jquery.com/jquery-1.10.2.js"}, ''];
+        push @form, [script => join("\n",@fcts)];
+    }
+    return @form;
 }
 
 1;

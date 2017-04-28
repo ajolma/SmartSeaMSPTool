@@ -8,16 +8,14 @@ use Storable qw(dclone);
 use Scalar::Util 'blessed';
 use SmartSea::HTML qw(:all);
 
-__PACKAGE__->table('beliefs');
-__PACKAGE__->add_columns(qw/ id description /);
-__PACKAGE__->set_primary_key('id');
+my @columns = (
+    id          => {},
+    description => {data_type => 'text', html_size => 30}
+    );
 
-sub attributes {
-    return {
-        id => {i => 0, input => 'text', size => 10},
-        description => {i => 1, input => 'text', size => 30}
-    };
-}
+__PACKAGE__->table('beliefs');
+__PACKAGE__->add_columns(@columns);
+__PACKAGE__->set_primary_key('id');
 
 sub name {
     my $self = shift;

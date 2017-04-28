@@ -7,22 +7,19 @@ use Storable qw(dclone);
 use Scalar::Util 'blessed';
 use SmartSea::HTML qw(:all);
 
-my %attributes = (
-    name =>  { i => 1,  input => 'text',  size => 20 },
-    ordr =>  { i => 2,  input => 'text',  size => 10 },
+my @columns = (
+    id   =>  {},
+    name =>  { data_type => 'text', html_size => 20 },
+    ordr =>  { data_type => 'text', html_size => 10 },
     );
 
 __PACKAGE__->table('activities');
-__PACKAGE__->add_columns(qw/ id ordr name /);
+__PACKAGE__->add_columns(@columns);
 __PACKAGE__->set_primary_key('id');
 __PACKAGE__->has_many(pressures => 'SmartSea::Schema::Result::Pressure', 'activity');
 __PACKAGE__->many_to_many(pressure_classes => 'pressures', 'pressure_class');
 __PACKAGE__->has_many(use_class2activity => 'SmartSea::Schema::Result::UseClass2Activity', 'use_class');
 __PACKAGE__->many_to_many(use_classes => 'use_class2activity', 'activity');
-
-sub attributes {
-    return dclone(\%attributes);
-}
 
 sub children_listers {
     return { 

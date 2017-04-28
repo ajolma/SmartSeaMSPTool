@@ -10,29 +10,30 @@ use SmartSea::HTML qw(:all);
 use PDL;
 use PDL::NiceSlice;
 
-my %attributes = (
-    name            => { i => 1,  input => 'text',    size => 20 },
-    custodian       => { i => 2,  input => 'lookup',  source => 'Organization', allow_null => 1 },
-    contact         => { i => 3,  input => 'text',    size => 20 },
-    descr           => { i => 4,  input => 'textarea' },
-    data_model      => { i => 5,  input => 'lookup',  source => 'DataModel', allow_null => 1 },
-    is_a_part_of    => { i => 6,  input => 'lookup',  source => 'Dataset',   allow_null => 1, self_ref => 1 },
-    is_derived_from => { i => 7,  input => 'lookup',  source => 'Dataset',   allow_null => 1, self_ref => 1 },
-    license         => { i => 8,  input => 'lookup',  source => 'License',   allow_null => 1 },
-    attribution     => { i => 9,  input => 'text',    size => 40 },
-    disclaimer      => { i => 10, input => 'text',    size => 80 },
-    path            => { i => 11, input => 'text',    size => 30, empty_is_null => 1 },
-    db_table        => { i => 12, input => 'text',    size => 30 },
-    min_value       => { i => 13, input => 'text',    size => 20, empty_is_null => 1 },
-    max_value       => { i => 14, input => 'text',    size => 20, empty_is_null => 1 },
-    data_type       => { i => 15, input => 'lookup',  source => 'NumberType', allow_null => 1 },
-    class_semantics => { i => 16, input => 'text',    size => 40, empty_is_null => 1 },
-    unit            => { i => 17, input => 'lookup',  source => 'Unit',       allow_null => 1 },
-    style           => { i => 18, input => 'object',  source => 'Style' }
+my @columns = (
+    id              => {},
+    name            => { data_type => 'text',    size => 20 },
+    custodian       => { is_foreign_key => 1, source => 'Organization', allow_null => 1 },
+    contact         => { data_type => 'text',    size => 20 },
+    descr           => { data_type => 'textarea' },
+    data_model      => { is_foreign_key => 1, source => 'DataModel', allow_null => 1 },
+    is_a_part_of    => { is_foreign_key => 1, source => 'Dataset',   allow_null => 1, self_ref => 1 },
+    is_derived_from => { is_foreign_key => 1, source => 'Dataset',   allow_null => 1, self_ref => 1 },
+    license         => { is_foreign_key => 1, source => 'License',   allow_null => 1 },
+    attribution     => { data_type => 'text',    size => 40 },
+    disclaimer      => { data_type => 'text',    size => 80 },
+    path            => { data_type => 'text',    size => 30, empty_is_null => 1 },
+    db_table        => { data_type => 'text',    size => 30 },
+    min_value       => { data_type => 'text',    size => 20, empty_is_null => 1 },
+    max_value       => { data_type => 'text',    size => 20, empty_is_null => 1 },
+    data_type       => { is_foreign_key => 1, source => 'NumberType', allow_null => 1 },
+    class_semantics => { data_type => 'text',    size => 40, empty_is_null => 1 },
+    unit            => { is_foreign_key => 1, source => 'Unit',       allow_null => 1 },
+    style           => { is_foreign_key => 1,  source => 'Style', is_composition => 1 }
     );
 
 __PACKAGE__->table('datasets');
-__PACKAGE__->add_columns('id', keys %attributes);
+__PACKAGE__->add_columns(@columns);
 __PACKAGE__->set_primary_key('id');
 __PACKAGE__->belongs_to(custodian => 'SmartSea::Schema::Result::Organization');
 __PACKAGE__->belongs_to(data_model => 'SmartSea::Schema::Result::DataModel');
@@ -44,10 +45,6 @@ __PACKAGE__->belongs_to(style => 'SmartSea::Schema::Result::Style');
 
 __PACKAGE__->has_many(parts => 'SmartSea::Schema::Result::Dataset', 'is_a_part_of');
 __PACKAGE__->has_many(derivatives => 'SmartSea::Schema::Result::Dataset', 'is_derived_from');
-
-sub attributes {
-    return dclone(\%attributes);
-}
 
 sub children_listers {
     return {

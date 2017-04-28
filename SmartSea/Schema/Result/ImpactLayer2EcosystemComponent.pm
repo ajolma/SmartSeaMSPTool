@@ -4,26 +4,24 @@ use warnings;
 use 5.010000;
 use base qw/DBIx::Class::Core/;
 
+my @columns = (
+    id                  => {},
+    impact_layer        => {is_foreign_key => 1, source => 'ImpactLayer'},
+    ecosystem_component => {is_foreign_key => 1, source => 'EcosystemComponent'}
+    );
+
 __PACKAGE__->table('impact_layer2ecosystem_component');
-__PACKAGE__->add_columns(qw/ id impact_layer ecosystem_component /);
+__PACKAGE__->add_columns(@columns);
 __PACKAGE__->set_primary_key('id');
 __PACKAGE__->belongs_to(impact_layer => 'SmartSea::Schema::Result::ImpactLayer');
 __PACKAGE__->belongs_to(ecosystem_component => 'SmartSea::Schema::Result::EcosystemComponent');
-
-sub attributes {
-    return {
-        impact_layer => {i => 1, input => 'lookup', source => 'ImpactLayer'},
-        ecosystem_component => {i => 2, input => 'lookup', source => 'EcosystemComponent'}
-    };
-}
 
 sub order_by {
     return {};
 }
 
-sub col_data_for_create {
+sub column_values_from_context {
     my ($self, $parent, $parameters) = @_;
-    return {} unless $parent;
     return {impact_layer => $parent->super->id, ecosystem_component => $parameters->{ecosystem_component}};
 }
 

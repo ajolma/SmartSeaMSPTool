@@ -4,8 +4,14 @@ use warnings;
 use 5.010000;
 use base qw/DBIx::Class::Core/;
 
+my @columns = (
+    id      => {},
+    plan    => { is_foreign_key => 1, source => 'Plan' },
+    dataset => { is_foreign_key => 1, source => 'Dataset' },
+    );
+
 __PACKAGE__->table('plan2dataset_extra');
-__PACKAGE__->add_columns(qw/ id plan dataset /);
+__PACKAGE__->add_columns(@columns);
 __PACKAGE__->set_primary_key(qw/ id /);
 __PACKAGE__->belongs_to(plan => 'SmartSea::Schema::Result::Plan');
 __PACKAGE__->belongs_to(dataset => 'SmartSea::Schema::Result::Dataset');
@@ -15,16 +21,8 @@ sub name {
     return $self->plan->name . ' -> ' . $self->dataset->name;
 }
 
-sub attributes {
-    return {
-        plan => { i => 0, input => 'lookup', source => 'Plan' },
-        dataset => { i => 1, input => 'lookup', source => 'Dataset' },
-    };
-}
-
-sub col_data_for_create {
+sub column_values_from_context {
     my ($self, $parent, $parameters) = @_;
-    return {} unless $parent;
     return {plan => $parent->id, dataset => $parameters->{extra_dataset}};
 }
 

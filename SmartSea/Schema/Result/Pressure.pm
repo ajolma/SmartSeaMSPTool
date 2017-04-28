@@ -7,8 +7,15 @@ use Scalar::Util 'blessed';
 use SmartSea::HTML qw(:all);
 use SmartSea::Impact qw(:all);
 
+my @columns = (
+    id             => {},
+    range          => {is_foreign_key => 1, source => 'Range'},
+    activity       => {is_foreign_key => 1, source => 'Activity', parent => 1},
+    pressure_class => {is_foreign_key => 1, source => 'PressureClass'}
+    );
+
 __PACKAGE__->table('pressures');
-__PACKAGE__->add_columns(qw/ id activity pressure_class range /);
+__PACKAGE__->add_columns(@columns);
 __PACKAGE__->set_primary_key(qw/ id /);
 __PACKAGE__->belongs_to(activity => 'SmartSea::Schema::Result::Activity');
 __PACKAGE__->belongs_to(pressure_class => 'SmartSea::Schema::Result::PressureClass');
@@ -17,14 +24,6 @@ __PACKAGE__->has_many(impacts => 'SmartSea::Schema::Result::Impact', 'pressure')
 
 sub order_by {
     return {-asc => 'id'};
-}
-
-sub attributes {
-    return {
-        range => {i => 0, input => 'lookup', source => 'Range'},
-        activity => {i => 1, input => 'lookup', source => 'Activity', parent => 1},
-        pressure_class => {i => 2, input => 'lookup', source => 'PressureClass'}
-    };
 }
 
 sub children_listers {
@@ -52,9 +51,8 @@ sub children_listers {
     };
 }
 
-sub col_data_for_create {
+sub column_values_from_context {
     my ($self, $parent, $parameters) = @_;
-    return {} unless $parent;
     return {activity => $parent->id, pressure_class => $parameters->{pressure_class}};
 }
 

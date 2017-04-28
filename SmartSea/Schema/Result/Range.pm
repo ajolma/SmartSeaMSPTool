@@ -5,13 +5,14 @@ use 5.010000;
 use base qw/DBIx::Class::Core/;
 use SmartSea::HTML qw(:all);
 
-__PACKAGE__->table('ranges');
-__PACKAGE__->add_columns(qw/id d/);
-__PACKAGE__->set_primary_key('id');
+my @columns = (
+    id => {},
+    d  => {data_type => 'text', html_size => 30, required => 1}
+    );
 
-sub attributes {
-    return {d => {i => 0, input => 'text', required => 1}};
-}
+__PACKAGE__->table('ranges');
+__PACKAGE__->add_columns(@columns);
+__PACKAGE__->set_primary_key('id');
 
 sub name {
     my $self = shift;

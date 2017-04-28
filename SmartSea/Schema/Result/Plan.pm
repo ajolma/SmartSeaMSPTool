@@ -7,18 +7,19 @@ use Scalar::Util 'blessed';
 use SmartSea::Core qw(:all);
 use SmartSea::HTML qw(:all);
 
+my @columns = (
+    id   => {},
+    name => {data_type => 'text', html_size => 30}
+    );
+
 __PACKAGE__->table('plans');
-__PACKAGE__->add_columns(qw/ id name /);
+__PACKAGE__->add_columns(@columns);
 __PACKAGE__->set_primary_key('id');
 __PACKAGE__->has_many(uses => 'SmartSea::Schema::Result::Use', 'plan');
 __PACKAGE__->many_to_many(use_classes => 'uses', 'use_class');
 
 __PACKAGE__->has_many(extras => 'SmartSea::Schema::Result::Plan2DatasetExtra', 'plan');
 __PACKAGE__->many_to_many(extra_datasets => 'extras', 'dataset');
-
-sub attributes {
-    return {name => {i => 0, input => 'text'}};
-}
 
 sub children_listers {
     return {

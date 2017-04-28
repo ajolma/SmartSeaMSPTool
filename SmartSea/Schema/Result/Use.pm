@@ -5,8 +5,14 @@ use 5.010000;
 use base qw/DBIx::Class::Core/;
 use SmartSea::HTML qw(:all);
 
+my @columns = (
+    id        => {},
+    plan      => {is_foreign_key => 1, source => 'Plan', parent => 1 }, 
+    use_class => {is_foreign_key => 1, source => 'UseClass' }
+    );
+
 __PACKAGE__->table('uses');
-__PACKAGE__->add_columns(qw/ id plan use_class /);
+__PACKAGE__->add_columns(@columns);
 __PACKAGE__->set_primary_key(qw/ id /);
 __PACKAGE__->belongs_to(plan => 'SmartSea::Schema::Result::Plan');
 __PACKAGE__->belongs_to(use_class => 'SmartSea::Schema::Result::UseClass');
@@ -15,13 +21,6 @@ __PACKAGE__->many_to_many(layer_classes => 'layers', 'layer_class');
 
 sub order_by {
     return {-asc => 'id'};
-}
-
-sub attributes {
-    return {
-        plan => {i => 0, input => 'lookup', source => 'Plan', parent => 1 }, 
-        use_class => {i => 1, input => 'lookup', source => 'UseClass' }
-    };
 }
 
 sub name {
@@ -63,9 +62,8 @@ sub children_listers {
     };
 }
 
-sub col_data_for_create {
+sub column_values_from_context {
     my ($self, $parent, $parameters) = @_;
-    return {} unless $parent;
     return {plan => $parent->id, use_class => $parameters->{use_class}};
 }
 

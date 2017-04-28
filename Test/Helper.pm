@@ -5,7 +5,7 @@ use XML::LibXML::PrettyPrint;
 
 require Exporter;
 @ISA = qw(Exporter);
-@EXPORT = qw(read_postgresql_dump create_sqlite_schemas select_all pretty_print_XML_response);
+@EXPORT = qw(read_postgresql_dump create_sqlite_schemas select_all pretty_print_XML);
 
 sub read_postgresql_dump {
     my ($dump) = @_;
@@ -142,17 +142,17 @@ sub select_all {
     return @all;
 }
 
-sub pretty_print_XML_response {
-    my $res = shift;
+sub pretty_print_XML {
+    my $xml = shift;
     my $parser = XML::LibXML->new(no_blanks => 1);
     my $pp = XML::LibXML::PrettyPrint->new(indent_string => "  ");
     eval {
-        my $dom = $parser->load_xml(string => $res->content);
+        my $dom = $parser->load_xml(string => $xml);
         $pp->pretty_print($dom);
         print STDERR $dom->toString;
     };
     if ($@) {
-        say STDERR $res->content;
+        say STDERR $xml;
     }
 }
 
