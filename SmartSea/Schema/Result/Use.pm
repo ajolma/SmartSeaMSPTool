@@ -54,10 +54,12 @@ sub children_listers {
             class_name => 'Activities', 
             editable_children => 0,
             cannot_add_remove_children => 1,
-            for_child_form => sub {
-                my ($self, $children) = @_;
-                return undef;
-            }
+        },
+        ecosystem_impacts => {
+            source => 'EcosystemComponent',
+            class_name => 'Ecosystem impacts',
+            editable_children => 0,
+            cannot_add_remove_children => 1
         }
     };
 }
@@ -70,6 +72,54 @@ sub column_values_from_context {
 sub activities {
     my ($self) = @_;
     return $self->use_class->activities;
+}
+
+sub ecosystem_impacts {
+    my ($self) = @_;
+    my %impacts;
+    my %components;
+    my %ranges;
+    for my $activity ($self->use_class->activities) {
+        for my $pressure ($activity->pressures) {
+            my $range = $pressure->range->d;
+            $ranges{$range} = $pressure->range->name;
+            say STDERR $activity->name," ",$pressure->name," $range";
+            for my $impact ($pressure->impacts) {
+                my $component = $impact->ecosystem_component;
+                my $name = $component->name;
+                $components{$name} //= $component;
+                unless (defined $impacts{$name}) {
+                    $impacts{$name}{$range} = $impact->pdf;
+                } else {
+                    # add to all impacts with smaller or equal range
+                    my %done;
+                    for my $d (sort {$a <=> $b} keys %{$impacts{$name}}) {
+                        $done{$d} = 1;
+                        unless (defined $impacts{$name}) {
+                            $impacts{$name}{$d} = $impact->pdf;
+                        } else {
+                            $impacts{$name}{$d} = $impact->pdf_sum($impacts{$name}{$d});
+                        }
+                        last if $d > $range;
+                    }
+                    $impacts{$name}{$range} = $impact->pdf unless $done{$range};
+                }
+            }
+        }
+    }
+    my @impacts;
+    for my $name (sort keys %components) {
+        my $impacts = '';
+        for my $d (sort {$a <=> $b} keys %{$impacts{$name}}) {
+            my $e = 'SmartSea::Schema::Result::Impact'->expected_value($impacts{$name}{$d});
+            $e = sprintf("%.2f", $e);
+            $impacts .= "$ranges{$d}: $e ";
+        }
+        # call below will not update db unless insert or update is called and it is not
+        $components{$name}->name($name." ".$impacts);
+        push @impacts, $components{$name};
+    }
+    return @impacts;
 }
 
 1;

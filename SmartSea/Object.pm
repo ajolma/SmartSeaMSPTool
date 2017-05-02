@@ -215,7 +215,7 @@ sub columns {
     my ($self, $parent) = @_;
     if ($self->{class}->can('context_based_columns')) {
         my $who = $self->{object} // $self->{class};
-        my $parent_object = ($parent && $parent->{object}) ? $parent->object : undef;
+        my $parent_object = ($parent && $parent->{object}) ? $parent->{object} : undef;
         my ($columns, $columns_info) = $who->context_based_columns($parent_object);
         return $columns_info;
     } else {
@@ -577,7 +577,8 @@ sub children_items {
     my @items;
     my $children_listers = $self->children_listers;
     for my $lister (sort keys %$children_listers) {
-        my %args = %{$children_listers->{$lister}};
+        my $args = $children_listers->{$lister};
+        my %args = %$args;
         my $editable_children = $self->{edit};
         $editable_children = 0 if exists $args{editable_children} && $args{editable_children} == 0;
         say STDERR "$lister, children: source = $args{source}, child oid = ",($next // 'undef') if $self->{debug};
@@ -608,11 +609,12 @@ sub children_items {
             push @items, [li => $child->item($oids->with_index('next'), [], {})];
         } else {
             delete $child->{object};
+            my $for_add = $args->{for_child_form}->($self, $children) if $args->{for_child_form};
             my %opt = (
-                for_add => $children_listers->{$lister}{for_child_form}->($self, $children),
+                for_add => $for_add,
                 editable_children => $editable_children,
-                cannot_add_remove_children => $children_listers->{$lister}{cannot_add_remove_children},
-                button => $children_listers->{$lister}{child_is_mine} ? 'Create' : 'Add',
+                cannot_add_remove_children => $args->{cannot_add_remove_children},
+                button => $args->{child_is_mine} ? 'Create' : 'Add',
                 );
             push @items, [li => $child->item_class($self, $children, \%opt)];
         }
@@ -629,16 +631,13 @@ sub item_class {
         
     my @li;
     for my $obj (@$children) {
-        $obj->{name} = $obj->name;
-    }
-    for my $obj (sort {$a->{name} cmp $b->{name}} @$children) {
-        my @content = a(link => $obj->{name}, url => $url.':'.$obj->id);
+        my @content = a(link => $obj->name, url => $url.':'.$obj->id);
         if ($opt->{editable_children}) {
             push @content, [1 => ' '], a(link => 'edit', url => $url.':'.$obj->id.'?edit');
         }
         if ($self->{edit} && !$opt->{cannot_add_remove_children}) {
             my $source = $obj->result_source->source_name;
-            my $name = '"'.$obj->{name}.'"';
+            my $name = '"'.$obj->name.'"';
             $name =~ s/'//g;
             $name = encode_entities_numeric($name);
             my $onclick = $parent ?
@@ -658,7 +657,9 @@ sub item_class {
                     my %args = %{$children_listers->{$lister}};
                     $args{edit} = 0;
                     my $p = SmartSea::Object->new(\%args, $self);
-                    push @p, [li => $p->item_class($self, \@parts, {editable_children => $opt->{editable_children}})];
+                    push @p, [
+                        li => $p->item_class($self, \@parts, {editable_children => $opt->{editable_children}})
+                    ];
                 }
             }
             if (@p) {
@@ -768,7 +769,9 @@ sub form {
                             if $has_upstream;
     }
     my $super = $self->super;
-    push @widgets, [fieldset => [[legend => $super->{source}], $super->widgets($parent, $parameters, \%skip)]] if $super;
+    push @widgets, [
+        fieldset => [[legend => $super->{source}], $super->widgets($parent, $parameters, \%skip)]
+    ] if $super;
     push @widgets, $self->widgets($parent, $parameters, \%skip);
     push @widgets, button(value => 'Save'), [1 => ' '], button(value => 'Cancel');
     return [fieldset => [[legend => $self->{source}], @widgets]];
