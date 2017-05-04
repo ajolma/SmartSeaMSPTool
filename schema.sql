@@ -2341,6 +2341,16 @@ GRANT ALL ON TABLE impact_layer2ecosystem_component TO smartsea;
 
 
 --
+-- Name: impact_layer2ecosystem_component_id_seq; Type: ACL; Schema: tool; Owner: ajolma
+--
+
+REVOKE ALL ON SEQUENCE impact_layer2ecosystem_component_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE impact_layer2ecosystem_component_id_seq FROM ajolma;
+GRANT ALL ON SEQUENCE impact_layer2ecosystem_component_id_seq TO ajolma;
+GRANT ALL ON SEQUENCE impact_layer2ecosystem_component_id_seq TO smartsea;
+
+
+--
 -- Name: impact_layers; Type: ACL; Schema: tool; Owner: ajolma
 --
 

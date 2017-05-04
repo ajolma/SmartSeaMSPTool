@@ -12,6 +12,7 @@ use Geo::GDAL;
 use PDL;
 use PDL::NiceSlice;
 use Geo::OGC::Service;
+use Data::Dumper;
 
 use SmartSea::Core qw(:all);
 use SmartSea::Schema;
@@ -50,38 +51,42 @@ sub config {
     my @tilesets;
     for my $plan ($self->{schema}->resultset('Plan')->all()) {
         my @uses;
-        for my $use_class ($plan->use_classes) {
-            my $use = $self->{schema}->
-                resultset('Use')->
-                single({plan => $plan->id, use_class => $use_class->id});
+        for my $use ($plan->uses) {
             my @layers;
-            for my $layer ($use->layer_classes) {
-                my $pul = $self->{schema}->
-                    resultset('Layer')->
-                    single({use => $use->id, layer_class => $layer->id});
+            for my $layer ($use->layers) {
                 push @tilesets, {
-                    Layers => $plan->id."_".$use->id."_".$layer->id,
+                    Layers => $plan->id."_".$use->use_class->id."_".$layer->layer_class->id,
                     'Format' => 'image/png',
                     Resolutions => '9..19',
                     SRS => "EPSG:3067",
                     BoundingBox => $config->{BoundingBox3067},
-                    file => "/home/ajolma/data/SmartSea/mask.tiff", # fixme wrong path
+                    file => $self->{data_dir}."mask.tiff",
                     ext => "png"
                 };
             }
         }
-        for my $dataset ($self->{schema}->resultset('Dataset')->all) {
-            next unless $dataset->path;
-            push @tilesets, {
-                Layers => "0_0_".$dataset->id,
-                "Format" => "image/png",
-                Resolutions => "9..19",
-                SRS => "EPSG:3067",
-                BoundingBox => $config->{BoundingBox3067},
-                file => "/home/ajolma/data/SmartSea/mask.tiff", #fixme wrong path
-                ext => "png"
-            };
-        }
+    }
+    for my $dataset ($self->{schema}->resultset('Dataset')->layers) {
+        push @tilesets, {
+            Layers => "0_0_".$dataset->{id},
+            "Format" => "image/png",
+            Resolutions => "9..19",
+            SRS => "EPSG:3067",
+            BoundingBox => $config->{BoundingBox3067},
+            file => $self->{data_dir}."mask.tiff",
+            ext => "png"
+        };
+    }
+    for my $component ($self->{schema}->resultset('EcosystemComponent')->layers) {
+        push @tilesets, {
+            Layers => "1_1_".$component->{id},
+            "Format" => "image/png",
+            Resolutions => "9..19",
+            SRS => "EPSG:3067",
+            BoundingBox => $config->{BoundingBox3067},
+            file => $self->{data_dir}."mask.tiff",
+            ext => "png"
+        };
     }
 
     for my $protocol (qw/TMS WMS WMTS/) {
@@ -116,6 +121,8 @@ sub process {
     my @pw = $tile->projwin;
     
     my $want = $params->{layer} // $params->{layers};
+    # $server->{env}->{REMOTE_ADDR};
+    say STDERR "$server->{service}&request=$params->{request}&crs=EPSG:$epsg&layer=$want";
 
     # the client asks for plan_use_layer_rule_rule_...
     # rules are those rules that the client wishes to be active

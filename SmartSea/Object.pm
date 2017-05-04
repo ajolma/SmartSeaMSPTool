@@ -315,7 +315,7 @@ sub create {
                 # create embedded child objects
                 # the child does not exist on its own nor can be used by other objects (composition)
                 my $child = SmartSea::Object->new({source => $columns->{$col}{source}}, $self);
-                # how to consume child parameters and possibly know them from our parameters?
+                # TODO: child parameters should be prefixed with child name
                 $child->create($oids, $parameters);
                 $col_data->{$col} = $child->{object}->id;
             }
@@ -380,7 +380,7 @@ sub update {
             $child = SmartSea::Object->new({object => $child}, $self);
             $child->update($oids, $parameters);
         } elsif ($parameters->{$col.'_is'}) {
-            # todo: child columns are now in parameters and may mix with parameters for self
+            # TODO: child parameters should be prefixed with child name
             my $child = $self->{object}->$col;
             unless ($child) {
                 $child = SmartSea::Object->new({source => $columns->{$col}{source}}, $self);
@@ -703,6 +703,8 @@ sub form {
     # is this ok?
     return if $parent && !$parent->need_form_for_child($self);
     say STDERR "form is needed" if $self->{debug};
+
+    # TODO: child columns are now in parameters and may mix with parameters for self
 
     my $columns = $self->recursive_columns($parent);
     my @widgets;

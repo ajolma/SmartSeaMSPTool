@@ -32,6 +32,7 @@ sub layers {
             use => 0, 
             rules => []};
     }
+    return @datasets if wantarray;
     return \@datasets;
 }
 

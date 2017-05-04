@@ -23,6 +23,7 @@ sub layers {
             use => 1, # reserved use class id
             rules => \@rules};
     }
+    return @layers if wantarray;
     return \@layers;
 }
 

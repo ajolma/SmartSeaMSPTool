@@ -15,7 +15,6 @@ __PACKAGE__->add_columns(@columns);
 __PACKAGE__->set_primary_key('id');
 
 sub order_by {
-    say STDERR "order by d";
     return {-asc => 'd'};
 }
 

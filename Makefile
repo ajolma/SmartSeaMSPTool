@@ -17,3 +17,8 @@ plugin.xml:
 
 test:
 	prove -I.
+
+#plugin-test:
+#	rm -rf $HOME/.qgis2/python/plugins/smartsea/
+#	pwd = `pwd`
+#	ln -s $pwd/plugin/ $HOME/.qgis2/python/plugins/smartsea

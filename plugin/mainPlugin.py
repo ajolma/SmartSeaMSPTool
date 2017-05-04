@@ -11,7 +11,7 @@ class SmartSea:
 
     def __init__(self, iface):
     
-        # save reference to the QGIS interface
+        # save a reference to the QGIS interface
         self.iface = iface
         self.plugin_dir = QFileInfo(QgsApplication.qgisUserDbFilePath()).path() + \
                           "/python/plugins/smartsea/"
@@ -19,8 +19,6 @@ class SmartSea:
         s = QSettings()
         self.server = s.value("smartsea/server", "http://msp.smartsea.fmi.fi/Starman/core")
         self.wmts = s.value("smartsea/wmts", "http://msp.smartsea.fmi.fi/Starman/WMS")
-    
-        # provide a way to set these?
         
     def initGui(self):
         self.dialog = uic.loadUi(self.plugin_dir+"dialog.ui")
@@ -108,15 +106,18 @@ class SmartSea:
         url = self.server + "/plans"
         try:
             response = urllib.urlopen(url)
-            data = json.loads(response.read())
+            self.plans = json.loads(response.read())
             print "Response ok"
-            # create a tree from data
-            for plan in data:
+            # create a tree from response
+            for plan in self.plans:
                 print "Got plan "+plan["name"]
                 planItem = self.item("plan", [plan])
                 for use in plan["uses"]:
-                    useItem = self.item("use", [plan, use])
-                    planItem.appendRow(useItem)
+                    if plan["name"] == "Data" or plan["name"] == "Ecosystem":
+                        useItem = planItem
+                    else:
+                        useItem = self.item("use", [plan, use])
+                        planItem.appendRow(useItem)
                     for layer in use["layers"]:
                         layerItem = self.item("layer", [plan, use, layer])
                         useItem.appendRow(layerItem)
@@ -140,60 +141,61 @@ class SmartSea:
         if (len(l) == 0):
             msg = QMessageBox()
             msg.setIcon(QMessageBox.Information)
-            msg.setText("Please select a plan or a dataset.")
+            msg.setText("Please select a plan, use, or a layer.")
             msg.setWindowTitle("Error")
             msg.setStandardButtons(QMessageBox.Ok)
             msg.exec_()
             return
         name = l[0].data()
-        # what is it
-        klass = l[0].data(Qt.UserRole+2)
+        # klass = l[0].data(Qt.UserRole+2)
         # what's the id
         id = l[0].data(Qt.UserRole+3)
-        print "Load "+klass+" "+name+" "+str(id)
+        trail = id.split("_")
+        # trail is plan_use_layer_rule
+        print "Load "+name+" "+str(id)
         root = QgsProject.instance().layerTreeRoot()
 
         epsg = 3067
         frmt = 'image/png'
     
-        url = self.server+"/"+klass+"s/"+str(id)
-        print "Try "+url
-        try:
-            response = urllib.urlopen(url)
-            data = json.loads(response.read())
-            for plan in data:
-                print plan["name"]
-                if (klass == "plan"):
-                    g = root.addGroup(plan["name"])
-                for use in plan["uses"]:
-                    if (klass == "plan"):
-                        g2 = g.addGroup(use["name"])
-                    for layer in use["layers"]:
-                        s = str(plan["id"])+"_"+str(use["id"])+"_"+str(layer["id"])
-                        # rules?
+        for plan in self.plans:
+            if str(plan["id"]) != trail[0]:
+                continue
+            print "plan "+plan["name"]
+            g = root.findGroup(plan["name"]) or root.addGroup(plan["name"])
+            for use in plan["uses"]:
+                if len(trail) > 1 and str(use["id"]) != trail[1]:
+                    continue
+                print "use "+use["name"]
+                if use["name"] == "Data" or use["name"] == "EcoSystem":
+                    g2 = g
+                else:
+                    g2 = g.findGroup(use["name"]) or g.addGroup(use["name"])
+                for layer in use["layers"]:
+                    if len(trail) > 2 and str(layer["id"]) != trail[2]:
+                        continue
+                    print "layer "+layer["name"]
+                    
+                    s = str(plan["id"])+"_"+str(use["id"])+"_"+str(layer["id"])
+                    # rules?
 
-                        wmts = 'url='+self.wmts+ \
+                    wmts = 'url='+self.wmts+ \
                                '&styles='+layer["style"]+ \
                                '&format='+frmt+ \
                                '&crs=EPSG:'+str(epsg)+ \
                                '&tileDimensions=256;256'+ \
                                '&layers='
                             
-                        l = QgsRasterLayer(wmts+s, layer["name"], 'wms')
-                        if not l.isValid():
-                            print "Layer failed to load, partial "+wmts+s+\
+                    l = QgsRasterLayer(wmts+s, layer["name"], 'wms')
+                    if not l.isValid():
+                        print "Layer failed to load, partial "+wmts+s+\
                                   ". Is the layer advertised?"
-                        else:
-                            print "Layer ok!"
-                            QgsMapLayerRegistry.instance().addMapLayer(l, False)
-                            to = root
-                            if (klass == "plan"):
-                                to = g2
-                            l2 = to.addLayer(l)
-                            l2.setVisible(False)
-                            print "Layer added!"
-        except:
-            print "failed: "+url
+                    else:
+                        print "Layer ok!"
+                        QgsMapLayerRegistry.instance().addMapLayer(l, False)
+                        l2 = g2.addLayer(l)
+                        l2.setVisible(False)
+                        print "Layer added!"
 
     def item(self, klass, objs):
         obj = objs[len(objs)-1]

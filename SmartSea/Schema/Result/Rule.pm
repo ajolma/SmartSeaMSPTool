@@ -216,8 +216,9 @@ sub as_hashref_for_json {
 sub values {
     my ($self) = @_;
     my %values = (id => $self->id, rule_system => $self->rule_system->id);
-    for my $col (@columns) {
-        if ($col->{is_foreign_key}) {
+    for (my $i = 0; $i < @columns; $i += 2) {
+        my $col = $columns[$i];
+        if ($columns[$i+1]->{is_foreign_key}) {
             my $foreign = $self->$col;
             $values{$col} = $self->$col->id if $foreign;
         } else {

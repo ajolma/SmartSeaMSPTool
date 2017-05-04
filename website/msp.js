@@ -640,11 +640,14 @@ MSP.prototype = {
                     self.ruleEdited.notify();
                     self.addSite();
                 })
-            .fail(function(data) {
-                if (data.status == 403)
+            .fail(function(xhr, textStatus, errorThrown) {
+                if (xhr.status == 403)
                     alert("Rule modification requires cookies. Please enable cookies and reload this app.");
-                else
-                    alert(data.responseText);
+                else {
+                    var msg = xhr.responseText;
+                    if (msg == '') msg = textStatus;
+                    alert(msg);
+                }
             });
     },
     initSite: function() {

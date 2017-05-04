@@ -5,7 +5,6 @@ use 5.010000;
 use base qw/DBIx::Class::Core/;
 use Scalar::Util 'blessed';
 use SmartSea::HTML qw(:all);
-use SmartSea::Impact qw(:all);
 
 my @columns = (
     id             => {},
@@ -59,19 +58,6 @@ sub column_values_from_context {
 sub name {
     my ($self) = @_;
     return $self->activity->name.' -> '.$self->pressure_class->name;
-}
-
-sub impacts_list {
-    my ($self) = @_;
-    my @impacts;
-    for my $impact (sort {$b->strength*10+$b->belief <=> $a->strength*10+$a->belief} $self->impacts) {
-        my $ec = $impact->ecosystem_component;
-        my $c = $ec->name;
-        my $strength = $strength{$impact->strength};
-        my $belief = $belief{$impact->belief};
-        push @impacts, [li => "impact on $c is $strength, $belief."];
-    }
-    return \@impacts;
 }
 
 1;

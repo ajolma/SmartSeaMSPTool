@@ -5,7 +5,6 @@ use 5.010000;
 use base qw/DBIx::Class::Core/;
 use Scalar::Util 'blessed';
 use SmartSea::HTML qw(:all);
-use SmartSea::Impact qw(:all);
 
 my @columns = (
     id           => {},

@@ -6,11 +6,12 @@ use SmartSea::Core qw(:all);
 
 use base 'DBIx::Class::ResultSet';
 
+# plans -> uses -> layers
+# ids of uses and layers are class ids
 sub array_of_trees {
-    my ($self, $plan_id, $use_id, $layer_id) = @_;
+    my ($self) = @_;
     my @plans;
-    my $search = defined $plan_id ? {id => $plan_id}: undef;
-    for my $plan ($self->search($search, {order_by => {-desc => 'name'}})) {
+    for my $plan ($self->search(undef, {order_by => {-desc => 'name'}})) {
         my @uses;
         my %data;
         for my $use ($plan->uses(undef, {order_by => 'id'})) {
@@ -25,14 +26,12 @@ sub array_of_trees {
                     name => $layer->layer_class->name,
                     style => $layer->style->color_scale->name,
                     id => $layer->layer_class->id, 
-                    use => $use->use_class->id,
                     rule_class => $layer->rule_system->rule_class->name,
                     rules => \@rules};
             }
             push @uses, {
                 name => $use->use_class->name, 
                 id => $use->use_class->id,
-                plan => $plan->id, 
                 layers => \@layers
             };
         }

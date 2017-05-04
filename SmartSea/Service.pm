@@ -133,7 +133,7 @@ sub plans {
         uses => [{
             name => 'Data', 
             id => 0, # reserved use_class id, see msp.js and Layer.pm
-            layers => $schema->resultset('Dataset')->layers }]
+            layers => scalar($schema->resultset('Dataset')->layers) }]
     };
 
     push @$plans, {
@@ -142,7 +142,7 @@ sub plans {
         uses => [{
             name => 'Ecosystem',
             id => 1, # reserved use_class id, see msp.js and Layer.pm
-            layers => $schema->resultset('EcosystemComponent')->layers }]
+            layers => scalar($schema->resultset('EcosystemComponent')->layers) }]
     };
         
     # This is the first request made by the App, thus set the cookie

@@ -83,7 +83,6 @@ sub ecosystem_impacts {
         for my $pressure ($activity->pressures) {
             my $range = $pressure->range->d;
             $ranges{$range} = $pressure->range->name;
-            say STDERR $activity->name," ",$pressure->name," $range";
             for my $impact ($pressure->impacts) {
                 my $component = $impact->ecosystem_component;
                 my $name = $component->name;
