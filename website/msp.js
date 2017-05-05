@@ -83,7 +83,7 @@ function MSPView(model, elements, id) {
                 self.ruleEdited.notify({ value : value });
             },
             Close: function() {
-                self.elements.rule_dialog.dialog("close");
+                self.elements.rule_dialog.dialog('close');
             }
         },
         close: function() {
@@ -141,10 +141,16 @@ MSPView.prototype = {
     },
     buildPlans: function() {
         var self = this;
+        self.elements.plans.html('');
         $.each(self.model.plans, function(i, plan) {
             if (plan.id > 1) // not Ecosystem and Data, which are "pseudo plans"
                 self.elements.plans.append(element('option',{value:plan.id},plan.name));
         });
+        this.elements.rule_header.html('');
+        self.elements.rule_info.html('');
+        self.elements.site.html('');
+        self.elements.color_scale.html('');
+        self.elements.rule_dialog.dialog('close');
     },
     buildPlan: function(plan) {
         var self = this;
@@ -390,7 +396,7 @@ MSPView.prototype = {
                 });
                 $(self.id.rule_editor_info).html(rule.value);
             }
-            self.elements.rule_dialog.dialog( "open" );
+            self.elements.rule_dialog.dialog("open");
         });
     },
     getRuleEditValue: function() {
@@ -490,6 +496,8 @@ function MSP(args) {
 MSP.prototype = {
     getPlans: function() {
         var self = this;
+        self.removeLayers();
+        self.removeSite();
         // the planning system is a tree: root->plans->uses->layers->rules
         $.ajax({
             url: 'http://'+self.server+'/core/plans',
@@ -584,6 +592,16 @@ MSP.prototype = {
         });
         self.newLayerList.notify();
     },
+    removeLayers: function() {
+        var self = this;
+        if (!self.plan) return;
+        $.each(self.plan.uses.reverse(), function(i, use) {
+            $.each(use.layers.reverse(), function(j, layer) {
+                if (layer.object) self.map.removeLayer(layer.object);
+            });
+        });
+        self.newLayerList.notify();
+    },
     setLayerOrder: function(order) {
         this.removeSite();
         var newUses = [];
@@ -649,6 +667,7 @@ MSP.prototype = {
                 else {
                     var msg = xhr.responseText;
                     if (msg == '') msg = textStatus;
+                    msg = "Something is wrong with the SmartSea MSP server. The error message is: "+msg;
                     alert(msg);
                 }
             });

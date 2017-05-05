@@ -77,6 +77,9 @@ DAMAGE.
     });
 
     model.getPlans();
+    $("#reload").click( function() {
+        model.getPlans();
+    });
 
     $(window).resize(function(){view.windowResize()});
     view.windowResize();
