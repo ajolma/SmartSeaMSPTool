@@ -53,7 +53,7 @@ sub call {
     
     #my @rules;
     #for my $layer ($request->query_parameters->get_all('layer')) {
-    #    push @rules, SmartSea::Layer->new({schema => $self->{schema}, cookie => 'default', trail => $layer});
+    #    push @rules, SmartSea::Layer->new({schema => $self->{schema}, cookie => DEFAULT, trail => $layer});
     #}
     my $plan_id = $request->query_parameters->get('plan');
     my $use_id = $request->query_parameters->get('use');

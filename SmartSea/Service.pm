@@ -102,6 +102,7 @@ sub legend {
 
     my $layer = SmartSea::Layer->new({
         schema => $self->{schema},
+        cookie => DEFAULT,
         trail => $self->{parameters}{layer}});
 
     my $image = $layer->{duck} ?

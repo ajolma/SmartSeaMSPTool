@@ -45,6 +45,7 @@ sub new {
 
 sub config {
     my ($self, $config) = @_;
+    #print STDERR Dumper $config;
 
     # QGIS asks for capabilities and does not load unadvertised layers
     
@@ -100,6 +101,7 @@ sub config {
 
 sub process {
     my ($self, $dataset, $tile, $server) = @_;
+    #print STDERR Dumper $server->{env};
     my $params = $server->{parameters};
 
     # WMTS clients ask for layer and specify tilematrixset
@@ -128,15 +130,13 @@ sub process {
     # rules are those rules that the client wishes to be active
     # no rules = all rules?
 
-    $self->{cookie} = $server->{request}->cookies->{SmartSea} // 'default';
-
     my $layer = SmartSea::Layer->new({
         epsg => $epsg,
         tile => $tile,
         schema => $self->{schema},
         data_dir => $self->{data_dir},
         GDALVectorDataset => $self->{GDALVectorDataset},
-        cookie => $self->{cookie}, 
+        cookie => $server->{request}->cookies->{SmartSea} // DEFAULT, 
         trail => $want,
         style => $params->{style} });
 

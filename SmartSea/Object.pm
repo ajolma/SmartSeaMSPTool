@@ -62,24 +62,21 @@ sub new {
             #    croak "pk $pkey not defined for a $self->{source}" unless defined $pk{$pkey};
             #}
             #$self->{object} = $self->{rs}->single(\%pk);
-            
-            # special case for rules, which have pk = id,cookie
-            # prefer cookie = default, unless cookie given in args
+
+            # todo: this assumes first pk is id (maybe not named 'id' but anyway)
             my @pk = $self->{class}->primary_columns;
-            # todo: right now there is only one pk except for rules, which has two
-            if ($self->{source} eq 'Rule') {
-                for my $rule ($self->{rs}->search({id => $args->{id}})) {
-                    if ($args->{cookie} && $rule->cookie ne DEFAULT) {
-                        $self->{object} = $rule;
-                        last;
-                    }
-                    $self->{object} = $rule;
-                }
+            if (@pk == 1) {
+                @pk = ($args->{id});
+            } elsif (@pk == 2) {
+                # special case for rules, which have pk = id,cookie
+                # 'find' of ResultSet for Rule is also overridden to return default by default
+                @pk = ($args->{id}, $args->{cookie});
             } else {
-                my $pk = $pk[0];
-                $self->{object} = $self->{rs}->single({$pk => $args->{id}});
-                say STDERR "object: ",($self->{object} // 'undef') if $self->{debug} && $self->{debug} > 1;
+                die "$self->{class}: more than two primary keys!";
             }
+            $self->{object} = $self->{rs}->find(@pk);
+            say STDERR "object: ",($self->{object} // 'undef') if $self->{debug} && $self->{debug} > 1;
+            
             # is this in fact a subclass object?
             if ($self->{object} && $self->{object}->can('subclass')) {
                 my $source = $self->{object}->subclass;

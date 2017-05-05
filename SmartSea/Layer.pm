@@ -31,19 +31,7 @@ sub new {
         $self->{duck} = $self->{dataset};
     } elsif ($use_class_id == 1) {
         $self->{duck} = $self->{schema}->resultset('EcosystemComponent')->single({ id => $layer_class_id });
-        # all rules always
-        my %rules;
-        for my $rule ($self->{duck}->rules) {
-            # prefer id/cookie pair to id/default, they have the same id
-            if (exists $rules{$rule->id}) {
-                $rules{$rule->id} = $rule if $rule->cookie eq $self->{cookie};
-            } else {
-                $rules{$rule->id} = $rule;
-            }
-        }
-        for my $i (sort {$rules{$a}->name cmp $rules{$b}->name} keys %rules) {
-            push @{$self->{rules}}, $rules{$i};
-        }
+        $self->{rules} = [];
     } else {
         my $plan = $self->{schema}->resultset('Plan')->single({ id => $plan_id });
         my $use_class = $self->{schema}->resultset('UseClass')->single({ id => $use_class_id });
@@ -55,7 +43,6 @@ sub new {
             use => $use->id, 
             layer_class => $layer_class->id });
         $self->{duck} = $layer;
-
         $self->{rules} = [];
         # rule list is optional, if no rules, then all rules (QGIS plugin does not send any rules)
         if (@rules) {
@@ -65,31 +52,26 @@ sub new {
                 
                 # there may be default rule and a modified rule denoted with a cookie
                 # prefer the one with our cookie
-                my $rule;
-                for my $r ($self->{schema}->resultset('Rule')->search({ id => $id })) {
-                    if ($r->cookie eq $self->{cookie}) {
-                        $rule = $r;
-                        last;
-                    }
-                    $rule = $r if $r->cookie eq DEFAULT;
-                }
+                my $rule = $self->{schema}->resultset('Rule')->find($id, $self->{cookie});
+                
                 # maybe we should test $rule->plan and $rule->use?
                 # and that the $rule->layer->id is the same?
-                push @{$self->{rules}}, $rule;
+                push @{$self->{rules}}, $rule if $rule;
             }
-        } else {
-            my %rules;
-            for my $rule ($layer->rules) {
-                # prefer id/cookie pair to id/default, they have the same id
-                if (exists $rules{$rule->id}) {
-                    $rules{$rule->id} = $rule if $rule->cookie eq $self->{cookie};
-                } else {
-                    $rules{$rule->id} = $rule;
-                }
+        }
+    }
+    if ($self->{rules} && @{$self->{rules}} == 0) {
+        # all rules of this layer, preferring those with given cookie
+        my %rules;
+        for my $rule ($self->{duck}->rules) {
+            if (exists $rules{$rule->id}) {
+                $rules{$rule->id} = $rule if $rule->cookie eq $self->{cookie};
+            } else {
+                $rules{$rule->id} = $rule;
             }
-            for my $i (sort {$rules{$a}->name cmp $rules{$b}->name} keys %rules) {
-                push @{$self->{rules}}, $rules{$i};
-            }
+        }
+        for my $i (sort {$rules{$a}->name cmp $rules{$b}->name} keys %rules) {
+            push @{$self->{rules}}, $rules{$i};
         }
     }
 
