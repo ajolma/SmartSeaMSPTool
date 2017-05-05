@@ -9,7 +9,7 @@ use base 'DBIx::Class::ResultSet';
 # PK of rule is (id,cookie), 
 # return the one with given id and cookie
 # by default return the default rule
-sub find {
+sub my_find {
     my ($self, $id, $cookie) = @_;
     $cookie //= DEFAULT;
     my $retval;

@@ -69,12 +69,13 @@ sub new {
                 @pk = ($args->{id});
             } elsif (@pk == 2) {
                 # special case for rules, which have pk = id,cookie
-                # 'find' of ResultSet for Rule is also overridden to return default by default
+                # 'find' of ResultSet for Rule is also replaced by 'my_find' to return default by default
                 @pk = ($args->{id}, $args->{cookie});
             } else {
                 die "$self->{class}: more than two primary keys!";
             }
-            $self->{object} = $self->{rs}->find(@pk);
+            $self->{object} = $self->{rs}->can('my_find') ? 
+                $self->{rs}->my_find(@pk) : $self->{rs}->find(@pk);
             say STDERR "object: ",($self->{object} // 'undef') if $self->{debug} && $self->{debug} > 1;
             
             # is this in fact a subclass object?
@@ -102,6 +103,16 @@ sub new {
         return undef;
     }
     bless $self, $class;
+}
+
+sub next_id {
+    my $self = shift;
+    # this is probably needed only in tests, sqlite does not have sequences
+    my $id = 1;
+    for my $row ($self->{rs}->all) {
+        $id = $row->id + 1 if $id <= $row->id;
+    }
+    return $id;
 }
 
 # parent can have children in many ways:
@@ -328,14 +339,7 @@ sub create {
         my $error = $self->{class}->is_ok($col_data);
         croak $error if $error;
     }
-    if (!$self->{sequences} && $self->{rs}->result_source->has_column('id')) {
-        # this is probably only in tests, sqlite does not have sequences
-        my $id = 1;
-        for my $row ($self->{rs}->all) {
-            $id = $row->id + 1 if $id <= $row->id;
-        }
-        $col_data->{id} = $id;
-    }
+    $col_data->{id} = $self->next_id if !$self->{sequences} && $self->{rs}->result_source->has_column('id');
     for my $col (sort keys %$col_data) {
         say STDERR "  $col => ",(defined $col_data->{$col} ? $col_data->{$col} : 'undef') if $self->{debug} > 1;
     }

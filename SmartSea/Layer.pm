@@ -52,7 +52,7 @@ sub new {
                 
                 # there may be default rule and a modified rule denoted with a cookie
                 # prefer the one with our cookie
-                my $rule = $self->{schema}->resultset('Rule')->find($id, $self->{cookie});
+                my $rule = $self->{schema}->resultset('Rule')->my_find($id, $self->{cookie});
                 
                 # maybe we should test $rule->plan and $rule->use?
                 # and that the $rule->layer->id is the same?

@@ -158,7 +158,7 @@ test_psgi $app, sub {
     $res = $cb->(POST "/browser/plan:1/dataset", [2 => 'Delete']);
     #pretty_print($res);
 
-    @all = select_all($schema, 'tool', 'id,plan,dataset', 'plan2dataset_extra');
+    @all = select_all($schema, 'id,plan,dataset', 'plan2dataset_extra');
 
     ok(@all == 0, "delete the link");
     

@@ -1,11 +1,13 @@
 package Test::Helper;
 
+use strict;
+use warnings;
 use XML::LibXML;
 use XML::LibXML::PrettyPrint;
 
 require Exporter;
-@ISA = qw(Exporter);
-@EXPORT = qw(read_postgresql_dump create_sqlite_schemas select_all pretty_print_XML);
+our @ISA = qw(Exporter);
+our @EXPORT = qw(read_postgresql_dump create_sqlite_schemas select_all pretty_print_XML);
 
 sub read_postgresql_dump {
     my ($dump) = @_;
@@ -38,9 +40,13 @@ sub read_postgresql_dump {
             }
             if ($line =~ /^ALTER TABLE ONLY (\w+)/) {
                 my $table = $1;
-                if ($line =~ /PRIMARY KEY \((\w+)/) {
+                if ($line =~ /PRIMARY KEY \((.+)?\)/) {
                     my $col = $1;
-                    $tables{$schema}{$table}{$col} .= ' PRIMARY KEY';
+                    if ($col =~ /,/) {
+                        $tables{$schema}{$table}{'+'}{$col} = "PRIMARY KEY ($col)";
+                    } else {
+                        $tables{$schema}{$table}{$col} .= ' PRIMARY KEY';
+                    }
                 } elsif ($line =~ /UNIQUE \((.*)?\)/) {
                     my $cols = $1;
                     if ($cols =~ /,/) {
@@ -81,7 +87,7 @@ sub create_sqlite_schemas {
             for my $col (sort keys %{$tables->{$schema}{$table}}) {
                 next if $col eq '+';
                 my $c = $f ? '' : ",\n";
-                push @cols, "$c $col $tables->{$schema}{$table}{$col}";
+                push @cols, "$c  $col $tables->{$schema}{$table}{$col}";
                 $f = 0;
             }
             next unless @cols;
@@ -129,14 +135,13 @@ sub topo_sort {
 }
 
 sub select_all {
-    my ($schema, $db, $cols, $class) = @_;
+    my ($schema, $cols, $class) = @_;
     my @all;
-    $schema->$db->storage->dbh_do(sub {
+    $schema->storage->dbh_do(sub {
         my (undef, $dbh) = @_;
         my $sth = $dbh->prepare("SELECT $cols FROM $class");
         $sth->execute;
         while (my @a = $sth->fetchrow_array) {
-            say STDERR "$cols from $class" if $service->{debug};
             push @all, \@a;
         }});
     return @all;

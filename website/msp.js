@@ -501,6 +501,9 @@ MSP.prototype = {
             self.newPlans.notify();
             self.changePlan(self.firstPlan);
             self.initSite();
+        }).fail(function(xhr, textStatus, errorThrown) {
+            var msg = "The configured SmartSea MSP server at "+self.server+" is not responding.";
+            alert(msg);
         });
     },
     changePlan: function(id) {

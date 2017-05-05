@@ -266,7 +266,7 @@ sub object_editor {
         return http_status($header, 403) if $self->{cookie} eq DEFAULT; # forbidden
         my $obj = SmartSea::Object->new({oid => $oids->first, url => $self->{base_uri}}, $self);
         return http_status($header, 400) unless $obj->{object} && $obj->{source} eq 'Rule'; # bad request
-        
+
         my $cols = $obj->{object}->values;
         $cols->{value} = $parameters{value};
         $cols->{cookie} = $self->{cookie};
