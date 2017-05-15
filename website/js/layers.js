@@ -39,12 +39,27 @@ function createLayer(template, projection) {
         return [new ol.layer.Tile({
             opacity: 1,
             extent: projection.extent,
+            source: new ol.source.TileWMS({
+                attributions: [new ol.Attribution({
+                    html: 'Map: Ministry of Education and Culture, Data: OpenStreetMap contributors'
+                })],
+                url: 'http://avaa.tdata.fi/geoserver/osm_finland/wms',
+                params: {'LAYERS': 'osm-finland', 'TILED': true},
+                serverType: 'geoserver',
+                matrixSet: 'ETRS-TM35FIN',
+                projection: projection.projection,
+                tileGrid: new ol.tilegrid.WMTS({
+                    origin: ol.extent.getTopLeft(projection.extent),
+                    resolutions: projection.resolutions,
+                    matrixIds: projection.matrixIds
+                })
+            })
+            /*
             source: new ol.source.WMTS({
                 attributions: [new ol.Attribution({
                     html: 'Tiles &copy; <a href="http://www.maanmittauslaitos.fi/avoindata_lisenssi">MML</a>'
                 })],
                 url: 'http://avoindata.maanmittauslaitos.fi/mapcache/wmts',
-                //url: 'http://localhost:5000/proxy',
                 layer: 'taustakartta',
                 matrixSet: 'ETRS-TM35FIN',
                 format: 'image/png',
@@ -56,6 +71,7 @@ function createLayer(template, projection) {
                 }),
                 style: 'default'
             })
+            */
         })];
     }
     if (template.bg && template.bg == 'test') {
