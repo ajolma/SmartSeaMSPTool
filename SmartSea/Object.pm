@@ -752,8 +752,9 @@ sub form {
         for my $id (0..$oids->count-2) {
             my $obj = SmartSea::Object->new({oid => $oids->at($id)}, $self);
             for my $key (keys %$columns) {
+                next if $key eq 'id';
                 next if defined $col_data->{$key};
-                next unless $obj->{object}->columns->{$key};
+                next unless $obj->{object}->result_source->has_column($key);
                 say STDERR "getting $key from upstream" if $self->{debug};
                 $from_upstream{$key} = $obj->{object}->$key;
             }
@@ -766,7 +767,7 @@ sub form {
             $has_upstream = 1;
             $parameters->{$key} = $from_upstream{$key};
         }
-        push @widgets, [p => {style => 'color:red'}, 
+        push @widgets, [p => {style => 'color:darkgreen;font-style:italic'}, 
                         'Filled data is from parent objects and for information only. '.
                         'Please delete or overwrite them.'] 
                             if $has_upstream;
@@ -892,7 +893,7 @@ END_CODE
             }
             my $composed = SmartSea::Object->new({source => $info->{source}, object => $values->{$col}}, $self);
             my @style = $composed->widgets(undef, $values);
-            push @form, [fieldset => [[legend => $composed->{source}], @style]];
+            push @form, [fieldset => {id => $col}, [[legend => $composed->{source}], @style]];
         } else {
             push @form, [ p => [[1 => "$col: "], $input] ] if $input;
         }
