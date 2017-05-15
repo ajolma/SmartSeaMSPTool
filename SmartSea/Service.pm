@@ -28,9 +28,10 @@ sub new {
         my $dsn = "dbi:Pg:dbname=$self->{dbname}";
         $self->{schema} = SmartSea::Schema->connect(
             $dsn,
-            $self->{user},
-            $self->{pass},
-            { on_connect_do => ['SET search_path TO tool,data,public'] });
+            $self->{db_user},
+            $self->{db_passwd},
+            { on_connect_do => 
+                  ["SET search_path TO tool$self->{table_postfix},data$self->{table_postfix},public"] });
     }
     $self->{sequences} = 1 unless defined $self->{sequences};
     return bless $self, $class;
@@ -46,20 +47,16 @@ sub call {
     my $ret = common_responses({}, $env);
     return $ret if $ret;
     my $request = Plack::Request->new($env);
-    my $cookies = $request->cookies;
-    for my $cookie (sort keys %$cookies) {
-        #say STDERR "cookie: $cookie => $cookies->{$cookie}";
-    }
-    my $user = $env->{REMOTE_USER} // 'guest';
-    $self->{edit} = 1 if $user eq 'ajolma';
-    $self->{cookie} = $cookies->{SmartSea} // DEFAULT;
+    $self->{user} = $env->{REMOTE_USER} // 'guest';
+    $self->{edit} = 1 if $self->{user} ne 'guest';
+    $self->{cookie} = $request->cookies->{SmartSea} // DEFAULT;
     $self->{parameters} = $request->parameters;
     $self->{uri} = $env->{REQUEST_URI};
     $self->{method} = $env->{REQUEST_METHOD}; # GET, PUT, POST, DELETE
     $self->{origin} = $env->{HTTP_ORIGIN};
     $self->{uri} =~ s/\/$//;
     my @path = split /\//, $self->{uri};
-    say STDERR "remote user is $user" if $self->{debug};
+    say STDERR "remote user is $self->{user}" if $self->{debug};
     say STDERR "cookie: $self->{cookie}" if $self->{debug};
     say STDERR "uri: $self->{uri}" if $self->{debug};
     say STDERR "path: @path, ",scalar(@path)," items" if $self->{debug};
@@ -90,7 +87,15 @@ sub call {
         [li => a(link => 'impact_network', url  => $uri.'impact_network')],
         [li => a(link => 'pressure table', url  => $uri.'pressure_table')]
     );
-    return html200({}, SmartSea::HTML->new(html => [body => [ul => \@l]])->html);
+    @path = split /\//, $self->{uri};
+    pop @path;
+    pop @path;
+    my $header = a(link => 'Up', url  => join('/', @path));
+    my $ul = [ul => \@l];
+    my $schemas = $self->{table_postfix};
+    $schemas =~ s/^_//;
+    my $footer = [p => {style => 'font-size:0.8em'}, "Schema set = $schemas. User = $self->{user}."];
+    return html200({}, SmartSea::HTML->new(html => [body => [$header,$ul,$footer]])->html);
 }
 
 # todo: sub rest
@@ -189,6 +194,10 @@ sub impact_network {
 sub object_editor {
     my ($self, $oids) = @_;
 
+    my $schemas = $self->{table_postfix};
+    $schemas =~ s/^_//;
+    my $footer = [p => {style => 'font-size:0.8em'}, "Schema set = $schemas. User = $self->{user}."];
+
     my $url = $self->{base_uri}.'/';
     if ($oids->is_empty) {
         my @path = split /\//, $self->{base_uri};
@@ -201,6 +210,7 @@ sub object_editor {
             push @li, [li => a(link => SmartSea::Object::plural($source), url => $url.$table)]
         }
         push @body, [ul=>\@li];
+        push @body, $footer;
         return html200({}, SmartSea::HTML->new(html => [body => \@body])->html);
     }
 
@@ -260,6 +270,7 @@ sub object_editor {
 
     if ($parameters{request} eq 'read') {
         $self->read_object($oids, \@body);
+        push @body, $footer;
         return html200({}, SmartSea::HTML->new(html => [body => @body])->html);
         
     } elsif ($parameters{request} eq 'update') {
@@ -322,6 +333,7 @@ sub object_editor {
         return http_status($header, 400);
     }
 
+    push @body, $footer;
     return html200({}, SmartSea::HTML->new(html => [body => @body])->html);
     
 }

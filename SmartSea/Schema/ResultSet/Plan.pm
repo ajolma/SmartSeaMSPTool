@@ -25,7 +25,8 @@ sub array_of_trees {
                 push @layers, {
                     name => $layer->layer_class->name,
                     style => $layer->style->color_scale->name,
-                    id => $layer->layer_class->id, 
+                    id => $layer->layer_class->id,
+                    use => $use->use_class->id,
                     rule_class => $layer->rule_system->rule_class->name,
                     rules => \@rules};
             }

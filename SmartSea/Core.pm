@@ -50,7 +50,7 @@ sub html200 {
     }
     $header{'Content-Type'} //= 'text/html; charset=utf-8';
     $header{'Access-Control-Allow-Origin'} //= '*';
-    return [ 200, [%header], [encode utf8 => $html] ];
+    return [ 200, [%header], [encode utf8 => '<!DOCTYPE html>'.$html] ];
 }
 
 sub json200 {

@@ -19,7 +19,7 @@ sub new {
     for my $key (qw/schema edit debug sequences no_js/) {
         $self->{$key} = $args->{$key} // $args2->{$key};
     }
-    for my $key (qw/url dbname user pass data_dir/) {
+    for my $key (qw/url dbname db_user db_passwd data_dir/) {
         $self->{$key} = $args->{$key} // $args2->{$key} // '';
     }
     if ($args->{oid}) {

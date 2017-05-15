@@ -35,7 +35,7 @@ ALTER SCHEMA tool OWNER TO ajolma;
 -- Name: SCHEMA tool; Type: COMMENT; Schema: -; Owner: ajolma
 --
 
-COMMENT ON SCHEMA tool IS 'Core tables for the tool';
+COMMENT ON SCHEMA tool IS 'Core tables';
 
 
 SET search_path = data, pg_catalog;
@@ -57,10 +57,10 @@ CREATE TABLE data_models (
 ALTER TABLE data_models OWNER TO ajolma;
 
 --
--- Name: data models_id_seq; Type: SEQUENCE; Schema: data; Owner: ajolma
+-- Name: data_models_id_seq; Type: SEQUENCE; Schema: data; Owner: ajolma
 --
 
-CREATE SEQUENCE "data models_id_seq"
+CREATE SEQUENCE data_models_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
@@ -68,13 +68,13 @@ CREATE SEQUENCE "data models_id_seq"
     CACHE 1;
 
 
-ALTER TABLE "data models_id_seq" OWNER TO ajolma;
+ALTER TABLE data_models_id_seq OWNER TO ajolma;
 
 --
--- Name: data models_id_seq; Type: SEQUENCE OWNED BY; Schema: data; Owner: ajolma
+-- Name: data_models_id_seq; Type: SEQUENCE OWNED BY; Schema: data; Owner: ajolma
 --
 
-ALTER SEQUENCE "data models_id_seq" OWNED BY data_models.id;
+ALTER SEQUENCE data_models_id_seq OWNED BY data_models.id;
 
 
 --
@@ -142,31 +142,6 @@ ALTER SEQUENCE datasets_id_seq OWNED BY datasets.id;
 
 
 --
--- Name: layers; Type: TABLE; Schema: data; Owner: ajolma
---
-
-CREATE TABLE layers (
-    id integer NOT NULL,
-    site text,
-    folder text,
-    service text,
-    kind text,
-    layer text,
-    lid integer,
-    parent integer
-);
-
-
-ALTER TABLE layers OWNER TO ajolma;
-
---
--- Name: TABLE layers; Type: COMMENT; Schema: data; Owner: ajolma
---
-
-COMMENT ON TABLE layers IS 'remote layers';
-
-
---
 -- Name: licenses; Type: TABLE; Schema: data; Owner: ajolma
 --
 
@@ -231,27 +206,6 @@ ALTER TABLE organizations_id_seq OWNER TO ajolma;
 --
 
 ALTER SEQUENCE organizations_id_seq OWNED BY organizations.id;
-
-
---
--- Name: remote_id_seq; Type: SEQUENCE; Schema: data; Owner: ajolma
---
-
-CREATE SEQUENCE remote_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
-ALTER TABLE remote_id_seq OWNER TO ajolma;
-
---
--- Name: remote_id_seq; Type: SEQUENCE OWNED BY; Schema: data; Owner: ajolma
---
-
-ALTER SEQUENCE remote_id_seq OWNED BY layers.id;
 
 
 --
@@ -1248,7 +1202,7 @@ SET search_path = data, pg_catalog;
 -- Name: id; Type: DEFAULT; Schema: data; Owner: ajolma
 --
 
-ALTER TABLE ONLY data_models ALTER COLUMN id SET DEFAULT nextval('"data models_id_seq"'::regclass);
+ALTER TABLE ONLY data_models ALTER COLUMN id SET DEFAULT nextval('data_models_id_seq'::regclass);
 
 
 --
@@ -1256,13 +1210,6 @@ ALTER TABLE ONLY data_models ALTER COLUMN id SET DEFAULT nextval('"data models_i
 --
 
 ALTER TABLE ONLY datasets ALTER COLUMN id SET DEFAULT nextval('datasets_id_seq'::regclass);
-
-
---
--- Name: id; Type: DEFAULT; Schema: data; Owner: ajolma
---
-
-ALTER TABLE ONLY layers ALTER COLUMN id SET DEFAULT nextval('remote_id_seq'::regclass);
 
 
 --
@@ -1506,14 +1453,6 @@ ALTER TABLE ONLY organizations
 
 ALTER TABLE ONLY organizations
     ADD CONSTRAINT organizations_pkey PRIMARY KEY (id);
-
-
---
--- Name: remote_pkey; Type: CONSTRAINT; Schema: data; Owner: ajolma
---
-
-ALTER TABLE ONLY layers
-    ADD CONSTRAINT remote_pkey PRIMARY KEY (id);
 
 
 --

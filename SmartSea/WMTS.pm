@@ -25,15 +25,15 @@ sub new {
     $self->{data_dir} .= '/' unless $self->{data_dir} =~ /\/$/;
     $self->{images} .= '/' unless $self->{images} =~ /\/$/;
     my $dsn = "dbi:Pg:dbname=$self->{dbname}";
-    #$self->{dbh} = DBI->connect($dsn, $self->{user}, $self->{pass}, {});
     $self->{schema} = SmartSea::Schema->connect(
         $dsn, 
-        $self->{user}, 
-        $self->{pass}, 
-        { on_connect_do => ['SET search_path TO tool,data,public'] });
+        $self->{db_user}, 
+        $self->{db_passwd}, 
+        { on_connect_do => 
+              ["SET search_path TO tool$self->{table_postfix},data$self->{table_postfix},public"] });
     $dsn = "PG:dbname='$self->{dbname}' host='localhost' port='5432'";
     $self->{GDALVectorDataset} = Geo::GDAL::Open(
-        Name => "$dsn user='$self->{user}' password='$self->{pass}'",
+        Name => "$dsn user=$self->{db_user} password=$self->{db_passwd}",
         Type => 'Vector');
 
     $self->{Suomi} = Geo::GDAL::Open(

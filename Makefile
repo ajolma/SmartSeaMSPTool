@@ -1,6 +1,12 @@
 schema:
 	pg_dump -n tool -n data -s SmartSea >schema.sql
 
+data:
+	pg_dump -a -n tool -n data SmartSea >data-only.sql
+
+tool-schema:
+	pg_dump -n tool -s SmartSea >tool-schema.sql
+
 plugin-dist:
 	perl make-plugin-dist.pl
 

@@ -126,34 +126,34 @@ sub legend {
     } else {
         my $step = int($nc/($symbology_height/($args->{font_size}+4))+0.5);
         $step = 1 if $step < 1;
-        my $d = $self->class_labels // '';
+        my $labels = $self->class_labels // '';
+        my @labels = split /\s*;\s*/, $labels;
         my $c = $nc == 1 ? 0 : ($max - $min) / $nc;
         my $current = 0;
         my $last = 0;
         for (my $class = 1; $class <= $nc; $class += $step) {
             # class to y
             my $y = $args->{height} - $half_font - int(($class-0.5)*$symbology_height/$nc);
-            my $l;
-            my ($l2) = $d =~ /$class = ([\w, \-]+)/;
+            my $label = $labels[$class-1];
             if ($nc == 1) {
-                $l = $d;
-            } elsif ($l2) {
-                $l = encode utf8 => $l2;
+                #$label = $d;
+            } elsif ($label) {
+                $label = encode utf8 => $label;
             } elsif (defined $min) {
                 $current = $min + $c*$class;
                 if ($class == 1) {
-                    $l = sprintf("<=%.1f", $current) . $unit;
+                    $label = sprintf("<=%.1f", $current) . $unit;
                 } elsif ($class+$step > $nc) {
-                    $l = sprintf("> %.1f", $last) . $unit;
+                    $label = sprintf("> %.1f", $last) . $unit;
                 } else {
-                    $l = sprintf("(%.1f,%.1f]", $last, $current) . $unit;
+                    $label = sprintf("(%.1f,%.1f]", $last, $current) . $unit;
                 }
                 $last = $current;
             } else {
-                $l = $class;
+                $label = $class;
             }
             #$image->line($args->{symbology_width}+1, $y, $args->{symbology_width}+5, $y, $color);
-            $image->stringFT(@string, $y+$half_font, $l);
+            $image->stringFT(@string, $y+$half_font, $label);
         }
     }
     return $image;
