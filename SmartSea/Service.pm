@@ -92,7 +92,7 @@ sub call {
     pop @path;
     my $header = a(link => 'Up', url  => join('/', @path));
     my $ul = [ul => \@l];
-    my $schemas = $self->{table_postfix};
+    my $schemas = $self->{table_postfix} // '';
     $schemas =~ s/^_//;
     my $footer = [p => {style => 'font-size:0.8em'}, "Schema set = $schemas. User = $self->{user}."];
     return html200({}, SmartSea::HTML->new(html => [body => [$header,$ul,$footer]])->html);
@@ -194,7 +194,7 @@ sub impact_network {
 sub object_editor {
     my ($self, $oids) = @_;
 
-    my $schemas = $self->{table_postfix};
+    my $schemas = $self->{table_postfix} // '';
     $schemas =~ s/^_//;
     my $footer = [p => {style => 'font-size:0.8em'}, "Schema set = $schemas. User = $self->{user}."];
 

@@ -657,16 +657,16 @@ ALTER SEQUENCE layers_id_seq OWNED BY layer_classes.id;
 
 
 --
--- Name: number_type; Type: TABLE; Schema: tool; Owner: ajolma
+-- Name: number_types; Type: TABLE; Schema: tool; Owner: ajolma
 --
 
-CREATE TABLE number_type (
+CREATE TABLE number_types (
     id integer NOT NULL,
     name text NOT NULL
 );
 
 
-ALTER TABLE number_type OWNER TO ajolma;
+ALTER TABLE number_types OWNER TO ajolma;
 
 --
 -- Name: number_type_id_seq; Type: SEQUENCE; Schema: tool; Owner: ajolma
@@ -686,7 +686,7 @@ ALTER TABLE number_type_id_seq OWNER TO ajolma;
 -- Name: number_type_id_seq; Type: SEQUENCE OWNED BY; Schema: tool; Owner: ajolma
 --
 
-ALTER SEQUENCE number_type_id_seq OWNED BY number_type.id;
+ALTER SEQUENCE number_type_id_seq OWNED BY number_types.id;
 
 
 --
@@ -1295,7 +1295,7 @@ ALTER TABLE ONLY layers ALTER COLUMN id SET DEFAULT nextval('plan2use2layer_id_s
 -- Name: id; Type: DEFAULT; Schema: tool; Owner: ajolma
 --
 
-ALTER TABLE ONLY number_type ALTER COLUMN id SET DEFAULT nextval('number_type_id_seq'::regclass);
+ALTER TABLE ONLY number_types ALTER COLUMN id SET DEFAULT nextval('number_type_id_seq'::regclass);
 
 
 --
@@ -1597,7 +1597,7 @@ ALTER TABLE ONLY layer_classes
 -- Name: number_type_pkey; Type: CONSTRAINT; Schema: tool; Owner: ajolma
 --
 
-ALTER TABLE ONLY number_type
+ALTER TABLE ONLY number_types
     ADD CONSTRAINT number_type_pkey PRIMARY KEY (id);
 
 
@@ -1792,7 +1792,7 @@ ALTER TABLE ONLY datasets
 --
 
 ALTER TABLE ONLY datasets
-    ADD CONSTRAINT datasets_data_type_fkey FOREIGN KEY (data_type) REFERENCES tool.number_type(id);
+    ADD CONSTRAINT datasets_data_type_fkey FOREIGN KEY (data_type) REFERENCES tool.number_types(id);
 
 
 --
@@ -2050,7 +2050,7 @@ ALTER TABLE ONLY rules
 --
 
 ALTER TABLE ONLY rules
-    ADD CONSTRAINT rules_v_fkey FOREIGN KEY (value_type) REFERENCES number_type(id);
+    ADD CONSTRAINT rules_v_fkey FOREIGN KEY (value_type) REFERENCES number_types(id);
 
 
 --
@@ -2430,13 +2430,13 @@ GRANT ALL ON SEQUENCE layers_id_seq TO smartsea;
 
 
 --
--- Name: number_type; Type: ACL; Schema: tool; Owner: ajolma
+-- Name: number_types; Type: ACL; Schema: tool; Owner: ajolma
 --
 
-REVOKE ALL ON TABLE number_type FROM PUBLIC;
-REVOKE ALL ON TABLE number_type FROM ajolma;
-GRANT ALL ON TABLE number_type TO ajolma;
-GRANT ALL ON TABLE number_type TO smartsea;
+REVOKE ALL ON TABLE number_types FROM PUBLIC;
+REVOKE ALL ON TABLE number_types FROM ajolma;
+GRANT ALL ON TABLE number_types TO ajolma;
+GRANT ALL ON TABLE number_types TO smartsea;
 
 
 --
