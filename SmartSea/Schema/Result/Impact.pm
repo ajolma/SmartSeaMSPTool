@@ -29,12 +29,22 @@ sub order_by {
 
 sub column_values_from_context {
     my ($self, $parent, $parameters) = @_;
-    return {pressure => $parent->id, ecosystem_component => $parameters->{ecosystem_component}};
+    my $parent_table = $parent ? $parent->result_source->name : '';
+    my ($pressure, $ecosystem_component);
+    if (ref $self) {
+        $pressure = $self->pressure->id;
+        $ecosystem_component = $self->ecosystem_component->id;
+    }
+    $pressure = $parent->id if !$pressure && $parent_table eq 'pressures';
+    $ecosystem_component = $parent->id if !$ecosystem_component && $parent_table eq 'ecosystem_components';
+    $pressure = $parameters->{pressure} unless $pressure;
+    $ecosystem_component = $parameters->{ecosystem_component} unless $ecosystem_component;
+    return {pressure => $pressure, ecosystem_component => $ecosystem_component};
 }
 
 sub name {
     my ($self) = @_;
-    return $self->pressure->name.' <-> '.$self->ecosystem_component->name;
+    return $self->pressure->name.' -> '.$self->ecosystem_component->name;
 }
 
 # a proposal for impact computations

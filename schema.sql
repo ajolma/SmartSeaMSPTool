@@ -2128,6 +2128,16 @@ GRANT ALL ON TABLE data_models TO smartsea;
 
 
 --
+-- Name: data_models_id_seq; Type: ACL; Schema: data; Owner: ajolma
+--
+
+REVOKE ALL ON SEQUENCE data_models_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE data_models_id_seq FROM ajolma;
+GRANT ALL ON SEQUENCE data_models_id_seq TO ajolma;
+GRANT ALL ON SEQUENCE data_models_id_seq TO smartsea;
+
+
+--
 -- Name: datasets; Type: ACL; Schema: data; Owner: ajolma
 --
 
@@ -2158,6 +2168,16 @@ GRANT ALL ON TABLE licenses TO smartsea;
 
 
 --
+-- Name: licenses_id_seq; Type: ACL; Schema: data; Owner: ajolma
+--
+
+REVOKE ALL ON SEQUENCE licenses_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE licenses_id_seq FROM ajolma;
+GRANT ALL ON SEQUENCE licenses_id_seq TO ajolma;
+GRANT ALL ON SEQUENCE licenses_id_seq TO smartsea;
+
+
+--
 -- Name: organizations; Type: ACL; Schema: data; Owner: ajolma
 --
 
@@ -2168,6 +2188,16 @@ GRANT ALL ON TABLE organizations TO smartsea;
 
 
 --
+-- Name: organizations_id_seq; Type: ACL; Schema: data; Owner: ajolma
+--
+
+REVOKE ALL ON SEQUENCE organizations_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE organizations_id_seq FROM ajolma;
+GRANT ALL ON SEQUENCE organizations_id_seq TO ajolma;
+GRANT ALL ON SEQUENCE organizations_id_seq TO smartsea;
+
+
+--
 -- Name: units; Type: ACL; Schema: data; Owner: ajolma
 --
 
@@ -2175,6 +2205,16 @@ REVOKE ALL ON TABLE units FROM PUBLIC;
 REVOKE ALL ON TABLE units FROM ajolma;
 GRANT ALL ON TABLE units TO ajolma;
 GRANT ALL ON TABLE units TO smartsea;
+
+
+--
+-- Name: units_id_seq; Type: ACL; Schema: data; Owner: ajolma
+--
+
+REVOKE ALL ON SEQUENCE units_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE units_id_seq FROM ajolma;
+GRANT ALL ON SEQUENCE units_id_seq TO ajolma;
+GRANT ALL ON SEQUENCE units_id_seq TO smartsea;
 
 
 SET search_path = tool, pg_catalog;
@@ -2247,6 +2287,16 @@ REVOKE ALL ON TABLE ecosystem_components FROM PUBLIC;
 REVOKE ALL ON TABLE ecosystem_components FROM ajolma;
 GRANT ALL ON TABLE ecosystem_components TO ajolma;
 GRANT ALL ON TABLE ecosystem_components TO smartsea;
+
+
+--
+-- Name: ecosystem_components_id_seq; Type: ACL; Schema: tool; Owner: ajolma
+--
+
+REVOKE ALL ON SEQUENCE ecosystem_components_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE ecosystem_components_id_seq FROM ajolma;
+GRANT ALL ON SEQUENCE ecosystem_components_id_seq TO ajolma;
+GRANT ALL ON SEQUENCE ecosystem_components_id_seq TO smartsea;
 
 
 --
@@ -2326,8 +2376,17 @@ GRANT ALL ON TABLE impacts TO smartsea;
 REVOKE ALL ON TABLE pressure_classes FROM PUBLIC;
 REVOKE ALL ON TABLE pressure_classes FROM ajolma;
 GRANT ALL ON TABLE pressure_classes TO ajolma;
-GRANT SELECT ON TABLE pressure_classes TO PUBLIC;
 GRANT ALL ON TABLE pressure_classes TO smartsea;
+
+
+--
+-- Name: impacts_id_seq; Type: ACL; Schema: tool; Owner: ajolma
+--
+
+REVOKE ALL ON SEQUENCE impacts_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE impacts_id_seq FROM ajolma;
+GRANT ALL ON SEQUENCE impacts_id_seq TO ajolma;
+GRANT ALL ON SEQUENCE impacts_id_seq TO smartsea;
 
 
 --
@@ -2347,7 +2406,6 @@ GRANT ALL ON SEQUENCE impacts_id_seq1 TO smartsea;
 REVOKE ALL ON TABLE layer_classes FROM PUBLIC;
 REVOKE ALL ON TABLE layer_classes FROM ajolma;
 GRANT ALL ON TABLE layer_classes TO ajolma;
-GRANT SELECT ON TABLE layer_classes TO PUBLIC;
 GRANT ALL ON TABLE layer_classes TO smartsea;
 
 
@@ -2358,7 +2416,6 @@ GRANT ALL ON TABLE layer_classes TO smartsea;
 REVOKE ALL ON TABLE layers FROM PUBLIC;
 REVOKE ALL ON TABLE layers FROM ajolma;
 GRANT ALL ON TABLE layers TO ajolma;
-GRANT SELECT ON TABLE layers TO PUBLIC;
 GRANT ALL ON TABLE layers TO smartsea;
 
 
@@ -2400,6 +2457,16 @@ REVOKE ALL ON TABLE ops FROM PUBLIC;
 REVOKE ALL ON TABLE ops FROM ajolma;
 GRANT ALL ON TABLE ops TO ajolma;
 GRANT ALL ON TABLE ops TO smartsea;
+
+
+--
+-- Name: ops_id_seq; Type: ACL; Schema: tool; Owner: ajolma
+--
+
+REVOKE ALL ON SEQUENCE ops_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE ops_id_seq FROM ajolma;
+GRANT ALL ON SEQUENCE ops_id_seq TO ajolma;
+GRANT ALL ON SEQUENCE ops_id_seq TO smartsea;
 
 
 --
@@ -2459,7 +2526,6 @@ GRANT ALL ON SEQUENCE plan2use_id_seq TO smartsea;
 REVOKE ALL ON TABLE plans FROM PUBLIC;
 REVOKE ALL ON TABLE plans FROM ajolma;
 GRANT ALL ON TABLE plans TO ajolma;
-GRANT SELECT ON TABLE plans TO PUBLIC;
 GRANT ALL ON TABLE plans TO smartsea;
 
 
@@ -2480,8 +2546,17 @@ GRANT ALL ON SEQUENCE plans_id_seq TO smartsea;
 REVOKE ALL ON TABLE pressure_categories FROM PUBLIC;
 REVOKE ALL ON TABLE pressure_categories FROM ajolma;
 GRANT ALL ON TABLE pressure_categories TO ajolma;
-GRANT SELECT ON TABLE pressure_categories TO PUBLIC;
 GRANT ALL ON TABLE pressure_categories TO smartsea;
+
+
+--
+-- Name: pressures_id_seq; Type: ACL; Schema: tool; Owner: ajolma
+--
+
+REVOKE ALL ON SEQUENCE pressures_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE pressures_id_seq FROM ajolma;
+GRANT ALL ON SEQUENCE pressures_id_seq TO ajolma;
+GRANT ALL ON SEQUENCE pressures_id_seq TO smartsea;
 
 
 --
@@ -2502,6 +2577,16 @@ REVOKE ALL ON TABLE rule_classes FROM PUBLIC;
 REVOKE ALL ON TABLE rule_classes FROM ajolma;
 GRANT ALL ON TABLE rule_classes TO ajolma;
 GRANT ALL ON TABLE rule_classes TO smartsea;
+
+
+--
+-- Name: rule_classes_id_seq; Type: ACL; Schema: tool; Owner: ajolma
+--
+
+REVOKE ALL ON SEQUENCE rule_classes_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE rule_classes_id_seq FROM ajolma;
+GRANT ALL ON SEQUENCE rule_classes_id_seq TO ajolma;
+GRANT ALL ON SEQUENCE rule_classes_id_seq TO smartsea;
 
 
 --
@@ -2601,7 +2686,6 @@ GRANT ALL ON SEQUENCE use2activity_id_seq TO smartsea;
 REVOKE ALL ON TABLE use_classes FROM PUBLIC;
 REVOKE ALL ON TABLE use_classes FROM ajolma;
 GRANT ALL ON TABLE use_classes TO ajolma;
-GRANT SELECT ON TABLE use_classes TO PUBLIC;
 GRANT ALL ON TABLE use_classes TO smartsea;
 
 

@@ -533,6 +533,17 @@ MSP.prototype = {
         var ecosystem = {id:1, name:"Ecosystem", open:false, plan:1, layers:[]};
         $.each(self.plans, function(i, plan) {
             if (id == plan.id) self.plan = plan;
+        });
+        if (!self.plan) {
+            $.each(self.plans, function(i, plan) {
+                if (plan.id > 1) {
+                    self.plan = plan;
+                    return false;
+                }
+            });
+            if (!self.plan) self.plan = {id:2, name:"No plan", data:[], uses:[]};
+        }
+        $.each(self.plans, function(i, plan) {
             if (plan.id == 0) { // a pseudo plan Data
                 $.each(plan.uses[0].layers, function(i, dataset) {
                     if (self.plan.data[dataset.id])

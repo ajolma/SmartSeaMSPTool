@@ -118,42 +118,49 @@ sub legend {
     my $nc = $self->classes;
     
     unless (defined $nc) {
+        
+        # todo: standard scale
         $image->line($args->{symbology_width}+1, $half_font, $args->{symbology_width}+5, $half_font, $color);
         $image->stringFT(@string, $args->{font_size}, "$max$unit");
         my $y2 = $args->{height} - $half_font - 1;
         $image->line($args->{symbology_width}+1, $y2, $args->{symbology_width}+5, $y2, $color);
         $image->stringFT(@string, $args->{height}, "$min$unit");
+        
     } else {
-        my $step = int($nc/($symbology_height/($args->{font_size}+4))+0.5);
-        $step = 1 if $step < 1;
-        my $labels = $self->class_labels // '';
-        my @labels = split /\s*;\s*/, $labels;
-        my $c = $nc == 1 ? 0 : ($max - $min) / $nc;
-        my $current = 0;
-        my $last = 0;
-        for (my $class = 1; $class <= $nc; $class += $step) {
-            # class to y
-            my $y = $args->{height} - $half_font - int(($class-0.5)*$symbology_height/$nc);
-            my $label = $labels[$class-1];
-            if ($nc == 1) {
-                #$label = $d;
-            } elsif ($label) {
-                $label = encode utf8 => $label;
-            } elsif (defined $min) {
-                $current = $min + $c*$class;
-                if ($class == 1) {
-                    $label = sprintf("<=%.1f", $current) . $unit;
-                } elsif ($class+$step > $nc) {
-                    $label = sprintf("> %.1f", $last) . $unit;
-                } else {
-                    $label = sprintf("(%.1f,%.1f]", $last, $current) . $unit;
-                }
-                $last = $current;
-            } else {
-                $label = $class;
+        
+        # how many labels fit in max?
+        my $max_labels = int($symbology_height/($args->{font_size}+2));
+        
+        # classes per label
+        my $classes_per_label = int($nc/$max_labels);
+        $classes_per_label = 1 if $classes_per_label < 1;
+        
+        # first class to have a label
+        my $first_class_to_have_label = int($classes_per_label / 2);
+        $first_class_to_have_label = 1 if $first_class_to_have_label < 1;
+
+        # labels
+        my @labels;
+        if ($self->class_labels) {
+            my $labels = encode utf8 => $self->class_labels;
+            @labels = split /\s*;\s*/, $labels;
+        } else {
+            my $x = $min;
+            my $step = ($max - $min) / $nc;
+            $x += $step;
+            push @labels, sprintf("<= %.1f", $x) . $unit;
+            my $low = $min;
+            for my $class (2..$nc-1) {
+                push @labels, sprintf("(%.1f,%.1f]", $low, $x) . $unit;
+                $low = $x;
+                $x += $step;
             }
-            #$image->line($args->{symbology_width}+1, $y, $args->{symbology_width}+5, $y, $color);
-            $image->stringFT(@string, $y+$half_font, $label);
+            push @labels, sprintf("> %.1f", $x) . $unit;
+        }
+
+        for (my $class = $first_class_to_have_label; $class <= $nc; $class += $classes_per_label) {
+            my $y = $args->{height} - int(($class-0.5)*$symbology_height/$nc) - 1;
+            $image->stringFT(@string, $y, $labels[$class-1] // '');
         }
     }
     return $image;

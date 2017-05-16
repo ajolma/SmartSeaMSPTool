@@ -10,7 +10,7 @@ my @columns = (
     name => {data_type => 'text', html_size => 30}
     );
 
-__PACKAGE__->table('number_type');
+__PACKAGE__->table('number_types');
 __PACKAGE__->add_columns(@columns);
 __PACKAGE__->set_primary_key('id');
 

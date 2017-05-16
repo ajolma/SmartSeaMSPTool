@@ -10,7 +10,7 @@ use SmartSea::HTML qw(:all);
 my @columns = (
     id   =>  {},
     name =>  { data_type => 'text', html_size => 20 },
-    ordr =>  { data_type => 'text', html_size => 10 },
+    ordr =>  { data_type => 'text', html_size => 10, empty_is_default => 1 },
     );
 
 __PACKAGE__->table('activities');
@@ -36,7 +36,7 @@ sub children_listers {
                     $has{$obj->pressure_class->id} = 1;
                 }
                 my @objs;
-                for my $obj ($self->{schema}->resultset('PressureClass')->all) {
+                for my $obj ($self->{schema}->resultset('PressureClass')->search(undef, {order_by => 'ordr'})) {
                     next if $has{$obj->id};
                     push @objs, $obj;
                 }

@@ -76,13 +76,15 @@ sub drop_down {
     $visuals->{NULL} = '' if $arg{allow_null};
     if ($arg{objs}) {
         my %objs;
+        $values = [];
         for my $obj (@{$arg{objs}}) {
             my $id = blessed($obj) ? $obj->id : $obj->{id};
             my $name = blessed($obj) ? $obj->name : $obj->{name};
             $objs{$id} = $name;
             $visuals->{$id} = $name;
+            push @$values, $id;
         }
-        $values //= [sort {$objs{$a} cmp $objs{$b}} keys %objs];
+        #$values //= [sort {$objs{$a} cmp $objs{$b}} keys %objs];
         unshift @$values, 'NULL' if $arg{allow_null};
     }
     my @options;

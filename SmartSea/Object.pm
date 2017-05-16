@@ -701,8 +701,8 @@ sub form {
 
     my $parent = ($oids && $oids->has_prev) ? SmartSea::Object->new({oid => $oids->prev}, $self) : undef;
 
-    # is this ok?
-    return if $parent && !$parent->need_form_for_child($self);
+    # in some cases childs can be created without further input from the user
+    return if !$self->{object} && $parent && !$parent->need_form_for_child($self);
     say STDERR "form is needed" if $self->{debug};
 
     # TODO: child columns are now in parameters and may mix with parameters for self
@@ -718,6 +718,7 @@ sub form {
     my $col_data = $self->recursive_column_values_from_context($parent, $parameters);
     for my $col (keys %$col_data) {
         next unless defined $col_data->{$col};
+        say STDERR "known data: $col => $col_data->{$col}, $columns->{$col}{source}" if $self->{debug} > 1;
         my $val = $self->{schema}->
             resultset($columns->{$col}{source})->
             single({id => $col_data->{$col}})->name;
@@ -790,7 +791,7 @@ sub widgets {
     my @columns;
     if ($self->{class}->can('context_based_columns')) {
         my $who = $self->{object} // $self->{class};
-        my $parent_object = ($parent && $parent->{object}) ? $parent->object : undef;
+        my $parent_object = ($parent && $parent->{object}) ? $parent->{object} : undef;
         my $columns;
         ($columns, $columns_info) = $who->context_based_columns($parent_object);
         @columns = @$columns;
@@ -801,6 +802,9 @@ sub widgets {
     }
     for my $col (@columns) {
         next if $skip->{$col};
+        my $value = $values->{$col};
+        $value //= $self->{object}->$col if $self->{object};
+        say STDERR "widget: $col => ",(defined $value ? $value : 'undef') if $self->{debug} > 1;
         my $info = $columns_info->{$col};
         my $input;
         for my $info_text (qw/data_type html_input/) {
@@ -810,14 +814,14 @@ sub widgets {
             $input = text_input(
                 name => $col,
                 size => ($info->{html_size} // 10),
-                value => $values->{$col} // ''
+                value => $value // ''
             );
         } elsif ($info->{data_type} eq 'textarea') {
             $input = textarea(
                 name => $col,
                 rows => $info->{rows},
                 cols => $info->{cols},
-                value => $values->{$col} // ''
+                value => $value // ''
             );
         } elsif ($info->{is_foreign_key} && !$info->{is_composition}) {
             my $objs;
@@ -836,11 +840,11 @@ sub widgets {
                 $objs = [$schema->resultset($info->{source})->all];
             }
             my $id;
-            if ($values->{$col}) {
-                if (ref $values->{$col}) {
-                    $id = $values->{$col}->id;
+            if (defined $value) {
+                if (ref $value) {
+                    $id = $value->id;
                 } else {
-                    $id = $values->{$col};
+                    $id = $value;
                 }
             }
             $input = drop_down(
@@ -854,14 +858,14 @@ sub widgets {
             $input = checkbox(
                 name => $col,
                 visual => $info->{cue},
-                checked => $values->{$col}
+                checked => $value
             );
         } elsif ($info->{html_input} eq 'spinner') {
             $input = spinner(
                 name => $col,
                 min => $info->{min},
                 max => $info->{max},
-                value => $values->{$col} // 1
+                value => $value // 1
             );
         }
         if ($info->{is_composition}) {
@@ -871,7 +875,7 @@ sub widgets {
                 push @form, [ p => checkbox(
                                   name => $col.'_is',
                                   visual => "Define ".$info->{source},
-                                  checked => $values->{$col},
+                                  checked => $value,
                                   id => $cb )
                 ];
                 my $code =<< "END_CODE";
@@ -891,7 +895,8 @@ END_CODE
             } else {
                 push @form, hidden($col.'_is', 1);
             }
-            my $composed = SmartSea::Object->new({source => $info->{source}, object => $values->{$col}}, $self);
+            my $composed = SmartSea::Object->new({source => $info->{source}, object => $value}, $self);
+            say STDERR "composition object $composed->{object}" if $self->{debug};
             my @style = $composed->widgets(undef, $values);
             push @form, [fieldset => {id => $col}, [[legend => $composed->{source}], @style]];
         } else {
