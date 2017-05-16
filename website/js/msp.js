@@ -55,6 +55,7 @@ function MSPView(model, elements, id) {
     self.model = model;
     self.elements = elements;
     self.id = id;
+    self.draw = {key:null, draw:null, source:null};
     // elements are plans, layers, rule_info, rules, rule_dialog, site_type, site_info, ...
     // ids are rules, rule_dialog
 
@@ -256,8 +257,9 @@ MSPView.prototype = {
         var layer = this.model.layer;
         $("#l"+use.id+'_'+layer.id).css("background-color","yellow");
         var url = 'http://'+self.server+'/core/legend';
+        var cache_breaker = '&time='+new Date().getTime();
         this.elements.color_scale.html(
-            element('img',{src:url+'?layer='+plan.id+'_'+use.id+'_'+layer.id},'')
+            element('img',{src:url+'?layer='+plan.id+'_'+use.id+'_'+layer.id+cache_breaker},'')
         );
         if (use.id == 0) {
             this.elements.rule_header.html("Information about dataset:");
@@ -411,57 +413,28 @@ MSPView.prototype = {
     siteInteraction: function(source) {
         var self = this;
         var typeSelect = self.elements.site_type[0];
-        var draw = {};
+        $(typeSelect).val('');
+        self.elements.site_info.html('');
         function addInteraction() {
             var value = typeSelect.value;
+            self.model.removeInteraction(self.draw);
+            self.draw = {key:null, draw:null, source:null};
             if (value == 'Polygon') {
-                if (draw.key) {
-                    self.model.map.unByKey(draw.key);
-                    draw.key = null;
-                }
                 var geometryFunction, maxPoints;
-                draw.draw = new ol.interaction.Draw({
+                self.draw.draw = new ol.interaction.Draw({
                     source: source,
                     type: value,
                     geometryFunction: geometryFunction,
                     maxPoints: maxPoints
                 });
-                self.model.map.addInteraction(draw.draw);
-                draw.draw.on('drawstart', function() {
+                self.model.addInteraction(self.draw);
+                self.draw.draw.on('drawstart', function() {
                     source.clear();
                 });
             } else if (value == 'Point') {
-                if (draw.draw) {
-                    self.model.map.removeInteraction(draw.draw);
-                    draw.draw = null;
-                }
-                draw.key = self.model.map.on('click', function(evt) {
-                    var coordinates = evt.coordinate;
-                    var f = new ol.Feature({
-                        geometry: new ol.geom.Point(coordinates)
-                    });
-                    var iconStyle = new ol.style.Style({
-                        image: new ol.style.Icon({
-                            anchor: [16, 32],
-                            anchorXUnits: 'pixels',
-                            anchorYUnits: 'pixels',
-                            opacity: 1,
-                            src: 'Map-Marker-Marker-Outside-Pink-icon.png'
-                        })
-                    });
-                    f.setStyle(iconStyle);
-                    source.clear();
-                    source.addFeature(f);
-                });
+                self.draw.source = source;
+                self.draw.key = self.model.addInteraction(self.draw);
             } else {
-                if (draw.key) {
-                    self.model.map.unByKey(draw.key);
-                    draw.key = null;
-                }
-                if (draw.draw) {
-                    self.model.map.removeInteraction(draw.draw);
-                    draw.draw = null;
-                }
                 source.clear();
                 self.elements.site_info.html('');
             }
@@ -706,6 +679,7 @@ MSP.prototype = {
                 self.siteInformationReceived.notify(data);
             });
         });
+        if (self.site) self.map.removeLayer(self.site);
         self.site = new ol.layer.Vector({
             source: source,
             style: new ol.style.Style({
@@ -732,6 +706,33 @@ MSP.prototype = {
     },
     addSite: function() {
         if (this.site) this.map.addLayer(this.site);
+    },
+    removeInteraction: function(draw) {
+        if (draw.key) this.map.unByKey(draw.key);
+        if (draw.draw) this.map.removeInteraction(draw.draw);
+    },
+    addInteraction: function(draw) {
+        if (draw.draw) this.map.addInteraction(draw.draw);
+        if (draw.source) {
+            return this.map.on('click', function(evt) {
+                var coordinates = evt.coordinate;
+                var f = new ol.Feature({
+                    geometry: new ol.geom.Point(coordinates)
+                });
+                var iconStyle = new ol.style.Style({
+                    image: new ol.style.Icon({
+                        anchor: [16, 32],
+                        anchorXUnits: 'pixels',
+                        anchorYUnits: 'pixels',
+                        opacity: 1,
+                        src: 'img/Map-Marker-Marker-Outside-Pink-icon.png'
+                    })
+                });
+                f.setStyle(iconStyle);
+                draw.source.clear();
+                draw.source.addFeature(f);
+            });
+        }
     }
 };
 

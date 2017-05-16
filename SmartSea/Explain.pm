@@ -73,7 +73,14 @@ sub call {
         my $polygon = Geo::OGR::Geometry->new(WKT => $parameters->{wkt});
         $polygon->Transform($ct) if $ct;
         say STDERR "polygon = ",$polygon->As(Format => 'WKT') if $self->{debug};
-        $report = $self->make_polygon_report($polygon);
+        eval {
+            $report = $self->make_polygon_report($polygon);
+        };
+        if ($@) {
+            my @e = split /\n/, $@;
+            say STDERR $e[0];
+            $report = 'Bad request (probably self-intersecting polygon).';
+        }
 
     } elsif ($parameters->{easting} && $parameters->{northing}) {
 
