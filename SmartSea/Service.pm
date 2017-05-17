@@ -87,10 +87,7 @@ sub call {
         [li => a(link => 'impact_network', url  => $uri.'impact_network')],
         [li => a(link => 'pressure table', url  => $uri.'pressure_table')]
     );
-    @path = split /\//, $self->{uri};
-    pop @path;
-    pop @path;
-    my $header = a(link => 'Up', url  => join('/', @path));
+    my $header = a(link => 'Up', url => $self->{root_url});
     my $ul = [ul => \@l];
     my $schemas = $self->{table_postfix} // '';
     $schemas =~ s/^_//;

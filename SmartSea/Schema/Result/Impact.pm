@@ -83,7 +83,9 @@ our %pdf = (
 
 sub pdf {
     my ($self) = @_;
-    return $pdf{$self->get_column('strength')}{$self->get_column('belief')};
+    my $s = defined $self->strength ? $self->strength->value : 2;
+    my $b = defined $self->belief ? $self->belief->value : 2;
+    return $pdf{$s}{$b};
 }
 
 sub pdf_sum {

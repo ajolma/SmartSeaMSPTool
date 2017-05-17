@@ -21,6 +21,7 @@ sub order_by {
 sub name {
     my $self = shift;
     my $d = $self->d;
+    return 'local' if $d == 0;
     return '> 20 km' if $d eq 'Infinity';
     my $unit = 'm';
     if ($d >= 1000) {

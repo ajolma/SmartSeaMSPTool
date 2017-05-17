@@ -325,7 +325,8 @@ ALTER SEQUENCE activity2impact_type_id_seq OWNED BY pressures.id;
 
 CREATE TABLE beliefs (
     id integer NOT NULL,
-    description text
+    description text,
+    value integer DEFAULT 2 NOT NULL
 );
 
 
@@ -474,7 +475,8 @@ CREATE TABLE impact_strengths (
     recovery text,
     extent text,
     resilience text,
-    temporal_extent text
+    temporal_extent text,
+    value integer DEFAULT 2 NOT NULL
 );
 
 
@@ -522,20 +524,6 @@ CREATE TABLE impacts (
 
 
 ALTER TABLE impacts OWNER TO ajolma;
-
---
--- Name: COLUMN impacts.strength; Type: COMMENT; Schema: tool; Owner: ajolma
---
-
-COMMENT ON COLUMN impacts.strength IS '0 to 4';
-
-
---
--- Name: COLUMN impacts.belief; Type: COMMENT; Schema: tool; Owner: ajolma
---
-
-COMMENT ON COLUMN impacts.belief IS '1 to 3';
-
 
 --
 -- Name: pressure_classes; Type: TABLE; Schema: tool; Owner: ajolma
@@ -1482,6 +1470,14 @@ ALTER TABLE ONLY impact_strengths
 
 
 --
+-- Name: activities_name_key; Type: CONSTRAINT; Schema: tool; Owner: ajolma
+--
+
+ALTER TABLE ONLY activities
+    ADD CONSTRAINT activities_name_key UNIQUE (name);
+
+
+--
 -- Name: activities_pkey; Type: CONSTRAINT; Schema: tool; Owner: ajolma
 --
 
@@ -1511,6 +1507,14 @@ ALTER TABLE ONLY pressures
 
 ALTER TABLE ONLY beliefs
     ADD CONSTRAINT beliefs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: ecosystem_components_name_key; Type: CONSTRAINT; Schema: tool; Owner: ajolma
+--
+
+ALTER TABLE ONLY ecosystem_components
+    ADD CONSTRAINT ecosystem_components_name_key UNIQUE (name);
 
 
 --

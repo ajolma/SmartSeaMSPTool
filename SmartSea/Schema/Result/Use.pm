@@ -79,43 +79,58 @@ sub ecosystem_impacts {
     my %impacts;
     my %components;
     my %ranges;
+    # compute the sum of pdf's for all components and ranges
     for my $activity ($self->use_class->activities) {
         for my $pressure ($activity->pressures) {
             my $range = $pressure->range->d;
-            $ranges{$range} = $pressure->range->name;
+            $range = 1.0e10 if $range eq 'Infinity';
+            $ranges{$range} //= $pressure->range->name;
             for my $impact ($pressure->impacts) {
                 my $component = $impact->ecosystem_component;
                 my $name = $component->name;
                 $components{$name} //= $component;
-                unless (defined $impacts{$name}) {
-                    $impacts{$name}{$range} = $impact->pdf;
+                $impacts{$name}{$range} =
+                    defined $impacts{$name}{$range} ?
+                    $impact->pdf_sum($impacts{$name}{$range}) :
+                    $impact->pdf;
+            }
+        }
+    }
+    # compute the expected value for all components and ranges
+    # the expected value of smaller range is that of larger range if that has greater expected value
+    my $impact_class = 'SmartSea::Schema::Result::Impact';
+    my %expected_values;
+    for my $name (keys %components) {
+        my $expected_value;
+        for my $range (sort {$b <=> $a} keys %{$impacts{$name}}) {
+            my $e = $impact_class->expected_value($impacts{$name}{$range});
+            if (!defined($expected_value)) {
+                $expected_value = $e;
+            } else {
+                if ($expected_value < $e) {
+                    $expected_value = $e;
                 } else {
-                    # add to all impacts with smaller or equal range
-                    my %done;
-                    for my $d (sort {$a <=> $b} keys %{$impacts{$name}}) {
-                        $done{$d} = 1;
-                        unless (defined $impacts{$name}) {
-                            $impacts{$name}{$d} = $impact->pdf;
-                        } else {
-                            $impacts{$name}{$d} = $impact->pdf_sum($impacts{$name}{$d});
-                        }
-                        last if $d > $range;
-                    }
-                    $impacts{$name}{$range} = $impact->pdf unless $done{$range};
+                    $e = $expected_value;
                 }
             }
+            my $n = $name;
+            $n =~ s/ /_/g;
+            if ($n eq 'Coastal_fish') {
+                say STDERR "Fish: $range $e $expected_value";
+            }
+            $expected_values{$name}{$range} = $e;
         }
     }
     my @impacts;
     for my $name (sort keys %components) {
-        my $impacts = '';
-        for my $d (sort {$a <=> $b} keys %{$impacts{$name}}) {
-            my $e = 'SmartSea::Schema::Result::Impact'->expected_value($impacts{$name}{$d});
+        my @i;
+        for my $range (sort {$a <=> $b} keys %{$expected_values{$name}}) {
+            my $e = $expected_values{$name}{$range};
             $e = sprintf("%.2f", $e);
-            $impacts .= "$ranges{$d}: $e ";
+            push @i, "$ranges{$range}: $e";
         }
         # call below will not update db unless insert or update is called and it is not
-        $components{$name}->name($name." ".$impacts);
+        $components{$name}->name($name.": ".join(', ', @i));
         push @impacts, $components{$name};
     }
     return @impacts;

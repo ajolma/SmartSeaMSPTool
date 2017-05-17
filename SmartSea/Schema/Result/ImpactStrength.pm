@@ -8,6 +8,7 @@ use SmartSea::HTML qw(:all);
 
 my @columns = (
     id              => {},
+    value           => {data_type => 'text', html_size => 20},
     recovery        => {data_type => 'text', html_size => 30},
     extent          => {data_type => 'text', html_size => 30},
     resilience      => {data_type => 'text', html_size => 30},
@@ -18,13 +19,20 @@ __PACKAGE__->table('impact_strengths');
 __PACKAGE__->add_columns(@columns);
 __PACKAGE__->set_primary_key('id');
 
+my %translations = (
+    recovery => 'Palautuminen',
+    extent => 'Vaikutus',
+    resilience => 'Kyky sietää painetta',
+    temporal_extent => 'Ajallinen ulottuvuus'
+);
+
 sub name {
     my $self = shift;
-    return 
-        'Palautuminen = '.($self->recovery//'').' ja/tai '.
-        'Vaikutus ekosysteemiin = '.($self->extent//'').' ja/tai '.
-        'Kyky sietää painetta = '.($self->resilience//'').' ja/tai '.
-        'Ajallinen ulottuvuus = '.($self->temporal_extent//'');
+    my @name;
+    for my $a (qw/recovery extent resilience temporal_extent/) {
+        push @name, $translations{$a}.': '.$self->$a if $self->$a;
+    }
+    return join(', ', @name);
 }
 
 1;
