@@ -34,13 +34,14 @@ my $service = SmartSea::Service->new(
         debug => 0,
         edit => 1,
         sequences => 0,
-        no_js => 1
+        no_js => 1,
+        fake_admin => 1
     });
 my $app = $service->to_app;
 
-$schema->resultset('Plan')->new({id => 1, name => 'plan'})->insert;
+$schema->resultset('Plan')->new({id => 1, name => 'plan', owner => 'ajolma'})->insert;
 $schema->resultset('UseClass')->new({id => 1, name => 'use_class'})->insert;
-$schema->resultset('Use')->new({id => 1, plan => 1, use_class => 1})->insert;
+$schema->resultset('Use')->new({id => 1, plan => 1, use_class => 1, owner => 'ajolma'})->insert;
 $schema->resultset('LayerClass')->new({id => 1, name => 'Allocation'})->insert;
 $schema->resultset('LayerClass')->new({id => 2, name => 'Impact'})->insert;
 $schema->resultset('ColorScale')->new({id => 1, name => 'color scale'})->insert;
@@ -52,8 +53,11 @@ $schema->resultset('ImpactComputationMethod')->new({id => 1, name => 'method_1'}
 
 $schema->resultset('Dataset')->new({id => 1, name => 'dataset', path => "not real", style => 1})->insert;
 
-$schema->resultset('Layer')->new({id => 1, use => 1, layer_class => 1, style => 1, rule_system => 1})->insert;
-
+$schema->resultset('Layer')->new(
+    {
+        id => 1, use => 1, layer_class => 1, style => 1, rule_system => 1, owner => 'ajolma'
+    }
+    )->insert;
 
 test_psgi $app, sub {
     my $cb = shift;
@@ -64,7 +68,8 @@ test_psgi $app, sub {
         color_scale => 1,
         rule_class => 1,
         allocation => 1,
-        computation_method => 1
+        computation_method => 1,
+        owner => 'ajolma'
     ];
     my $res = $cb->(POST "/browser/plan:1/use:1/layer?save", $post);
     eval {
@@ -94,7 +99,7 @@ test_psgi $app, sub {
 
 {
     # read list
-    my $layer = SmartSea::Object->new({source => 'ImpactLayer'}, {schema => $schema});
+    my $layer = SmartSea::Object->new({source => 'ImpactLayer'}, {schema => $schema, user => 'guest'});
     my $dom = $parser->load_xml(string => SmartSea::HTML->new([xml => $layer->item])->html);
     my $expected = <<'END_XML';
 <?xml version="1.0"?>
@@ -115,7 +120,7 @@ END_XML
     is $n, 0, "Read ImpactLayer as a list";
 }
 
-my $layer = SmartSea::Object->new({source => 'Layer', id => 2}, {schema => $schema});
+my $layer = SmartSea::Object->new({source => 'Layer', id => 2}, {schema => $schema, user => 'guest', debug => 0});
 ok($layer->{source} eq 'ImpactLayer' && ref($layer->{object}) eq 'SmartSea::Schema::Result::ImpactLayer', 
    "Polymorphic new gives: $layer->{object}");
 
@@ -137,6 +142,7 @@ ok($schema->resultset('Layer')->single({id => 2})->descr eq $descr, "Set supercl
     <li>computation_method: method_1</li>
     <li>descr: this is description</li>
     <li>layer_class: Impact</li>
+    <li>owner: ajolma</li>
     <li>rule_system: rule class 0 rules for plan.use_class.Impact.</li>
     <li>style: color scale</li>
     <li>use: plan.use_class</li>

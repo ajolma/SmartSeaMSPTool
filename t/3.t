@@ -21,6 +21,8 @@ use_ok('SmartSea::Service');
 
 # create the test databases
 
+my $user = 'ajolma';
+
 my ($name,$path,$suffix) = fileparse($0, 'pl', 't');
 
 create_sqlite_schemas(read_postgresql_dump($path.'../schema.sql'));
@@ -39,7 +41,8 @@ my $service = SmartSea::Service->new(
         debug => 0,
         edit => 1,
         sequences => 0,
-        no_js => 1
+        no_js => 1,
+        fake_admin => 1
     });
 my $app = $service->to_app;
 
@@ -232,6 +235,9 @@ sub create_object {
         for my $key (keys %$attr) {
             $attr{$key} = $attr->{$key};
         }
+    }
+    if ($class eq 'plan' || $class eq 'use' || $class eq 'layer' || $class eq 'rule_system') {
+        $attr{owner} = $user;
     }
     my @attr = map {$_ => $attr{$_}} keys %attr;
     $url = "$url/$class?save";

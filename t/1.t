@@ -36,8 +36,8 @@ my $root = 'SmartSea::Schema::Result::';
 my $parameters = {request => '', add => ''};
 
 for my $class ($schema->sources) {
-    my $obj = SmartSea::Object->new({schema => $schema, url => '', source => $class, debug => 0});
-    my $result = $obj->item(SmartSea::OIDS->new);
+    my $obj = SmartSea::Object->new({source => $class}, {user => 'guest', schema => $schema, debug => 0});
+    my $result = $obj->item(SmartSea::OIDS->new, [], {url => ''});
     ok(ref $result eq 'ARRAY', "$class simple HTML list");
 }
 

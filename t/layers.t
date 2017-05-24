@@ -34,13 +34,14 @@ my $service = SmartSea::Service->new(
         debug => 0,
         edit => 1,
         sequences => 0,
-        no_js => 1
+        no_js => 1,
+        fake_admin => 1
     });
 my $app = $service->to_app;
 
-$schema->resultset('Plan')->new({id => 1, name => 'plan'})->insert;
+$schema->resultset('Plan')->new({id => 1, name => 'plan', owner => 'ajolma'})->insert;
 $schema->resultset('UseClass')->new({id => 1, name => 'use_class'})->insert;
-$schema->resultset('Use')->new({id => 1, plan => 1, use_class => 1})->insert;
+$schema->resultset('Use')->new({id => 1, plan => 1, use_class => 1, owner => 'ajolma'})->insert;
 $schema->resultset('LayerClass')->new({id => 1, name => 'Allocation'})->insert;
 $schema->resultset('LayerClass')->new({id => 2, name => 'Impact'})->insert;
 $schema->resultset('ColorScale')->new({id => 1, name => 'color scale'})->insert;
@@ -52,9 +53,9 @@ $schema->resultset('ImpactComputationMethod')->new({id => 1, name => 'method_1'}
 
 $schema->resultset('Dataset')->new({id => 1, name => 'dataset', path => "not real", style => 1})->insert;
 
-$schema->resultset('Layer')->new({id => 1, use => 1, layer_class => 1, style => 1, rule_system => 1})->insert;
+$schema->resultset('Layer')->new({id => 1, use => 1, layer_class => 1, style => 1, rule_system => 1, owner => 'ajolma'})->insert;
 
-$schema->resultset('Layer')->new({id => 2, use => 1, layer_class => 2, style => 1, rule_system => 1})->insert;
+$schema->resultset('Layer')->new({id => 2, use => 1, layer_class => 2, style => 1, rule_system => 1, owner => 'ajolma'})->insert;
 $schema->resultset('ImpactLayer')->new({super => 2, allocation => 1, computation_method => 1})->insert;
 
 for my $l ($schema->resultset('Layer')->all) {

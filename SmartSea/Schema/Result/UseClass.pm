@@ -38,7 +38,7 @@ sub children_listers {
                     $has{$obj->id} = 1;
                 }
                 my @objs;
-                for my $obj ($self->{schema}->resultset('Activity')->all) {
+                for my $obj ($self->{client}{schema}->resultset('Activity')->all) {
                     next if $has{$obj->id};
                     push @objs, $obj;
                 }

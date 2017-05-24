@@ -14,14 +14,8 @@ binmode STDERR, ":utf8";
 # in args give oid or object, or source and possibly id or search
 # polymorphic: returns the subclass object if this is one
 sub new {
-    my ($class, $args, $args2) = @_;
-    my $self = {class_name => $args->{class_name}};
-    for my $key (qw/schema edit debug sequences no_js/) {
-        $self->{$key} = $args->{$key} // $args2->{$key};
-    }
-    for my $key (qw/url dbname db_user db_passwd data_dir/) {
-        $self->{$key} = $args->{$key} // $args2->{$key} // '';
-    }
+    my ($class, $args, $client) = @_;
+    my $self = {class_name => $args->{class_name}, not_editable => $args->{not_editable}, client => $client};
     if ($args->{oid}) {
         my ($source, $id) = split /:/, $args->{oid};
         $args->{id} = $id if defined $id;
@@ -29,22 +23,21 @@ sub new {
     } elsif (defined $args->{object}) {
         $self->{object} = $args->{object};
         $self->{class} = ref $self->{object}; # class = result_source
-        # $self->{schema} = $self->{class}->schema;
         ($self->{source}) = $self->{class} =~ /(\w+)$/;
         $self->{class_name} //= $self->{source};
         # $self->{rs} = $self->{class}->resultset; # rs = resultset
-        $self->{rs} = $self->{schema}->resultset($self->{source});
+        $self->{rs} = $self->{client}{schema}->resultset($self->{source});
         return bless $self, $class;
     } elsif ($args->{source}) {
         $self->{source} = $args->{source};
     } 
     $self->{source} = table2source($self->{source});
-    say STDERR "new $self->{source} object, id=",(defined $args->{id} ? $args->{id} : 'undef') if $self->{debug};
+    say STDERR "new $self->{source} object, id=",($args->{id}//'undef') if $self->{client}{debug};
     $self->{class} = 'SmartSea::Schema::Result::'.$self->{source};
     eval {
-        $self->{rs} = $self->{schema}->resultset($self->{source});
+        $self->{rs} = $self->{client}{schema}->resultset($self->{source});
         if ($args->{search}) { # needed for getting a link object in some cases
-            if ($self->{debug}) {
+            if ($self->{client}{debug}) {
                 for my $key (sort keys %{$args->{search}}) {
                     say STDERR "search term $key => $args->{search}{$key}";
                 }
@@ -70,26 +63,26 @@ sub new {
             } elsif (@pk == 2) {
                 # special case for rules, which have pk = id,cookie
                 # 'find' of ResultSet for Rule is also replaced by 'my_find' to return default by default
-                @pk = ($args->{id}, $args->{cookie});
+                @pk = ($args->{id}, $client->{cookie});
             } else {
                 die "$self->{class}: more than two primary keys!";
             }
             $self->{object} = $self->{rs}->can('my_find') ? 
                 $self->{rs}->my_find(@pk) : $self->{rs}->find(@pk);
-            say STDERR "object: ",($self->{object} // 'undef') if $self->{debug} && $self->{debug} > 1;
+            say STDERR "object: ",($self->{object}//'undef') if $self->{client}{debug} > 1;
             
             # is this in fact a subclass object?
             if ($self->{object} && $self->{object}->can('subclass')) {
                 my $source = $self->{object}->subclass;
                 if ($source) {
-                    my $object = $self->{schema}->resultset($source)->single({super => $args->{id}});
+                    my $object = $self->{client}{schema}->resultset($source)->single({super => $args->{id}});
                     if ($object) {
                         # ok
                         $self->{source} = $source;
                         $self->{class} = 'SmartSea::Schema::Result::'.$self->{source};
-                        $self->{rs} = $self->{schema}->resultset($source);
+                        $self->{rs} = $self->{client}{schema}->resultset($source);
                         $self->{object} = $object;
-                        say STDERR $self->{object} if $self->{debug} && $self->{debug} > 1;
+                        say STDERR $self->{object} if $self->{client}{debug} > 1;
                     } else {
                         say STDERR "Error in db, missing subclass object for $self->{source}:$args->{id}";
                     }
@@ -103,6 +96,27 @@ sub new {
         return undef;
     }
     bless $self, $class;
+}
+
+sub can_edit {
+    my ($self) = @_;
+    return if $self->{client}{user} eq 'guest';
+    return if $self->{not_editable};
+    return 1 unless $self->{object};
+    if ($self->{rs}->result_source->has_column('owner')) {
+        my $owner = $self->recursive_column_value('owner');
+        say STDERR "owner = ",($owner//'undef'),", user = $self->{client}{user}" if $self->{client}{debug} > 1;
+        return $owner eq $self->{client}{user};
+    }
+    return 1 if $self->{client}{admin};
+    return;
+}
+
+sub can_add_child {
+    my ($self, $client, $lister) = @_;
+}
+
+sub can_edit_child {
 }
 
 sub next_id {
@@ -179,7 +193,7 @@ sub super {
     return unless $class && $self->{object};
     my $super = $self->{object}->super;
     return unless $super;
-    return SmartSea::Object->new({ object => $super }, $self) if $class;
+    return SmartSea::Object->new({ object => $super }, $self->{client}) if $class;
 }
 
 sub subclass {
@@ -276,21 +290,21 @@ sub simple_column_values {
 sub link {
     my ($self, $oids, $parameters) = @_;
       
-    my $parent = $oids->has_prev ? SmartSea::Object->new({oid => $oids->prev}, $self) : undef;
+    my $parent = $oids->has_prev ? SmartSea::Object->new({oid => $oids->prev}, $self->{client}) : undef;
     
     unless ($parent && $parent->{object}) {
         my $error = "Can't create link: parent missing.";
         croak $error;
     }
     
-    say STDERR "create a link from $parent->{source} to $self->{source}" if $self->{debug};
+    say STDERR "create a link from $parent->{source} to $self->{source}" if $self->{client}{debug};
         
     # the actual link object to create
-    $self = SmartSea::Object->new({source => $parent->source_of_link($parameters)}, $self);
+    $self = SmartSea::Object->new({source => $parent->source_of_link($parameters)}, $self->{client});
     my $col_data = $self->column_values_from_context($parent, $parameters);
-    if ($self->{debug} > 1) {
+    if ($self->{client}{debug} > 1) {
         for my $col (sort keys %$col_data) {
-            say STDERR "  $col => ",(defined $col_data->{$col} ? $col_data->{$col} : 'undef');
+            say STDERR "  $col => ",($col_data->{$col}//'undef');
         }
     }
     $self->{rs}->create($col_data);
@@ -307,9 +321,9 @@ sub update_or_create {
 
 sub create {
     my ($self, $oids, $parameters) = @_;
-    say STDERR "create a $self->{source}" if $self->{debug};
+    say STDERR "create a $self->{source}" if $self->{client}{debug};
 
-    my $parent = ($oids && $oids->has_prev) ? SmartSea::Object->new({oid => $oids->prev}, $self) : undef;
+    my $parent = ($oids && $oids->has_prev) ? SmartSea::Object->new({oid => $oids->prev}, $self->{client}) : undef;
     
     my $columns = $self->columns($parent);
     my $col_data = $self->column_values_from_context($parent, $parameters);
@@ -322,7 +336,7 @@ sub create {
             } else {
                 # create embedded child objects
                 # the child does not exist on its own nor can be used by other objects (composition)
-                my $child = SmartSea::Object->new({source => $columns->{$col}{source}}, $self);
+                my $child = SmartSea::Object->new({source => $columns->{$col}{source}}, $self->{client});
                 # TODO: child parameters should be prefixed with child name
                 $child->create($oids, $parameters);
                 $col_data->{$col} = $child->{object}->id;
@@ -339,21 +353,21 @@ sub create {
         my $error = $self->{class}->is_ok($col_data);
         croak $error if $error;
     }
-    $col_data->{id} = $self->next_id if !$self->{sequences} && $self->{rs}->result_source->has_column('id');
+    $col_data->{id} = $self->next_id if !$self->{client}{sequences} && $self->{rs}->result_source->has_column('id');
     for my $col (sort keys %$col_data) {
-        say STDERR "  $col => ",(defined $col_data->{$col} ? $col_data->{$col} : 'undef') if $self->{debug} > 1;
+        say STDERR "  $col => ",($col_data->{$col}//'undef') if $self->{client}{debug} > 1;
     }
     $self->{object} = $self->{rs}->create($col_data); # or add_to_x??
     my $id = $self->{object}->id;
     $id = $id->id if ref $id;
-    say STDERR "id of the new $self->{source} is ",$id if $self->{debug};
+    say STDERR "id of the new $self->{source} is ",$id if $self->{client}{debug};
     # add links to parents?
 
     # make subclass object?
     my $class = $self->subclass($parameters);
     if ($class) {
-        say STDERR "Create $class subclass object with id $id" if $self->{debug};
-        my $obj = SmartSea::Object->new({source => $class}, $self);
+        say STDERR "Create $class subclass object with id $id" if $self->{client}{debug};
+        my $obj = SmartSea::Object->new({source => $class}, $self->{client});
         $parameters->{super} = $id;
         $obj->create($oids, $parameters);
     }
@@ -362,10 +376,10 @@ sub create {
 sub update {
     my ($self, $oids, $parameters) = @_;
 
-    say STDERR "update $self->{source} ",$self->{object}->id if $self->{debug};
-    if ($self->{debug} && $self->{debug} > 1) {
+    say STDERR "update $self->{source} ",$self->{object}->id if $self->{client}{debug};
+    if ($self->{client}{debug} > 1) {
         for my $param (sort keys %$parameters) {
-            say STDERR "  param $param => ",(defined $parameters->{$param} ? $parameters->{$param} : 'undef');
+            say STDERR "  param $param => ",($parameters->{$param}//'undef');
         }
     }
     
@@ -378,17 +392,17 @@ sub update {
         next unless $columns->{$col}{is_composition};
         if ($columns->{$col}{required}) {
             my $child = $self->{object}->$col;
-            $child = SmartSea::Object->new({object => $child}, $self);
+            $child = SmartSea::Object->new({object => $child}, $self->{client});
             $child->update($oids, $parameters);
         } elsif ($parameters->{$col.'_is'}) {
             # TODO: child parameters should be prefixed with child name
             my $child = $self->{object}->$col;
             unless ($child) {
-                $child = SmartSea::Object->new({source => $columns->{$col}{source}}, $self);
+                $child = SmartSea::Object->new({source => $columns->{$col}{source}}, $self->{client});
                 $child->create($oids, $parameters);
                 $col_data->{$col} = $child->{object}->id;
             } else {
-                $child = SmartSea::Object->new({object => $child}, $self);
+                $child = SmartSea::Object->new({object => $child}, $self->{client});
                 $child->update($oids, $parameters);
             }
         } else {
@@ -414,9 +428,9 @@ sub update {
         croak $error if $error;
     }
 
-    if ($self->{debug} && $self->{debug} > 1) {
+    if ($self->{client}{debug} > 1) {
         for my $col (sort keys %$col_data) {
-            say STDERR "  $col => ",(defined $col_data->{$col} ? $col_data->{$col} : 'undef');
+            say STDERR "  $col => ",($col_data->{$col}//'undef');
         }
     }
     $self->{object}->update($col_data);
@@ -436,10 +450,10 @@ sub update {
 sub delete {
     my ($self, $oids, $parameters) = @_;
     
-    say STDERR "delete $self->{source}" if $self->{debug};
+    say STDERR "delete $self->{source}" if $self->{client}{debug};
 
     # is it actually a link that needs to be deleted?
-    my $parent = ($oids && $oids->has_prev) ? SmartSea::Object->new({oid => $oids->prev}, $self) : undef;
+    my $parent = ($oids && $oids->has_prev) ? SmartSea::Object->new({oid => $oids->prev}, $self->{client}) : undef;
     if ($parent) {
         # we need the object which links parent to self
         my $args = $parent->source_of_link($self->{source}, $parameters->{id});
@@ -451,9 +465,8 @@ sub delete {
                 say STDERR "Error: $@" if $@;
                 return "$@";
             }
-            delete $args->{self_ref};
-            $self = SmartSea::Object->new($args, $self);
-            say STDERR "actually, delete $self->{source}" if $self->{debug};
+            $self = SmartSea::Object->new($args, $self->{client});
+            say STDERR "actually, delete $self->{source}" if $self->{client}{debug};
         }
     }
     
@@ -476,8 +489,7 @@ sub delete {
 
     # delete children:
     for my $source (keys %delete) {
-        my %args = (source => $source, id => $delete{$source});
-        my $child = SmartSea::Object->new(\%args, $self);
+        my $child = SmartSea::Object->new({source => $source, id => $delete{$source}}, $self->{client});
         $child->delete;
     }
 
@@ -505,20 +517,21 @@ sub all {
 sub item {
     my ($self, $oids, $children, $opt) = @_;
     $opt //= {};
-    say STDERR "item for $self->{source}" if $self->{debug};
+    $opt->{url} //= '';
+    say STDERR "item for $self->{source}" if $self->{client}{debug};
 
-    my $parent = ($oids && $oids->has_prev) ? SmartSea::Object->new({oid => $oids->prev}, $self) : undef;
+    my $parent = ($oids && $oids->has_prev) ? SmartSea::Object->new({oid => $oids->prev}, $self->{client}) : undef;
 
-    $opt->{editable_children} = $self->{edit} unless defined $opt->{editable_children};
+    $opt->{editable_children} = $self->can_edit unless defined $opt->{editable_children};
 
     my $object = $self->{object};
     
     return $self->item_class($parent, $children, $opt) unless $object;
 
-    say STDERR "object ",$object->id if $self->{debug};
+    say STDERR "object ",$object->id if $self->{client}{debug};
 
     my $source = $self->superclass // $self->{source};
-    my $url = $self->{url}.'/'.source2table($source);
+    my $url = $opt->{url}.'/'.source2table($source);
 
     my @content;
     if ($opt->{composed}) {
@@ -527,7 +540,7 @@ sub item {
     } else {
         @content = a(link => "Show all ".plural($self->{class_name}), url => plural($url));
         $url .= ':'.$object->id;
-        push @content, [1 => ' '], a(link => 'edit this one', url => $url.'?edit') if $self->{edit};
+        push @content, [1 => ' '], a(link => 'edit this one', url => $url.'?edit') if $self->can_edit;
     }
     
     my @li = ([li => "id: ".$object->id], [li => "name: ".encode_entities_numeric($object->name)]);
@@ -540,7 +553,7 @@ sub item {
     push @li, $self->composed_object_items($parent, $oids, $children, $opt);
     
     if ($object->can('info')) {
-        my $info = $object->info($self);
+        my $info = $object->info($self->{client});
         push @li, [li => $info] if $info;
     }
     
@@ -559,7 +572,7 @@ sub composed_object_items {
         next unless $columns->{$col}{is_composition};
         my $composed = $self->{object}->$col;
         next unless $composed;
-        my $obj = SmartSea::Object->new({object => $composed}, $self);
+        my $obj = SmartSea::Object->new({object => $composed}, $self->{client});
         my %opt = %$opt;
         $opt{composed} = 1;
         push @items, [li => $obj->item($oids, $children, \%opt)];
@@ -580,38 +593,38 @@ sub children_items {
     for my $lister (sort keys %$children_listers) {
         my $args = $children_listers->{$lister};
         my %args = %$args;
-        my $editable_children = $self->{edit};
+        my $editable_children = $self->can_edit;
         $editable_children = 0 if exists $args{editable_children} && $args{editable_children} == 0;
-        say STDERR "$lister, children: source = $args{source}, child oid = ",($next // 'undef') if $self->{debug};
-        $args{url} = $url;
+        $args{not_editable} = 1 unless $editable_children;
+        say STDERR "$lister, child: source = $args{source}, oid = ",($next//'undef') if $self->{client}{debug};
         if (defined $next) {
             my ($table, $id) = split /:/, $next;
             if (table2source($table) eq $args{source}) {
                 $args{id} = $id;
             }
         }
-        my $child = SmartSea::Object->new(\%args, $self);
+        my $child = SmartSea::Object->new(\%args, $self->{client});
         my $children = [$self->{object}->$lister];
         next if @$children == 1 && !$children->[0];
         my $child_is_open = 0;
         if ($child->{object}) {
-            say STDERR scalar(@$children)," children" if $self->{debug};
+            say STDERR scalar(@$children)," children" if $self->{client}{debug};
             for my $has_child (@$children) {
-                say STDERR "has child: ",$has_child->id if $self->{debug} > 1;
+                say STDERR "has child: ",$has_child->id if $self->{client}{debug} > 1;
                 if ($has_child->id == $child->{object}->id) {
                     $child_is_open = 1;
                     last;
                 }
             }
         }
-        say STDERR "child is open? $child_is_open" if $self->{debug};
+        say STDERR "child is open? $child_is_open" if $self->{client}{debug};
         if ($child_is_open) {
-            $child->{edit} = 0 unless $editable_children;
-            push @items, [li => $child->item($oids->with_index('next'), [], {})];
+            push @items, [li => $child->item($oids->with_index('next'), [], {url => $url})];
         } else {
             delete $child->{object};
             my $for_add = $args->{for_child_form}->($self, $children) if $args->{for_child_form};
             my %opt = (
+                url => $url,
                 for_add => $for_add,
                 editable_children => $editable_children,
                 cannot_add_remove_children => $args->{cannot_add_remove_children},
@@ -628,7 +641,7 @@ sub children_items {
 sub item_class {
     my ($self, $parent, $children, $opt) = @_;
     $children = $self->all() unless $children;
-    my $url = $self->{url}.'/'.source2table($self->{source});
+    my $url = $opt->{url}.'/'.source2table($self->{source});
         
     my @li;
     for my $obj (@$children) {
@@ -636,7 +649,7 @@ sub item_class {
         if ($opt->{editable_children}) {
             push @content, [1 => ' '], a(link => 'edit', url => $url.':'.$obj->id.'?edit');
         }
-        if ($self->{edit} && !$opt->{cannot_add_remove_children}) {
+        if ($self->can_edit && !$opt->{cannot_add_remove_children}) {
             my $source = $obj->result_source->source_name;
             my $name = '"'.$obj->name.'"';
             $name =~ s/'//g;
@@ -646,7 +659,7 @@ sub item_class {
                 "return confirm('Are you sure you want to delete the $source $name?')";
             my $value = $parent ? 'Remove' : 'Delete';
             my %attr = (name => $obj->id, value => $value);
-            $attr{onclick} = $onclick unless $self->{no_js};
+            $attr{onclick} = $onclick unless $self->{client}{no_js};
             push @content, [1 => ' '], button(%attr); # to do: remove or delete?
         }
         if ($self->{source} eq 'Dataset') {
@@ -656,10 +669,11 @@ sub item_class {
                 my @parts = $obj->$lister;
                 if (@parts) {
                     my %args = %{$children_listers->{$lister}};
-                    $args{edit} = 0;
-                    my $p = SmartSea::Object->new(\%args, $self);
+                    $args{not_editable} = 1;
+                    my $p = SmartSea::Object->new(\%args, $self->{client});
+                    my %opt = (editable_children => $opt->{editable_children}, url => $url);
                     push @p, [
-                        li => $p->item_class($self, \@parts, {editable_children => $opt->{editable_children}})
+                        li => $p->item_class($self, \@parts, \%opt)
                     ];
                 }
             }
@@ -669,7 +683,7 @@ sub item_class {
         }
         push @li, [li => @content];
     }
-    if ($self->{edit} && !$opt->{cannot_add_remove_children}) {
+    if ($self->can_edit && !$opt->{cannot_add_remove_children}) {
         my $can_add = 1;
         my $extra = 0;
         if ($opt && defined $opt->{for_add}) {
@@ -687,7 +701,7 @@ sub item_class {
         }
     }
     my $ul;
-    if ($self->{edit}) {
+    if ($self->can_edit) {
         $ul = [form => {action => $url, method => 'POST'}, [ul => \@li]];
     } else {
         $ul = [ul => \@li];
@@ -697,13 +711,13 @@ sub item_class {
 
 sub form {
     my ($self, $oids, $parameters) = @_;
-    say STDERR "form for $self->{source}" if $self->{debug};
+    say STDERR "form for $self->{source}" if $self->{client}{debug};
 
-    my $parent = ($oids && $oids->has_prev) ? SmartSea::Object->new({oid => $oids->prev}, $self) : undef;
+    my $parent = ($oids && $oids->has_prev) ? SmartSea::Object->new({oid => $oids->prev}, $self->{client}) : undef;
 
     # in some cases childs can be created without further input from the user
     return if !$self->{object} && $parent && !$parent->need_form_for_child($self);
-    say STDERR "form is needed" if $self->{debug};
+    say STDERR "form is needed" if $self->{client}{debug};
 
     # TODO: child columns are now in parameters and may mix with parameters for self
 
@@ -718,8 +732,8 @@ sub form {
     my $col_data = $self->recursive_column_values_from_context($parent, $parameters);
     for my $col (keys %$col_data) {
         next unless defined $col_data->{$col};
-        say STDERR "known data: $col => $col_data->{$col}, $columns->{$col}{source}" if $self->{debug} > 1;
-        my $val = $self->{schema}->
+        say STDERR "known data: $col => $col_data->{$col}, $columns->{$col}{source}" if $self->{client}{debug} > 1;
+        my $val = $self->{client}{schema}->
             resultset($columns->{$col}{source})->
             single({id => $col_data->{$col}})->name;
         push @widgets, [p => [1 => "$col: $val"]];
@@ -751,12 +765,12 @@ sub form {
         # create
         my %from_upstream; # simple data from parent/upstream objects
         for my $id (0..$oids->count-2) {
-            my $obj = SmartSea::Object->new({oid => $oids->at($id)}, $self);
+            my $obj = SmartSea::Object->new({oid => $oids->at($id)}, $self->{client});
             for my $key (keys %$columns) {
                 next if $key eq 'id';
                 next if defined $col_data->{$key};
                 next unless $obj->{object}->result_source->has_column($key);
-                say STDERR "getting $key from upstream" if $self->{debug};
+                say STDERR "getting $key from upstream" if $self->{client}{debug};
                 $from_upstream{$key} = $obj->{object}->$key;
             }
         }
@@ -764,7 +778,7 @@ sub form {
         for my $key (keys %$columns) {
             next if defined $parameters->{$key};
             next unless defined $from_upstream{$key};
-            say STDERR "$key => $from_upstream{$key} is from upstream" if $self->{debug};
+            say STDERR "$key => $from_upstream{$key} is from upstream" if $self->{client}{debug};
             $has_upstream = 1;
             $parameters->{$key} = $from_upstream{$key};
         }
@@ -784,7 +798,6 @@ sub form {
 
 sub widgets {
     my ($self, $parent, $values, $skip) = @_;
-    my $schema = $self->{schema};
     my @fcts;
     my @form;
     my $columns_info;
@@ -804,7 +817,7 @@ sub widgets {
         next if $skip->{$col};
         my $value = $values->{$col};
         $value //= $self->{object}->$col if $self->{object};
-        say STDERR "widget: $col => ",(defined $value ? $value : 'undef') if $self->{debug} > 1;
+        say STDERR "widget: $col => ",($value//'undef') if $self->{client}{debug} > 1;
         my $info = $columns_info->{$col};
         my $input;
         for my $info_text (qw/data_type html_input/) {
@@ -829,15 +842,15 @@ sub widgets {
                 $objs = $info->{objs};
             } elsif (ref $info->{objs} eq 'CODE') {
                 $objs = [];
-                for my $obj ($schema->resultset($info->{source})->all) {
+                for my $obj ($self->{client}{schema}->resultset($info->{source})->all) {
                     if ($info->{objs}->($obj)) {
                         push @$objs, $obj;
                     }
                 }
             } elsif ($info->{objs}) {
-                $objs = [$schema->resultset($info->{source})->search($info->{objs})];
+                $objs = [$self->{client}{schema}->resultset($info->{source})->search($info->{objs})];
             } else {
-                $objs = [$schema->resultset($info->{source})->all];
+                $objs = [$self->{client}{schema}->resultset($info->{source})->all];
             }
             my $id;
             if (defined $value) {
@@ -895,8 +908,8 @@ END_CODE
             } else {
                 push @form, hidden($col.'_is', 1);
             }
-            my $composed = SmartSea::Object->new({source => $info->{source}, object => $value}, $self);
-            say STDERR "composition object $composed->{object}" if $self->{debug};
+            my $composed = SmartSea::Object->new({source => $info->{source}, object => $value}, $self->{client});
+            say STDERR "composition object $composed->{object}" if $self->{client}{debug};
             my @style = $composed->widgets(undef, $values);
             push @form, [fieldset => {id => $col}, [[legend => $composed->{source}], @style]];
         } else {

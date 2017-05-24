@@ -8,7 +8,8 @@ use SmartSea::HTML qw(:all);
 my @columns = (
     id        => {},
     plan      => {is_foreign_key => 1, source => 'Plan', parent => 1 }, 
-    use_class => {is_foreign_key => 1, source => 'UseClass' }
+    use_class => {is_foreign_key => 1, source => 'UseClass' },
+    owner     => {}
     );
 
 __PACKAGE__->table('uses');
@@ -42,7 +43,7 @@ sub children_listers {
                     $has{$obj->layer_class->id} = 1;
                 }
                 my @objs;
-                for my $obj ($self->{schema}->resultset('LayerClass')->all) {
+                for my $obj ($self->{client}{schema}->resultset('LayerClass')->all) {
                     next if $has{$obj->id};
                     push @objs, $obj;
                 }

@@ -610,7 +610,8 @@ CREATE TABLE layers (
     id integer NOT NULL,
     descr text,
     style integer NOT NULL,
-    rule_system integer NOT NULL
+    rule_system integer NOT NULL,
+    owner text
 );
 
 
@@ -779,7 +780,8 @@ ALTER SEQUENCE plan2use2layer_id_seq OWNED BY layers.id;
 CREATE TABLE uses (
     id integer NOT NULL,
     plan integer NOT NULL,
-    use_class integer NOT NULL
+    use_class integer NOT NULL,
+    owner text
 );
 
 
@@ -813,7 +815,8 @@ ALTER SEQUENCE plan2use_id_seq OWNED BY uses.id;
 CREATE TABLE plans (
     id integer NOT NULL,
     name text NOT NULL,
-    schema text
+    schema text,
+    owner text
 );
 
 

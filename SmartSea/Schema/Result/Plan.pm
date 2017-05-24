@@ -8,8 +8,9 @@ use SmartSea::Core qw(:all);
 use SmartSea::HTML qw(:all);
 
 my @columns = (
-    id   => {},
-    name => {data_type => 'text', html_size => 30}
+    id    => {},
+    name  => {data_type => 'text', html_size => 30},
+    owner => {}
     );
 
 __PACKAGE__->table('plans');
@@ -36,7 +37,7 @@ sub children_listers {
                     $has{$obj->use_class->id} = 1;
                 }
                 my @objs;
-                for my $obj ($self->{schema}->resultset('UseClass')->all) {
+                for my $obj ($self->{client}{schema}->resultset('UseClass')->all) {
                     next if $has{$obj->id};
                     push @objs, $obj;
                 }
@@ -58,7 +59,7 @@ sub children_listers {
                     $has->{$obj->id} = 1;
                 }
                 my @objs;
-                for my $obj ($self->{schema}->resultset('Dataset')->search({path => { '!=', undef }})) {
+                for my $obj ($self->{client}{schema}->resultset('Dataset')->search({path => { '!=', undef }})) {
                     next if $has->{$obj->id};
                     push @objs, $obj;
                 }
@@ -78,11 +79,11 @@ sub datasets {
     my ($self, $args) = @_;
     my %datasets;
     for my $use_class ($self->use_classes) {
-        my $use = $args->{schema}->
+        my $use = $args->{client}{schema}->
             resultset('Use')->
             single({plan => $self->id, use_class => $use_class->id});
         for my $layer_class ($use->layer_classes) {
-            my $layer = $args->{schema}->
+            my $layer = $args->{client}{schema}->
                 resultset('Layer')->
                 single({use => $use->id, layer_class => $layer_class->id});
             for my $rule ($layer->rules({cookie => DEFAULT})) {

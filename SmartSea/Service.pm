@@ -48,7 +48,8 @@ sub call {
     return $ret if $ret;
     my $request = Plack::Request->new($env);
     $self->{user} = $env->{REMOTE_USER} // 'guest';
-    $self->{edit} = 1 if $self->{user} ne 'guest';
+    $self->{user} = 'ajolma' if $self->{fake_admin};
+    $self->{admin} = $self->{user} eq 'ajolma';
     $self->{cookie} = $request->cookies->{SmartSea} // DEFAULT;
     $self->{parameters} = $request->parameters;
     $self->{uri} = $env->{REQUEST_URI};
@@ -272,7 +273,7 @@ sub object_editor {
         
     } elsif ($parameters{request} eq 'update') {
         return http_status($header, 403) if $self->{cookie} eq DEFAULT; # forbidden
-        my $obj = SmartSea::Object->new({oid => $oids->first, url => $self->{base_uri}}, $self);
+        my $obj = SmartSea::Object->new({oid => $oids->first}, $self);
         return http_status($header, 400) unless $obj->{object} && $obj->{source} eq 'Rule'; # bad request
 
         my $cols = $obj->{object}->values;
@@ -290,11 +291,11 @@ sub object_editor {
 
     }
 
-    return return http_status($header, 403) unless $self->{edit};
+    return return http_status($header, 403) if $self->{user} eq 'guest';
 
     my ($source, $id) = split /:/, $oids->last;
     $id //= $parameters{id};
-    my $obj = SmartSea::Object->new({source => $source, id => $id, url => $self->{base_uri}}, $self);
+    my $obj = SmartSea::Object->new({source => $source, id => $id}, $self);
     return http_status($header, 400) unless $obj;
 
     $url = $self->{uri};
@@ -337,9 +338,9 @@ sub object_editor {
 
 sub read_object {
     my ($self, $oids, $body) = @_;
-    my $obj = SmartSea::Object->new({oid => $oids->first, url => $self->{base_uri}}, $self);
+    my $obj = SmartSea::Object->new({oid => $oids->first}, $self);
     if ($obj) {
-        push @$body, [ul => [li => $obj->item($oids->with_index(0))]];
+        push @$body, [ul => [li => $obj->item($oids->with_index(0), [], {url => $self->{base_uri}})]];
     } else {
         push @$body, [p => {style => 'color:red'}, $@];
     }
@@ -370,7 +371,7 @@ sub pressure_table {
     my $body = $self->{schema}->resultset('Pressure')->table(
         $self->{schema},
         $self->{parameters},
-        $self->{edit},
+        $self->{user} ne 'guest',
         $self->{uri}
         );
     return html200({}, SmartSea::HTML->new(html => [body => $body])->html);

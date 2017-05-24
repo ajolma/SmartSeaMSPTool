@@ -36,7 +36,7 @@ sub children_listers {
                     $has{$obj->pressure_class->id} = 1;
                 }
                 my @objs;
-                for my $obj ($self->{schema}->resultset('PressureClass')->search(undef, {order_by => 'ordr'})) {
+                for my $obj ($self->{client}{schema}->resultset('PressureClass')->search(undef, {order_by => 'ordr'})) {
                     next if $has{$obj->id};
                     push @objs, $obj;
                 }
