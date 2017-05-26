@@ -182,6 +182,9 @@ MSPView.prototype = {
     buildLayers: function() {
         var self = this;
         self.elements.layers.html('');
+        if (self.model.auth) {
+            self.elements.layers.append(element('button', {class:"visible", type:'button'}, 'Add use'));
+        }
         // all uses with controls: on/off, select/unselect, transparency
         // end to beginning to maintain overlay order
         $.each(self.model.plan.uses.reverse(), function(i, use) {
@@ -256,7 +259,7 @@ MSPView.prototype = {
         var use = this.model.use;
         var layer = this.model.layer;
         $("#l"+use.id+'_'+layer.id).css("background-color","yellow");
-        var url = 'http://'+self.server+'/core/legend';
+        var url = 'http://'+self.server+'/legend';
         var cache_breaker = '&time='+new Date().getTime();
         this.elements.color_scale.html(
             element('img',{src:url+'?layer='+plan.id+'_'+use.id+'_'+layer.id+cache_breaker},'')
@@ -447,6 +450,7 @@ MSPView.prototype = {
 function MSP(args) {
     this.server = args.server;
     this.firstPlan = args.firstPlan;
+    this.auth = args.auth;
     this.proj = null;
     this.map = null;
     this.site = null; // layer showing selected location or area
@@ -473,7 +477,7 @@ MSP.prototype = {
         self.removeSite();
         // the planning system is a tree: root->plans->uses->layers->rules
         $.ajax({
-            url: 'http://'+self.server+'/core/plans',
+            url: 'http://'+self.server+'/plans',
             xhrFields: {
                 withCredentials: true
             }
@@ -636,7 +640,7 @@ MSP.prototype = {
                 withCredentials: true
             }
         });
-        $.post( 'http://'+self.server+'/core/browser/rule:'+self.ruleInEdit.id+'?update',
+        $.post( 'http://'+self.server+'/browser/rule:'+self.ruleInEdit.id+'?update',
                 { value: value }, 
                 function(data) {
                     self.ruleInEdit.value = data.object.value;

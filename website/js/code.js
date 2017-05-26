@@ -28,7 +28,7 @@ DAMAGE.
 
 (function() {
     $('body').addClass('stop-scrolling');
-    var model = new MSP({server:server, firstPlan:14});
+    var model = new MSP({server:server, firstPlan:14, auth:config.auth});
     var view = new MSPView(model, {
         map: $("#map"),
         plans: $("#plans"),
