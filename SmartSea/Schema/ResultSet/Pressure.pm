@@ -41,7 +41,7 @@ sub table {
     my %attrs;
     my %ranges;
     for my $ap ($self->all) {
-        $ranges{$ap->pressure_class->name}{$ap->activity->name} = $ap->range;
+        $ranges{$ap->pressure_class->name}{$ap->activity->name} = $ap->range->d;
         my $key = 'range_'.$ap->pressure_class->id.'_'.$ap->activity->id;
         $attrs{$key} = $ap->range;
         $id{pressure}{$ap->pressure_class->name}{$ap->activity->name} = $ap->id;
@@ -53,9 +53,11 @@ sub table {
         my $a = $ap->activity;
         my $e = $impact->ecosystem_component;
         my $name = $p->name.'+'.$a->name.' -> '.$e->name;
-        $impacts{$p->name}{$a->name}{$e->name} = [$impact->strength,$impact->belief];
+        my $strength = $impact->strength ? $impact->strength->value : 'undef';
+        my $belief = $impact->belief ? $impact->belief->value : 'undef';
+        $impacts{$p->name}{$a->name}{$e->name} = [$strength,$belief];
         my $key = 'strength_'.$ap->id.'_'.$e->id;
-        $attrs{$key} = $impact->strength;
+        $attrs{$key} = $strength;
         $name{$key} = $name;
         $key = 'belief_'.$ap->id.'_'.$e->id;
         $attrs{$key} = $impact->belief;
@@ -120,14 +122,16 @@ sub table {
         }
 
         for my $ap ($self->all) {
-            $ranges{$ap->pressure_class->name}{$ap->activity->name} = $ap->range;
+            $ranges{$ap->pressure_class->name}{$ap->activity->name} = $ap->range->d;
         }
         for my $impact ($schema->resultset('Impact')->all) {
             my $ap = $impact->pressure;
             my $p = $ap->pressure_class;
             my $a = $ap->activity;
             my $e = $impact->ecosystem_component;
-            $impacts{$p->name}{$a->name}{$e->name} = [$impact->strength,$impact->belief];
+            my $strength = $impact->strength ? $impact->strength->value : 'undef';
+            my $belief = $impact->belief ? $impact->belief->value : 'undef';
+            $impacts{$p->name}{$a->name}{$e->name} = [$strength,$belief];
         }
     }
     

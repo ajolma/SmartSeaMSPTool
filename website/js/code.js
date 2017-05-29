@@ -31,19 +31,19 @@ DAMAGE.
     var model = new MSP({server:server, firstPlan:14, auth:config.auth});
     var view = new MSPView(model, {
         map: $("#map"),
+        user: $("#user"),
+        plan: $("#plan"),
         plans: $("#plans"),
         layers: $("#layers"),
         rule_header: $("#rule-header"),
         rule_info: $("#rule-info"),
         rules: $("#rules"),
-        rule_dialog: $("#rule-dialog"),
         site: $('#explain-site'),
         site_type: $('#site-type'),
         site_info: $('#site-info'),
         color_scale: $('#color-scale')
     }, {
-        rules: "#rules",
-        rule_dialog: "#rule-dialog"
+        rules: "#rules"
     });
     var controller = new MSPController(model, view);
 

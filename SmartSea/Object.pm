@@ -104,8 +104,8 @@ sub can_edit {
     return if $self->{not_editable};
     return 1 unless $self->{object};
     if ($self->{rs}->result_source->has_column('owner')) {
-        my $owner = $self->recursive_column_value('owner');
-        say STDERR "owner = ",($owner//'undef'),", user = $self->{client}{user}" if $self->{client}{debug} > 1;
+        my $owner = $self->recursive_column_value('owner') // '';
+        #say STDERR "owner = ",($owner//'undef'),", user = $self->{client}{user}" if $self->{client}{debug} > 1;
         return $owner eq $self->{client}{user};
     }
     return 1 if $self->{client}{admin};
@@ -284,6 +284,16 @@ sub simple_column_values {
     # subclass columns have preference
     %values = (%{$super->simple_column_values($parent)}, %values) if $super;
     return \%values;
+}
+
+sub tree {
+    my $self = shift;
+    if ($self->{class}->can('tree')) {
+        return $self->{object}->tree if $self->{object};
+        return $self->{rs}->tree;
+    } else {
+        return {error => 'tree not implemented'};
+    }
 }
 
 # link an object to an object
@@ -500,6 +510,7 @@ sub delete {
 
 sub all {
     my ($self) = @_;
+    say STDERR "all for $self->{source}" if $self->{client}{debug};
     return [$self->{rs}->list] if $self->{rs}->can('list');
     # todo: use self->rs and methods in it below
     my $col;
@@ -526,7 +537,7 @@ sub item {
 
     my $object = $self->{object};
     
-    return $self->item_class($parent, $children, $opt) unless $object;
+    return $self->item_class($parent, $self->all, $opt) unless $object;
 
     say STDERR "object ",$object->id if $self->{client}{debug};
 
@@ -640,7 +651,6 @@ sub children_items {
 
 sub item_class {
     my ($self, $parent, $children, $opt) = @_;
-    $children = $self->all() unless $children;
     my $url = $opt->{url}.'/'.source2table($self->{source});
         
     my @li;

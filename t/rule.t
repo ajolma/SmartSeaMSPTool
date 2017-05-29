@@ -14,7 +14,8 @@ use Test::Helper;
 
 use_ok('SmartSea::Schema');
 use_ok('SmartSea::Object');
-use_ok('SmartSea::Service');
+use_ok('SmartSea::Plans');
+use_ok('SmartSea::Browser');
 
 my ($name,$path,$suffix) = fileparse($0, 'pl', 't');
 
@@ -26,7 +27,8 @@ my $schema = SmartSea::Schema->connect('dbi:SQLite:tool.db', undef, undef, $opti
 my $parser = XML::LibXML->new(no_blanks => 1);
 my $pp = XML::LibXML::PrettyPrint->new(indent_string => "  ");
 
-my $service = SmartSea::Service->new(
+my $app = builder {
+    mount "/plans" => SmartSea::Plans->new(
     {
         schema => $schema,
         data_dir => '',
@@ -35,8 +37,18 @@ my $service = SmartSea::Service->new(
         edit => 1,
         sequences => 0,
         no_js => 1
-    });
-my $app = $service->to_app;
+    })->to_app;
+    mount "/browser" => SmartSea::Browser->new(
+    {
+        schema => $schema,
+        data_dir => '',
+        images => '',
+        debug => 0,
+        edit => 1,
+        sequences => 0,
+        no_js => 1
+    })->to_app;
+};
 
 $schema->resultset('RuleClass')->new({id => 1, name => 'test'})->insert;
 $schema->resultset('RuleSystem')->new({id => 1, rule_class => 1})->insert;
@@ -48,6 +60,7 @@ test_psgi $app, sub {
     my $cb = shift;
     my $res = $cb->(POST "$host/browser/rule:1?update", [ value => 2.5 ] );
     ok($res->content eq 'Forbidden', "Forbidden to update without cookie.");
+    
     $res = $cb->(GET "$host/plans");
 
     my $jar = HTTP::Cookies->new;

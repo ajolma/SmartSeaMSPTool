@@ -32,6 +32,10 @@ function MSPController(model, view) {
     var self = this;
     self.model = model;
     self.view = view;
+    self.editor_id = "#editor";
+    self.editor = $(self.editor_id);
+    self.rule_tool_id = "#rule-tool";
+    self.rule_tool = $(self.rule_tool_id);
 
     self.view.planSelected.attach(function(sender, args) {
         self.changePlan(args.id);
@@ -39,14 +43,270 @@ function MSPController(model, view) {
     self.view.newLayerOrder.attach(function(sender, args) {
         self.model.setLayerOrder(args.order);
     });
-    self.view.ruleEdited.attach(function(sender, args) {
-        self.model.applyToRuleInEdit(args.value);
+    self.view.addPlan.attach(function(sender, args) {
+        self.addPlan();
+    });
+    self.view.editPlan.attach(function(sender, args) {
+        self.editPlan(args);
+    });
+    self.view.addUse.attach(function(sender, args) {
+        self.addUse();
+    });
+    self.view.editUse.attach(function(sender, args) {
+        self.editUse(args);
+    });
+    self.view.addLayer.attach(function(sender, args) {
+        self.addLayer();
+    });
+    self.view.editLayer.attach(function(sender, args) {
+        self.editLayer(args);
+    });
+    self.view.ruleSelected.attach(function(sender, args) {
+        self.modifyRule(args);
+    });
+
+    self.model.newPlans.attach(function(sender, args) {
+        self.editor.dialog('close');
+    });
+
+    self.editor.dialog({
+        autoOpen: false,
+        height: 400,
+        width: 350,
+        modal: true,
+        buttons: {
+            Ok: function() {
+                self.ok();
+                self.editor.dialog('close');
+            },
+            Cancel: function() {
+                self.editor.dialog('close');
+            }
+        },
+        close: function() {
+        }
+    });
+
+    self.rule_tool.dialog({
+        autoOpen: false,
+        height: 400,
+        width: 350,
+        modal: false,
+        buttons: {
+            Apply: function() {
+                self.apply();
+            },
+            Close: function() {
+                self.rule_tool.dialog('close');
+            }
+        },
+        close: function() {
+        }
     });
 }
 
 MSPController.prototype = {
+    post: function(args) {
+        $.ajaxSetup({
+            headers: { 
+                Accept : "application/json"
+            },
+            crossDomain: true,
+            xhrFields: {
+                withCredentials: true
+            }
+        });
+        $.post(args.url, args.payload,
+               function(data) {
+                   if (data.error)
+                       alert(data.error);
+                    else
+                        args.atSuccess(data);
+                }
+              )
+            .fail(function(xhr, textStatus, errorThrown) {
+                var msg = xhr.responseText;
+                if (msg == '') msg = textStatus;
+                msg = "Calling SmartSea MSP server failed. The error message is: "+msg;
+                alert(msg);
+            });  
+    },
     changePlan: function(id) {
         this.model.changePlan(id);
+    },
+    addPlan: function() {
+        var self = this;
+        self.editor.dialog("option", "title", 'Uusi suunnitelma');
+        var name = 'plan-name';
+        self.editor.html("Name for the new plan: "+element('input', {type:'text', id:name}, ''));
+        self.ok = function() {
+            name = $(self.editor_id+' #'+name).val();
+            self.post({
+                url: 'http://'+server+'/browser/plan?save',
+                payload: { name: name },
+                atSuccess: function(data) {self.model.addPlan(data)}
+            });
+        };
+        self.editor.dialog('open');
+    },
+    editPlan: function(plan) {
+        var self = this;
+        self.editor.dialog("option", "title", 'Suunnitelma');
+        var name = 'plan-name';
+        self.editor.html("Name for the plan: "+element('input', {type:'text', id:name, value:plan.name}, ''));
+        self.ok = function() {
+            name = $(self.editor_id+' #'+name).val();
+            self.post({
+                url: 'http://'+server+'/browser/plan:id?modify',
+                payload: { name: name },
+                atSuccess: function(data) {self.model.editPlan(data)}
+            });
+        };
+        self.editor.dialog('open');
+    },
+    addUse: function() {
+        var self = this;
+        self.editor.dialog("option", "title", 'New use');
+        var name = 'plan-name';
+        self.editor.html("Name for the new use: "+element('input', {type:'text', id:name}, ''));
+        self.ok = function() {
+            name = $(self.editor_id+' #'+name).val();
+            self.post({
+                url: 'http://'+server+'/browser/plan?save',
+                payload: { name: name },
+                atSuccess: function(data) {self.model.addUse(data)}
+            });
+        };
+        self.editor.dialog('open');
+    },
+    editUse: function(args) {
+        var self = this;
+        args = self.model.getLayer(args);
+        self.editor.dialog("option", "title", 'Use');
+        var name = 'plan-name';
+        self.editor.html("Use: "+element('input', {type:'text', id:name, value:args.use.name}, ''));
+        self.ok = function() {
+            name = $(self.editor_id+' #'+name).val();
+            self.post({
+                url: 'http://'+server+'/browser/plan:id?modify',
+                payload: { name: name },
+                atSuccess: function(data) {self.model.editUse(data)}
+            });
+        };
+        self.editor.dialog('open');
+    },
+    addLayer: function() {
+        var self = this;
+        self.editor.dialog("option", "title", 'New layer');
+        var name = 'plan-name';
+        self.editor.html("Name for the new layer: "+element('input', {type:'text', id:name}, ''));
+        self.ok = function() {
+            name = $(self.editor_id+' #'+name).val();
+            self.post({
+                url: 'http://'+server+'/browser/plan?save',
+                payload: { name: name },
+                atSuccess: function(data) {self.model.addLayer(data)}
+            });
+        };
+        self.editor.dialog('open');
+    },
+    editLayer: function(args) {
+        var self = this;
+        args = self.model.getLayer(args);
+        self.editor.dialog("option", "title", 'Layer');
+        var name = 'plan-name';
+        self.editor.html("Layer: "+element('input', {type:'text', id:name, value:args.layer.name}, ''));
+        self.ok = function() {
+            name = $(self.editor_id+' #'+name).val();
+            self.post({
+                url: 'http://'+server+'/browser/plan:id?modify',
+                payload: { name: name },
+                atSuccess: function(data) {self.model.editLayer(data)}
+            });
+        };
+        self.editor.dialog('open');
+    },
+    addRule: function() {
+    },
+    deleteRule: function() {
+    },
+    modifyRule: function(args) {
+        var self = this;
+        self.rule_tool.dialog("option", "title", 'Modify rule');
+        var rule = self.model.selectRule(args.id);
+        var html = rule.name;
+        
+        html = html
+            .replace(/^- If/, "Do not allocate if")
+            .replace(/==/, "equals:");
+
+        var editor = 'rule-editor';
+        var slider_value = 'rule-slider-value';
+        if (rule.value_semantics) {
+            if (self.model.layer.rule_class == "exclusive")
+                html = "Unmark cell if "+html+" is "+rule.op+" than";
+            //var label = element('label',{for:'rule-editor'},'Select value');
+            var options = '';
+            $.each(rule.value_semantics, function(i, semantic) {
+                var attr = {value:i};
+                if (i == rule.value) attr.selected = "selected";
+                options += element('option', attr, semantic);
+            });
+            var menu = element('select', {id:editor}, options);
+            html += element('p',{},menu);
+        } else if (rule.binary) {
+            html += element('p',{},"Binary rule, nothing to edit.");
+        } else if (rule.type == 'integer') {
+            html += element('p',{},element('input', {id:editor}));
+        } else if (rule.type == 'real') {
+            html += element('p', {}, element('div', {id:editor}));
+            html += element('p', {id:slider_value}, '');
+        }
+        html += element('p', {}, rule.description);
+        self.rule_tool.html(html);
+
+        editor = self.rule_tool_id+' #'+editor;
+        slider_value = self.rule_tool_id+' #'+slider_value;
+        
+        if (rule.type == 'integer') {
+            $(editor)
+                .spinner({
+                    min: rule.min,
+                    max: rule.max
+                })
+                .spinner("value", rule.value);
+        } else if (rule.type == 'real') {
+            $(editor).slider({
+                min: parseFloat(rule.min),
+                max: parseFloat(rule.max),
+                step: 0.1, // todo fix this
+                value: parseFloat(rule.value),
+                slide: function (event, ui) {
+                    var value = slider.slider("value");
+                    $(slider_value).html(value);
+                }
+            });
+            $(slider_value).html(rule.value);
+        }
+        self.apply = function() {
+            var value;
+            if (rule.value_semantics)
+                value = $(editor).find(":selected").attr('value');
+            else if (rule.type == 'integer')
+                value = $(editor).spinner("value");
+            else if (rule.type == 'real')
+                value = $(editor).slider("value");
+            self.post({
+                url: 'http://'+server+'/browser/rule:'+rule.id+'?update',
+                payload: { value: value },
+                atSuccess: function(data) {
+                    self.model.modifyRule(data.object);
+                }
+                // if (xhr.status == 403)
+                //     alert("Rule modification requires cookies. Please enable cookies and reload this app.");
+            });
+        };
+        self.rule_tool.dialog("open");
     }
 };
 
@@ -56,8 +316,8 @@ function MSPView(model, elements, id) {
     self.elements = elements;
     self.id = id;
     self.draw = {key:null, draw:null, source:null};
-    // elements are plans, layers, rule_info, rules, rule_dialog, site_type, site_info, ...
-    // ids are rules, rule_dialog
+    // elements are plans, layers, rule_info, rules, site_type, site_info, ...
+    // ids are rules
 
     self.elements.layers.sortable({
         stop: function () {
@@ -73,27 +333,16 @@ function MSPView(model, elements, id) {
         }
     });
 
-    self.elements.rule_dialog.dialog({
-        autoOpen: false,
-        height: 400,
-        width: 350,
-        modal: false,
-        buttons: {
-            Apply: function() {
-                var value = self.getRuleEditValue();
-                self.ruleEdited.notify({ value : value });
-            },
-            Close: function() {
-                self.elements.rule_dialog.dialog('close');
-            }
-        },
-        close: function() {
-        }
-    });
-
     self.planSelected = new Event(self);
     self.newLayerOrder = new Event(self);
-    self.ruleEdited = new Event(self);
+
+    self.addPlan = new Event(self);
+    self.editPlan = new Event(self);
+    self.addUse = new Event(self);
+    self.editUse = new Event(self);
+    self.addLayer = new Event(self);
+    self.editLayer = new Event(self);
+    self.ruleSelected = new Event(self);
 
     // attach model listeners
     self.model.newPlans.attach(function(sender, args) {
@@ -111,7 +360,7 @@ function MSPView(model, elements, id) {
         self.fillRulesPanel();
     });
     self.model.layerUnselected.attach(function(sender, args) {
-        self.unselectLayer(args.use, args.layer);
+        self.unselectLayer(args);
     });
     self.model.ruleEdited.attach(function(sender, args) {
         self.fillRulesPanel(self.model.layer);
@@ -142,6 +391,19 @@ MSPView.prototype = {
     },
     buildPlans: function() {
         var self = this;
+        if (user != 'guest') self.elements.user.html('Hello '+user+'!');
+        if (self.model.auth) {
+            self.elements.plan.html(
+                element('button', {id:"add_plan", type:'button', style:'display:inline;'}, 'Add plan') +
+                '&nbsp;' +
+                element('button', {id:"edit_plan", type:'button', style:'display:inline;'}, 'Edit plan'));
+            $("#add_plan").click(function() {
+                self.addPlan.notify();
+            });
+            $("#edit_plan").click(function() {
+                self.editPlan.notify(self.model.plan);
+            });
+        }
         self.elements.plans.html('');
         $.each(self.model.plans, function(i, plan) {
             if (plan.id > 1) // not Ecosystem and Data, which are "pseudo plans"
@@ -151,57 +413,84 @@ MSPView.prototype = {
         self.elements.rule_info.html('');
         self.elements.site.html('');
         self.elements.color_scale.html('');
-        self.elements.rule_dialog.dialog('close');
     },
     buildPlan: function(plan) {
         var self = this;
-        self.model.removeSite();
+        if (self.model.auth) {
+            if (self.model.plan.owner == user)
+                $("#edit_plan").show();
+            else
+                $("#edit_plan").hide();
+        }
         self.model.createLayers(true);
-        self.model.addSite();
         self.elements.rules.empty();
         self.fillRulesPanel();
     },
     usesItem: function(use) {
-        var b = element('button', {class:"visible", type:'button'}, '&rtrif;');
-        var cb = element('label', {title:use.name}, b+' '+use.name);
+        var self = this;
+        var use_item = element('button', {class:'use', type:'button'}, '&rtrif;') + '&nbsp;' + use.name;
+        use_item = element('label', {title:use.name}, use_item);
+        if (self.model.auth && use.owner == user) {
+            use_item += '&nbsp;' + element('button', {class:"edit", type:'button'}, 'Edit');
+        }
         var callbacks = [];
-        var subs = '';
+        var layers = '';
+        if (self.model.auth && use.owner == user) {
+            layers = element('button', {id:'add_layer_'+use.id, type:'button'}, 'Add layer')+'<br/>';
+        }
         $.each(use.layers.reverse(), function(j, layer) {
             var attr = { type: "checkbox", class: "visible"+layer.index };
             var id = 'l'+use.id+'_'+layer.id;
-            var lt = element('div', { id: id, style: 'display:inline;' }, layer.name+'<br/>');
-            callbacks.push({ selector: '#'+id, use: use.id, layer: layer.id });
-            subs += element('input', attr, lt);
+            var name = layer.name;
+            var lt = element('div', { id:id, style:'display:inline;' }, name);
+            if (self.model.auth && layer.owner == user) {
+                lt += '&nbsp;'+element('button', {class:"layer_edit"+layer.index, type:'button'}, 'Edit');
+            }
+            lt += '<br/>';
+            layers += element('input', attr, lt);
             attr = { class:"opacity"+layer.index, type:"range", min:"0", max:"1", step:"0.01" };
-            subs += element('div', {class:"opacity"+layer.index}, element('input', attr, '<br/>'));
+            layers += element('div', {class:"opacity"+layer.index}, element('input', attr, '<br/>'));
+            callbacks.push({ selector: '#'+id, use: use.id, layer: layer.id });
         });
-        subs = element('div', {class:'use'}, subs);
+        layers = element('div', {class:'use'}, layers);
         var attr = { id: 'use'+use.index, tabindex: use.index+1 };
-        return { element: element('li', attr, cb + subs), callbacks: callbacks };
+        return { element: element('li', attr, use_item + layers), callbacks: callbacks };
     },
     buildLayers: function() {
         var self = this;
         self.elements.layers.html('');
-        if (self.model.auth) {
-            self.elements.layers.append(element('button', {class:"visible", type:'button'}, 'Add use'));
+        if (self.model.auth && self.model.plan.owner == user) {
+            self.elements.layers.append(element('button', {id:'add_use', type:'button'}, 'Add use'));
+            $("#add_use").click(function() {
+                self.addUse.notify();
+            });
         }
         // all uses with controls: on/off, select/unselect, transparency
         // end to beginning to maintain overlay order
         $.each(self.model.plan.uses.reverse(), function(i, use) {
             var item = self.usesItem(use);
             self.elements.layers.append(item.element);
+            if (self.model.auth && use.owner == user) {
+                $("#add_layer_"+use.id).click(function() {
+                    self.addLayer.notify({use:use.id});
+                });
+            }
             $.each(item.callbacks, function(i, callback) {
                 $(callback.selector).click(function() {
                     var was_selected = self.model.unselectLayer();
                     if (was_selected.use != callback.use || was_selected.layer != callback.layer)
-                        self.model.selectLayer(callback.use, callback.layer);
+                        self.model.selectLayer(callback);
                 });
             });
         });
         self.selectLayer(); // restore selected layer
         $.each(self.model.plan.uses, function(i, use) {
+            // edit use
+            $('li#use'+use.index+' button.edit').click(function() {
+                self.editUse.notify({use:use.id});
+            });
             // open and close a use item
-            var b = $('li#use'+use.index+' button.visible');
+            var b = $('li#use'+use.index+' button.use');
             b.on('click', null, {use:use}, function(event) {
                 $('li#use'+event.data.use.index+' div.use').toggle();
                 if (!arguments.callee.flipflop) {
@@ -217,6 +506,11 @@ MSPView.prototype = {
             $('li#use'+use.index+' div.use').hide();
             // show/hide layer and set its transparency
             $.each(use.layers, function(j, layer) {
+                // edit use
+                $('li#use'+use.index+' button.layer_edit'+layer.index).click(function() {
+                    self.editLayer.notify({use:use.id, layer:layer.id});
+                });
+                // show/hide layer
                 var cb = $('li#use'+use.index+' input.visible'+layer.index);
                 cb.change({use:use, layer:layer}, function(event) {
                     $('li#use'+event.data.use.index+' div.opacity'+event.data.layer.index).toggle();
@@ -225,7 +519,7 @@ MSPView.prototype = {
                         self.model.unselectLayer();
                         var use = self.model.plan.uses[event.data.use.index];
                         var layer = use.layers[event.data.layer.index];
-                        self.model.selectLayer(use.id, layer.id);
+                        self.model.selectLayer({use:use.id, layer:layer.id});
                     }
                     if (self.model.layer)
                         self.elements.site.html(self.model.layer.name);
@@ -282,8 +576,8 @@ MSPView.prototype = {
             this.elements.site.html(layer.name);
         }
     },
-    unselectLayer: function(use, layer) {
-        $("#l"+use+'_'+layer).css("background-color","white");
+    unselectLayer: function(ids) {
+        $("#l"+ids.use+'_'+ids.layer).css("background-color","white");
         this.elements.rule_header.html("");
         this.elements.rule_info.html("");
         this.elements.color_scale.html('');
@@ -327,91 +621,12 @@ MSPView.prototype = {
             // todo: send message rule activity changed
             var rule_id = $(this).attr('rule');
             var active = this.checked;
-            $.each(self.model.layer.rules, function(i, rule) {
-                if (rule.id == rule_id) {
-                    rule.active = active;
-                    return false;
-                }
-            });
-            self.model.removeSite();
+            self.model.setRuleActive(rule_id, active);
             self.model.createLayers(true);
-            self.model.addSite();
         });
         $(self.id.rules+" #rule").click(function() {
-            var id = $(this).attr('rule');
-            $.each(layer.rules, function(i, rule) {
-                if (rule.id == id) {
-                    self.model.ruleInEdit = rule;
-                    return false;
-                }
-            });
-            var rule = self.model.ruleInEdit;
-            var html = rule.name;
-            html = html
-                .replace(/^- If/, "Do not allocate if")
-                .replace(/==/, "equals:");
-
-            if (rule.value_semantics) {
-                if (layer.rule_class == "exclusive")
-                    html = "Unmark cell if "+html+" is "+rule.op+" than";
-                //var label = element('label',{for:'rule-editor'},'Select value');
-                var options = '';
-                $.each(rule.value_semantics, function(i, semantic) {
-                    var args = {value:i};
-                    if (i == rule.value) args.selected = "selected";
-                    options += element('option',args,semantic);
-                });
-                var menu = element('select',{name:'rule-editor',id:'rule-editor'},options);
-                html += element('p',{},menu);
-            } else if (rule.binary) {
-                html += element('p',{},"Binary rule, nothing to edit.");
-            } else if (rule.type == 'integer') {
-                html += element('p',{},element('input', {id:"rule-editor"}));
-            } else if (rule.type == 'real') {
-                html += element('p',{},element('div', {id:"rule-editor"}));
-                html += element('p', {id:"rule-slider-value"}, '');
-                self.id.rule_editor_info = self.id.rule_dialog+" #rule-slider-value";
-            }
-            self.id.rule_editor = self.id.rule_dialog+" #rule-editor";
-            html += element('p', {id:"rule-info"}, '');
-            self.elements.rule_dialog.html(html);
-
-            $(self.id.rule_dialog+" #rule-info").html(rule.description); 
-            if (rule.value_semantics) {
-
-                //$(self.id.rule_editor).selectmenu();
-                
-            } else if (rule.type == 'integer') {
-                $(self.id.rule_editor)
-                    .spinner({
-                        min: rule.min,
-                        max: rule.max
-                    })
-                    .spinner("value", rule.value);
-            } else if (rule.type == 'real') {
-                var slider = $(self.id.rule_editor).slider({
-                    min: parseFloat(rule.min),
-                    max: parseFloat(rule.max),
-                    step: 0.1, // todo fix this
-                    value: parseFloat(rule.value),
-                    slide: function (event, ui) {
-                        var value = slider.slider("value");
-                        $(self.id.rule_editor_info).html(value);
-                    }
-                });
-                $(self.id.rule_editor_info).html(rule.value);
-            }
-            self.elements.rule_dialog.dialog("open");
+            self.ruleSelected.notify({id:$(this).attr('rule')});
         });
-    },
-    getRuleEditValue: function() {
-        var self = this;
-        if (self.model.ruleInEdit.value_semantics)
-            return $(this.id.rule_editor).find(":selected").attr('value');
-        else if (self.model.ruleInEdit.type == 'integer')
-            return $(this.id.rule_editor).spinner("value");
-        else if (self.model.ruleInEdit.type == 'real')
-            return $(this.id.rule_editor).slider("value");
     },
     siteInteraction: function(source) {
         var self = this;
@@ -455,10 +670,11 @@ function MSP(args) {
     this.map = null;
     this.site = null; // layer showing selected location or area
     this.plans = null;
+    // selected things, i.e., where the users focus is
     this.plan = null;
     this.use = null;
     this.layer = null;
-    this.ruleInEdit = null;
+    this.rule = null;
 
     this.newPlans = new Event(this);
     this.planChanged = new Event(this);
@@ -490,6 +706,13 @@ MSP.prototype = {
             var msg = "The configured SmartSea MSP server at "+self.server+" is not responding.";
             alert(msg);
         });
+    },
+    addPlan: function(plan) {
+        var self = this;
+        self.plans.unshift(plan);
+        self.newPlans.notify();
+        self.changePlan(plan.id);
+        self.initSite();
     },
     changePlan: function(id) {
         var self = this;
@@ -545,6 +768,7 @@ MSP.prototype = {
     },
     createLayers: function(boot) {
         var self = this;
+        self.removeSite();
         // reverse order to add to map in correct order
         $.each(self.plan.uses.reverse(), function(i, use) {
             use.index = self.plan.uses.length - 1 - i;
@@ -579,6 +803,7 @@ MSP.prototype = {
             });
         });
         self.newLayerList.notify();
+        self.addSite();
     },
     removeLayers: function() {
         var self = this;
@@ -591,24 +816,40 @@ MSP.prototype = {
         self.newLayerList.notify();
     },
     setLayerOrder: function(order) {
-        this.removeSite();
         var newUses = [];
         for (var i = 0; i < order.length; ++i) {
             newUses.push(this.plan.uses[order[i]]);
         }
         this.plan.uses = newUses;
         this.createLayers(false);
-        this.addSite();
     },
-    selectLayer: function(use_id, layer_id) {
+    getLayer: function(ids) {
+        var self = this;
+        var use = null;
+        var layer = null;
+        $.each(self.plan.uses, function(i, u) {
+            if (u.id == ids.use) {
+                use = u;
+                $.each(u.layers, function(i, l) {
+                    if (l.id == ids.layer) {
+                        layer = l;
+                        return false;
+                    }
+                });
+                return false;
+            }
+        });
+        return {use:use, layer:layer};
+    },
+    selectLayer: function(ids) {
         var self = this;
         self.use = null;
         self.layer = null;
         $.each(self.plan.uses, function(i, use) {
-            if (use.id == use_id) {
+            if (use.id == ids.use) {
                 self.use = use;
                 $.each(use.layers, function(i, layer) {
-                    if (layer.id == layer_id) {
+                    if (layer.id == ids.layer) {
                         self.layer = layer;
                         return false;
                     }
@@ -632,33 +873,35 @@ MSP.prototype = {
         if (unselect) self.layerUnselected.notify({ use: use, layer: layer });
         return {use: use, layer: layer};
     },
-    applyToRuleInEdit: function(value) {
+    selectRule: function(id) {
         var self = this;
-        $.ajaxSetup({
-            crossDomain: true,
-            xhrFields: {
-                withCredentials: true
+        self.rule = null;
+        $.each(self.layer.rules, function(i, rule) {
+            if (rule.id == id) {
+                self.rule = rule;
+                return false;
             }
         });
-        $.post( 'http://'+self.server+'/browser/rule:'+self.ruleInEdit.id+'?update',
-                { value: value }, 
-                function(data) {
-                    self.ruleInEdit.value = data.object.value;
-                    self.removeSite();
-                    self.createLayers(true);
-                    self.ruleEdited.notify();
-                    self.addSite();
-                })
-            .fail(function(xhr, textStatus, errorThrown) {
-                if (xhr.status == 403)
-                    alert("Rule modification requires cookies. Please enable cookies and reload this app.");
-                else {
-                    var msg = xhr.responseText;
-                    if (msg == '') msg = textStatus;
-                    msg = "Something is wrong with the SmartSea MSP server. The error message is: "+msg;
-                    alert(msg);
-                }
-            });
+        return self.rule;
+    },
+    selectedRule: function() {
+        var self = this;
+        return self.rule;
+    },
+    setRuleActive: function(id, active) {
+        var self = this;
+        $.each(self.layer.rules, function(i, rule) {
+            if (rule.id == id) {
+                rule.active = active;
+                return false;
+            }
+        });
+    },
+    modifyRule: function(object) {
+        var self = this;
+        self.rule.value = object.value;
+        self.createLayers(true);
+        self.ruleEdited.notify();
     },
     initSite: function() {
         var self = this;

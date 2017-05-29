@@ -15,16 +15,7 @@ binmode STDERR, ":utf8";
 
 sub new {
     my ($class, $self) = @_;
-    $self->{data_dir} .= '/' unless $self->{data_dir} =~ /\/$/;
-    $self->{images} .= '/' unless $self->{images} =~ /\/$/;
     $self = Plack::Component->new($self);
-    my $dsn = "dbi:Pg:dbname=$self->{dbname}";
-    $self->{schema} = SmartSea::Schema->connect(
-        $dsn, 
-        $self->{db_user}, 
-        $self->{db_passwd}, 
-        { on_connect_do => 
-              ["SET search_path TO tool$self->{table_postfix},data$self->{table_postfix},public"] });
     $self->{mask} = Geo::GDAL::Open($self->{data_dir}.'mask.tiff');
     return bless $self, $class;
 }

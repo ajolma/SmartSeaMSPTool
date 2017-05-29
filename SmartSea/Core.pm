@@ -28,7 +28,7 @@ sub common_responses {
     for my $key (keys %$header) {
         $header{$key} = $header->{$key};
     }
-    $header{'Access-Control-Allow-Origin'} //= '*';
+    $header{'Access-Control-Allow-Origin'} //= $env->{HTTP_ORIGIN};
     $header{'Access-Control-Allow-Methods'} //= 'GET,POST';
     $header{'Access-Control-Allow-Headers'} //= 'origin,x-requested-with,content-type';
     $header{'Access-Control-Max-Age'} //= 60*60*24;

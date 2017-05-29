@@ -14,7 +14,7 @@ use Test::Helper;
 
 use_ok('SmartSea::Schema');
 use_ok('SmartSea::Object');
-use_ok('SmartSea::Service');
+use_ok('SmartSea::Browser');
 
 my ($name,$path,$suffix) = fileparse($0, 'pl', 't');
 
@@ -26,18 +26,19 @@ my $schema = SmartSea::Schema->connect('dbi:SQLite:tool.db', undef, undef, $opti
 my $parser = XML::LibXML->new(no_blanks => 1);
 my $pp = XML::LibXML::PrettyPrint->new(indent_string => "  ");
 
-my $service = SmartSea::Service->new(
+my $app = builder {
+    mount "/browser" => SmartSea::Browser->new(
     {
         schema => $schema,
+        fake_admin => 1,
         data_dir => '',
         images => '',
         debug => 0,
         edit => 1,
         sequences => 0,
-        no_js => 1,
-        fake_admin => 1
-    });
-my $app = $service->to_app;
+        no_js => 1
+    })->to_app;
+};
 
 $schema->resultset('Plan')->new({id => 1, name => 'plan', owner => 'ajolma'})->insert;
 $schema->resultset('UseClass')->new({id => 1, name => 'use_class'})->insert;
@@ -64,6 +65,7 @@ for my $l ($schema->resultset('Layer')->all) {
 
 test_psgi $app, sub {
     my $cb = shift;
+    
     my $res = $cb->(GET "/browser/use:1/layer");
     my $dom;
     eval {

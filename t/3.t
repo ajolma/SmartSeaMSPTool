@@ -17,7 +17,7 @@ use SmartSea::Core qw(:all);
 
 use_ok('SmartSea::Schema');
 use_ok('SmartSea::Object');
-use_ok('SmartSea::Service');
+use_ok('SmartSea::Browser');
 
 # create the test databases
 
@@ -33,7 +33,7 @@ my $schema = SmartSea::Schema->connect('dbi:SQLite:tool.db', undef, undef, $opti
 my $parser = XML::LibXML->new(no_blanks => 1);
 my $pp = XML::LibXML::PrettyPrint->new(indent_string => "  ");
 
-my $service = SmartSea::Service->new(
+my $service = SmartSea::Browser->new(
     {
         schema => $schema,
         data_dir => '',
@@ -47,8 +47,8 @@ my $service = SmartSea::Service->new(
 my $app = $service->to_app;
 
 # todo: REST API tests (todo REST API first)
-# my $res = $cb->(PUT "/browser/plans?add", [name => 'test', id => 1]);
-# PUT "/browser/plan:1", [name => 'test']
+# my $res = $cb->(PUT "/plans?add", [name => 'test', id => 1]);
+# PUT "/plan:1", [name => 'test']
 # etc
 
 # classes
@@ -146,8 +146,8 @@ test_psgi $app, sub {
     
     my $res = create_object($cb, 'dataset', {path => '1'});
     $res = create_object($cb, 'dataset', {id => 2, name => 'test2', path => '2'});
-    $res = $cb->(POST "/browser/plan?save", [id => 1, name => 'test']);
-    $res = $cb->(POST "/browser/plan:1/dataset", [submit => 'Create', extra_dataset => 2]);
+    $res = $cb->(POST "/plan?save", [id => 1, name => 'test']);
+    $res = $cb->(POST "/plan:1/dataset", [submit => 'Create', extra_dataset => 2]);
 
     my @all = select_all($schema, 'tool', 'id,plan,dataset', 'plan2dataset_extra');
     for my $row (@all) {
@@ -158,7 +158,7 @@ test_psgi $app, sub {
     
     ok($n == 1 && $plan2dataset == 1 && $plan == 1 && $dataset == 2, "create plan to extra dataset link");
 
-    $res = $cb->(POST "/browser/plan:1/dataset", [2 => 'Delete']);
+    $res = $cb->(POST "/plan:1/dataset", [2 => 'Delete']);
     #pretty_print($res);
 
     @all = select_all($schema, 'id,plan,dataset', 'plan2dataset_extra');
@@ -175,7 +175,7 @@ test_psgi $app, sub {
     my $res = create_object($cb, 'use_class', {id => 2});
     $res = create_object($cb, 'activity');
     
-    $res = $cb->(POST "/browser/use_class:2/activity", [submit => 'Create', activity => 1]);
+    $res = $cb->(POST "/use_class:2/activity", [submit => 'Create', activity => 1]);
     #pretty_print($res);
 
     my @all = select_all($schema, 'tool', 'id,use_class,activity', 'use_class2activity');
@@ -184,7 +184,7 @@ test_psgi $app, sub {
     
     ok($n == 1 && $id == 1 && $use_class == 2 && $activity == 1, "create use_class to activity link");
 
-    $res = $cb->(POST "/browser/use_class:2/activity", [1 => 'Delete']);
+    $res = $cb->(POST "/use_class:2/activity", [1 => 'Delete']);
     #pretty_print($res);
 
     @all = select_all($schema, 'tool', 'id,plan,dataset', 'plan2dataset_extra');

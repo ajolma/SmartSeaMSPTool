@@ -13,7 +13,7 @@ use Test::Helper;
 
 use_ok('SmartSea::Schema');
 use_ok('SmartSea::Object');
-use_ok('SmartSea::Service');
+use_ok('SmartSea::Plans');
 
 my ($name,$path,$suffix) = fileparse($0, 'pl', 't');
 
@@ -24,7 +24,7 @@ my $schema = SmartSea::Schema->connect('dbi:SQLite:tool.db', undef, undef, $opti
 
 my $pp = XML::LibXML::PrettyPrint->new(indent_string => "  ");
 
-my $service = SmartSea::Service->new(
+my $service = SmartSea::Plans->new(
     {
         schema => $schema,
         data_dir => '',
@@ -49,7 +49,7 @@ $schema->resultset('Dataset')->new({id => 1, name => 'dataset', path => "not rea
 
 test_psgi $app, sub {
     my $cb = shift;
-    my $res = $cb->(GET "/plans");
+    my $res = $cb->(GET "/");
     my $content = $res->content;
     my $plans;
     eval {

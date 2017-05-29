@@ -22,16 +22,8 @@ binmode STDERR, ":utf8";
 
 sub new {
     my ($class, $self) = @_;
-    $self->{data_dir} .= '/' unless $self->{data_dir} =~ /\/$/;
-    $self->{images} .= '/' unless $self->{images} =~ /\/$/;
-    my $dsn = "dbi:Pg:dbname=$self->{dbname}";
-    $self->{schema} = SmartSea::Schema->connect(
-        $dsn, 
-        $self->{db_user}, 
-        $self->{db_passwd}, 
-        { on_connect_do => 
-              ["SET search_path TO tool$self->{table_postfix},data$self->{table_postfix},public"] });
-    $dsn = "PG:dbname='$self->{dbname}' host='localhost' port='5432'";
+    
+    my $dsn = "PG:dbname='$self->{dbname}' host='localhost' port='5432'";
     $self->{GDALVectorDataset} = Geo::GDAL::Open(
         Name => "$dsn user=$self->{db_user} password=$self->{db_passwd}",
         Type => 'Vector');
