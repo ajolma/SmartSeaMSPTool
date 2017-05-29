@@ -37,6 +37,9 @@ function MSPController(model, view) {
     self.rule_tool_id = "#rule-tool";
     self.rule_tool = $(self.rule_tool_id);
 
+    self.use_classes = null;
+    self.layer_classes = null;
+
     self.view.planSelected.attach(function(sender, args) {
         self.changePlan(args.id);
     });
@@ -56,7 +59,7 @@ function MSPController(model, view) {
         self.editUse(args);
     });
     self.view.addLayer.attach(function(sender, args) {
-        self.addLayer();
+        self.addLayer(args);
     });
     self.view.editLayer.attach(function(sender, args) {
         self.editLayer(args);
@@ -131,6 +134,34 @@ MSPController.prototype = {
                 alert(msg);
             });  
     },
+    useClasses: function() {
+        var self = this;
+        if (!self.use_classes) {
+            $.ajax({
+                url: 'http://'+server+'/use_classes',
+                success: function (result) {
+                    if (result.isOk == false) alert(result.message);
+                    self.use_classes = result;
+                },
+                async: false
+            });
+        }
+        return self.use_classes;
+    },
+    layerClasses: function() {
+        var self = this;
+        if (!self.layer_classes) {
+            $.ajax({
+                url: 'http://'+server+'/layer_classes',
+                success: function (result) {
+                    if (result.isOk == false) alert(result.message);
+                    self.layer_classes = result;
+                },
+                async: false
+            });
+        }
+        return self.layer_classes;
+    },
     changePlan: function(id) {
         this.model.changePlan(id);
     },
@@ -153,27 +184,48 @@ MSPController.prototype = {
         var self = this;
         self.editor.dialog("option", "title", 'Suunnitelma');
         var name = 'plan-name';
-        self.editor.html("Name for the plan: "+element('input', {type:'text', id:name, value:plan.name}, ''));
+        var del = 'delete-plan';
+        var html = element('p', {}, "Name for the plan: "+element('input', {type:'text', id:name, value:plan.name}, ''));
+        html += element('p', {}, element('input', {id:del, type:"checkbox"},  "Delete plan "+plan.name));
+        self.editor.html(html);
         self.ok = function() {
             name = $(self.editor_id+' #'+name).val();
-            self.post({
-                url: 'http://'+server+'/browser/plan:id?modify',
-                payload: { name: name },
-                atSuccess: function(data) {self.model.editPlan(data)}
-            });
+            del = $(self.editor_id+' #'+del).prop('checked');
+            if (del) {
+                self.post({
+                    url: 'http://'+server+'/browser/plan:'+plan.id+'?delete',
+                    payload: {},
+                    atSuccess: function(data) {self.model.deletePlan(plan.id)}
+                });
+            } else {
+                self.post({
+                    url: 'http://'+server+'/browser/plan:'+plan.id+'?modify',
+                    payload: { name: name },
+                    atSuccess: function(data) {self.model.editPlan(data)}
+                });
+            }
         };
         self.editor.dialog('open');
     },
     addUse: function() {
         var self = this;
         self.editor.dialog("option", "title", 'New use');
-        var name = 'plan-name';
-        self.editor.html("Name for the new use: "+element('input', {type:'text', id:name}, ''));
+        var id = 'use-id';
+        var name = 'use-name';
+        var classes = self.useClasses();
+        var list = '';
+        for (var i = 0; i < classes.length; ++i) {
+            if (!self.model.hasUse(classes[i].id)) {
+                list += element('option', {value:classes[i].id}, classes[i].name);
+            }
+        }
+        var html = "Select the class for the new use: "+element('select', {id:id}, list);
+        self.editor.html(html)
         self.ok = function() {
-            name = $(self.editor_id+' #'+name).val();
+            id = $(self.editor_id+' #'+id).val();
             self.post({
-                url: 'http://'+server+'/browser/plan?save',
-                payload: { name: name },
+                url: 'http://'+server+'/browser/use?save',
+                payload: { plan:self.model.plan.id, use_class:id },
                 atSuccess: function(data) {self.model.addUse(data)}
             });
         };
@@ -183,28 +235,39 @@ MSPController.prototype = {
         var self = this;
         args = self.model.getLayer(args);
         self.editor.dialog("option", "title", 'Use');
-        var name = 'plan-name';
-        self.editor.html("Use: "+element('input', {type:'text', id:name, value:args.use.name}, ''));
+        var del = 'delete-use';
+        self.editor.html(element('input', {id:del, type:"checkbox"},  "Delete use "+args.use.name));
         self.ok = function() {
-            name = $(self.editor_id+' #'+name).val();
-            self.post({
-                url: 'http://'+server+'/browser/plan:id?modify',
-                payload: { name: name },
-                atSuccess: function(data) {self.model.editUse(data)}
-            });
+            del = $(self.editor_id+' #'+del).prop('checked');
+            if (del) {
+                self.post({
+                    url: 'http://'+server+'/browser/use:'+args.use.id+'?delete',
+                    payload: {},
+                    atSuccess: function(data) {self.model.deleteUse(args.use.id)}
+                });
+            }
         };
         self.editor.dialog('open');
     },
-    addLayer: function() {
+    addLayer: function(args) {
         var self = this;
         self.editor.dialog("option", "title", 'New layer');
-        var name = 'plan-name';
-        self.editor.html("Name for the new layer: "+element('input', {type:'text', id:name}, ''));
+        var id = 'layer-id';
+        var name = 'layer-name';
+        var classes = self.layerClasses();
+        var list = '';
+        for (var i = 0; i < classes.length; ++i) {
+            if (!self.model.hasLayer({use:args.use, layer:classes[i].id})) {
+                list += element('option', {value:classes[i].id}, classes[i].name);
+            }
+        }
+        var html = "Select the class for the new layer: "+element('select', {id:id}, list);
+        self.editor.html(html)
         self.ok = function() {
-            name = $(self.editor_id+' #'+name).val();
+            id = $(self.editor_id+' #'+id).val();
             self.post({
-                url: 'http://'+server+'/browser/plan?save',
-                payload: { name: name },
+                url: 'http://'+server+'/browser/layer?save',
+                payload: { use:args.use, layer_class:id, style:0, rule_system:0 },
                 atSuccess: function(data) {self.model.addLayer(data)}
             });
         };
@@ -766,6 +829,17 @@ MSP.prototype = {
         self.plan.uses.push(datasets);
         if (self.plan) self.planChanged.notify({ plan: self.plan });
     },
+    hasUse: function(id) {
+        var self = this;
+        var retval = false;
+        $.each(self.plan.uses, function(i, use) {
+            if (use.id == id) {
+                retval = true;
+                return false;
+            }
+        });
+        return retval;
+    },
     createLayers: function(boot) {
         var self = this;
         self.removeSite();
@@ -822,6 +896,22 @@ MSP.prototype = {
         }
         this.plan.uses = newUses;
         this.createLayers(false);
+    },
+    hasLayer: function(ids) {
+        var self = this;
+        var retval = false;
+        $.each(self.plan.uses, function(i, u) {
+            if (u.id == ids.use) {
+                $.each(u.layers, function(i, l) {
+                    if (l.id == ids.layer) {
+                        retval = true;
+                        return false;
+                    }
+                });
+                return false;
+            }
+        });
+        return retval;
     },
     getLayer: function(ids) {
         var self = this;
