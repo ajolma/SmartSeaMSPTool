@@ -136,14 +136,15 @@ MSPController.prototype = {
                 self.model.error(msg);
             });  
     },
-    simpleObjects: function(klass) {
+    simpleObjects: function(klass, query) {
         var self = this;
+        if (!query) query = '';
         if (!self.klasses[klass]) {
             $.ajax({
                 headers: {
                     Accept: 'application/json'
                 },
-                url: 'http://'+server+'/browser/'+klass,
+                url: 'http://'+server+'/browser/'+klass+'?'+query,
                 success: function (result) {
                     if (result.isOk == false) self.model.error(result.message);
                     self.klasses[klass] = result;
@@ -165,6 +166,7 @@ MSPController.prototype = {
     addPlan: function() {
         var self = this;
         self.editor.dialog('option', 'title', 'Uusi suunnitelma');
+        self.editor.dialog('option', 'height', 400);
         var name = 'plan-name';
         self.editor.html('Name for the new plan: '+element('input', {type:'text', id:name}, ''));
         self.ok = function() {
@@ -180,6 +182,7 @@ MSPController.prototype = {
     editPlan: function(plan) {
         var self = this;
         self.editor.dialog('option', 'title', 'Suunnitelma');
+        self.editor.dialog('option', 'height', 400);
         var name = 'plan-name';
         var del = 'delete-plan';
         var html = element('input', {type:'text', id:name, value:plan.name}, '');
@@ -208,6 +211,7 @@ MSPController.prototype = {
     addUse: function() {
         var self = this;
         self.editor.dialog('option', 'title', 'New use');
+        self.editor.dialog('option', 'height', 400);
         var id = 'use-id';
         var name = 'use-name';
         var classes = self.simpleObjects('use_class');
@@ -232,6 +236,7 @@ MSPController.prototype = {
     editUse: function(use) {
         var self = this;
         self.editor.dialog('option', 'title', 'Use');
+        self.editor.dialog('option', 'height', 400);
         var del = 'delete-use';
         self.editor.html(element('input', {id:del, type:'checkbox'},  'Delete use '+use.name));
         self.ok = function() {
@@ -249,6 +254,7 @@ MSPController.prototype = {
     addLayer: function(use) {
         var self = this;
         self.editor.dialog('option', 'title', 'New layer');
+        self.editor.dialog('option', 'height', 400);
         var class_id = 'class-id';
         var rule_id = 1;
         var color_id = 'color-id';
@@ -300,8 +306,68 @@ MSPController.prototype = {
     editLayer: function(layer) {
         var self = this;
         self.editor.dialog('option', 'title', 'Layer');
+        self.editor.dialog('option', 'height', 600);
         var del = 'delete-layer';
-        self.editor.html(element('input', {id:del, type:'checkbox'},  'Delete layer '+layer.name));
+        var color_id = 'color-id';
+        var colors = self.simpleObjects('color_scale');
+        var color_list = '';
+        for (var i = 0; i < colors.length; ++i) {
+            // set selected 
+            color_list += element('option', {value:colors[i].id}, colors[i].name);
+        }
+        var html = 'Delete this layer ('+layer.name+' in use x'+')'; // FIXME use name
+        html = element('input', {id:del, type:'checkbox'}, html);
+        html = element('p', {}, html);
+        html += element('p', {}, 'Select the color for the layer: '+
+                        element('select', {id:color_id}, color_list));
+        // list the rules with a possibility to delete one or more with checkboxes
+        var add_rule = 'add-rule';
+        var dataset_id = 'dataset-id';
+        var datasets = self.simpleObjects('dataset', 'path=notnull');
+        var dataset_list = '';
+        for (var i = 0; i < datasets.length; ++i) {
+            dataset_list += element('option', {value:datasets[i].id}, datasets[i].name);
+        }
+        html += element('p', {},
+                        element('input', {id:add_rule, type:'checkbox'},  'Add a rule to the layer:'));
+        html += element('p', {}, 'Rule is based on the dataset: '+
+                        element('select', {id:dataset_id}, dataset_list));
+        // the rule can be binary, if dataset has only one class
+        // otherwise the rule needs operator and threshold
+        var ops = self.simpleObjects('op');
+        var ops_list = '';
+        for (var i = 0; i < ops.length; ++i) {
+            ops_list += element('option', {value:ops[i].id}, ops[i].name);
+        }
+        html += element('p', {}, 'Define the operator and the threshold:<br/>' + 
+                        element('select', {}, ops_list) + element('input', {type:'text'}, ''));
+
+        html += element('p', {},
+                        element('input', {id:add_rule, type:'checkbox'},  'Delete rule(s) from the layer:'));
+        var rules = '';
+        $.each(layer.rules, function(i, rule) {
+            var item;
+            if (layer.name == 'Value')
+                item = rule.name;
+            else {
+                var attr = {type:'checkbox', rule:rule.id};
+                var name = rule.name;
+                if (!rule.binary) {
+                    var value = rule.value;
+                    if (rule.value_semantics) value = rule.value_semantics[value];
+                    name += ' '+rule.op+' '+value;
+                }
+                item = element('a', {id:'rule', rule:rule.id}, name);
+                if (layer.use_class_id > 1) item = element('input', attr, item);
+            }
+            rules += item;
+            rules += element('br');
+        });
+
+        var attr = {id:'rules-to-del', style:'overflow-y:scroll; max-height:350px; background-color:#c7ecfe;'};
+        html += element('div', attr, rules);
+        
+        self.editor.html(html);
         self.ok = function() {
             del = $(self.editor_id+' #'+del).prop('checked');
             if (del) {
@@ -314,13 +380,10 @@ MSPController.prototype = {
         };
         self.editor.dialog('open');
     },
-    addRule: function() {
-    },
-    deleteRule: function() {
-    },
     modifyRule: function(args) {
         var self = this;
         self.rule_tool.dialog('option', 'title', 'Modify rule');
+        self.editor.dialog('option', 'height', 400);
         var rule = self.model.selectRule(args.id);
         var html = rule.name;
         

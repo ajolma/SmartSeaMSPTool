@@ -289,8 +289,8 @@ sub simple_column_values {
 sub tree {
     my $self = shift;
     if ($self->{class}->can('tree') || $self->{rs}->can('tree')) {
-        return $self->{object}->tree if $self->{object};
-        return $self->{rs}->tree;
+        return $self->{object}->tree($self->{client}{parameters}) if $self->{object};
+        return $self->{rs}->tree($self->{client}{parameters});
     } else {
         return {error => 'tree not implemented for '.$self->{source}};
     }
@@ -720,8 +720,9 @@ sub item_class {
 }
 
 sub form {
-    my ($self, $oids, $parameters) = @_;
+    my ($self, $oids) = @_;
     say STDERR "form for $self->{source}" if $self->{client}{debug};
+    my $parameters = $self->{client}{parameters};
 
     my $parent = ($oids && $oids->has_prev) ? SmartSea::Object->new({oid => $oids->prev}, $self->{client}) : undef;
 

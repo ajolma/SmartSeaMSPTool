@@ -37,4 +37,17 @@ sub layers {
     return \@datasets;
 }
 
+sub tree {
+    my ($self, $parameters) = @_;
+    my @rows;
+    my $search;
+    if ($parameters->{path}) {
+        $search = {path => { '!=', undef }};
+    }
+    for my $row ($self->search($search, {order_by => {-asc => 'name'}})) {
+        push @rows, $row->tree;
+    }
+    return \@rows;
+}
+
 1;

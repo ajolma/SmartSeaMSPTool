@@ -111,6 +111,20 @@ sub info {
     return [pre => $info];
 }
 
+sub tree {
+    my ($self) = @_;
+    return {
+        id => $self->id,
+        name => $self->name,
+        style => $self->style ? $self->style->color_scale->name : '',
+        classes => $self->style ? $self->style->classes : '',
+        min_value => $self->min_value,
+        max_value => $self->max_value,
+        data_type => $self->data_type,
+        class_semantics => $self->class_semantics
+    };
+}
+
 sub Piddle {
     my ($self, $rules) = @_;
 

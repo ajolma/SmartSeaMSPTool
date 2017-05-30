@@ -125,6 +125,7 @@ sub object_editor {
     }
     $parameters{request} //= 'read';
     say STDERR "request = $parameters{request}" if $self->{debug} > 1;
+    $self->{parameters} = \%parameters;
 
     # to make jQuery happy:
     my $header = { 'Access-Control-Allow-Origin' => $self->{origin},
@@ -169,7 +170,7 @@ sub object_editor {
     # TODO: all actions should be wrapped in begin; commit;
 
     if ($parameters{request} eq 'add' or $parameters{request} eq 'create') {
-        $self->edit_object($obj, $oids, \%parameters, \@body);
+        $self->edit_object($obj, $oids, \@body);
         
     } elsif ($parameters{request} eq 'delete') {
         eval {
@@ -191,7 +192,7 @@ sub object_editor {
         if ($@) {
             push @body, error_message($@);
             return json200({}, {error=>"$@"}) if $self->{json};
-            $self->edit_object($obj, $oids, \%parameters, \@body);
+            $self->edit_object($obj, $oids, \@body);
         } else {
             return json200({}, $obj->tree) if $self->{json};
             my $part = $self->read_object($oids);
@@ -199,7 +200,7 @@ sub object_editor {
         }
         
     } elsif ($parameters{request} eq 'edit') {
-        $self->edit_object($obj, $oids, \%parameters, \@body);
+        $self->edit_object($obj, $oids, \@body);
         
     } else {
         return http_status($header, 400);
@@ -214,7 +215,7 @@ sub read_object {
     my ($self, $oids) = @_;
     my $obj = SmartSea::Object->new({oid => $oids->first}, $self);
     if ($obj) {
-        return $obj->tree if $self->{json};
+        return $obj->tree($self->{parameters}) if $self->{json};
         return [ul => [li => $obj->item($oids->with_index(0), [], {url => $self->{root}})]];
     } else {
         return {error=>"$@"} if $self->{json};
@@ -223,13 +224,13 @@ sub read_object {
 }
 
 sub edit_object {
-    my ($self, $obj, $oids, $parameters, $body) = @_;
-    my @form = $obj->form($oids->with_index('last'), $parameters);
+    my ($self, $obj, $oids, $body) = @_;
+    my @form = $obj->form($oids->with_index('last'));
     if (@form) {
         push @$body, [form => {action => $self->{path}, method => 'POST'}, @form];
     } else {
         eval {
-            $obj->link($oids->with_index('last'), $parameters);
+            $obj->link($oids->with_index('last'), $self->{parameters});
         };
         push @$body, error_message($@) if $@;
         my $part = $self->read_object($oids->with_index(0));
