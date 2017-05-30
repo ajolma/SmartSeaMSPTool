@@ -66,4 +66,21 @@ sub my_unit {
     return '';
 }
 
+sub tree {
+    my ($self) = @_;
+    my @rules;
+    for my $rule (sort {$a->name cmp $b->name} $self->rules({cookie => DEFAULT})) {
+        push @rules, $rule->tree;
+    }
+    return {
+        id => $self->layer_class->id,
+        name => $self->layer_class->name,
+        use => $self->use->use_class->id,
+        owner => $self->owner,
+        style => $self->style->color_scale->name,
+        rule_class => $self->rule_system->rule_class->name,
+        rules => \@rules
+    };
+}
+
 1;

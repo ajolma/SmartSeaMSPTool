@@ -36,7 +36,8 @@ my $app = builder {
         debug => 0,
         edit => 1,
         sequences => 0,
-        no_js => 1
+        no_js => 1,
+        root => '/browser'
     })->to_app;
 };
 

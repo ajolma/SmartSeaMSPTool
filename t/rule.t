@@ -36,7 +36,8 @@ my $app = builder {
         debug => 0,
         edit => 1,
         sequences => 0,
-        no_js => 1
+        no_js => 1,
+        root => '/plans'
     })->to_app;
     mount "/browser" => SmartSea::Browser->new(
     {
@@ -46,7 +47,8 @@ my $app = builder {
         debug => 0,
         edit => 1,
         sequences => 0,
-        no_js => 1
+        no_js => 1,
+        root => '/browser'
     })->to_app;
 };
 
@@ -73,10 +75,11 @@ test_psgi $app, sub {
 
     my $req = POST "$host/browser/rule:1?update", [ value => 2.5 ];
     $jar->add_cookie_header($req);
-  
     #print STDERR Dumper $req;
     
     $res = $cb->($req);
+    #print STDERR Dumper $res;
+    
     $res = decode_json $res->content;
     ok($res->{object}{value} == 2.5, "Update ok with cookie.");
 

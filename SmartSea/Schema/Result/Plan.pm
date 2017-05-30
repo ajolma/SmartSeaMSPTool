@@ -101,19 +101,11 @@ sub tree {
     for my $use ($self->uses(undef, {order_by => 'id'})) {
         my @layers;
         for my $layer ($use->layers(undef, {order_by => {-desc => 'id'}})) {
-            my @rules;
-            for my $rule (sort {$a->name cmp $b->name} $layer->rules({cookie => DEFAULT})) {
-                push @rules, $rule->as_hashref_for_json;
-                $data{$rule->r_dataset->id} = 1 if $rule->r_dataset;
+            my $item = $layer->tree;
+            for my $rule (@{$item->{rules}}) {
+                $data{$rule->{dataset_id}} = 1 if $rule->{dataset_id};
             }
-            push @layers, {
-                owner => $layer->owner,
-                name => $layer->layer_class->name,
-                style => $layer->style->color_scale->name,
-                id => $layer->layer_class->id,
-                use => $use->use_class->id,
-                rule_class => $layer->rule_system->rule_class->name,
-                rules => \@rules};
+            push @layers, $item;
         }
         push @uses, {
             owner => $use->owner,

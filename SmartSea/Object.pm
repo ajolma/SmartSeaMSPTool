@@ -288,11 +288,11 @@ sub simple_column_values {
 
 sub tree {
     my $self = shift;
-    if ($self->{class}->can('tree')) {
+    if ($self->{class}->can('tree') || $self->{rs}->can('tree')) {
         return $self->{object}->tree if $self->{object};
         return $self->{rs}->tree;
     } else {
-        return {error => 'tree not implemented'};
+        return {error => 'tree not implemented for '.$self->{source}};
     }
 }
 

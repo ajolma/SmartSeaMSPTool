@@ -15,7 +15,7 @@ sub layers {
         next unless $component->style;
         my @rules;
         for my $rule (sort {$a->name cmp $b->name} $component->rules({cookie => DEFAULT})) {
-            push @rules, $rule->as_hashref_for_json;
+            push @rules, $rule->tree;
         }        
         push @layers, {
             name => $component->name,

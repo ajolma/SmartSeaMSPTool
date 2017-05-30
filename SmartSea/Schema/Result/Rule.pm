@@ -160,7 +160,7 @@ sub name {
     }
 }
 
-sub as_hashref_for_json {
+sub tree {
     my ($self) = @_;
     my %rule = (
         name => $self->r_dataset ? $self->r_dataset->name : 'undef',
@@ -170,6 +170,7 @@ sub as_hashref_for_json {
         active => JSON::true,
         value => $self->value+0,
         description => $self->r_dataset ? $self->r_dataset->descr : '',
+        dataset_id => $self->r_dataset ? $self->r_dataset->id : '',
         );
 
     my $dataset = $self->r_dataset ? $self->r_dataset : undef;

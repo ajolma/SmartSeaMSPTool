@@ -36,6 +36,7 @@ function MSPController(model, view) {
     self.editor = $(self.editor_id);
     self.rule_tool_id = "#rule-tool";
     self.rule_tool = $(self.rule_tool_id);
+    self.klasses = {};
 
     self.use_classes = null;
     self.layer_classes = null;
@@ -110,6 +111,7 @@ function MSPController(model, view) {
 
 MSPController.prototype = {
     post: function(args) {
+        var self = this;
         $.ajaxSetup({
             headers: { 
                 Accept : "application/json"
@@ -122,7 +124,7 @@ MSPController.prototype = {
         $.post(args.url, args.payload,
                function(data) {
                    if (data.error)
-                       alert(data.error);
+                       self.model.error(data.error);
                     else
                         args.atSuccess(data);
                 }
@@ -131,36 +133,31 @@ MSPController.prototype = {
                 var msg = xhr.responseText;
                 if (msg == '') msg = textStatus;
                 msg = "Calling SmartSea MSP server failed. The error message is: "+msg;
-                alert(msg);
+                self.model.error(msg);
             });  
     },
-    useClasses: function() {
+    simpleObjects: function(klass) {
         var self = this;
-        if (!self.use_classes) {
+        if (!self.klasses[klass]) {
             $.ajax({
-                url: 'http://'+server+'/use_classes',
+                headers: {
+                    Accept: 'application/json'
+                },
+                url: 'http://'+server+'/browser/'+klass,
                 success: function (result) {
-                    if (result.isOk == false) alert(result.message);
-                    self.use_classes = result;
+                    if (result.isOk == false) self.model.error(result.message);
+                    self.klasses[klass] = result;
+                },
+                fail: function (xhr, textStatus, errorThrown) {
+                    var msg = xhr.responseText;
+                    if (msg == '') msg = textStatus;
+                    msg = "Calling SmartSea MSP server failed. The error message is: "+msg;
+                    self.model.error(msg);
                 },
                 async: false
             });
         }
-        return self.use_classes;
-    },
-    layerClasses: function() {
-        var self = this;
-        if (!self.layer_classes) {
-            $.ajax({
-                url: 'http://'+server+'/layer_classes',
-                success: function (result) {
-                    if (result.isOk == false) alert(result.message);
-                    self.layer_classes = result;
-                },
-                async: false
-            });
-        }
-        return self.layer_classes;
+        return self.klasses[klass];
     },
     changePlan: function(id) {
         this.model.changePlan(id);
@@ -212,7 +209,7 @@ MSPController.prototype = {
         self.editor.dialog("option", "title", 'New use');
         var id = 'use-id';
         var name = 'use-name';
-        var classes = self.useClasses();
+        var classes = self.simpleObjects('use_class');
         var list = '';
         for (var i = 0; i < classes.length; ++i) {
             if (!self.model.hasUse(classes[i].id)) {
@@ -252,22 +249,41 @@ MSPController.prototype = {
     addLayer: function(args) {
         var self = this;
         self.editor.dialog("option", "title", 'New layer');
-        var id = 'layer-id';
+        var class_id = 'class-id';
+        var color_id = 'color-id';
         var name = 'layer-name';
-        var classes = self.layerClasses();
-        var list = '';
+        var classes = self.simpleObjects('layer_class');
+        var colors = self.simpleObjects('color_scale');
+        var class_list = '';
         for (var i = 0; i < classes.length; ++i) {
             if (!self.model.hasLayer({use:args.use, layer:classes[i].id})) {
-                list += element('option', {value:classes[i].id}, classes[i].name);
+                class_list += element('option', {value:classes[i].id}, classes[i].name);
             }
         }
-        var html = "Select the class for the new layer: "+element('select', {id:id}, list);
+        var color_list = '';
+        for (var i = 0; i < colors.length; ++i) {
+            color_list += element('option', {value:colors[i].id}, colors[i].name);
+        }
+        var html = element('p', {}, "Select the class for the new layer: "+
+                           element('select', {id:class_id}, class_list));
+        html += element('p', {}, "The layer will be computed by rules that exclude areas from the layer.");
+        html += element('p', {}, "Select the color for the layer: "+
+                        element('select', {id:color_id}, color_list));
         self.editor.html(html)
         self.ok = function() {
-            id = $(self.editor_id+' #'+id).val();
+            class_id = $(self.editor_id+' #'+class_id).val();
+            color_id = $(self.editor_id+' #'+color_id).val();
             self.post({
                 url: 'http://'+server+'/browser/layer?save',
-                payload: { use:args.use, layer_class:id, style:0, rule_system:0 },
+                payload: {
+                    use:args.use,
+                    layer_class:class_id,
+                    color_scale:color_id,
+                    classes:2,
+                    min:0,
+                    max:1,
+                    rule_class:1
+                },
                 atSuccess: function(data) {self.model.addLayer(data)}
             });
         };
@@ -366,7 +382,7 @@ MSPController.prototype = {
                     self.model.modifyRule(data.object);
                 }
                 // if (xhr.status == 403)
-                //     alert("Rule modification requires cookies. Please enable cookies and reload this app.");
+                // self.model.error("Rule modification requires cookies. Please enable cookies and reload this app.");
             });
         };
         self.rule_tool.dialog("open");
@@ -726,30 +742,51 @@ MSPView.prototype = {
 };
 
 function MSP(args) {
-    this.server = args.server;
-    this.firstPlan = args.firstPlan;
-    this.auth = args.auth;
-    this.proj = null;
-    this.map = null;
-    this.site = null; // layer showing selected location or area
-    this.plans = null;
+    var self = this;
+    self.server = args.server;
+    self.firstPlan = args.firstPlan;
+    self.auth = args.auth;
+    self.proj = null;
+    self.map = null;
+    self.site = null; // layer showing selected location or area
+    self.plans = null;
     // selected things, i.e., where the users focus is
-    this.plan = null;
-    this.use = null;
-    this.layer = null;
-    this.rule = null;
+    self.plan = null;
+    self.use = null;
+    self.layer = null;
+    self.rule = null;
 
-    this.newPlans = new Event(this);
-    this.planChanged = new Event(this);
-    this.newLayerList = new Event(this);
-    this.layerSelected = new Event(this);
-    this.layerUnselected = new Event(this);
-    this.ruleEdited = new Event(this);
-    this.siteInitialized = new Event(this);
-    this.siteInformationReceived = new Event(this);
+    self.newPlans = new Event(self);
+    self.planChanged = new Event(self);
+    self.newLayerList = new Event(self);
+    self.layerSelected = new Event(self);
+    self.layerUnselected = new Event(self);
+    self.ruleEdited = new Event(self);
+    self.siteInitialized = new Event(self);
+    self.siteInformationReceived = new Event(self);
+
+    self.dialog = $("#error");
+    self.dialog.dialog({
+        autoOpen: false,
+        height: 400,
+        width: 350,
+        modal: true,
+        buttons: {
+            Ok: function() {
+                self.dialog.dialog('close');
+            },
+        },
+        close: function() {
+        }
+    });
 }
 
 MSP.prototype = {
+    error: function(msg) {
+        var self = this;
+        self.dialog.html(msg)
+        self.dialog.dialog('open');
+    },
     getPlans: function() {
         var self = this;
         self.removeLayers();
@@ -767,7 +804,7 @@ MSP.prototype = {
             self.initSite();
         }).fail(function(xhr, textStatus, errorThrown) {
             var msg = "The configured SmartSea MSP server at "+self.server+" is not responding.";
-            alert(msg);
+            self.error(msg);
         });
     },
     addPlan: function(plan) {

@@ -113,7 +113,7 @@ $service->{debug} = 0;
 # test create and delete of objects of all classes
 if (1) {for my $class (keys %$classes) {
     next if $classes->{$class}{embedded};
-    #next unless $class eq 'rule';
+    #next unless $class eq 'pressure';
     
     test_psgi $app, sub {
         my $cb = shift;
@@ -212,7 +212,7 @@ sub attrs {
 
 sub create_object {
     my ($cb, $class, $attr) = @_;
-    my $url = '/browser';
+    my $url = '';
     $id->{$class}++;
     my %attr = (name => 'test', id => $id->{$class});
     for my $parent (deps($class, 'parents')) {
@@ -247,7 +247,7 @@ sub create_object {
 
 sub delete_object {
     my ($cb, $class) = @_;
-    my $url = '/browser';
+    my $url = '';
     my @attr = ($id->{$class} => 'Delete');
     $id->{$class}--;
     for my $parent (deps($class, 'parents')) {

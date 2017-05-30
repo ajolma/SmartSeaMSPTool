@@ -144,17 +144,16 @@ sub plural {
     # a path of oids
     # oid = table:id
     sub new {
-        my ($class, $oids) = @_;
+        my ($class, $path, $root) = @_;
         my $self = {};
-        if ($oids && @$oids) {
-            my ($oid, $request) = split /\?/, $oids->[$#$oids];
-            $oids->[$#$oids] = $oid;
-            $self->{request} = lc($request) if $request;
-        } else {
-            $oids = [];
+        my @oids;
+        if (defined $path) {
+            $path =~ s/^$root// if defined $root;
+            @oids = split /\//, $path;
+            shift @oids; # the first ''
         }
-        $self->{oids} = $oids;
-        $self->{n} = $#$oids+1;
+        $self->{oids} = \@oids;
+        $self->{n} = $#oids+1;
         $self->{index} = $self->{n} > 0 ? 0 : -1;
         bless $self, $class;
     }
@@ -183,10 +182,6 @@ sub plural {
     sub is_empty {
         my $self = shift;
         return $self->{n} == 0;
-    }
-    sub request {
-        my $self = shift;
-        return $self->{request};
     }
     sub first {
         my $self = shift;
