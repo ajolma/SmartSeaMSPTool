@@ -48,7 +48,7 @@ sub config {
             my @layers;
             for my $layer ($use->layers) {
                 push @tilesets, {
-                    Layers => $plan->id."_".$use->use_class->id."_".$layer->layer_class->id,
+                    Layers => $use->use_class->id."_".$layer->id,
                     'Format' => 'image/png',
                     Resolutions => '9..19',
                     SRS => "EPSG:3067",
@@ -61,7 +61,7 @@ sub config {
     }
     for my $dataset ($self->{schema}->resultset('Dataset')->layers) {
         push @tilesets, {
-            Layers => "0_0_".$dataset->{id},
+            Layers => "0_".$dataset->{id},
             "Format" => "image/png",
             Resolutions => "9..19",
             SRS => "EPSG:3067",
@@ -72,7 +72,7 @@ sub config {
     }
     for my $component ($self->{schema}->resultset('EcosystemComponent')->layers) {
         push @tilesets, {
-            Layers => "1_1_".$component->{id},
+            Layers => "1_".$component->{id},
             "Format" => "image/png",
             Resolutions => "9..19",
             SRS => "EPSG:3067",

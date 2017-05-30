@@ -175,9 +175,12 @@ sub object_editor {
         eval {
             $obj->delete($oids->with_index('last'), \%parameters);
         };
+        if ($self->{json}) {
+            return json200({}, {error => "$@"}) if $@;
+            return json200({}, {result => 'ok'});
+        }
         push @body, error_message($@) if $@;
         my $part = $self->read_object($oids);
-        return json200({}, $part) if $self->{json};
         push @body, $part;
         
     } elsif ($parameters{request} eq 'save') {
@@ -190,8 +193,8 @@ sub object_editor {
             return json200({}, {error=>"$@"}) if $self->{json};
             $self->edit_object($obj, $oids, \%parameters, \@body);
         } else {
+            return json200({}, $obj->tree) if $self->{json};
             my $part = $self->read_object($oids);
-            return json200({}, $part) if $self->{json};
             push @body, $part;
         }
         

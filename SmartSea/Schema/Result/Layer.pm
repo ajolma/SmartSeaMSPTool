@@ -73,9 +73,10 @@ sub tree {
         push @rules, $rule->tree;
     }
     return {
-        id => $self->layer_class->id,
+        id => $self->id,
+        class_id => $self->layer_class->id,
         name => $self->layer_class->name,
-        use => $self->use->use_class->id,
+        use_class_id => $self->use->use_class->id,
         owner => $self->owner,
         style => $self->style->color_scale->name,
         rule_class => $self->rule_system->rule_class->name,

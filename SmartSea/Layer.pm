@@ -17,32 +17,26 @@ use SmartSea::Core qw(:all);
 #
 # rules do not have any specific order
 # layer name is a sequence of integers separated with non-numbers (a trail)
-# trail = plan use layer [rule*]
+# trail = 0/1/2 layer_id [rule_id*]
 
 # may need trail, schema, tile, epsg, data_dir, style
 sub new {
     my ($class, $self) = @_;
-    my ($plan_id, $use_class_id, $layer_class_id, @rules) = split /_/, $self->{trail} // '';
-    #say STDERR "trail: $plan_id, $use_class_id, $layer_class_id, @rules";
-    return bless $self, $class unless $layer_class_id;
+    my ($use_id, $layer_id, @rules) = split /_/, $self->{trail} // '';
+    return bless $self, $class unless $layer_id;
 
-    if ($use_class_id == 0) {
-        $self->{dataset} = $self->{schema}->resultset('Dataset')->single({ id => $layer_class_id });
+    if ($use_id == 0) {
+        $self->{dataset} = $self->{schema}->resultset('Dataset')->single({ id => $layer_id });
+        croak "Dataset $layer_id does not exist!" unless $self->{dataset};
         $self->{duck} = $self->{dataset};
-    } elsif ($use_class_id == 1) {
-        $self->{duck} = $self->{schema}->resultset('EcosystemComponent')->single({ id => $layer_class_id });
+    } elsif ($use_id == 1) {
+        $self->{duck} = $self->{schema}->resultset('EcosystemComponent')->single({ id => $layer_id });
+        croak "Ecosystem component $layer_id does not exist!" unless $self->{duck};
         $self->{rules} = [];
     } else {
-        my $plan = $self->{schema}->resultset('Plan')->single({ id => $plan_id });
-        my $use_class = $self->{schema}->resultset('UseClass')->single({ id => $use_class_id });
-        my $layer_class = $self->{schema}->resultset('LayerClass')->single({ id => $layer_class_id });
-        my $use = $self->{schema}->resultset('Use')->single({
-            plan => $plan->id, 
-            use_class => $use_class->id });
-        my $layer = $self->{schema}->resultset('Layer')->single({
-            use => $use->id, 
-            layer_class => $layer_class->id });
+        my $layer = $self->{schema}->resultset('Layer')->single({ id => $layer_id });
         $self->{duck} = $layer;
+        croak "Layer $layer_id does not exist!" unless $self->{duck};
         $self->{rules} = [];
         # rule list is optional, if no rules, then all rules (QGIS plugin does not send any rules)
         if (@rules) {

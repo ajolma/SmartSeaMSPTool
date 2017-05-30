@@ -133,7 +133,6 @@ sub test_additive_rules {
     
     my $rule_class = $rule_class_rs->single({id=>4}); # additive
     my $layer = make_layer(
-        plan_id => 1,
         use_class_id => 2,
         layer_class_id => 4,
         style => {
@@ -173,7 +172,6 @@ sub test_multiplicative_rules {
     
     my $rule_class = $rule_class_rs->single({id=>3}); # multiplicative
     my $layer = make_layer(
-        plan_id => 1,
         use_class_id => 2,
         layer_class_id => 3,
         style => {
@@ -207,7 +205,6 @@ sub test_exclusive_rules {
  
     my $rule_class = $rule_class_rs->single({id=>2});
     my $layer = make_layer(
-        plan_id => 1,
         use_class_id => 2,
         layer_class_id => 2, 
         style => {
@@ -239,7 +236,6 @@ sub test_inclusive_rules {
  
     my $rule_class = $rule_class_rs->single({id=>1});
     my $layer = make_layer(
-        plan_id => 1,
         use_class_id => 2,
         layer_class_id => 1, 
         style => {
@@ -273,7 +269,7 @@ sub test_a_dataset_layer {
        
                 print Geo::GDAL::Open(Name => $data_dir.$dataset_id.'.tiff')->Band->Piddle if $args{debug};
                 
-                my $layer = make_layer(plan_id => 0, use_class_id => 0, layer_class_id => $dataset_id);
+                my $layer = make_layer(use_class_id => 0, id => $dataset_id);
                 my $result = $layer->compute($args{debug});
                 my $output = $result->Band->ReadTile;
                 
@@ -298,6 +294,7 @@ sub test_a_dataset_layer {
 
 sub make_layer {
     my %arg = @_;
+    my $id = $arg{id};
     if ($arg{use_class_id} > 1) {
         $style_rs->new({
             id => $style_id, 
@@ -314,12 +311,13 @@ sub make_layer {
             use => 1,
             rule_system => $layer_id,
             style => $style_id });
+        $id = $layer_id;
+        for my $rule (@{$arg{rules}}) {
+            # $args->{rule_class}->id and $rule->{data} must match...
+            add_rule($id, $rule->{based}, $rule->{data});
+        }
         ++$style_id;
         ++$layer_id;
-    }
-    for my $rule (@{$arg{rules}}) {
-        # $args->{rule_class}->id and $rule->{data} must match...
-        add_rule($arg{layer_class_id}, $rule->{based}, $rule->{data});
     }
     return SmartSea::Layer->new({
         epsg => $epsg,
@@ -328,23 +326,21 @@ sub make_layer {
         data_dir => $data_dir,
         GDALVectorDataset => undef,
         cookie => '', 
-        trail => $arg{plan_id}.'_'.$arg{use_class_id}.'_'.$arg{layer_class_id} });
+        trail => $arg{use_class_id}.'_'.$id });
 }
 
 sub add_rule {
-    my ($pul, $based, $data) = @_;
+    my ($rule_system, $based, $data) = @_;
     my $rule = {
         id => $rule_id,
         min_value => 0,
         max_value => 1,
         cookie => '',
         made => undef,
-        rule_system => $pul
+        rule_system => $rule_system
     };
-    if ($based->{pul}) {
-        $rule->{r_plan} = $based->{pul}{plan_id};
-        $rule->{r_use} = $based->{pul}{use_id};
-        $rule->{r_layer} = $based->{pul}{layer_id};
+    if ($based->{layer_id}) {
+        $rule->{r_layer} = $based->{layer_id};
     } elsif ($based->{dataset_id}) {
         $rule->{r_dataset} = $based->{dataset_id};
     }

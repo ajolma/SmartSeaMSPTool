@@ -75,6 +75,21 @@ sub activities {
     return $self->use_class->activities;
 }
 
+sub tree {
+    my ($self) = @_;
+    my @layers;
+    for my $layer ($self->layers(undef, {order_by => {-desc => 'id'}})) {
+        push @layers, $layer->tree;
+    }
+    return {
+        id => $self->id,
+        class_id => $self->use_class->id,
+        owner => $self->owner,
+        name => $self->use_class->name, 
+        layers => \@layers
+    }
+}
+
 sub ecosystem_impacts {
     my ($self) = @_;
     my %impacts;

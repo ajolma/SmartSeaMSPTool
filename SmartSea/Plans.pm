@@ -26,22 +26,26 @@ sub call {
     my $plans = $self->{schema}->resultset('Plan')->array_of_trees;
     
     # two pseudo plans, these will be shown as uses in all real plans
+    # Data and Ecosystem have reserved ids
+    # see Layer.pm, WMTS.pm and msp.js
     
     push @$plans, { 
         name => 'Data', 
-        id => 0, # reserved plan id, see msp.js and Layer.pm
+        id => 0,
         uses => [{
-            name => 'Data', 
-            id => 0, # reserved use_class id, see msp.js and Layer.pm
+            name => 'Data',
+            id => 0,
+            class_id => 0,
             layers => scalar($self->{schema}->resultset('Dataset')->layers) }]
     };
 
     push @$plans, {
         name => 'Ecosystem',
-        id => 1, # reserved plan id, see msp.js and Layer.pm
+        id => 1,
         uses => [{
             name => 'Ecosystem',
-            id => 1, # reserved use_class id, see msp.js and Layer.pm
+            id => 1,
+            class_id => 1,
             layers => scalar($self->{schema}->resultset('EcosystemComponent')->layers) }]
     };
         

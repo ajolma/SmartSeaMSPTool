@@ -21,12 +21,16 @@ sub call {
     my $request = Plack::Request->new($env);
     my $parameters = $request->parameters;
     
-    my $layer = SmartSea::Layer->new({
-        schema => $self->{schema},
-        cookie => DEFAULT,
-        trail => $parameters->{layer}});
-
-    my $image = $layer->{duck} ?
+    my $layer;
+    eval {
+        $layer = SmartSea::Layer->new({
+            schema => $self->{schema},
+            cookie => DEFAULT,
+            trail => $parameters->{layer}});
+    };
+    print STDERR "$@";
+        
+    my $image = $layer ?
         $layer->{style}->legend({
             unit => $layer->unit,
             font => '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
