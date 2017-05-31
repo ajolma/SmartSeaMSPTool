@@ -56,3 +56,77 @@ function cmp_date(a,b) {
     }
     return 0;
 }
+
+function Widget(args) {
+    var self = this;
+    self.container_id = args.container_id;
+    self.id = args.id;
+    if (args.pretext)
+        self.pretext = args.pretext;
+    else
+        self.pretext = '';
+    var tag;
+    var attr = {id:args.id};
+    if (args.type == 'checkbox' || args.type == 'text') {
+        tag = 'input';
+        attr.type = args.type
+    } else if (args.type == 'select') {
+        tag = 'select';
+    } else if (args.type == 'checkbox-list') {
+        attr.style = 'overflow-y:scroll; max-height:350px; background-color:#c7ecfe;';
+        tag = 'div';
+    } else if (args.type == 'para') {
+        tag = 'p';
+    }
+    var content = '';
+    if (args.content) {
+        content = args.content;
+    } else if (args.list) {
+        self.list = args.list;
+        $.each(args.list, function(i, item) {
+            if (args.type == 'select') {
+                // set selected
+                if (typeof item == 'object')
+                    content += element('option', {value:item.id}, item.name);
+                else
+                    content += element('option', {value:i}, item);
+            } else if (args.type == 'checkbox-list') {
+                var name = args.item_name(item);
+                var label = element('a', {id:'item', item:item.id}, name);
+                content += element('input', {type:'checkbox', item:item.id}, label) + element('br');
+            }
+        });
+    }
+    self.element = element(tag, attr, content);
+}
+
+Widget.prototype = {
+    content: function() {
+        var self = this;
+        return self.pretext+self.element;
+    },
+    checked: function() {
+        var self = this;
+        return $(self.container_id+' #'+self.id).prop('checked');
+    },
+    selected: function() {
+        var self = this;
+        var id = $(self.container_id+' #'+self.id).val();
+        var retval = null;
+        $.each(self.list, function(i, item) {
+            if (item.id == id) {
+                retval = item;
+                return false;
+            }
+        });
+        return retval;
+    },
+    change: function(fct) {
+        var self = this;
+        $(self.container_id+' #'+self.id).change(fct);
+    },
+    html: function(html) {
+        var self = this;
+        $(self.container_id+' #'+self.id).html(html);
+    },
+}

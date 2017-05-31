@@ -20,4 +20,13 @@ sub my_find {
     return $retval;
 }
 
+sub tree {
+    my ($self) = @_;
+    my @items;
+    for my $item ($self->search(undef, {order_by => [qw/r_dataset/]})) {
+        push @items, $item->tree;
+    }
+    return \@items;
+}
+
 1;

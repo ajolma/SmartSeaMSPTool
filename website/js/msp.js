@@ -303,79 +303,142 @@ MSPController.prototype = {
         };
         self.editor.dialog('open');
     },
-    editLayer: function(layer) {
+    editLayer: function(args) {
         var self = this;
         self.editor.dialog('option', 'title', 'Layer');
         self.editor.dialog('option', 'height', 600);
-        var del = 'delete-layer';
-        var color_id = 'color-id';
-        var colors = self.simpleObjects('color_scale');
-        var color_list = '';
-        for (var i = 0; i < colors.length; ++i) {
-            // set selected 
-            color_list += element('option', {value:colors[i].id}, colors[i].name);
-        }
-        var html = 'Delete this layer ('+layer.name+' in use x'+')'; // FIXME use name
-        html = element('input', {id:del, type:'checkbox'}, html);
-        html = element('p', {}, html);
-        html += element('p', {}, 'Select the color for the layer: '+
-                        element('select', {id:color_id}, color_list));
+        
+        var layer_delete = new Widget({
+            container_id:self.editor_id,
+            id:'delete-layer',
+            type:'checkbox',
+            content:'Delete this layer ('+args.layer.name+' in use '+args.use.name+')',
+        });
+        var color_list = new Widget({
+            container_id:self.editor_id,
+            id:'layer-color',
+            type:'select',
+            list:self.simpleObjects('color_scale'),
+            pretext:'Select the color for this layer: '
+        });
+        
+        var html = element('p', {}, layer_delete.content()) + element('p', {}, color_list.content());
+        
         // list the rules with a possibility to delete one or more with checkboxes
-        var add_rule = 'add-rule';
-        var dataset_id = 'dataset-id';
-        var datasets = self.simpleObjects('dataset', 'path=notnull');
-        var dataset_list = '';
-        for (var i = 0; i < datasets.length; ++i) {
-            dataset_list += element('option', {value:datasets[i].id}, datasets[i].name);
-        }
-        html += element('p', {},
-                        element('input', {id:add_rule, type:'checkbox'},  'Add a rule to the layer:'));
-        html += element('p', {}, 'Rule is based on the dataset: '+
-                        element('select', {id:dataset_id}, dataset_list));
+
+        var rule_add = new Widget({
+            container_id:self.editor_id,
+            id:'add-rule',
+            type:'checkbox',
+            content:'Add a rule to this layer:'
+        });
+        var dataset_list = new Widget({
+            container_id:self.editor_id,
+            id:'rule-dataset',
+            type:'select',
+            list:self.simpleObjects('dataset', 'path=notnull'),
+            pretext:'Rule is based on the dataset: '
+        });
+        
+        html += element('p', {}, rule_add.content()) + element('p', {}, dataset_list.content());
+        
         // the rule can be binary, if dataset has only one class
         // otherwise the rule needs operator and threshold
-        var ops = self.simpleObjects('op');
-        var ops_list = '';
-        for (var i = 0; i < ops.length; ++i) {
-            ops_list += element('option', {value:ops[i].id}, ops[i].name);
-        }
-        html += element('p', {}, 'Define the operator and the threshold:<br/>' + 
-                        element('select', {}, ops_list) + element('input', {type:'text'}, ''));
+        var op_list = new Widget({
+            container_id:self.editor_id,
+            id:'rule-op',
+            type:'select',
+            list:self.simpleObjects('op'),
+            pretext:'Define the operator and the threshold:<br/>'
+        });
+        var threshold = new Widget({
+            container_id:self.editor_id,
+            id:'rule-threshold',
+            type:'text',
+        });
+        var rule_op_threshold = op_list.content() + '&nbsp;' + threshold.content();
+        var rule_binary = 'Binary rule';
+        var rule_defs = new Widget({
+            container_id:self.editor_id,
+            id:'rule-defs',
+            type:'para'
+        });
+        
+        html += rule_defs.content();
 
-        html += element('p', {},
-                        element('input', {id:add_rule, type:'checkbox'},  'Delete rule(s) from the layer:'));
-        var rules = '';
-        $.each(layer.rules, function(i, rule) {
-            var item;
-            if (layer.name == 'Value')
-                item = rule.name;
-            else {
-                var attr = {type:'checkbox', rule:rule.id};
+        var delete_rule = new Widget({
+            container_id:self.editor_id,
+            id:'delete-rule',
+            type:'checkbox',
+            content:'Delete rule(s) from this layer:'
+        });
+
+        html += element('p', {}, delete_rule.content());
+
+        var rules = new Widget({
+            container_id:self.editor_id,
+            id:'rules-to-delete',
+            type:'checkbox-list',
+            list:args.layer.rules,
+            item_name:function(rule) {
                 var name = rule.name;
                 if (!rule.binary) {
                     var value = rule.value;
                     if (rule.value_semantics) value = rule.value_semantics[value];
                     name += ' '+rule.op+' '+value;
                 }
-                item = element('a', {id:'rule', rule:rule.id}, name);
-                if (layer.use_class_id > 1) item = element('input', attr, item);
+                return name;
             }
-            rules += item;
-            rules += element('br');
         });
-
-        var attr = {id:'rules-to-del', style:'overflow-y:scroll; max-height:350px; background-color:#c7ecfe;'};
-        html += element('div', attr, rules);
+        
+        html += rules.content();
         
         self.editor.html(html);
-        self.ok = function() {
-            del = $(self.editor_id+' #'+del).prop('checked');
-            if (del) {
-                self.post({
-                    url: 'http://'+server+'/browser/layer:'+layer.id+'?delete',
-                    payload: {},
-                    atSuccess: function(data) {self.model.deleteLayer(layer.id)}
+
+        var dataset_changed = function() {
+            var dataset = dataset_list.selected();
+            if (dataset.classes == 1) {
+                rule_defs.html(rule_binary);
+            } else if (dataset.class_semantics) {
+                var list = new Widget({
+                    container_id:self.editor_id,
+                    id:'rule-threshold',
+                    type:'select',
+                    list:dataset.class_semantics.split(/;\s+/)
                 });
+                rule_defs.html(op_list.content() + '&nbsp;' + list.content());
+            } else {
+                rule_defs.html(rule_op_threshold);
+            }
+        };
+
+        dataset_list.change(dataset_changed);
+        dataset_changed();
+        
+        self.ok = function() {
+            var color = color_list.selected(); // fixme, when is this set?
+            if (layer_delete.checked()) {
+                self.post({
+                    url: 'http://'+server+'/browser/layer:'+args.layer.id+'?delete',
+                    payload: {},
+                    atSuccess: function(data) {self.model.deleteLayer(args.layer.id)}
+                });
+            } else if (rule_add.checked()) {
+                var dataset = dataset_list.selected();
+                var op = {id:1};
+                var value = 0;
+                // value_type is to be gone from rule, since it is available from dataset (or layer?)
+                // from dataset we also get min & max => slider
+                if (dataset.classes == 1) {
+                } else if (dataset.class_semantics) {
+                } else {
+                }
+                self.post({
+                    url: 'http://'+server+'/browser/layer:'+args.layer.id+'/rule?save',
+                    payload: {r_dataset:dataset.id, op:op.id, value:value},
+                    atSuccess: function(data) {self.model.addRule(args.layer, data)}
+                });
+            } else if (rule_delete.checked()) {
             }
         };
         self.editor.dialog('open');
@@ -663,7 +726,7 @@ MSPView.prototype = {
             $.each(use.layers, function(j, layer) {
                 // edit layer
                 $('li#use'+use.id+' button.layer_edit'+layer.id).click(function() {
-                    self.editLayer.notify(layer);
+                    self.editLayer.notify({use:use, layer:layer});
                 });
                 // show/hide layer
                 var cb = $('li#use'+use.id+' input.visible'+layer.id);
