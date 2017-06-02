@@ -28,7 +28,7 @@ sub order_by {
 }
 
 sub column_values_from_context {
-    my ($self, $parent, $parameters) = @_;
+    my ($self, $parent) = @_;
     my $parent_table = $parent ? $parent->result_source->name : '';
     my ($pressure, $ecosystem_component);
     if (ref $self) {
@@ -37,8 +37,6 @@ sub column_values_from_context {
     }
     $pressure = $parent->id if !$pressure && $parent_table eq 'pressures';
     $ecosystem_component = $parent->id if !$ecosystem_component && $parent_table eq 'ecosystem_components';
-    $pressure = $parameters->{pressure} unless $pressure;
-    $ecosystem_component = $parameters->{ecosystem_component} unless $ecosystem_component;
     return {pressure => $pressure, ecosystem_component => $ecosystem_component};
 }
 

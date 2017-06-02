@@ -22,8 +22,8 @@ sub name {
 }
 
 sub column_values_from_context {
-    my ($self, $parent, $parameters) = @_;
-    return {plan => $parent->id, dataset => $parameters->{extra_dataset}};
+    my ($self, $parent) = @_;
+    return {plan => $parent->id, dataset => $self->dataset->id};
 }
 
 1;

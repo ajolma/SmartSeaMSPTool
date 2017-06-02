@@ -6,6 +6,7 @@ use HTTP::Request::Common;
 use Plack::Builder;
 use JSON;
 use XML::SemanticDiff;
+use Text::Diff;
 
 use Data::Dumper;
 
@@ -73,7 +74,7 @@ test_psgi $app, sub {
         computation_method => 1,
         owner => 'ajolma'
     ];
-    my $res = $cb->(POST "/browser/plan:1/use:1/layer?save", $post);
+    my $res = $cb->(POST "/browser/plan:1/use:1/layer?request=save", $post);
     eval {
         $parser->load_xml(string => $res->content);
     };
@@ -122,12 +123,15 @@ END_XML
     is $n, 0, "Read ImpactLayer as a list";
 }
 
-my $layer = SmartSea::Object->new({source => 'Layer', id => 2}, {schema => $schema, user => 'guest', debug => 0});
+my $descr = 'this is description';
+my $layer = SmartSea::Object->new(
+    {source => 'Layer', id => 2}, 
+    {schema => $schema, user => 'guest', parameters => {descr => $descr}, debug => 0}
+    );
 ok($layer->{source} eq 'ImpactLayer' && ref($layer->{object}) eq 'SmartSea::Schema::Result::ImpactLayer', 
    "Polymorphic new gives: $layer->{object}");
 
-my $descr = 'this is description';
-$layer->update(undef, {descr => $descr});
+$layer->update(undef);
 ok($schema->resultset('Layer')->single({id => 2})->descr eq $descr, "Set superclass attribute.");
 
 {
@@ -159,11 +163,10 @@ ok($schema->resultset('Layer')->single({id => 2})->descr eq $descr, "Set supercl
       <ul>
         <li>id: 2</li>
         <li>name: color scale</li>
-        <li>class_labels:</li>
-        <li>classes:</li>
+        <li>classes: (undef)</li>
         <li>color_scale: color scale</li>
-        <li>max:</li>
-        <li>min:</li>
+        <li>max: (undef)</li>
+        <li>min: (undef)</li>
       </ul>
     </li>
     <li><b>Ecosystem components</b>
@@ -180,9 +183,11 @@ END_XML
     my $n = @diff;
     if ($n) {
         $pp->pretty_print($dom);
-        print STDERR "Got:\n",$pp->pretty_print($dom)->toString;
+        my $got = $pp->pretty_print($dom)->toString;
         $dom = $parser->load_xml(string => $expected);
-        print STDERR "Expected:\n",$pp->pretty_print($dom)->toString;
+        my $exp = $pp->pretty_print($dom)->toString;
+        my $diff = diff \$got,   \$exp,   {};
+        say STDERR "diff: $diff";
     }
     is $n, 0, "Read ImpactLayer as an item";
 }
@@ -197,6 +202,7 @@ END_XML
     $layer->{debug} = 0;
 }
 
+$layer->{client}{debug} = 0;
 $layer->delete;
 my $i = 0;
 my $layer_id;

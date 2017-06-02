@@ -20,11 +20,6 @@ sub order_by {
     return {};
 }
 
-sub column_values_from_context {
-    my ($self, $parent, $parameters) = @_;
-    return {impact_layer => $parent->super->id, ecosystem_component => $parameters->{ecosystem_component}};
-}
-
 sub name {
     my $self = shift;
     return $self->impact_layer->name.' -> '.$self->ecosystem_component->name;

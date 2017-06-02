@@ -40,6 +40,7 @@ __PACKAGE__->belongs_to(data_model => 'SmartSea::Schema::Result::DataModel');
 __PACKAGE__->belongs_to(is_a_part_of => 'SmartSea::Schema::Result::Dataset');
 __PACKAGE__->belongs_to(is_derived_from => 'SmartSea::Schema::Result::Dataset');
 __PACKAGE__->belongs_to(license => 'SmartSea::Schema::Result::License');
+__PACKAGE__->belongs_to(data_type => 'SmartSea::Schema::Result::NumberType');
 __PACKAGE__->belongs_to(unit => 'SmartSea::Schema::Result::Unit');
 __PACKAGE__->belongs_to(style => 'SmartSea::Schema::Result::Style');
 
@@ -51,8 +52,10 @@ sub children_listers {
         parts => {
             source => 'Dataset',
             self_ref => 'is_a_part_of',
-            class_name => 'Datasets in this group',
-            cannot_add_remove_children => 1,
+            class_name => 'Subdatasets',
+            #cannot_add_remove_children => 1,
+            parent_is_parent => 0,
+            child_is_mine => 1,
             for_child_form => sub {
                 my ($self, $children) = @_;
                 return hidden(is_a_part_of => $self->{object}->id);
@@ -62,7 +65,9 @@ sub children_listers {
             source => 'Dataset',
             self_ref => 'is_derived_from',
             class_name => 'Derivative datasets',
-            cannot_add_remove_children => 1,
+            #cannot_add_remove_children => 1,
+            parent_is_parent => 0,
+            child_is_mine => 1,
             for_child_form => sub {
                 my ($self, $children) = @_;
                 return hidden(is_derived_from => $self->{object}->id);
@@ -85,6 +90,42 @@ sub my_unit {
     return $self->is_a_part_of->my_unit if defined $self->is_a_part_of;
     return $self->is_derived_from->my_unit if defined $self->is_derived_from;
     return undef;
+}
+
+sub auto_fill_cols {
+    my ($self, $args) = @_;
+    my $path = $self->path // $args->{parameters}{path};
+    if ($path && !($path =~ /^PG:/)) {
+        my @info = `gdalinfo $args->{data_dir}$path`;
+        my $type;
+        my $min;
+        my $max;
+        for (@info) {
+            if (/Type=(\w+)/) {
+                $type = $1;
+            }
+            if (/Min=([\d.]+)/) {
+                $min = $1;
+            }
+            if (/Max=([\d.]+)/) {
+                $max = $1;
+            }
+        }
+        #say STDERR "type=$type";
+        if (defined $type) {
+            my %types;
+            for my $type ($args->{schema}->resultset('NumberType')->all) {
+                $types{$type->name} = $type->id;
+            }
+            if ($type =~ /Byte/ or $type =~ /Int/) {
+                $args->{parameters}->add(data_type => $types{'integer'});
+            } elsif ($type =~ /Float/) {
+                $args->{parameters}->add(data_type => $types{'real'});
+            }
+        }
+        $args->{parameters}->add(min_value => $min) if defined $min;
+        $args->{parameters}->add(max_value => $max) if defined $max;
+    }
 }
 
 sub info {
@@ -113,15 +154,31 @@ sub info {
 
 sub tree {
     my ($self) = @_;
+    my $data_type = $self->data_type;
+    my $color_scale;
+    my $style;
+    if ($self->style) {
+        $self->style->prepare($self);
+        my $unit = $self->my_unit // '';
+        $unit = $unit->name if $unit;
+        my $range = '('.$self->style->min."$unit..".$self->style->max."$unit)";
+        $color_scale = $self->style->color_scale->name;
+        $style = $color_scale.' '.$range;
+    }
     return {
         id => $self->id,
+        use_class_id => 0, # reserved use class id
         name => $self->name,
-        style => $self->style ? $self->style->color_scale->name : '',
+        descr => $self->descr,
+        provenance => $self->lineage,
+        color_scale => $color_scale,
+        style => $style,
         classes => $self->style ? $self->style->classes : '',
         min_value => $self->min_value,
         max_value => $self->max_value,
-        data_type => $self->data_type,
-        class_semantics => $self->class_semantics
+        data_type => $data_type ? $data_type->name : undef,
+        class_semantics => $self->class_semantics,
+        owner => 'ajolma'
     };
 }
 

@@ -18,20 +18,7 @@ sub layers {
         #say STDERR $dataset->id;
         next unless $dataset->path;
         next unless $dataset->style;
-        my $range = '';
-        if (defined $dataset->style->min) {
-            my $u = '';
-            $u = ' '.$dataset->my_unit->name if $dataset->my_unit;
-            $range = ' ('.$dataset->style->min."$u..".$dataset->style->max."$u)";
-        }
-        push @datasets, {
-            name => $dataset->name,
-            provenance => $dataset->lineage,
-            descr => $dataset->descr,
-            style => $dataset->style->color_scale->name.$range,
-            id => $dataset->id, 
-            use => 0, 
-            rules => []};
+        push @datasets, $dataset->tree;
     }
     return @datasets if wantarray;
     return \@datasets;

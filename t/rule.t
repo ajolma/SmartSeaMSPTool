@@ -60,7 +60,7 @@ my $host = 'http://127.0.0.1';
 
 test_psgi $app, sub {
     my $cb = shift;
-    my $res = $cb->(POST "$host/browser/rule:1?update", [ value => 2.5 ] );
+    my $res = $cb->(POST "$host/browser/rule:1?request=modify", [ value => 2.5 ] );
     ok($res->content eq 'Forbidden', "Forbidden to update without cookie.");
     
     $res = $cb->(GET "$host/plans");
@@ -73,7 +73,7 @@ test_psgi $app, sub {
 
     ok($cookies[1] eq 'SmartSea', "Calling /plans sets a cookie.");
 
-    my $req = POST "$host/browser/rule:1?update", [ value => 2.5 ];
+    my $req = POST "$host/browser/rule:1?request=modify", [ value => 2.5 ];
     $jar->add_cookie_header($req);
     #print STDERR Dumper $req;
     
@@ -83,7 +83,7 @@ test_psgi $app, sub {
     $res = decode_json $res->content;
     ok($res->{object}{value} == 2.5, "Update ok with cookie.");
 
-    $req = POST "$host/browser/rule:1?update", [ value => 3.5 ];
+    $req = POST "$host/browser/rule:1?request=modify", [ value => 3.5 ];
     $jar->add_cookie_header($req);
 
     $res = $cb->($req);

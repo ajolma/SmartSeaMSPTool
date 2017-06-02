@@ -172,7 +172,7 @@ MSPController.prototype = {
         self.ok = function() {
             name = $(self.editor_id+' #'+name).val();
             self.post({
-                url: 'http://'+server+'/browser/plan?save',
+                url: 'http://'+server+'/browser/plan?request=save',
                 payload: { name: name },
                 atSuccess: function(data) {self.model.addPlan(data)}
             });
@@ -194,13 +194,13 @@ MSPController.prototype = {
             del = $(self.editor_id+' #'+del).prop('checked');
             if (del) {
                 self.post({
-                    url: 'http://'+server+'/browser/plan:'+plan.id+'?delete',
+                    url: 'http://'+server+'/browser/plan:'+plan.id+'?request=delete',
                     payload: {},
                     atSuccess: function(data) {self.model.deletePlan(plan.id)}
                 });
             } else {
                 self.post({
-                    url: 'http://'+server+'/browser/plan:'+plan.id+'?modify',
+                    url: 'http://'+server+'/browser/plan:'+plan.id+'?request=update',
                     payload: { name: name },
                     atSuccess: function(data) {self.model.editPlan(data)}
                 });
@@ -226,7 +226,7 @@ MSPController.prototype = {
         self.ok = function() {
             id = $(self.editor_id+' #'+id).val();
             self.post({
-                url: 'http://'+server+'/browser/use?save',
+                url: 'http://'+server+'/browser/use?request=save',
                 payload: { plan:self.model.plan.id, use_class:id },
                 atSuccess: function(data) {self.model.addUse(data)}
             });
@@ -237,16 +237,52 @@ MSPController.prototype = {
         var self = this;
         self.editor.dialog('option', 'title', 'Use');
         self.editor.dialog('option', 'height', 400);
-        var del = 'delete-use';
-        self.editor.html(element('input', {id:del, type:'checkbox'},  'Delete use '+use.name));
+        var delete_use = null;
+        var html = '';
+
+        if (use.id > 1) {
+            delete_use = new Widget({
+                container_id:self.editor_id,
+                id:'delete-use',
+                type:'checkbox',
+                content:'Delete this use ('+use.name+' in plan '+self.model.plan.name+')',
+            });
+            html += element('p', {}, delete_use.content());
+        }
+        // put into the list those datasets that are not in rules
+        // selected are those in self.model.plan.data
+        var dataset_list = null;
+        if (use.id == 0) {
+            var inRules = self.model.datasetsInRules();
+            var notInRules = [];
+            $.each(self.model.datasets.layers, function(i, layer) {
+                if (!inRules[layer.id]) notInRules.push(layer);
+            });
+            dataset_list = new Widget({
+                container_id:self.editor_id,
+                id:'dataset_list',
+                type:'checkbox-list',
+                list:notInRules,
+                selected:self.model.plan.data,
+                pretext:'Select the extra datasets for this plan: '
+            });
+            html += element('p', {}, dataset_list.content());
+        }
+        
+        self.editor.html(html);
         self.ok = function() {
-            del = $(self.editor_id+' #'+del).prop('checked');
-            if (del) {
+            if (delete_use && delete_use.checked()) {
                 self.post({
-                    url: 'http://'+server+'/browser/use:'+use.id+'?delete',
+                    url: 'http://'+server+'/browser/use:'+use.id+'?request=delete',
                     payload: {},
                     atSuccess: function(data) {self.model.deleteUse(use.id)}
                 });
+            }
+            if (dataset_list) {
+                var selected = dataset_list.selected_ids();
+                // add to plan:(use.plan).extra_datasets or data? those that are in selected but not in self.model.plan.data
+                // remove those in self.model.plan.data but not in selected
+                
             }
         };
         self.editor.dialog('open');
@@ -255,44 +291,49 @@ MSPController.prototype = {
         var self = this;
         self.editor.dialog('option', 'title', 'New layer');
         self.editor.dialog('option', 'height', 400);
-        var class_id = 'class-id';
-        var rule_id = 1;
-        var color_id = 'color-id';
-        var name = 'layer-name';
-        var classes = self.simpleObjects('layer_class');
-        var colors = self.simpleObjects('color_scale');
-        var class_list = '';
-        $.each(classes, function(i, klass) {
-            if (klass.id == 5) return true; // TODO: Impact layers
-            var have = false;
-            $.each(use.layers, function(j, layer) {
-                if (klass.id == layer.class_id) {
-                    have = true;
-                    return false;
-                }
-            });
-            if (!have) class_list += element('option', {value:klass.id}, klass.name);
+        var klass_list = new Widget({
+            container_id:self.editor_id,
+            id:'layer-klass',
+            type:'select',
+            list:self.simpleObjects('layer_class'),
+            get_item:function(i, klass) {
+                if (klass.id == 5) return null; // TODO: Impact layers
+                var retval = klass;
+                $.each(use.layers, function(j, layer) {
+                    if (klass.id == layer.class_id) {
+                        retval = null;
+                        return false;
+                    }
+                });
+                return retval;
+            },
+            pretext:'Select the class for the new layer: '
         });
-        var color_list = '';
-        for (var i = 0; i < colors.length; ++i) {
-            color_list += element('option', {value:colors[i].id}, colors[i].name);
-        }
-        var html = element('p', {}, 'Select the class for the new layer: '+
-                           element('select', {id:class_id}, class_list));
-        html += element('p', {}, 'The layer will be computed by rules that exclude areas from the layer.'+
-                       ' You can add rules after you have created the layer first.');
-        html += element('p', {}, 'Select the color for the layer: '+
-                        element('select', {id:color_id}, color_list));
+        var color_list = new Widget({
+            container_id:self.editor_id,
+            id:'layer-color',
+            type:'select',
+            list:self.simpleObjects('color_scale'),
+            pretext:'Select the color for the new layer: '
+        });
+        
+        var rule_id = 1;
+        var name = 'layer-name';
+        var html = element('p', {}, klass_list.content());
+        html += element('p', {},
+                        'The layer will be computed by rules that exclude areas from the layer.'+
+                        ' You can add rules after you have created the layer first.');
+        html += element('p', {}, color_list.content());
         self.editor.html(html)
         self.ok = function() {
-            class_id = $(self.editor_id+' #'+class_id).val();
-            color_id = $(self.editor_id+' #'+color_id).val();
+            var klass = klass_list.selected();
+            var color = color_list.selected();
             self.post({
-                url: 'http://'+server+'/browser/layer?save',
+                url: 'http://'+server+'/browser/layer?request=save',
                 payload: {
                     use:use.id,
-                    layer_class:class_id,
-                    color_scale:color_id,
+                    layer_class:klass.id,
+                    color_scale:color.id,
                     classes:2,
                     min:0,
                     max:1,
@@ -300,6 +341,7 @@ MSPController.prototype = {
                 },
                 atSuccess: function(layer) {self.model.addLayer(use, layer)}
             });
+            self.editor.dialog('close');
         };
         self.editor.dialog('open');
     },
@@ -314,15 +356,23 @@ MSPController.prototype = {
             type:'checkbox',
             content:'Delete this layer ('+args.layer.name+' in use '+args.use.name+')',
         });
+        var html = element('p', {}, layer_delete.content());
+        
+        var change_color = new Widget({
+            container_id:self.editor_id,
+            id:'change-color',
+            type:'checkbox',
+            content:'Select the color for this layer: '
+        });
         var color_list = new Widget({
             container_id:self.editor_id,
             id:'layer-color',
             type:'select',
             list:self.simpleObjects('color_scale'),
-            pretext:'Select the color for this layer: '
+            selected:args.layer.color_scale
         });
         
-        var html = element('p', {}, layer_delete.content()) + element('p', {}, color_list.content());
+        html += element('p', {}, change_color.content()+color_list.content());
         
         // list the rules with a possibility to delete one or more with checkboxes
 
@@ -336,11 +386,11 @@ MSPController.prototype = {
             container_id:self.editor_id,
             id:'rule-dataset',
             type:'select',
-            list:self.simpleObjects('dataset', 'path=notnull'),
+            list:self.simpleObjects('dataset', 'path=notnull'), // fixme: get this from self.model.datasets
             pretext:'Rule is based on the dataset: '
         });
         
-        html += element('p', {}, rule_add.content()) + element('p', {}, dataset_list.content());
+        var rules_html = element('p', {}, rule_add.content()) + element('p', {}, dataset_list.content());
         
         // the rule can be binary, if dataset has only one class
         // otherwise the rule needs operator and threshold
@@ -356,6 +406,7 @@ MSPController.prototype = {
             id:'rule-threshold',
             type:'text',
         });
+        var semantic_threshold = null;
         var rule_op_threshold = op_list.content() + '&nbsp;' + threshold.content();
         var rule_binary = 'Binary rule';
         var rule_defs = new Widget({
@@ -364,7 +415,7 @@ MSPController.prototype = {
             type:'para'
         });
         
-        html += rule_defs.content();
+        rules_html += rule_defs.content();
 
         var delete_rule = new Widget({
             container_id:self.editor_id,
@@ -373,14 +424,14 @@ MSPController.prototype = {
             content:'Delete rule(s) from this layer:'
         });
 
-        html += element('p', {}, delete_rule.content());
+        rules_html += element('p', {}, delete_rule.content());
 
         var rules = new Widget({
             container_id:self.editor_id,
             id:'rules-to-delete',
             type:'checkbox-list',
             list:args.layer.rules,
-            item_name:function(rule) {
+            get_item_name:function(rule) {
                 var name = rule.name;
                 if (!rule.binary) {
                     var value = rule.value;
@@ -391,35 +442,43 @@ MSPController.prototype = {
             }
         });
         
-        html += rules.content();
+        rules_html += rules.content();
+
+        if (args.layer.rules) {
+            html += rules_html;
+        }
         
         self.editor.html(html);
 
-        var dataset_changed = function() {
-            var dataset = dataset_list.selected();
-            if (dataset.classes == 1) {
-                rule_defs.html(rule_binary);
-            } else if (dataset.class_semantics) {
-                var list = new Widget({
-                    container_id:self.editor_id,
-                    id:'rule-threshold',
-                    type:'select',
-                    list:dataset.class_semantics.split(/;\s+/)
-                });
-                rule_defs.html(op_list.content() + '&nbsp;' + list.content());
-            } else {
-                rule_defs.html(rule_op_threshold);
-            }
-        };
-
-        dataset_list.change(dataset_changed);
-        dataset_changed();
+        if (args.layer.rules) {
+            var dataset_changed = function() {
+                var dataset = dataset_list.selected();
+                if (!dataset) {
+                    rule_defs.html('');
+                } else if (dataset.classes == 1) {
+                    rule_defs.html(rule_binary);
+                } else if (dataset.class_semantics) {
+                    semantic_threshold = new Widget({
+                        container_id:self.editor_id,
+                        id:'rule-threshold',
+                        type:'select',
+                        list:dataset.class_semantics.split(/;\s+/)
+                    });
+                    rule_defs.html(op_list.content() + '&nbsp;' + semantic_threshold.content());
+                } else {
+                    rule_defs.html(rule_op_threshold);
+                }
+            };
+            
+            dataset_list.change(dataset_changed);
+            dataset_changed();
+        }
         
         self.ok = function() {
             var color = color_list.selected(); // fixme, when is this set?
             if (layer_delete.checked()) {
                 self.post({
-                    url: 'http://'+server+'/browser/layer:'+args.layer.id+'?delete',
+                    url: 'http://'+server+'/browser/layer:'+args.layer.id+'?request=delete',
                     payload: {},
                     atSuccess: function(data) {self.model.deleteLayer(args.layer.id)}
                 });
@@ -434,12 +493,13 @@ MSPController.prototype = {
                 } else {
                 }
                 self.post({
-                    url: 'http://'+server+'/browser/layer:'+args.layer.id+'/rule?save',
+                    url: 'http://'+server+'/browser/layer:'+args.layer.id+'/rule?request=save',
                     payload: {r_dataset:dataset.id, op:op.id, value:value},
                     atSuccess: function(data) {self.model.addRule(args.layer, data)}
                 });
             } else if (rule_delete.checked()) {
             }
+            self.editor.dialog('close');
         };
         self.editor.dialog('open');
     },
@@ -511,7 +571,7 @@ MSPController.prototype = {
             else if (rule.type == 'real')
                 value = $(editor).slider('value');
             self.post({
-                url: 'http://'+server+'/browser/rule:'+rule.id+'?update',
+                url: 'http://'+server+'/browser/rule:'+rule.id+'?request=modify',
                 payload: { value: value },
                 atSuccess: function(data) {
                     self.model.modifyRule(data.object);
@@ -653,7 +713,7 @@ MSPView.prototype = {
         }
         var callbacks = [];
         var layers = '';
-        if (self.model.auth && use.owner == user) {
+        if (self.model.auth && use.owner == user && use.id > 0) {
             layers = element('button', {id:'add_layer_'+use.id, type:'button'}, 'Add layer')+'<br/>';
         }
         $.each(use.layers.reverse(), function(j, layer) {
@@ -768,7 +828,7 @@ MSPView.prototype = {
         var plan = this.model.plan;
         var layer = this.model.layer;
         $('#layer_'+layer.id).css('background-color','yellow');
-        var url = 'http://'+self.server+'/legend';
+        var url = 'http://'+server+'/legend';
         var cache_breaker = '&time='+new Date().getTime();
         this.elements.color_scale.html(
             element('img',{src:url+'?layer='+layer.use_class_id+'_'+layer.id+cache_breaker},'')
@@ -878,13 +938,15 @@ MSPView.prototype = {
 
 function MSP(args) {
     var self = this;
-    self.server = args.server;
     self.firstPlan = args.firstPlan;
     self.auth = args.auth;
     self.proj = null;
     self.map = null;
     self.site = null; // layer showing selected location or area
     self.plans = null;
+    // pseudo uses
+    self.ecosystem = null;
+    self.datasets = null;
     // selected things, i.e., where the users focus is
     self.plan = null;
     self.layer = null;
@@ -927,17 +989,25 @@ MSP.prototype = {
         self.removeSite();
         // the planning system is a tree: root->plans->uses->layers->rules
         $.ajax({
-            url: 'http://'+self.server+'/plans',
+            url: 'http://'+server+'/plans',
             xhrFields: {
                 withCredentials: true
             }
         }).done(function(plans) {
             self.plans = plans;
+            // pseudo uses, note reserved use class id's
+            $.each(self.plans, function(i, plan) {
+                if (plan.id == 0) { // a pseudo plan Data
+                    self.datasets = plan.uses[0];
+                } else if (plan.id == 1) { // a pseudo plan Ecosystem
+                    self.ecosystem = plan.uses[0];
+                }
+            });
             self.newPlans.notify();
             self.changePlan(self.firstPlan);
             self.initSite();
         }).fail(function(xhr, textStatus, errorThrown) {
-            var msg = 'The configured SmartSea MSP server at '+self.server+' is not responding.';
+            var msg = 'The configured SmartSea MSP server at '+server+' is not responding.';
             self.error(msg);
         });
     },
@@ -947,6 +1017,25 @@ MSP.prototype = {
         self.newPlans.notify();
         self.changePlan(plan.id);
         self.initSite();
+    },
+    datasetsInRules: function() {
+        var self = this;
+        var datasets = {};
+        $.each(self.plan.uses, function(i, use) {
+            if (use.id > 1) {
+                $.each(use.layers, function(i, layer) {
+                    $.each(layer.rules, function(i, rule) {
+                        $.each(self.datasets.layers, function(i, layer) {
+                            if (layer.id == rule.dataset_id) {
+                                datasets[layer.id] = layer;
+                                return false;
+                            }
+                        });
+                    });
+                });
+            }
+        });
+        return datasets;
     },
     changePlan: function(id) {
         var self = this;
@@ -961,9 +1050,6 @@ MSP.prototype = {
         }
         self.plan = null;
         self.layer = null;
-        // pseudo plans, note reserved use class id's
-        var datasets = {id:0, name:'Data', open:false, plan:0, layers:[]};
-        var ecosystem = {id:1, name:'Ecosystem', open:false, plan:1, layers:[]};
         $.each(self.plans, function(i, plan) {
             if (id == plan.id) self.plan = plan;
         });
@@ -977,25 +1063,46 @@ MSP.prototype = {
             if (!self.plan) self.plan = {id:2, name:'No plan', data:[], uses:[]};
         }
         $.each(self.plans, function(i, plan) {
-            if (plan.id == 0) { // a pseudo plan Data
-                $.each(plan.uses[0].layers, function(i, dataset) {
-                    if (self.plan.data[dataset.id])
-                        datasets.layers.push(dataset);
-                });
-            }
-            if (plan.id == 1) { // a pseudo plan Ecosystem
-                $.each(plan.uses[0].layers, function(i, component) {
-                    ecosystem.layers.push(component);
-                });
-            }
             $.each(plan.uses, function(i, use) {
                 $.each(use.layers, function(j, layer) {
                     if (layer.object) self.map.removeLayer(layer.object);
                 });
             });
         });
+        // pseudo use
+        var datasets = {
+            id:self.datasets.id,
+            class_id:self.datasets.class_id,
+            owner:self.datasets.owner,
+            name:self.datasets.name
+        };
+        // add to datasets those that have dataset_id in any rule
+        var layers = self.datasetsInRules();
+        // add to datasets those that have dataset_id in data
+        $.each(self.plan.data, function(key, id) {
+            $.each(self.datasets.layers, function(i, layer) {
+                if (layer.id == key) {
+                    layers[key] = layer;
+                    return false;
+                }
+            });
+        });
+        var array = []
+        $.each(layers, function(i, layer) {
+            array.push(layer);
+        });
+        datasets.layers = array.sort(function (a, b) {
+            if (a.name < b.name) {
+                return -1;
+            }
+            if (a.name > b.name) {
+                return 1;
+            }
+            return 0;
+        });
+
         // add datasets and ecosystem as an extra use
-        self.plan.uses.push(ecosystem);
+        self.plan.uses.push(self.ecosystem);
         self.plan.uses.push(datasets);
         if (self.plan) self.planChanged.notify({ plan: self.plan });
     },
@@ -1034,8 +1141,8 @@ MSP.prototype = {
                 if (layer.object) self.map.removeLayer(layer.object);
                 if (boot || !layer.wmts) {
                     // initial boot or new plan
-                    var wmts = use.class_id + '_' + layer.id;
-                    if (layer.rules.length > 0) {
+                    var wmts = layer.use_class_id + '_' + layer.id;
+                    if (layer.rules && layer.rules.length > 0) {
                         var rules = '';
                         // add rules
                         $.each(layer.rules, function(i, rule) {
@@ -1182,7 +1289,7 @@ MSP.prototype = {
             }
             query += '&srs='+self.proj.projection.getCode();
             $.ajax({
-                url: 'http://'+self.server+'/explain?'+query
+                url: 'http://'+server+'/explain?'+query
             }).done(function(data) {
                 self.siteInformationReceived.notify(data);
             });

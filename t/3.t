@@ -112,8 +112,9 @@ $service->{debug} = 0;
 
 # test create and delete of objects of all classes
 if (1) {for my $class (keys %$classes) {
+#{for my $class (qw/rule_system rule/) {
     next if $classes->{$class}{embedded};
-    #next unless $class eq 'pressure';
+    #next unless $class eq 'rule_system';
     
     test_psgi $app, sub {
         my $cb = shift;
@@ -122,6 +123,7 @@ if (1) {for my $class (keys %$classes) {
         eval {
             $dom = $parser->load_xml(string => $res->content);
         };
+        say STDERR $res->content if $@;
         ok(!$@, "create $class ".$@);
     };
     
@@ -134,7 +136,7 @@ if (1) {for my $class (keys %$classes) {
         };
         ok(!$@, "delete $class ".$@);
     };
-        }}
+}}
 done_testing();
 exit;
 
@@ -146,7 +148,7 @@ test_psgi $app, sub {
     
     my $res = create_object($cb, 'dataset', {path => '1'});
     $res = create_object($cb, 'dataset', {id => 2, name => 'test2', path => '2'});
-    $res = $cb->(POST "/plan?save", [id => 1, name => 'test']);
+    $res = $cb->(POST "/plan?request=save", [id => 1, name => 'test']);
     $res = $cb->(POST "/plan:1/dataset", [submit => 'Create', extra_dataset => 2]);
 
     my @all = select_all($schema, 'tool', 'id,plan,dataset', 'plan2dataset_extra');
@@ -240,7 +242,7 @@ sub create_object {
         $attr{owner} = $user;
     }
     my @attr = map {$_ => $attr{$_}} keys %attr;
-    $url = "$url/$class?save";
+    $url = "$url/$class?request=save";
     say STDERR "POST $url @attr" if $service->{debug};
     return $cb->(POST $url, \@attr);
 }
@@ -253,7 +255,7 @@ sub delete_object {
     for my $parent (deps($class, 'parents')) {
         $url .= '/'.$parent->{class}.':1';
     }
-    $url = "$url/$class?delete";
+    $url = "$url/$class?request=delete";
     say STDERR "POST $url @attr" if $service->{debug};
     my $ret = $cb->(POST $url, \@attr);
     for my $ref (deps($class, 'refs')) {

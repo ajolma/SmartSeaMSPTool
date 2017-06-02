@@ -908,7 +908,8 @@ COMMENT ON COLUMN ranges.d IS 'Distance from activity to which pressure is cause
 
 CREATE TABLE rule_classes (
     id integer NOT NULL,
-    name text NOT NULL
+    name text NOT NULL,
+    labels text
 );
 
 
@@ -985,7 +986,6 @@ CREATE TABLE rules (
     value_at_min double precision DEFAULT 0 NOT NULL,
     value_at_max double precision DEFAULT 1 NOT NULL,
     weight double precision DEFAULT 1 NOT NULL,
-    value_type integer DEFAULT 1 NOT NULL,
     rule_system integer NOT NULL
 );
 
@@ -1035,13 +1035,6 @@ COMMENT ON COLUMN rules.weight IS 'for additive and multiplicative rules';
 
 
 --
--- Name: COLUMN rules.value_type; Type: COMMENT; Schema: tool; Owner: ajolma
---
-
-COMMENT ON COLUMN rules.value_type IS 'for sequential rules, type of column ''value''';
-
-
---
 -- Name: rules_id_seq; Type: SEQUENCE; Schema: tool; Owner: ajolma
 --
 
@@ -1071,8 +1064,7 @@ CREATE TABLE styles (
     color_scale integer NOT NULL,
     min double precision,
     max double precision,
-    classes integer,
-    class_labels text
+    classes integer
 );
 
 
@@ -1609,6 +1601,14 @@ ALTER TABLE ONLY number_types
 
 
 --
+-- Name: number_types_name_key; Type: CONSTRAINT; Schema: tool; Owner: ajolma
+--
+
+ALTER TABLE ONLY number_types
+    ADD CONSTRAINT number_types_name_key UNIQUE (name);
+
+
+--
 -- Name: ops_pkey; Type: CONSTRAINT; Schema: tool; Owner: ajolma
 --
 
@@ -2050,14 +2050,6 @@ ALTER TABLE ONLY rules
 
 ALTER TABLE ONLY rules
     ADD CONSTRAINT rules_rule_system_fkey FOREIGN KEY (rule_system) REFERENCES rule_systems(id);
-
-
---
--- Name: rules_v_fkey; Type: FK CONSTRAINT; Schema: tool; Owner: ajolma
---
-
-ALTER TABLE ONLY rules
-    ADD CONSTRAINT rules_v_fkey FOREIGN KEY (value_type) REFERENCES number_types(id);
 
 
 --

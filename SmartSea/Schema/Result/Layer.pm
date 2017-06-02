@@ -30,7 +30,7 @@ __PACKAGE__->has_many(rules => 'SmartSea::Schema::Result::Rule', {'foreign.rule_
 # subclassing made with a new table with id pointing to superclass table's if
 # use this method to tell whether an entry is required into this table too
 sub subclass {
-    my ($self, $parameters) = @_;
+    my ($self) = @_;
     return 'ImpactLayer' if $self->layer_class->name eq 'Impact';
 }
 
@@ -49,8 +49,10 @@ sub children_listers {
 }
 
 sub column_values_from_context {
-    my ($self, $parent, $parameters) = @_;
-    return {use => $parent->id, layer_class => $parameters->{layer_class}};
+    my ($self, $parent) = @_;
+    my %retval = (use => $parent->id);
+    $retval{layer_class} = $self->layer_class->id if ref $self;
+    return \%retval;
 }
 
 sub order_by {
@@ -78,7 +80,7 @@ sub tree {
         name => $self->layer_class->name,
         use_class_id => $self->use->use_class->id,
         owner => $self->owner,
-        style => $self->style->color_scale->name,
+        color_scale => $self->style->color_scale->name,
         rule_class => $self->rule_system->rule_class->name,
         rules => \@rules
     };

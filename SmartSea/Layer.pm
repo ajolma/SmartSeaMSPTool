@@ -28,15 +28,33 @@ sub new {
     if ($use_id == 0) {
         $self->{dataset} = $self->{schema}->resultset('Dataset')->single({ id => $layer_id });
         croak "Dataset $layer_id does not exist!" unless $self->{dataset};
+        $self->{min} = $self->{dataset}->min_value;
+        $self->{max} = $self->{dataset}->max_value;
+        $self->{min} = 0 if $self->{min} == $self->{max}; # hack, probably nodata/1 type raster
+        my $unit = $self->{dataset}->unit;
+        $self->{unit} = $unit->name if defined $unit;
+        $self->{labels} = $self->{dataset}->class_semantics;
+        if ($self->{dataset}->class_semantics) {
+            $self->{classes} = $self->{dataset}->max_value - $self->{dataset}->min_value + 1;
+        }
         $self->{duck} = $self->{dataset};
+        
     } elsif ($use_id == 1) {
         $self->{duck} = $self->{schema}->resultset('EcosystemComponent')->single({ id => $layer_id });
         croak "Ecosystem component $layer_id does not exist!" unless $self->{duck};
         $self->{rules} = [];
+        
     } else {
-        my $layer = $self->{schema}->resultset('Layer')->single({ id => $layer_id });
-        $self->{duck} = $layer;
+        $self->{layer} = $self->{schema}->resultset('Layer')->single({ id => $layer_id });
+        $self->{duck} = $self->{layer};
         croak "Layer $layer_id does not exist!" unless $self->{duck};
+        my $class = $self->{layer}->rule_system->rule_class->name;
+        if ($class eq 'exclusive' or $class eq 'inclusive') {
+            $self->{min} = 0;
+            $self->{max} = 1;
+            $self->{classes} = 1;
+            $self->{labels} = 'valid';
+        }
         $self->{rules} = [];
         # rule list is optional, if no rules, then all rules (QGIS plugin does not send any rules)
         if (@rules) {
@@ -53,6 +71,7 @@ sub new {
                 push @{$self->{rules}}, $rule if $rule;
             }
         }
+        
     }
     if ($self->{rules} && @{$self->{rules}} == 0) {
         # all rules of this layer, preferring those with given cookie
@@ -73,36 +92,26 @@ sub new {
     # my $color_scale = $self->{style} // $self->{duck}->style->color_scale->name // 'grayscale';
     # $color_scale =~ s/-/_/g;
     # $color_scale =~ s/\W.*$//g;
-    
+
+    # min, max, classes get default values from data etc
+    # these are propagated to style but style can override them
+    # then style values are propagated back here
+
+    $self->{unit} //= '';
     $self->{style} = $self->{duck}->style;
-    $self->{style}->prepare;
+    $self->{style}->prepare($self);
+    $self->{min} = $self->{style}->min;
+    $self->{max} = $self->{style}->max;
+    $self->{classes} = $self->{style}->classes;    
     
     return bless $self, $class;
 }
 
-sub classes {
-    my ($self) = @_;
-    return $self->{style}->classes;
-}
-
-sub class_labels {
-    my ($self) = @_;
-    return $self->{style}->class_labels // $self->{duck}->descr // '';
-}
-
-sub range {
-    my ($self) = @_;
-    my $min = $self->{style}->min // 0;
-    my $max = $self->{style}->max // 1;
-    my $unit = $self->{duck}->my_unit ? ' '.$self->{duck}->my_unit->name : '';
-    $max = $min if $max < $min;
-    return ($min, $max, $unit);
-}
-
-sub unit {
-    my ($self) = @_;
-    my $unit = $self->{duck}->my_unit ? ' '.$self->{duck}->my_unit->name : '';
-    return $unit;
+sub legend {
+    my ($self, $args) = @_;
+    $args->{unit} //= $self->{unit};
+    $args->{labels} //= $self->{labels};
+    return $self->{style}->legend($args);
 }
 
 sub post_process {
@@ -112,8 +121,7 @@ sub post_process {
     my $mask = $result->Band->Piddle; # 1 = target area, 0 not
     $mask->inplace->setvaltobad(0);
 
-    my $n_classes = $self->{style}->classes // 101;
-    $n_classes = 2 if $n_classes == 1;
+    my $n_classes = $self->{classes};
     
     if ($debug) {
         say STDERR "post processing: classes = $n_classes";
@@ -122,7 +130,8 @@ sub post_process {
         
     $y *= $mask;
 
-    my ($min, $max) = $self->range;
+    my $min = $self->{min};
+    my $max = $self->{max};
     if ($debug) {
         say STDERR "scale to $min .. $max";
     }    

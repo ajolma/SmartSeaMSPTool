@@ -361,6 +361,16 @@ sub add_rule {
 sub make_dataset {
     my ($datatype, $data, $style) = @_;
     # min_value, max_value, classes, style, descr
+    my $min;
+    my $max;
+    for my $row (@$data) {
+        for my $x (@$row) {
+            $min = $x unless defined $min;
+            $max = $x unless defined $max;
+            $min = $x if $x < $min;
+            $max = $x if $x > $max;
+        }
+    }
     $style //= {
         min => undef,
         max => undef,
@@ -382,6 +392,8 @@ sub make_dataset {
          attribution => '',
          disclaimer => '',
          path => $dataset_id.'.tiff',
+         min_value => $min,
+         max_value => $max,
          unit => undef,
          style => $style_id
         }, 

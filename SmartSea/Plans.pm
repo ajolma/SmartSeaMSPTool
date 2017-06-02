@@ -34,7 +34,9 @@ sub call {
         id => 0,
         uses => [{
             name => 'Data',
+            owner => 'ajolma',
             id => 0,
+            plan => 0,
             class_id => 0,
             layers => scalar($self->{schema}->resultset('Dataset')->layers) }]
     };
@@ -44,7 +46,9 @@ sub call {
         id => 1,
         uses => [{
             name => 'Ecosystem',
+            owner => 'ajolma',
             id => 1,
+            plan => 1,
             class_id => 1,
             layers => scalar($self->{schema}->resultset('EcosystemComponent')->layers) }]
     };

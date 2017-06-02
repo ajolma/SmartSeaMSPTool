@@ -86,25 +86,32 @@ sub object_editor {
     
     # $self->{parameters} is a multivalue hash
     # we may have both object => command and object => id
+    my $request;
     for my $key (sort keys %{$self->{parameters}}) {
         for my $value ($self->{parameters}->get_all($key)) {
             say STDERR "$key => $value" if $self->{debug} > 1;
             if ($key eq 'submit' && $value =~ /^Compute/) {
-                $parameters{request} = 'edit';
-                $parameters{compute} = $value;
+                $request = 'edit';
+                $self->{parameters}->add(compute => $value);
                 last;
             }
             $value = decode utf8 => $value;
             my $done = 0;
-            for my $request (qw/create add read edit update modify save delete remove/) {
-                if (lc($value) eq $request || lc($key) eq $request) {
-                    $request = 'delete' if $request eq 'remove';
-                    $parameters{request} = $request;
-                    if ($request eq 'delete') {
-                        $parameters{id} //= $key;
-                    } else {
-                        $parameters{$request} = $key;
+            for (qw/create add read edit modify update save delete remove/) {
+                # remove means "delete link or link object"
+                my $cmd = $_;
+                $cmd = 'delete' if $cmd eq 'remove';
+                if (lc($value) eq $cmd && ($key eq 'request' || $key eq 'submit' || $key =~ /^\d+$/)) {
+                    $request = $cmd;
+                    my $last = $oids->last;
+                    if ($last) {
+                        my ($class, $oid) = split /:/, $last;
+                        my $id = $self->{parameters}{$class};
+                        if ($class && $id && !$oid) {
+                            $oids->set_last_id($id);
+                        }
                     }
+                    $oids->set_last_id($key) if $key =~ /^\d+$/; # the key may also be the id
                     $done = 1;
                     last;
                 }
@@ -117,15 +124,13 @@ sub object_editor {
             }
             next if $done;
             if ($value eq 'NULL') {
-                $parameters{$key} = undef;
-            } else {
-                $parameters{$key} = $value;
+                $self->{parameters}->remove($key);
             }
         }
     }
-    $parameters{request} //= 'read';
-    say STDERR "request = $parameters{request}" if $self->{debug} > 1;
-    $self->{parameters} = \%parameters;
+    $request //= 'read';
+    say STDERR "request = $request" if $self->{debug} > 1;
+    #return http_status({}, 403);
 
     # to make jQuery happy:
     my $header = { 'Access-Control-Allow-Origin' => $self->{origin},
@@ -133,20 +138,20 @@ sub object_editor {
 
     my @body = [p => a(link => 'All classes', url => $self->{root})];
 
-    if ($parameters{request} eq 'read') {
+    if ($request eq 'read') {
         my $part = $self->read_object($oids);
         return json200({}, $part) if $self->{json};
         push @body, $part;
         push @body, $footer;
         return html200({}, SmartSea::HTML->new(html => [body => @body])->html);
         
-    } elsif ($parameters{request} eq 'update') {
+    } elsif ($request eq 'modify') {
         return http_status($header, 403) if $self->{cookie} eq DEFAULT; # forbidden
         my $obj = SmartSea::Object->new({oid => $oids->first}, $self);
         return http_status($header, 400) unless $obj->{object} && $obj->{source} eq 'Rule'; # bad request
 
         my $cols = $obj->{object}->values;
-        $cols->{value} = $parameters{value};
+        $cols->{value} = $self->{parameters}{value};
         $cols->{cookie} = $self->{cookie};
         my $tmp = ['current_timestamp'];
         $cols->{made} = \$tmp;
@@ -163,18 +168,17 @@ sub object_editor {
     return return http_status($header, 403) if $self->{user} eq 'guest';
 
     my ($source, $id) = split /:/, $oids->last;
-    $id //= $parameters{id};
     my $obj = SmartSea::Object->new({source => $source, id => $id}, $self);
     return http_status($header, 400) unless $obj;
 
     # TODO: all actions should be wrapped in begin; commit;
 
-    if ($parameters{request} eq 'add' or $parameters{request} eq 'create') {
+    if ($request eq 'add' or $request eq 'create') {
         $self->edit_object($obj, $oids, \@body);
         
-    } elsif ($parameters{request} eq 'delete') {
+    } elsif ($request eq 'delete') {
         eval {
-            $obj->delete($oids->with_index('last'), \%parameters);
+            $obj->delete($oids->with_index('last'));
         };
         if ($self->{json}) {
             return json200({}, {error => "$@"}) if $@;
@@ -183,11 +187,19 @@ sub object_editor {
         push @body, error_message($@) if $@;
         my $part = $self->read_object($oids);
         push @body, $part;
-        
-    } elsif ($parameters{request} eq 'save') {
-        $parameters{owner} = $self->{user};
+
+    } elsif ($request eq 'update') { # RESTish API, json only
+        my $obj = SmartSea::Object->new({oid => $oids->first}, $self);
         eval {
-            $obj->update_or_create($oids->with_index('last'), \%parameters);
+            $obj->api_update();
+        };
+        return json200({}, {error => "$@"}) if $@;
+        return json200({}, {result => 'ok'});
+        
+    } elsif ($request eq 'save') {
+        $self->{parameters}->add(owner => $self->{user});
+        eval {
+            $obj->update_or_create($oids->with_index('last'));
         };
         if ($@) {
             push @body, error_message($@);
@@ -199,7 +211,7 @@ sub object_editor {
             push @body, $part;
         }
         
-    } elsif ($parameters{request} eq 'edit') {
+    } elsif ($request eq 'edit') {
         $self->edit_object($obj, $oids, \@body);
         
     } else {

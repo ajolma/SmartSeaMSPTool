@@ -59,6 +59,7 @@ function cmp_date(a,b) {
 
 function Widget(args) {
     var self = this;
+    self.type = args.type;
     self.container_id = args.container_id;
     self.id = args.id;
     if (args.pretext)
@@ -84,17 +85,35 @@ function Widget(args) {
     } else if (args.list) {
         self.list = args.list;
         $.each(args.list, function(i, item) {
-            if (args.type == 'select') {
-                // set selected
-                if (typeof item == 'object')
-                    content += element('option', {value:item.id}, item.name);
-                else
-                    content += element('option', {value:i}, item);
-            } else if (args.type == 'checkbox-list') {
-                var name = args.item_name(item);
-                var label = element('a', {id:'item', item:item.id}, name);
-                content += element('input', {type:'checkbox', item:item.id}, label) + element('br');
+            var tag, attr, name, x;
+            if (args.get_item) {
+                item = args.get_item(i, item);
+                if (!item) return true;
             }
+            if (args.get_item_name) {
+                name = args.get_item_name(item);
+            } else if (typeof item === 'object') {
+                name = item.name;
+            } else {
+                name = item;
+            }
+            if (args.type == 'select') {
+                tag = 'option';
+                if (typeof item === 'object') {
+                    attr = {value:item.id};
+                } else {
+                    attr = {value:i};
+                }
+                if (name === args.selected) attr.selected = 'selected';
+                x = '';
+            } else if (args.type == 'checkbox-list') {
+                tag = 'input';
+                name = element('a', {id:'item', item:item.id}, name);
+                attr = {type:'checkbox', item:item.id};
+                if (args.selected[item.id]) attr.checked="checked"; 
+                x = element('br');
+            }
+            content += element(tag, attr, name) + x;
         });
     }
     self.element = element(tag, attr, content);
@@ -112,6 +131,7 @@ Widget.prototype = {
     selected: function() {
         var self = this;
         var id = $(self.container_id+' #'+self.id).val();
+        if (!id) return null;
         var retval = null;
         $.each(self.list, function(i, item) {
             if (item.id == id) {
@@ -120,6 +140,16 @@ Widget.prototype = {
             }
         });
         return retval;
+    },
+    selected_ids: function() {
+        var self = this;
+        if (self.type === 'checkbox-list') {
+            var ids = {};
+            $.each($(self.container_id+' :checkbox'), function(i, item) {
+                if (item.checked) ids[item.attr('item')]= 1;
+            });
+            return ids;
+        }
     },
     change: function(fct) {
         var self = this;

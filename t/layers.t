@@ -79,7 +79,7 @@ test_psgi $app, sub {
         push @href, $href;
         #say STDERR $href;
     }
-    ok(@href == 7 && $href[6] eq '/browser/use:1/layer:2?edit', "layer list");
+    ok(@href == 7 && $href[6] eq '/browser/use:1/layer:2?request=edit', "layer list");
 
     $res = $cb->(GET "/browser/use:1/layer:2");
     eval {
@@ -92,9 +92,9 @@ test_psgi $app, sub {
         push @href, $href;
         #say STDERR $href;
     }
-    ok(@href == 5 && $href[4] eq '/browser/use:1/layer:2?edit', "layer list with impact layer open");
+    ok(@href == 5 && $href[4] eq '/browser/use:1/layer:2?request=edit', "layer list with impact layer open");
 
-    $res = $cb->(GET "/browser/use:1/layer:2?edit");
+    $res = $cb->(GET "/browser/use:1/layer:2?request=edit");
     eval {
         $dom = $parser->load_xml(string => $res->content);
     };
@@ -112,7 +112,8 @@ test_psgi $app, sub {
         push @href, $href;
         #say STDERR "select: ",$href;
     }
-    ok(@href == 5, "5 select elements in impact layer form");
+    my $n = @href;
+    ok(@href == 4, "$n == 4 select elements in impact layer form");
     
 };
 

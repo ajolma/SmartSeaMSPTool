@@ -22,7 +22,6 @@ my @columns = (
     value        => { data_type => 'text', type => 'double', empty_is_default => 1 },
     min_value    => { data_type => 'text', type => 'double', empty_is_default => 1 },
     max_value    => { data_type => 'text', type => 'double', empty_is_default => 1 },
-    value_type   => { is_foreign_key => 1, source => 'NumberType' },
     value_at_min => { data_type => 'text', type => 'double', empty_is_default => 1 },
     value_at_max => { data_type => 'text', type => 'double', empty_is_default => 1 },
     weight       => { data_type => 'text', type => 'double', empty_is_default => 1 }
@@ -44,7 +43,6 @@ __PACKAGE__->belongs_to(rule_system => 'SmartSea::Schema::Result::RuleSystem');
 __PACKAGE__->belongs_to(r_layer => 'SmartSea::Schema::Result::Layer');
 __PACKAGE__->belongs_to(r_dataset => 'SmartSea::Schema::Result::Dataset');
 __PACKAGE__->belongs_to(op => 'SmartSea::Schema::Result::Op');
-__PACKAGE__->belongs_to(value_type => 'SmartSea::Schema::Result::NumberType');
 
 sub context_based_columns {
     my ($self, $parent) = @_;
@@ -58,7 +56,6 @@ sub context_based_columns {
             if ($class eq 'additive' or $class eq 'multiplicative') {
                 next if $col eq 'op';
                 next if $col eq 'value';
-                next if $col eq 'value_type';
             } else {
                 next if $col eq 'min_value';
                 next if $col eq 'max_value';
@@ -93,7 +90,7 @@ sub context_based_columns {
 }
 
 sub column_values_from_context {
-    my ($self, $parent, $parameters) = @_;
+    my ($self, $parent) = @_;
     return {rule_system => $parent->rule_system->id} if ref $parent eq 'SmartSea::Schema::Result::Layer';
     return {rule_system => $parent->distribution->id} if ref $parent eq 'SmartSea::Schema::Result::EcosystemComponent';
     return {};
@@ -112,39 +109,29 @@ sub order_by {
 sub name {
     my ($self, %args) = @_;
 
-    my $class = $self->rule_system->rule_class->name;
+    my $class = $self->rule_system->rule_class;
+    $class = $class->name if $class;
     my $layer  = $self->r_layer ? $self->r_layer : undef;
     my $dataset = $self->r_dataset ? $self->r_dataset : undef;
 
     my $criteria = $dataset ? $dataset->name : ($layer ? $layer->name : 'unknown');
 
     if ($class eq 'exclusive' || $class eq 'inclusive') {
-
         my $sign = $class eq 'exclusive' ? '-' : '+';
-
         my $op = $self->op->name;
-
         unless ($args{no_value}) {
             my $value = $self->value;
-
-            
-            my $value_semantics = $dataset ? $dataset->class_semantics : undef;
-
-            if ($value_semantics) {
-                for my $item (split /; /, $value_semantics) {
-                    my ($val, $semantics) = split / = /, $item;
-                    if ($val == $value) {
-                        $value = $semantics;
-                        last;
-                    }
-                }
+            # semantics => dataset is type integer and has min value
+            # semantics is "meaning_of_min_value; meaning_of_min_value+1; ..."
+            my $semantics = $dataset ? $dataset->class_semantics : undef;
+            if ($semantics) {
+                my @semantics = split /;\s+/, $semantics;
+                my $min = $dataset->min_value;
+                $value = $semantics[$value - $min + 1];
             }
-
             return "$sign if $criteria $op $value";
         }
-
         return "$sign if $criteria $op";
-
     }
     
     my $x_min = $self->min_value;
@@ -184,7 +171,6 @@ sub tree {
         $rule{value_semantics} = \%value_semantics;
         $rule{min} = $dataset->min_value;
         $rule{max} = $dataset->max_value;
-        $rule{type} = 'integer';
     } else {
         my $class = $self->rule_system->rule_class->name;
         if ($class eq 'exclusive' || $class eq 'inclusive') {
@@ -197,18 +183,19 @@ sub tree {
                 } else {
                     $rule{min} = 1;
                     $rule{max} = $style->classes;
-                    $rule{type} = $self->value_type->name;
                 }
             } elsif ($dataset) {
                 $rule{min} = $dataset->min_value // ($style ? $style->min : 0) // 0;
                 $rule{max} = $dataset->max_value // ($style ? $style->max : 1) // 1;
-                $rule{type} = $self->value_type->name;
             }
         } elsif ($class eq 'additive' || $class eq 'multiplicative') {
             $rule{min} = $self->min_value;
             $rule{min} = $self->max_value;
-            $rule{type} = 'real';
         }
+    }
+    if ($dataset) {
+        my $type = $dataset->data_type;
+        $rule{data_type} = defined $type ? $type->name : 'real';
     }
     return \%rule;
 }

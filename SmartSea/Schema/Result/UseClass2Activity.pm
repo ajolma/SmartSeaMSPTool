@@ -21,8 +21,8 @@ sub order_by {
 }
 
 sub column_values_from_context {
-    my ($self, $parent, $parameters) = @_;
-    return {use_class => $parent->id, activity => $parameters->{activity}};
+    my ($self, $parent) = @_;
+    return {use_class => $parent->id, activity => $self->activity->id};
 }
 
 sub name {

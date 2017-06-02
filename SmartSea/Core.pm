@@ -193,6 +193,11 @@ sub plural {
         return undef if $self->{n} == 0;
         return $self->{oids}[$self->{n}-1];
     }
+    sub set_last_id {
+        my ($self, $id) = @_;
+        return undef if $self->{n} == 0;
+        $self->{oids}[$self->{n}-1] .= ':'.$id;
+    }
     sub has_next {
         my $self = shift;
         return $self->{index}+1 < $self->{n};

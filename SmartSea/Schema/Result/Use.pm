@@ -66,8 +66,10 @@ sub children_listers {
 }
 
 sub column_values_from_context {
-    my ($self, $parent, $parameters) = @_;
-    return {plan => $parent->id, use_class => $parameters->{use_class}};
+    my ($self, $parent) = @_;
+    my %retval = (plan => $parent->id);
+    $retval{use_class} = $self->use_class->id if ref $self;
+    return \%retval;
 }
 
 sub activities {
@@ -84,6 +86,7 @@ sub tree {
     return {
         id => $self->id,
         class_id => $self->use_class->id,
+        plan => $self->plan->id,
         owner => $self->owner,
         name => $self->use_class->name, 
         layers => \@layers

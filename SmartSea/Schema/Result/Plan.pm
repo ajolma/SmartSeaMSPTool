@@ -99,13 +99,7 @@ sub tree {
     my @uses;
     my %data;
     for my $use ($self->uses(undef, {order_by => 'id'})) {
-        my $item = $use->tree;
-        for my $layer (@{$item->{layers}}) {
-            for my $rule (@{$layer->{rules}}) {
-                $data{$rule->{dataset_id}} = 1 if $rule->{dataset_id};
-            }
-        }
-        push @uses, $item;
+        push @uses, $use->tree;
     }
     for my $dataset ($self->extra_datasets) {
         $data{$dataset->id} = 1 if $dataset->path;

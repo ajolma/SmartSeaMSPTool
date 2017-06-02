@@ -40,6 +40,13 @@ sub children_listers {
     };
 }
 
+sub column_values_from_context {
+    my ($self, $parent) = @_;
+    my %retval = (impact_layer => $parent->super->id);
+    $retval{ecosystem_component} = $self->id if ref $self;
+    return \%retval;
+}
+
 sub _rules {
     my $self = shift;
     return $self->rules if $self->distribution;

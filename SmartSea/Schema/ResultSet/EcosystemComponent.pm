@@ -20,7 +20,7 @@ sub layers {
         push @layers, {
             name => $component->name,
             id => $component->id, 
-            use => 1, # reserved use class id
+            use_class_id => 1, # reserved use class id
             rules => \@rules};
     }
     return @layers if wantarray;
