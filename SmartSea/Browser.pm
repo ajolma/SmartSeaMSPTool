@@ -88,6 +88,12 @@ sub object_editor {
     # we may have both object => command and object => id
     my $request;
     for my $key (sort keys %{$self->{parameters}}) {
+        my @values = $self->{parameters}->get_all($key);
+        $self->{parameters}->remove($key);
+        for (@values) {
+            $_ = decode utf8 => $_;
+        }
+        $self->{parameters}->add($key, @values);
         for my $value ($self->{parameters}->get_all($key)) {
             say STDERR "$key => $value" if $self->{debug} > 1;
             if ($key eq 'submit' && $value =~ /^Compute/) {
@@ -95,14 +101,13 @@ sub object_editor {
                 $self->{parameters}->add(compute => $value);
                 last;
             }
-            $value = decode utf8 => $value;
             my $done = 0;
             for (qw/create add read edit modify update save delete remove/) {
                 # remove means "delete link or link object"
                 my $cmd = $_;
-                $cmd = 'delete' if $cmd eq 'remove';
                 if (lc($value) eq $cmd && ($key eq 'request' || $key eq 'submit' || $key =~ /^\d+$/)) {
                     $request = $cmd;
+                    $request = 'delete' if $request eq 'remove';
                     my $last = $oids->last;
                     if ($last) {
                         my ($class, $oid) = split /:/, $last;
@@ -173,9 +178,20 @@ sub object_editor {
 
     # TODO: all actions should be wrapped in begin; commit;
 
-    if ($request eq 'add' or $request eq 'create') {
-        $self->edit_object($obj, $oids, \@body);
-        
+    if ($request eq 'add') {
+        my $ok;
+        eval {
+            $ok = $obj->create($oids->with_index('last'));
+        };
+        if ($@) {
+            push @body, error_message($@) if $@;
+            my $part = $self->read_object($oids->with_index(0));
+            return json200({}, $part) if $self->{json};
+            push @body, $part;
+        } elsif (!$ok) {
+            $self->edit_object($obj, $oids, \@body);
+        }
+
     } elsif ($request eq 'delete') {
         eval {
             $obj->delete($oids->with_index('last'));
@@ -197,7 +213,6 @@ sub object_editor {
         return json200({}, {result => 'ok'});
         
     } elsif ($request eq 'save') {
-        $self->{parameters}->add(owner => $self->{user});
         eval {
             $obj->update_or_create($oids->with_index('last'));
         };
@@ -238,18 +253,7 @@ sub read_object {
 sub edit_object {
     my ($self, $obj, $oids, $body) = @_;
     my @form = $obj->form($oids->with_index('last'));
-    if (@form) {
-        push @$body, [form => {action => $self->{path}, method => 'POST'}, @form];
-    } else {
-        eval {
-            $obj->link($oids->with_index('last'), $self->{parameters});
-        };
-        push @$body, error_message($@) if $@;
-        my $part = $self->read_object($oids->with_index(0));
-        return json200({}, $part) if $self->{json};
-        push @$body, $part;
-        
-    }
+    push @$body, [form => {action => $self->{path}, method => 'POST'}, @form];
 }
 
 sub error_message {

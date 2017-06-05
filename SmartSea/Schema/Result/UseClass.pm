@@ -8,7 +8,7 @@ use SmartSea::HTML qw(:all);
 
 my @columns = (
     id   => {},
-    name => {data_type => 'text', html_size => 30}
+    name => {data_type => 'text', html_size => 30, required => 1}
     );
 
 __PACKAGE__->table('use_classes');
@@ -21,17 +21,16 @@ __PACKAGE__->many_to_many(plans => 'use', 'plan');
 __PACKAGE__->has_many(use_class2activity => 'SmartSea::Schema::Result::UseClass2Activity', 'use_class');
 __PACKAGE__->many_to_many(activities => 'use_class2activity', 'activity');
 
-sub children_listers {
+sub relationship_hash {
     return {
         activities => {
-            col => 'activity',
             source => 'Activity',
             link_source => 'UseClass2Activity',
             ref_to_me => 'use_class',
-            ref_to_child => 'activity',
-            class_name => 'Activities', 
-            editable_children => 0,
-            for_child_form => sub {
+            ref_to_related => 'activity',
+            stop_edit => 1,
+            class_column => 'activity',
+            class_widget => sub {
                 my ($self, $children) = @_;
                 my %has;
                 for my $obj (@$children) {

@@ -9,7 +9,7 @@ use SmartSea::HTML qw(:all);
 
 my @columns = (
     id    => {},
-    name  => {data_type => 'text', html_size => 30},
+    name  => {data_type => 'text', html_size => 30, required => 1},
     owner => {}
     );
 
@@ -22,15 +22,13 @@ __PACKAGE__->many_to_many(use_classes => 'uses', 'use_class');
 __PACKAGE__->has_many(extras => 'SmartSea::Schema::Result::Plan2DatasetExtra', 'plan');
 __PACKAGE__->many_to_many(extra_datasets => 'extras', 'dataset');
 
-sub children_listers {
+sub relationship_hash {
     return {
         uses => {
-            col => 'use_class',
             source => 'Use',
             ref_to_me => 'plan',
-            class_name => 'Uses',
-            child_is_mine => 1,
-            for_child_form => sub {
+            class_column => 'use_class',
+            class_widget => sub {
                 my ($self, $children) = @_;
                 my %has;
                 for my $obj (@$children) {
@@ -45,14 +43,14 @@ sub children_listers {
             }
         },
         extra_datasets => {
-            col => 'extra_dataset',
+            class_name => 'Extra datasets',
             source => 'Dataset',
             link_source => 'Plan2DatasetExtra',
             ref_to_me => 'plan',
-            ref_to_child => 'dataset',
-            class_name => 'Extra datasets',
-            editable_children => 0,
-            for_child_form => sub {
+            ref_to_related => 'dataset',
+            stop_edit => 1,
+            class_column => 'extra_dataset',
+            class_widget => sub {
                 my ($self, $children) = @_;
                 my $has = $self->{object}->datasets($self);
                 for my $obj (@$children) {

@@ -14,8 +14,7 @@ my @columns = (
     id           => {},
     cookie       => {},
     made         => {},
-    rule_system  => {},
-    rule_system  => { is_foreign_key => 1, source => 'RuleSystem', allow_null => 0 },
+    rule_system  => { is_foreign_key => 1, source => 'RuleSystem', allow_null => 0, required => 1 },
     r_layer      => { is_foreign_key => 1, source => 'Layer',      allow_null => 1, optional => 1 },
     r_dataset    => { is_foreign_key => 1, source => 'Dataset',    allow_null => 1, objs => {path => {'!=',undef}} },
     op           => { is_foreign_key => 1, source => 'Op'  },
@@ -44,14 +43,12 @@ __PACKAGE__->belongs_to(r_layer => 'SmartSea::Schema::Result::Layer');
 __PACKAGE__->belongs_to(r_dataset => 'SmartSea::Schema::Result::Dataset');
 __PACKAGE__->belongs_to(op => 'SmartSea::Schema::Result::Op');
 
-sub context_based_columns {
+sub my_columns_info {
     my ($self, $parent) = @_;
-    my @col;
-    my %col_info;
+    my %my_info;
     my $class;
     $class = $parent->rule_system->rule_class->name if $parent;
-    for (my $i = 0; $i < @columns; $i += 2) {
-        my $col = $columns[$i];
+    for my $col ($self->columns) {
         if ($parent) {
             if ($class eq 'additive' or $class eq 'multiplicative') {
                 next if $col eq 'op';
@@ -64,7 +61,7 @@ sub context_based_columns {
                 next if $col eq 'weight';
             }
         }
-        my %info = (%{$columns[$i+1]});
+        my %info = (%{$self->column_info($col)});
         if (blessed($self) && $col eq 'value') {
             my $dataset = $self->r_dataset ? $self->r_dataset : undef;
             my $value_semantics = $dataset ? $dataset->class_semantics : undef;
@@ -83,10 +80,9 @@ sub context_based_columns {
                 );
             }
         }
-        push @col, $col;
-        $col_info{$col} = \%info;
+        $my_info{$col} = \%info;
     }
-    return (\@col, \%col_info);
+    return \%my_info;
 }
 
 sub column_values_from_context {
@@ -109,8 +105,8 @@ sub order_by {
 sub name {
     my ($self, %args) = @_;
 
-    my $class = $self->rule_system->rule_class;
-    $class = $class->name if $class;
+    my $class = $self->rule_system->rule_class // '';
+    $class = $class->name // '' if $class;
     my $layer  = $self->r_layer ? $self->r_layer : undef;
     my $dataset = $self->r_dataset ? $self->r_dataset : undef;
 
@@ -204,9 +200,9 @@ sub tree {
 sub values {
     my ($self) = @_;
     my %values = (id => $self->id, rule_system => $self->rule_system->id);
-    for (my $i = 0; $i < @columns; $i += 2) {
-        my $col = $columns[$i];
-        if ($columns[$i+1]->{is_foreign_key}) {
+    for my $col ($self->columns) {
+        my $info = $self->column_info($col);
+        if ($info->{is_foreign_key}) {
             my $foreign = $self->$col;
             $values{$col} = $self->$col->id if $foreign;
         } else {

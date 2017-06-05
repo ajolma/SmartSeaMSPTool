@@ -9,9 +9,9 @@ use SmartSea::HTML qw(:all);
 
 my @columns = (
     id       => {},
-    name     => { data_type => 'text',  html_size => 30 },
+    name     => { data_type => 'text',  html_size => 30, required => 1 },
     ordr     => { data_type => 'text',  html_size => 10 },
-    category => { is_foreign_key => 1, source => 'PressureCategory' },
+    category => { is_foreign_key => 1, source => 'PressureCategory', required => 1 },
     );
 
 __PACKAGE__->table('pressure_classes');

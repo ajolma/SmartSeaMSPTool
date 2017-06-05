@@ -79,6 +79,7 @@ test_psgi $app, sub {
         $parser->load_xml(string => $res->content);
     };
     ok(!$@, "Impact layer creation 1/2");
+
     my $i = 0;
     my @layer;
     for my $layer ($schema->resultset('ImpactLayer')->all) {
@@ -99,6 +100,7 @@ test_psgi $app, sub {
     }
     ok($layer[0] == 2 && $layer[1] == 1, "Link to ecosystem component created");
 };
+#exit;
 
 {
     # read list
@@ -107,7 +109,7 @@ test_psgi $app, sub {
     my $expected = <<'END_XML';
 <?xml version="1.0"?>
 <xml>
-  <b>ImpactLayers</b>
+  <b>Impact layers</b>
   <ul><li><a href="/impact_layer:2">plan.use_class.Impact</a></li></ul>
 </xml>
 END_XML
@@ -140,7 +142,7 @@ ok($schema->resultset('Layer')->single({id => 2})->descr eq $descr, "Set supercl
     my $expected = <<'END_XML';
 <?xml version="1.0"?>
 <xml>
-  <b><a href="/layers">Show all ImpactLayers</a></b>
+  <b><a href="/layer">Show all Impact layers</a></b>
   <ul>
     <li>id: 2</li>
     <li>name: plan.use_class.Impact</li>
@@ -174,7 +176,6 @@ ok($schema->resultset('Layer')->single({id => 2})->descr eq $descr, "Set supercl
         <li><a href="/layer:2/ecosystem_component:1">component_1</a></li>
       </ul>
     </li>
-    <li><b>Rules</b><ul/></li>
   </ul>
 </xml>
 END_XML

@@ -26,19 +26,20 @@ my $schema = SmartSea::Schema->connect('dbi:SQLite:tool.db', undef, undef, $opti
 my $parser = XML::LibXML->new(no_blanks => 1);
 my $pp = XML::LibXML::PrettyPrint->new(indent_string => "  ");
 
+my $config = {
+    schema => $schema,
+    fake_admin => 1,
+    data_dir => '',
+    images => '',
+    debug => 0,
+    edit => 1,
+    sequences => 0,
+    no_js => 1,
+    root => '/browser'
+};
+
 my $app = builder {
-    mount "/browser" => SmartSea::Browser->new(
-    {
-        schema => $schema,
-        fake_admin => 1,
-        data_dir => '',
-        images => '',
-        debug => 0,
-        edit => 1,
-        sequences => 0,
-        no_js => 1,
-        root => '/browser'
-    })->to_app;
+    mount "/browser" => SmartSea::Browser->new($config)->to_app;
 };
 
 $schema->resultset('Plan')->new({id => 1, name => 'plan', owner => 'ajolma'})->insert;
@@ -105,15 +106,16 @@ test_psgi $app, sub {
         push @href, $href;
         #say STDERR "input: ",$href;
     }
-    ok(@href == 10, "10 input elements in impact layer form");
+    my $n = @href;
+    ok(@href == 8, "$n input elements in impact layer form");
     @href = ();
     for my $a ($dom->documentElement->findnodes('//select')) {
         my $href = $a->getAttribute('name');
         push @href, $href;
         #say STDERR "select: ",$href;
     }
-    my $n = @href;
-    ok(@href == 4, "$n == 4 select elements in impact layer form");
+    $n = @href;
+    ok(@href == 7, "$n select elements in impact layer form");
     
 };
 

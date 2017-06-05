@@ -9,7 +9,7 @@ use SmartSea::HTML qw(:all);
 
 my @columns = (
     id   =>  {},
-    name =>  { data_type => 'text', html_size => 20 },
+    name =>  { data_type => 'text', html_size => 20, required => 1 },
     ordr =>  { data_type => 'text', html_size => 10, empty_is_default => 1 },
     );
 
@@ -21,15 +21,13 @@ __PACKAGE__->many_to_many(pressure_classes => 'pressures', 'pressure_class');
 __PACKAGE__->has_many(use_class2activity => 'SmartSea::Schema::Result::UseClass2Activity', 'use_class');
 __PACKAGE__->many_to_many(use_classes => 'use_class2activity', 'activity');
 
-sub children_listers {
+sub relationship_hash {
     return { 
         pressures => {
-            col => 'pressure_class',
             source => 'Pressure',
             ref_to_me => 'activity',
-            class_name => 'Pressures',
-            child_is_mine => 1,
-            for_child_form => sub {
+            class_column => 'pressure_class',
+            class_widget => sub {
                 my ($self, $children) = @_;
                 my %has;
                 for my $obj (@$children) {

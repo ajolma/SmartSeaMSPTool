@@ -20,7 +20,7 @@ sub order_by {
 
 sub name {
     my $self = shift;
-    my $d = $self->d;
+    my $d = $self->d // 0;
     return 'local' if $d == 0;
     return '> 20 km' if $d eq 'Infinity';
     my $unit = 'm';

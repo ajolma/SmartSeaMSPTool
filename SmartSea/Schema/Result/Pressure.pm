@@ -8,9 +8,9 @@ use SmartSea::HTML qw(:all);
 
 my @columns = (
     id             => {},
-    range          => {is_foreign_key => 1, source => 'Range'},
-    activity       => {is_foreign_key => 1, source => 'Activity', parent => 1},
-    pressure_class => {is_foreign_key => 1, source => 'PressureClass'}
+    range          => {is_foreign_key => 1, source => 'Range', required => 1},
+    activity       => {is_foreign_key => 1, source => 'Activity', parent => 1, required => 1},
+    pressure_class => {is_foreign_key => 1, source => 'PressureClass', required => 1}
     );
 
 __PACKAGE__->table('pressures');
@@ -25,14 +25,13 @@ sub order_by {
     return {-asc => 'id'};
 }
 
-sub children_listers {
+sub relationship_hash {
     return { 
         impacts => {
             source => 'Impact',
             ref_to_me => 'pressure',
-            class_name => 'Impacts',
-            child_is_mine => 1,
-            for_child_form => sub {
+            class_column => 'ecosystem_component',
+            class_widget => sub {
                 my ($self, $children) = @_;
                 my %has;
                 for my $obj (@$children) {
@@ -59,7 +58,7 @@ sub column_values_from_context {
 
 sub name {
     my ($self) = @_;
-    return $self->activity->name.' -> '.$self->pressure_class->name;
+    return ($self->activity->name//'').' -> '.($self->pressure_class->name//'');
 }
 
 1;

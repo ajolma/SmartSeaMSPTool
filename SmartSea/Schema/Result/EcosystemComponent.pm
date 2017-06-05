@@ -8,7 +8,7 @@ use SmartSea::HTML qw(:all);
 
 my @columns = (
     id           => {},
-    name         => { data_type => 'text', html_size => 30},
+    name         => { data_type => 'text', html_size => 30, required => 1},
     distribution => { is_foreign_key => 1, source => 'RuleSystem', is_composition => 1 },
     style        => { is_foreign_key => 1, source => 'Style', is_composition => 1 },
     );
@@ -26,25 +26,16 @@ sub rule_system {
     return $self->distribution;
 }
 
-sub children_listers {
+sub relationship_hash {
     return { 
         _rules => {
-            source => 'Rule',
-            class_name => 'Rules',
-            child_is_mine => 1
+            source => 'Rule'
         },
         impacts => {
             source => 'Impact',
-            class_name => 'Impacts',
+            edit => 0
         }
     };
-}
-
-sub column_values_from_context {
-    my ($self, $parent) = @_;
-    my %retval = (impact_layer => $parent->super->id);
-    $retval{ecosystem_component} = $self->id if ref $self;
-    return \%retval;
 }
 
 sub _rules {

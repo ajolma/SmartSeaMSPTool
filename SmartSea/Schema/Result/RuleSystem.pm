@@ -24,7 +24,8 @@ sub name {
     my $self = shift;
     my @rules = $self->rules;
     my $n = @rules;
-    my $name = $self->rule_class->name." $n rules";
+    my $name = $self->rule_class->name // '';
+    $name .= " $n rules";
     my @layer = $self->layer;
     $name .= " for ".$layer[0]->name if @layer;
     @layer = $self->ecosystem_component;

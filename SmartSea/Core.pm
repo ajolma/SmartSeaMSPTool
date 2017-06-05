@@ -128,6 +128,7 @@ sub singular {
 
 sub plural {
     my ($w) = @_;
+    $w =~ s/([a-z])([A-Z])/"$1 ".lc($2)/ge;
     if ($w =~ /y$/) {
         $w =~ s/y$/ies/;
     } elsif ($w =~ /ss$/) {

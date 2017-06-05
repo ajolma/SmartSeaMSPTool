@@ -10,15 +10,21 @@ use SmartSea::HTML qw(:all);
 
 my @columns = (
     super => { 
-        input => '', 
+        input => '',
+        is_foreign_key => 1,
+        is_superclass => 1,
+        required => 1,
+        source => 'Layer',
     },
     allocation => { 
         is_foreign_key => 1,
         source => 'Layer',
+        required => 1,
         objs => sub {my $obj = shift; return $obj->layer_class->name eq 'Allocation' },
     },
     computation_method => { 
         is_foreign_key => 1,
+        required => 1,
         source => 'ImpactComputationMethod'
     }
     );
@@ -42,17 +48,15 @@ sub id {
     return $self->super->id;
 }
 
-sub children_listers {
+sub relationship_hash {
     return {
         ecosystem_components => {
-            col => 'ecosystem_component',
             source => 'EcosystemComponent',
             link_source => 'ImpactLayer2EcosystemComponent',
             ref_to_me => 'impact_layer',
-            ref_to_child => 'ecosystem_component',
-            class_name => 'Ecosystem components',
-            editable_children => 0,
-            for_child_form => sub {
+            ref_to_related => 'ecosystem_component',
+            class_column => 'ecosystem_component',
+            class_widget => sub {
                 my ($self, $children) = @_;
                 my $has = $self->{object}->ecosystem_components($self);
                 for my $obj (@$children) {

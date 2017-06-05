@@ -7,8 +7,8 @@ use SmartSea::HTML qw(:all);
 
 my @columns = (
     id        => {},
-    plan      => {is_foreign_key => 1, source => 'Plan', parent => 1 }, 
-    use_class => {is_foreign_key => 1, source => 'UseClass' },
+    plan      => {is_foreign_key => 1, source => 'Plan', parent => 1, required => 1},
+    use_class => {is_foreign_key => 1, source => 'UseClass', required => 1},
     owner     => {}
     );
 
@@ -26,17 +26,16 @@ sub order_by {
 
 sub name {
     my ($self) = @_;
-    return $self->plan->name.'.'.$self->use_class->name;
+    return ($self->plan->name//'').'.'.($self->use_class->name//'');
 }
 
-sub children_listers {
+sub relationship_hash {
     return {
         layers => {
             source => 'Layer',
             ref_to_me => 'use',
-            class_name => 'Layers',
-            child_is_mine => 1,
-            for_child_form => sub {
+            class_column => 'layer_class',
+            class_widget => sub {
                 my ($self, $children) = @_;
                 my %has;
                 for my $obj (@$children) {
@@ -51,25 +50,15 @@ sub children_listers {
             }
         },
         activities => {
-            source => 'Activity', 
-            class_name => 'Activities', 
-            editable_children => 0,
-            cannot_add_remove_children => 1,
+            source => 'Activity',
+            edit => 0 # through use class
         },
         ecosystem_impacts => {
-            source => 'EcosystemComponent',
             class_name => 'Ecosystem impacts',
-            editable_children => 0,
-            cannot_add_remove_children => 1
+            source => 'EcosystemComponent',
+            edit => 0 # computed
         }
     };
-}
-
-sub column_values_from_context {
-    my ($self, $parent) = @_;
-    my %retval = (plan => $parent->id);
-    $retval{use_class} = $self->use_class->id if ref $self;
-    return \%retval;
 }
 
 sub activities {

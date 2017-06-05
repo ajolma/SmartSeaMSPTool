@@ -46,7 +46,7 @@ sub order_by {
 sub name {
     my $self = shift;
     my $name = '';
-    $name .= $self->color_scale->name if $self->color_scale;
+    $name .= $self->color_scale->name // '' if $self->color_scale;
     $name .= ' ['.$self->min.'..'.$self->max.']' if defined $self->min && defined $self->max;
     $name .= ' '.$self->classes.' classes' if defined $self->classes;
     return $name;

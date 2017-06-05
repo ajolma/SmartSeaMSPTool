@@ -12,7 +12,7 @@ use PDL::NiceSlice;
 
 my @columns = (
     id              => {},
-    name            => { data_type => 'text',    html_size => 20 },
+    name            => { data_type => 'text',    html_size => 20, required => 1 },
     custodian       => { is_foreign_key => 1, source => 'Organization', allow_null => 1 },
     contact         => { data_type => 'text',    html_size => 20 },
     descr           => { data_type => 'textarea' },
@@ -47,28 +47,24 @@ __PACKAGE__->belongs_to(style => 'SmartSea::Schema::Result::Style');
 __PACKAGE__->has_many(parts => 'SmartSea::Schema::Result::Dataset', 'is_a_part_of');
 __PACKAGE__->has_many(derivatives => 'SmartSea::Schema::Result::Dataset', 'is_derived_from');
 
-sub children_listers {
+sub relationship_hash {
     return {
         parts => {
-            source => 'Dataset',
-            self_ref => 'is_a_part_of',
             class_name => 'Subdatasets',
-            #cannot_add_remove_children => 1,
+            source => 'Dataset',
+            ref_to_me => 'is_a_part_of',
             parent_is_parent => 0,
-            child_is_mine => 1,
-            for_child_form => sub {
+            class_widget => sub {
                 my ($self, $children) = @_;
                 return hidden(is_a_part_of => $self->{object}->id);
             }
         },
         derivatives => {
-            source => 'Dataset',
-            self_ref => 'is_derived_from',
             class_name => 'Derivative datasets',
-            #cannot_add_remove_children => 1,
+            source => 'Dataset',
+            ref_to_me => 'is_derived_from',
             parent_is_parent => 0,
-            child_is_mine => 1,
-            for_child_form => sub {
+            class_widget => sub {
                 my ($self, $children) = @_;
                 return hidden(is_derived_from => $self->{object}->id);
             }

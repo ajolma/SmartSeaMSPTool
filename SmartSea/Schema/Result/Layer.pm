@@ -10,8 +10,8 @@ use SmartSea::HTML qw(:all);
 
 my @columns = (
     id          => {},
-    use         => { is_foreign_key => 1, source => 'Use', parent => 1 },
-    layer_class => { is_foreign_key => 1, source => 'LayerClass' },
+    use         => { is_foreign_key => 1, source => 'Use', parent => 1, required => 1 },
+    layer_class => { is_foreign_key => 1, source => 'LayerClass', required => 1 },
     rule_system => { is_foreign_key => 1, source => 'RuleSystem', is_composition => 1, required => 1 },
     style       => { is_foreign_key => 1, source => 'Style', is_composition => 1, required => 1 },
     descr       => { data_type => 'text', html_size => 30 },
@@ -31,16 +31,15 @@ __PACKAGE__->has_many(rules => 'SmartSea::Schema::Result::Rule', {'foreign.rule_
 # use this method to tell whether an entry is required into this table too
 sub subclass {
     my ($self) = @_;
-    return 'ImpactLayer' if $self->layer_class->name eq 'Impact';
+    my $class = $self->layer_class->name // '';
+    return 'ImpactLayer' if $class eq 'Impact';
 }
 
-sub children_listers {
+sub relationship_hash {
     return { 
         rules => {
             source => 'Rule',
-            class_name => 'Rules',
-            child_is_mine => 1,
-            for_child_form => sub {
+            class_widget => sub {
                 my ($self, $children) = @_;
                 return undef;
             }
