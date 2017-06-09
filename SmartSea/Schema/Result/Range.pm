@@ -7,7 +7,7 @@ use SmartSea::HTML qw(:all);
 
 my @columns = (
     id => {},
-    d  => {data_type => 'text', html_size => 30, required => 1}
+    d  => {data_type => 'text', html_size => 30, not_null => 1}
     );
 
 __PACKAGE__->table('ranges');

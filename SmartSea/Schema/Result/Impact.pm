@@ -9,8 +9,8 @@ use SmartSea::HTML qw(:all);
 
 my @columns = (
     id                  => {},
-    pressure            => { is_foreign_key => 1, source => 'Pressure', parent => 1, required => 1 },
-    ecosystem_component => { is_foreign_key => 1, source => 'EcosystemComponent', required => 1 },
+    pressure            => { is_foreign_key => 1, source => 'Pressure', parent => 1, not_null => 1 },
+    ecosystem_component => { is_foreign_key => 1, source => 'EcosystemComponent', not_null => 1 },
     strength            => { is_foreign_key => 1, source => 'ImpactStrength' },
     belief              => { is_foreign_key => 1, source => 'Belief' },
     );

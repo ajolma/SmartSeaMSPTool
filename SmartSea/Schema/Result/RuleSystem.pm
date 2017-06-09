@@ -9,7 +9,7 @@ use SmartSea::HTML qw(:all);
 
 my @columns = (
     id         => {},
-    rule_class => { is_foreign_key => 1, source => 'RuleClass', required => 1 }
+    rule_class => { is_foreign_key => 1, source => 'RuleClass', not_null => 1 }
     );
 
 __PACKAGE__->table('rule_systems');

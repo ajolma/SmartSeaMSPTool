@@ -14,7 +14,7 @@ my @columns = (
     id           => {},
     cookie       => {},
     made         => {},
-    rule_system  => { is_foreign_key => 1, source => 'RuleSystem', allow_null => 0, required => 1 },
+    rule_system  => { is_foreign_key => 1, source => 'RuleSystem', allow_null => 0, not_null => 1 },
     r_layer      => { is_foreign_key => 1, source => 'Layer',      allow_null => 1, optional => 1 },
     r_dataset    => { is_foreign_key => 1, source => 'Dataset',    allow_null => 1, objs => {path => {'!=',undef}} },
     op           => { is_foreign_key => 1, source => 'Op'  },

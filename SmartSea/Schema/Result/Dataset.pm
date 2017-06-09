@@ -12,7 +12,7 @@ use PDL::NiceSlice;
 
 my @columns = (
     id              => {},
-    name            => { data_type => 'text',    html_size => 20, required => 1 },
+    name            => { data_type => 'text',    html_size => 20, not_null => 1 },
     custodian       => { is_foreign_key => 1, source => 'Organization', allow_null => 1 },
     contact         => { data_type => 'text',    html_size => 20 },
     descr           => { data_type => 'textarea' },
@@ -29,7 +29,7 @@ my @columns = (
     data_type       => { is_foreign_key => 1, source => 'NumberType', allow_null => 1 },
     class_semantics => { data_type => 'text',    html_size => 40, empty_is_null => 1 },
     unit            => { is_foreign_key => 1, source => 'Unit',       allow_null => 1 },
-    style           => { is_foreign_key => 1,  source => 'Style', is_composition => 1 }
+    style           => { is_foreign_key => 1,  source => 'Style', is_part => 1 }
     );
 
 __PACKAGE__->table('datasets');
@@ -53,6 +53,7 @@ sub relationship_hash {
             class_name => 'Subdatasets',
             source => 'Dataset',
             ref_to_me => 'is_a_part_of',
+            set_to_null => 'is_derived_from',
             parent_is_parent => 0,
             class_widget => sub {
                 my ($self, $children) = @_;
@@ -63,6 +64,7 @@ sub relationship_hash {
             class_name => 'Derivative datasets',
             source => 'Dataset',
             ref_to_me => 'is_derived_from',
+            set_to_null => 'is_a_part_of',
             parent_is_parent => 0,
             class_widget => sub {
                 my ($self, $children) = @_;

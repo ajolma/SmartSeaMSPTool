@@ -8,9 +8,9 @@ use SmartSea::HTML qw(:all);
 
 my @columns = (
     id           => {},
-    name         => { data_type => 'text', html_size => 30, required => 1},
-    distribution => { is_foreign_key => 1, source => 'RuleSystem', is_composition => 1 },
-    style        => { is_foreign_key => 1, source => 'Style', is_composition => 1 },
+    name         => { data_type => 'text', html_size => 30, not_null => 1},
+    distribution => { is_foreign_key => 1, source => 'RuleSystem', is_part => 1 },
+    style        => { is_foreign_key => 1, source => 'Style', is_part => 1 },
     );
 
 __PACKAGE__->table('ecosystem_components');

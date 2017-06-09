@@ -7,7 +7,7 @@ use SmartSea::HTML qw(:all);
 
 my @columns = (
     id   => {},
-    name => {data_type => 'text', html_size => 30, required => 1}
+    name => {data_type => 'text', html_size => 30, not_null => 1}
     );
 
 __PACKAGE__->table('number_types');

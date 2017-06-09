@@ -74,7 +74,7 @@ test_psgi $app, sub {
         computation_method => 1,
         owner => 'ajolma'
     ];
-    my $res = $cb->(POST "/browser/plan:1/use:1/layer?request=save", $post);
+    my $res = $cb->(POST "/browser/plan:1/use:1/layer?request=add", $post);
     eval {
         $parser->load_xml(string => $res->content);
     };
@@ -144,33 +144,31 @@ ok($schema->resultset('Layer')->single({id => 2})->descr eq $descr, "Set supercl
 <xml>
   <b><a href="/layer">Show all Impact layers</a></b>
   <ul>
-    <li>id: 2</li>
-    <li>name: plan.use_class.Impact</li>
-    <li>allocation: plan.use_class.Allocation</li>
-    <li>computation_method: method_1</li>
-    <li>descr: this is description</li>
-    <li>layer_class: Impact</li>
-    <li>owner: ajolma</li>
-    <li>rule_system: rule class 0 rules for plan.use_class.Impact.</li>
-    <li>style: color scale</li>
-    <li>use: plan.use_class</li>
-    <li><b>RuleSystem</b>
-      <ul>
-        <li>id: 2</li> 
-        <li>name: rule class 0 rules for plan.use_class.Impact.</li>
-        <li>rule_class: rule class</li>
-      </ul>
-    </li>
-    <li><b>Style</b>
+    <li><b>Layer</b>
       <ul>
         <li>id: 2</li>
-        <li>name: color scale</li>
-        <li>classes: (undef)</li>
-        <li>color_scale: color scale</li>
-        <li>max: (undef)</li>
-        <li>min: (undef)</li>
-      </ul>
-    </li>
+        <li>use: plan.use_class</li>
+        <li>layer_class: Impact</li>
+        <li><b>RuleSystem</b>
+          <ul>
+            <li>id: 2</li> 
+            <li>rule_class: rule class</li>
+          </ul>
+        </li>
+        <li><b>Style</b>
+          <ul>
+            <li>id: 2</li>
+            <li>color_scale: color scale</li>
+            <li>min: (undef)</li>
+            <li>max: (undef)</li>
+            <li>classes: (undef)</li>
+          </ul>
+        </li>
+        <li>descr: this is description</li>
+        <li>owner: ajolma</li>
+      </ul></li>
+    <li>allocation: plan.use_class.Allocation</li>
+    <li>computation_method: method_1</li>
     <li><b>Ecosystem components</b>
       <ul>
         <li><a href="/layer:2/ecosystem_component:1">component_1</a></li>
@@ -187,7 +185,7 @@ END_XML
         my $got = $pp->pretty_print($dom)->toString;
         $dom = $parser->load_xml(string => $expected);
         my $exp = $pp->pretty_print($dom)->toString;
-        my $diff = diff \$got,   \$exp,   {};
+        my $diff = diff \$exp, \$got, {};
         say STDERR "diff: $diff";
     }
     is $n, 0, "Read ImpactLayer as an item";

@@ -8,9 +8,9 @@ use SmartSea::HTML qw(:all);
 
 my @columns = (
     id             => {},
-    range          => {is_foreign_key => 1, source => 'Range', required => 1},
-    activity       => {is_foreign_key => 1, source => 'Activity', parent => 1, required => 1},
-    pressure_class => {is_foreign_key => 1, source => 'PressureClass', required => 1}
+    range          => {is_foreign_key => 1, source => 'Range', not_null => 1},
+    activity       => {is_foreign_key => 1, source => 'Activity', parent => 1, not_null => 1},
+    pressure_class => {is_foreign_key => 1, source => 'PressureClass', not_null => 1}
     );
 
 __PACKAGE__->table('pressures');

@@ -45,7 +45,6 @@ my $app = $service->to_app;
 
 my %unique = (
     name => 1,
-    id => 1,
     plan => 1,
     use => 1,
     activity => 1
@@ -71,11 +70,12 @@ test_psgi $app, sub {
 
         my $class = $href;
         $class =~ s/^\///;
+        
         #next unless $class eq 'layer';
-        #$service->{debug} = 0;
+        #$service->{debug} = 2;
 
         test_creating_object($cb, {source => table2source($class)});
-
+        
         $res = $cb->(GET "$href:1");
         eval {
             $parser->load_xml(string => $res->content);
@@ -90,16 +90,38 @@ sub create_required_objects {
     my $columns = $obj->columns2;
     for my $column (keys %$columns) {
         my $meta = $columns->{$column};
-        if ($meta->{column}) {
-            $meta = $meta->{column};
-            if ($meta->{is_composition} || $meta->{is_superclass}) {
-                my $obj = SmartSea::Object->new({source => $meta->{source}}, $client);
-                create_required_objects($cb, $obj);
+        next if $meta->{is_superclass} && $meta->{is_part};
+        next unless $meta->{is_foreign_key} && $meta->{not_null};
+        
+        my $class = source2table($meta->{source});
+        my $res = $cb->(GET '/'.$class.'?accept=json');
+        my $data = decode_json $res->content;
+        if (@$data) {
+            #print STDERR Dumper $data;
+        } else {
+            test_creating_object($cb, {source => $meta->{source}});
+        }
+        
+    }
+}
+
+sub add_required_data {
+    my ($columns) = @_;
+    my %post;
+    for my $column (sort keys %$columns) {
+        my $meta = $columns->{$column};
+        if ($meta->{columns}) {
+            %post = (%post,add_required_data($meta->{columns}));
+        } elsif ($meta->{not_null}) {
+            if ($unique{$column}) {
+                $post{$column} = $unique{$column};
+                $unique{$column} += 1;
+            } else {
+                $post{$column} = 1;
             }
-        } elsif ($meta->{is_foreign_key} && $meta->{required}) {
-            test_creating_object($cb, {source => $meta->{source}, id => $columns->{$column}{value}});
         }
     }
+    return %post;
 }
 
 sub test_creating_object {
@@ -111,31 +133,7 @@ sub test_creating_object {
 
     create_required_objects($cb, $obj);
 
-    my %post = (submit => 'Add');
-    my ($sub, $sub1);
-    $sub1 = $sub = sub {
-        my ($columns) = @_;
-        for my $column (sort keys %$columns) {
-            my $meta = $columns->{$column};
-            if ($meta->{column}) {
-                $meta = $meta->{column};
-                if ($meta->{required}) {
-                    my $part = SmartSea::Object->new({source => $meta->{source}}, $client);
-                    $sub->($columns->{$column}{columns});
-                    $post{$column.'_is'} = 1;
-                }
-            } elsif ($meta->{required}) {
-                if ($unique{$column}) {
-                    $post{$column} = $unique{$column};
-                    $unique{$column} += 1;
-                } else {
-                    $post{$column} = 1;
-                }
-            }
-        }
-    };
-    $sub->($columns);
-    
+    my %post = (submit => 'Add',add_required_data($columns));
 
     for my $col (sort keys %post) {
         #say STDERR "post: $col => $post{$col}";
@@ -147,7 +145,8 @@ sub test_creating_object {
         $parser->load_xml(string => $res->content);
     };
     ok(!$@, "POST /$class {submit => Add}");
-    #pretty_print_XML($res->content);
+    pretty_print_XML($res->content) if $@;
+    #pretty_print_XML($res->content) if $class eq 'layer';
     #exit;
 }
     

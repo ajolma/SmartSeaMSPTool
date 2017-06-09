@@ -7,8 +7,8 @@ use SmartSea::HTML qw(:all);
 
 my @columns = (
     id        => {},
-    plan      => {is_foreign_key => 1, source => 'Plan', parent => 1, required => 1},
-    use_class => {is_foreign_key => 1, source => 'UseClass', required => 1},
+    plan      => {is_foreign_key => 1, source => 'Plan', parent => 1, not_null => 1},
+    use_class => {is_foreign_key => 1, source => 'UseClass', not_null => 1},
     owner     => {}
     );
 

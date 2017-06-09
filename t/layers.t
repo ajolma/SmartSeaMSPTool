@@ -38,84 +38,93 @@ my $config = {
     root => '/browser'
 };
 
+my $service = SmartSea::Browser->new($config);
+
 my $app = builder {
-    mount "/browser" => SmartSea::Browser->new($config)->to_app;
+    mount "/browser" => $service->to_app;
 };
 
-$schema->resultset('Plan')->new({id => 1, name => 'plan', owner => 'ajolma'})->insert;
-$schema->resultset('UseClass')->new({id => 1, name => 'use_class'})->insert;
-$schema->resultset('Use')->new({id => 1, plan => 1, use_class => 1, owner => 'ajolma'})->insert;
-$schema->resultset('LayerClass')->new({id => 1, name => 'Allocation'})->insert;
-$schema->resultset('LayerClass')->new({id => 2, name => 'Impact'})->insert;
-$schema->resultset('ColorScale')->new({id => 1, name => 'color scale'})->insert;
-$schema->resultset('Style')->new({id => 1, color_scale => 1})->insert;
-$schema->resultset('RuleClass')->new({id => 1, name => 'rule class'})->insert;
-$schema->resultset('RuleSystem')->new({id => 1, rule_class => 1})->insert;
-$schema->resultset('EcosystemComponent')->new({id => 1, name => 'component_1'})->insert;
-$schema->resultset('ImpactComputationMethod')->new({id => 1, name => 'method_1'})->insert;
-
-$schema->resultset('Dataset')->new({id => 1, name => 'dataset', path => "not real", style => 1})->insert;
-
-$schema->resultset('Layer')->new({id => 1, use => 1, layer_class => 1, style => 1, rule_system => 1, owner => 'ajolma'})->insert;
-
-$schema->resultset('Layer')->new({id => 2, use => 1, layer_class => 2, style => 1, rule_system => 1, owner => 'ajolma'})->insert;
-$schema->resultset('ImpactLayer')->new({super => 2, allocation => 1, computation_method => 1})->insert;
-
-for my $l ($schema->resultset('Layer')->all) {
-    #say STDERR $l->id," ",$l->name;
+sub create_db {
+    for my $class (qw/Plan UseClass Use LayerClass ColorScale 
+                      Style RuleClass RuleSystem EcosystemComponent ImpactComputationMethod 
+                      Dataset Layer ImpactLayer/) {
+        $schema->resultset($class)->delete_all;
+    }
+    $schema->resultset('Plan')->new({id => 1, name => 'plan', owner => 'ajolma'})->insert;
+    $schema->resultset('UseClass')->new({id => 1, name => 'use_class'})->insert;
+    $schema->resultset('Use')->new({id => 1, plan => 1, use_class => 1, owner => 'ajolma'})->insert;
+    $schema->resultset('LayerClass')->new({id => 1, name => 'Allocation'})->insert;
+    $schema->resultset('LayerClass')->new({id => 2, name => 'Impact'})->insert;
+    $schema->resultset('ColorScale')->new({id => 1, name => 'color scale'})->insert;
+    $schema->resultset('Style')->new({id => 1, color_scale => 1})->insert;
+    $schema->resultset('RuleClass')->new({id => 1, name => 'rule class'})->insert;
+    $schema->resultset('RuleSystem')->new({id => 1, rule_class => 1})->insert;
+    $schema->resultset('EcosystemComponent')->new({id => 1, name => 'component_1'})->insert;
+    $schema->resultset('ImpactComputationMethod')->new({id => 1, name => 'method_1'})->insert;
+    $schema->resultset('Dataset')->new({id => 1, name => 'dataset', path => "not real", style => 1})->insert;
+    $schema->resultset('Layer')->new({id => 1, use => 1, layer_class => 1, style => 1, rule_system => 1, owner => 'ajolma'})->insert;
+    $schema->resultset('Layer')->new({id => 2, use => 1, layer_class => 2, style => 1, rule_system => 1, owner => 'ajolma'})->insert;
+    $schema->resultset('ImpactLayer')->new({super => 2, allocation => 1, computation_method => 1})->insert;
 }
 
+create_db();
+    
 test_psgi $app, sub {
     my $cb = shift;
-    
-    my $res = $cb->(GET "/browser/use:1/layer");
-    my $dom;
-    eval {
-        $dom = $parser->load_xml(string => $res->content);
-    };
-    #pretty_print_XML($res->content);
-    my @href;
-    for my $a ($dom->documentElement->findnodes('//a')) {
-        my $href = $a->getAttribute('href');
-        push @href, $href;
-        #say STDERR $href;
-    }
-    ok(@href == 7 && $href[6] eq '/browser/use:1/layer:2?request=edit', "layer list");
 
-    $res = $cb->(GET "/browser/use:1/layer:2");
-    eval {
-        $dom = $parser->load_xml(string => $res->content);
-    };
-    #pretty_print_XML($res->content);
-    @href = ();
-    for my $a ($dom->documentElement->findnodes('//a')) {
-        my $href = $a->getAttribute('href');
-        push @href, $href;
-        #say STDERR $href;
+    if (0) {
+        my ($res, $dom, @href);
+        $res = $cb->(GET "/browser/use:1/layer");
+        eval {
+            $dom = $parser->load_xml(string => $res->content);
+        };
+        for my $a ($dom->documentElement->findnodes('//a')) {
+            my $href = $a->getAttribute('href');
+            push @href, $href;
+        }
+        ok(@href == 7 && $href[6] eq '/browser/use:1/layer:2?request=edit', "layer list");
     }
-    ok(@href == 5 && $href[4] eq '/browser/use:1/layer:2?request=edit', "layer list with impact layer open");
 
-    $res = $cb->(GET "/browser/use:1/layer:2?request=edit");
-    eval {
-        $dom = $parser->load_xml(string => $res->content);
-    };
-    #pretty_print_XML($res->content);
-    @href = ();
-    for my $a ($dom->documentElement->findnodes('//input')) {
-        my $href = $a->getAttribute('name');
-        push @href, $href;
-        #say STDERR "input: ",$href;
+    if (1) {
+        my ($res, $dom, @href);
+        $res = $cb->(GET "/browser/use:1/layer:2");
+        eval {
+            $dom = $parser->load_xml(string => $res->content);
+        };
+        for my $a ($dom->documentElement->findnodes('//a')) {
+            my $href = $a->getAttribute('href');
+            push @href, $href;
+        }
+        ok(@href == 5 && $href[4] eq '/browser/use:1/layer:2?request=edit', "layer list with impact layer open");
     }
-    my $n = @href;
-    ok(@href == 8, "$n input elements in impact layer form");
-    @href = ();
-    for my $a ($dom->documentElement->findnodes('//select')) {
-        my $href = $a->getAttribute('name');
-        push @href, $href;
-        #say STDERR "select: ",$href;
+
+    {
+        my ($res, $dom, @href);
+        $res = $cb->(GET "/browser/use:1/layer:2?request=edit");
+        eval {
+            $dom = $parser->load_xml(string => $res->content);
+        };
+        for my $a ($dom->documentElement->findnodes('//input')) {
+            my $href = $a->getAttribute('name');
+            push @href, $href;
+        }
+        my $n = @href;
+        ok(@href == 8, "$n == 8 input elements in impact layer form");
     }
-    $n = @href;
-    ok(@href == 7, "$n select elements in impact layer form");
+
+    if (0) {
+        my ($res, $dom, @href);
+        $res = $cb->(GET "/browser/use:1/layer:2?request=edit");
+        eval {
+            $dom = $parser->load_xml(string => $res->content);
+        };
+        for my $a ($dom->documentElement->findnodes('//select')) {
+            my $href = $a->getAttribute('name');
+            push @href, $href;
+        }
+        my $n = @href;
+        ok(@href == 7, "$n == 7 select elements in impact layer form");
+    }
     
 };
 

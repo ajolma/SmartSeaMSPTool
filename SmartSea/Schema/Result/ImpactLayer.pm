@@ -9,22 +9,21 @@ use SmartSea::Core qw(:all);
 use SmartSea::HTML qw(:all);
 
 my @columns = (
-    super => { 
-        input => '',
+    super => {
         is_foreign_key => 1,
         is_superclass => 1,
-        required => 1,
+        not_null => 1,
         source => 'Layer',
     },
     allocation => { 
         is_foreign_key => 1,
         source => 'Layer',
-        required => 1,
+        not_null => 1,
         objs => sub {my $obj = shift; return $obj->layer_class->name eq 'Allocation' },
     },
     computation_method => { 
         is_foreign_key => 1,
-        required => 1,
+        not_null => 1,
         source => 'ImpactComputationMethod'
     }
     );

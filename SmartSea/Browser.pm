@@ -63,23 +63,11 @@ sub object_editor {
     $schemas =~ s/^_//;
     my $footer = [p => {style => 'font-size:0.8em'}, "Schema set = $schemas. User = $self->{user}."];
 
-    if ($oids->is_empty) {
-        my @body = a(link => 'Up', url => $self->{home});
-        my @li;
-        for my $source (sort $self->{schema}->sources) {
-            my $table = source2table($source);
-            push @li, [li => a(link => SmartSea::Object::plural($source), url => $self->{root}.'/'.$table)]
-        }
-        push @body, [ul=>\@li];
-        push @body, $footer;
-        return html200({}, SmartSea::HTML->new(html => [body => \@body])->html);
-    }
-
     # CRUD: 
     # create is one-step only for links, otherwise edit (without id) + save, 
     # read is default, 
     # update may create, and is known as edit + save
-    # update is allowed only on rules and it is not a real update but a copy identified with cookie
+    # modify is allowed only on rules and it is a (copy+)update identified with cookie
     # delete does not do deep
 
     my %parameters;
@@ -141,9 +129,25 @@ sub object_editor {
     my $header = { 'Access-Control-Allow-Origin' => $self->{origin},
                    'Access-Control-Allow-Credentials' => 'true' };
 
+    if ($oids->is_empty) {
+        my @body = a(link => 'Up', url => $self->{home});
+        my @li;
+        my @classes;
+        for my $source (sort $self->{schema}->sources) {
+            my $table = source2table($source);
+            push @li, [li => a(link => SmartSea::Object::plural($source), url => $self->{root}.'/'.$table)];
+            push @classes, {class => $table};
+        }
+        return json200({}, \@classes) if $self->{json};
+        push @body, [ul=>\@li];
+        push @body, $footer;
+        return html200({}, SmartSea::HTML->new(html => [body => \@body])->html);
+    }
+
     my @body = [p => a(link => 'All classes', url => $self->{root})];
 
     if ($request eq 'read') {
+        $oids->with_index('last') if $self->{json};
         my $part = $self->read_object($oids);
         return json200({}, $part) if $self->{json};
         push @body, $part;
@@ -179,17 +183,21 @@ sub object_editor {
     # TODO: all actions should be wrapped in begin; commit;
 
     if ($request eq 'add') {
-        my $ok;
+        my @errors;
         eval {
-            $ok = $obj->create($oids->with_index('last'));
+            @errors = $obj->create($oids->with_index('last'));
         };
         if ($@) {
             push @body, error_message($@) if $@;
-            my $part = $self->read_object($oids->with_index(0));
+            my $part = $self->read_object($oids);
             return json200({}, $part) if $self->{json};
             push @body, $part;
-        } elsif (!$ok) {
+        } elsif (@errors) {
+            say STDERR "can't create, will send form: @errors";
             $self->edit_object($obj, $oids, \@body);
+        } else {
+            my $part = $self->read_object($oids);
+            push @body, $part;
         }
 
     } elsif ($request eq 'delete') {
@@ -240,10 +248,10 @@ sub object_editor {
 
 sub read_object {
     my ($self, $oids) = @_;
-    my $obj = SmartSea::Object->new({oid => $oids->first}, $self);
+    my $obj = SmartSea::Object->new({oid => $oids->at}, $self);
     if ($obj) {
-        return $obj->tree($self->{parameters}) if $self->{json};
-        return [ul => [li => $obj->item($oids->with_index(0), [], {url => $self->{root}})]];
+        return $obj->tree($oids) if $self->{json};
+        return [ul => [li => $obj->item($oids, [], {url => $self->{root}})]];
     } else {
         return {error=>"$@"} if $self->{json};
         return [p => {style => 'color:red'}, $@];

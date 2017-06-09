@@ -6,7 +6,7 @@ use base qw/DBIx::Class::Core/;
 
 my @columns = (
     id   => {},
-    name => {data_type => 'text', html_size => 30, required => 1}
+    name => {data_type => 'text', html_size => 30, not_null => 1}
     );
 
 __PACKAGE__->table('impact_computation_methods');

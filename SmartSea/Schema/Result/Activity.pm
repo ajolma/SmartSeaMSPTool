@@ -9,7 +9,7 @@ use SmartSea::HTML qw(:all);
 
 my @columns = (
     id   =>  {},
-    name =>  { data_type => 'text', html_size => 20, required => 1 },
+    name =>  { data_type => 'text', html_size => 20, not_null => 1 },
     ordr =>  { data_type => 'text', html_size => 10, empty_is_default => 1 },
     );
 

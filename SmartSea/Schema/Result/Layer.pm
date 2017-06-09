@@ -10,10 +10,10 @@ use SmartSea::HTML qw(:all);
 
 my @columns = (
     id          => {},
-    use         => { is_foreign_key => 1, source => 'Use', parent => 1, required => 1 },
-    layer_class => { is_foreign_key => 1, source => 'LayerClass', required => 1 },
-    rule_system => { is_foreign_key => 1, source => 'RuleSystem', is_composition => 1, required => 1 },
-    style       => { is_foreign_key => 1, source => 'Style', is_composition => 1, required => 1 },
+    use         => { is_foreign_key => 1, source => 'Use', parent => 1, not_null => 1 },
+    layer_class => { is_foreign_key => 1, source => 'LayerClass', not_null => 1 },
+    rule_system => { is_foreign_key => 1, source => 'RuleSystem', is_part => 1, not_null => 1 },
+    style       => { is_foreign_key => 1, source => 'Style', is_part => 1, not_null => 1 },
     descr       => { data_type => 'text', html_size => 30 },
     owner       => {}
     );
