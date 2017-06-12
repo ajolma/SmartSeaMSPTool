@@ -431,6 +431,7 @@ MSPController.prototype = {
             id:'rules-to-delete',
             type:'checkbox-list',
             list:args.layer.rules,
+            selected:{},
             get_item_name:function(rule) {
                 var name = rule.name;
                 if (!rule.binary) {
