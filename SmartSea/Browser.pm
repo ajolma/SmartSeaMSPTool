@@ -98,14 +98,7 @@ sub object_editor {
                     $request = 'delete' if $request eq 'remove';
                     $request = 'save' if $request eq 'update';
                     $request = 'add' if $request eq 'create';
-                    my $last = $oids->last;
-                    if ($last) {
-                        my ($class, $oid) = split /:/, $last;
-                        my $id = $self->{parameters}{$class};
-                        if ($class && $id && !$oid) {
-                            $oids->set_last_id($id);
-                        }
-                    }
+                    # set target object id from button where, name is id, command is value
                     $oids->set_last_id($key) if $key =~ /^\d+$/; # the key may also be the id
                     $done = 1;
                     last;
@@ -121,6 +114,15 @@ sub object_editor {
             if ($value eq 'NULL') {
                 $self->{parameters}->remove($key);
             }
+        }
+    }
+    # set target object id from parameter
+    my $last = $oids->last;
+    if ($last) {
+        my ($class, $oid) = split /:/, $last;
+        my $id = $self->{parameters}{$class};
+        if ($class && $id && !$oid) {
+            $oids->set_last_id($id);
         }
     }
     $request //= 'read';
@@ -195,11 +197,11 @@ sub object_editor {
             my $part = $self->read_object($oids);
             push @body, $part;
         } elsif (@errors) {
-            #say STDERR "can't create, will send form: @errors";
+            return json200({}, {error => \@errors}) if $self->{json};
             $self->edit_object($obj, $oids, \@body);
         } else {
             return json200({}, $obj->tree($oids)) if $self->{json};
-            my $part = $self->read_object($oids);
+            my $part = $self->read_object($oids->with_index('prev'));
             push @body, $part;
         }
 
@@ -212,7 +214,7 @@ sub object_editor {
             return json200({}, {result => 'ok'});
         }
         push @body, error_message($@) if $@;
-        my $part = $self->read_object($oids);
+        my $part = $self->read_object($oids->with_index('prev'));
         push @body, $part;
 
     } elsif ($request eq 'save') {
@@ -225,7 +227,7 @@ sub object_editor {
             $self->edit_object($obj, $oids, \@body);
         } else {
             return json200({}, $obj->tree) if $self->{json};
-            my $part = $self->read_object($oids);
+            my $part = $self->read_object($oids->with_index('prev'));
             push @body, $part;
         }
         

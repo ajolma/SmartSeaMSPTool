@@ -139,6 +139,8 @@ sub test_creating_object {
         #say STDERR "post: $col => $post{$col}";
     }
 
+    #say STDERR $class;
+    #$service->{debug} = 2;
     my $res = $cb->(POST '/'.$class, \%post);
     #say STDERR $res->content;
     eval {

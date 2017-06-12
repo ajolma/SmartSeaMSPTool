@@ -79,10 +79,4 @@ my $relationship = $use->relationship($layer);
 
 $client->{parameters} = {layer_class => 5};
 
-my @err = $layer->values_from_relationship($columns, $use, $relationship);
-ok(@err = 0 && 
-   $columns->{super}{columns}{use}{value} == 2 && 
-   $columns->{super}{columns}{layer_class}{value} == 5, "values from relationship");
-
-
 done_testing();

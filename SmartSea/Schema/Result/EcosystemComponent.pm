@@ -31,7 +31,7 @@ sub relationship_hash {
         distribution_rules => {
             source => 'Rule',
             ref_to_parent => 'rule_system',
-            relationship_key => 'distribution'
+            key => 'distribution'
         },
         impacts => {
             source => 'Impact',

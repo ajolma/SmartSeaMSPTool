@@ -53,6 +53,7 @@ sub relationship_hash {
             source => 'EcosystemComponent',
             link_source => 'ImpactLayer2EcosystemComponent',
             ref_to_parent => 'impact_layer',
+            key => 'super',
             ref_to_related => 'ecosystem_component',
             class_column => 'ecosystem_component',
             stop_edit => 1,

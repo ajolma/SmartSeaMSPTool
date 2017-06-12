@@ -40,7 +40,7 @@ sub relationship_hash {
         rules => {
             source => 'Rule',
             ref_to_parent => 'rule_system',
-            relationship_key => 'rule_system',
+            key => 'rule_system',
             class_widget => sub {
                 my ($self, $children) = @_;
                 return undef;

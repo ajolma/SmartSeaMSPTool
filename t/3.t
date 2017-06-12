@@ -47,91 +47,111 @@ test_psgi $app, sub {
     my $cb = shift;
     my $res = $cb->(GET "/?accept=json");
     for my $i (@{decode_json $res->content}) {
+        my $class = $i->{class};
         #next unless $i->{class} eq 'impact_layer';
         
-        #say STDERR 'test ',$i->{class};
-        my $schema = get_schema($cb, $i->{class});
-        #print STDERR Dumper $schema;
-
         crud($cb, $i->{class});
 
+        my $schema = get_schema($cb, $class);
         next unless $schema->{related};
-        my %data;
-        for my $key (keys %$schema) {
-            next if $key eq 'related';
-            next unless $schema->{$key}{not_null};
-            next if $schema->{$key}{is_part} || $schema->{$key}{is_superclass};
-            next if $schema->{$key}{source};
-            if ($schema->{$key}{data_type} eq 'text') {
-                $data{$key} = 'x';
-            } else {
-                $data{$key} = 1;
-            }
-        }
-        my $object = create_object($cb, $i->{class}, \%data);
-        my $id = $object->{id} ? $object->{id}{value} : $object->{super}{value};
         
-        # related can't really exist without this:
-        
-        # create related
-        #say STDERR 'test ',$i->{class},":$id";
-        #print STDERR Dumper $schema;
-        for my $relationship (keys %{$schema->{related}}) {
-            #next unless $relationship =~ /rules/;
-            #say STDERR '  ',$relationship;
-            my $rel = $schema->{related}{$relationship};
-            next if defined $rel->{edit} && $rel->{edit} == 0; # relationship is purely computed
-            
-            if ($rel->{stop_edit}) {
-                # the related object needs to exist
-                # impact layer -> component
-                # plan -> extra dataset
-                # use class -> activity
+        my $object = create_object($cb, $class);
+        my $id = $object->{id}{value};
 
-                my $rel_obj = create_object($cb, $rel->{source});
-                $service->{debug} = 0;
-                my $res = $cb->(POST "/$i->{class}:$id/$rel->{source}:$rel_obj->{id}{value}?request=create&accept=json");
-                $rel_obj = decode_json $res->content;
-                $object = read_object($cb, $i->{class}, $id);
-                #print STDERR Dumper $object;
-                #print STDERR Dumper $rel_obj;
-
-                my %related = map {$_=>1} @{$object->{related}{$relationship}{objects}};
-                ok($related{$rel_obj->{id}{value}}, "link from $i->{class} to $relationship");
-            } else {
-                # the related object can be created
-                # activity -> pressure
-                # dataset -> dataset
-                # component,layer -> rule
-                # plan -> use
-                # pressure -> impact
-                # use -> layer
-                
-                my %data = set_data($cb, $rel->{source});
-                $data{relationship} = $relationship;
-                my $param = join(q{&}, map{qq{$_=$data{$_}}} keys %data);
-                #say STDERR "params: ",$param;
-                $service->{debug} = 0;
-                my $res = $cb->(POST "/$i->{class}:$id/$rel->{source}?request=create&$param&accept=json");
-                my $rel_obj = decode_json $res->content;
-                $object = read_object($cb, $i->{class}, $id);
-                #print STDERR Dumper $object;
-                #print STDERR Dumper $rel_obj;
-
-                my %related = map {$_=>1} @{$object->{related}{$relationship}{objects}};
-                ok($related{$rel_obj->{id}{value}}, "link from $i->{class} to new $relationship");
-                #ok($object->{$rel->{ref_to_me}}->{value} == $id, "$i->{class}/$relationship ref back");
-            }
-        }
-        #exit;
+        test_create_related($cb, $schema, $class, $object);
 
         # update related
 
+        for my $relationship (keys %{$schema->{related}}) {
+            my $rel = $schema->{related}{$relationship};
+            next if defined $rel->{edit} && $rel->{edit} == 0; # relationship is purely computed
+            next if $rel->{stop_edit};
+
+            my %data = set_data($cb, $rel->{source});
+            $data{relationship} = $relationship;
+            my $param = join(q{&}, map{qq{$_=$data{$_}}} keys %data);
+            #say STDERR "$class -> $relationship";
+            my $res = $cb->(POST "/$class:$id/$rel->{source}?request=create&$param&accept=json");
+            my $rel_obj = decode_json $res->content;
+            #print STDERR Dumper $rel_obj;
+            $object = read_object($cb, $class, $id);
+
+            $service->{debug} = 0;
+            $res = $cb->(POST "/$class:$id/$rel->{source}:$rel_obj->{id}{value}?request=update&$param&accept=json");
+            $object = read_object($cb, $class, $id);
+            #print STDERR Dumper $object;
+            $rel_obj = decode_json $res->content;
+            #print STDERR Dumper $object->{related};
+            #print STDERR Dumper $rel_obj;
+        }
+
         # delete related
+
+        for my $relationship (keys %{$schema->{related}}) {
+            my $rel = $schema->{related}{$relationship};
+            next if defined $rel->{edit} && $rel->{edit} == 0; # relationship is purely computed
+
+            if ($rel->{stop_edit}) {
+                # the related object needs to exist
+            
+                my $rel_obj = create_object($cb, $rel->{source});
+                my $res = $cb->(POST "/$class:$id/$rel->{source}:$rel_obj->{id}{value}?request=create&accept=json");
+            }
+
+            $object = read_object($cb, $class, $id);
+            #say STDERR "$class -> $relationship";
+            #print STDERR Dumper $object;
+            next unless $object->{related}{$relationship}{objects};
+            my @related = @{$object->{related}{$relationship}{objects}};
+            my $delete_id = $related[0];
+
+            $res = $cb->(POST "/$class:$id/$rel->{source}:$delete_id?request=delete&accept=json");
+            my $rel_obj = decode_json $res->content;
+
+            $object = read_object($cb, $class, $id);
+            # deleted should not be in related
+            # unless stop_edit, the related object should not exist anymore
+            
+            #print STDERR Dumper $object->{related};
+            #print STDERR Dumper $rel_obj;
+        }
         
         #exit;
     }
 };
+
+sub test_create_related {
+    my ($cb, $schema, $class, $object) = @_;
+    my $id = $object->{id}{value};
+    for my $relationship (keys %{$schema->{related}}) {
+        my $rel = $schema->{related}{$relationship};
+        next if defined $rel->{edit} && $rel->{edit} == 0; # relationship is purely computed
+        
+        if ($rel->{stop_edit}) {
+            # the related object needs to exist
+            
+            my $rel_obj = create_object($cb, $rel->{source});
+            my $res = $cb->(POST "/$class:$id/$rel->{source}:$rel_obj->{id}{value}?request=create&accept=json");
+            $rel_obj = decode_json $res->content;
+            $object = read_object($cb, $class, $id);
+            
+            my %related = map {$_=>1} @{$object->{related}{$relationship}{objects}};
+            ok($related{$rel_obj->{id}{value}}, "link from $class to $relationship");
+        } else {
+            # the related object can be created
+            
+            my %data = set_data($cb, $rel->{source});
+            $data{relationship} = $relationship;
+            my $param = join(q{&}, map{qq{$_=$data{$_}}} keys %data);
+            my $res = $cb->(POST "/$class:$id/$rel->{source}?request=create&$param&accept=json");
+            my $rel_obj = decode_json $res->content;
+            $object = read_object($cb, $class, $id);
+            
+            my %related = map {$_=>1} @{$object->{related}{$relationship}{objects}};
+            ok($related{$rel_obj->{id}{value}}, "link from $class to new $relationship");
+        }
+    }
+}
 
 sub crud {
     my ($cb, $class) = @_;

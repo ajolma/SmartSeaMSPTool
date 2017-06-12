@@ -161,13 +161,14 @@ sub plural {
     sub with_index {
         my ($self, $index) = @_;
         if ($index eq 'last') {
-            $self->{index} = $self->{n}-1;
+            $self->{index} = $#{$self->{oids}};
+        } elsif ($index eq 'prev') {
+            --$self->{index} if $self->{index} > 0;
         } elsif ($index eq 'next') {
-            $self->{index} = $self->{index}+1;
+            ++$self->{index} if $self->{index} < $#{$self->{oids}};
         } else {
-            $self->{index} = $index;
+            $self->{index} = $index if $index >= 0 && $index <= $#{$self->{oids}};
         }
-        $self->{index} = -1 unless $self->{index} < $self->{n};
         return $self;
     }
     sub count {
@@ -197,7 +198,8 @@ sub plural {
     sub set_last_id {
         my ($self, $id) = @_;
         return undef if $self->{n} == 0;
-        $self->{oids}[$self->{n}-1] .= ':'.$id;
+        my ($class, $oid) = split /:/, $self->{oids}[$self->{n}-1];
+        $self->{oids}[$self->{n}-1] = $class.':'.$id;
     }
     sub has_next {
         my $self = shift;
