@@ -6,8 +6,8 @@ use base qw/DBIx::Class::Core/;
 
 my @columns = (
     id                  => {},
-    impact_layer        => {is_foreign_key => 1, source => 'ImpactLayer'},
-    ecosystem_component => {is_foreign_key => 1, source => 'EcosystemComponent'}
+    impact_layer        => {is_foreign_key => 1, source => 'ImpactLayer', not_null => 1},
+    ecosystem_component => {is_foreign_key => 1, source => 'EcosystemComponent', not_null => 1}
     );
 
 __PACKAGE__->table('impact_layer2ecosystem_component');

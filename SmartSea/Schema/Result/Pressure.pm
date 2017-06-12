@@ -29,7 +29,7 @@ sub relationship_hash {
     return { 
         impacts => {
             source => 'Impact',
-            ref_to_me => 'pressure',
+            ref_to_parent => 'pressure',
             class_column => 'ecosystem_component',
             class_widget => sub {
                 my ($self, $children) = @_;

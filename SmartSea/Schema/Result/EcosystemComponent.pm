@@ -9,8 +9,8 @@ use SmartSea::HTML qw(:all);
 my @columns = (
     id           => {},
     name         => { data_type => 'text', html_size => 30, not_null => 1},
-    distribution => { is_foreign_key => 1, source => 'RuleSystem', is_part => 1 },
-    style        => { is_foreign_key => 1, source => 'Style', is_part => 1 },
+    distribution => { is_foreign_key => 1, source => 'RuleSystem', is_part => 1, not_null => 1 },
+    style        => { is_foreign_key => 1, source => 'Style', is_part => 1, not_null => 1 },
     );
 
 __PACKAGE__->table('ecosystem_components');
@@ -28,8 +28,10 @@ sub rule_system {
 
 sub relationship_hash {
     return { 
-        _rules => {
-            source => 'Rule'
+        distribution_rules => {
+            source => 'Rule',
+            ref_to_parent => 'rule_system',
+            relationship_key => 'distribution'
         },
         impacts => {
             source => 'Impact',
@@ -38,7 +40,7 @@ sub relationship_hash {
     };
 }
 
-sub _rules {
+sub distribution_rules {
     my $self = shift;
     return $self->rules if $self->distribution;
     return (undef);

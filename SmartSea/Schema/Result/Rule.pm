@@ -14,9 +14,9 @@ my @columns = (
     id           => {},
     cookie       => {},
     made         => {},
-    rule_system  => { is_foreign_key => 1, source => 'RuleSystem', allow_null => 0, not_null => 1 },
-    r_layer      => { is_foreign_key => 1, source => 'Layer',      allow_null => 1, optional => 1 },
-    r_dataset    => { is_foreign_key => 1, source => 'Dataset',    allow_null => 1, objs => {path => {'!=',undef}} },
+    rule_system  => { is_foreign_key => 1, source => 'RuleSystem', not_null => 1 },
+    r_layer      => { is_foreign_key => 1, source => 'Layer' },
+    r_dataset    => { is_foreign_key => 1, source => 'Dataset',    not_null => 1, objs => {path => {'!=',undef}} },
     op           => { is_foreign_key => 1, source => 'Op'  },
     value        => { data_type => 'text', type => 'double', empty_is_default => 1 },
     min_value    => { data_type => 'text', type => 'double', empty_is_default => 1 },
@@ -46,8 +46,8 @@ __PACKAGE__->belongs_to(op => 'SmartSea::Schema::Result::Op');
 sub my_columns_info {
     my ($self, $parent) = @_;
     my %my_info;
-    my $class;
-    $class = $parent->rule_system->rule_class->name if $parent;
+    my $class = '';
+    $class = $parent->rule_system->rule_class->name if $parent && $parent->rule_system;
     for my $col ($self->columns) {
         if ($parent) {
             if ($class eq 'additive' or $class eq 'multiplicative') {
@@ -94,7 +94,27 @@ sub column_values_from_context {
 
 sub is_ok {
     my ($self, $col_data) = @_;
-    return "Rule must be based either on a layer or on a dataset." unless $col_data->{r_dataset} || $col_data->{r_layer};
+    my $r_dataset;
+    my $r_layer;
+    if (ref $self) {
+        if ($self->r_dataset) {
+            if (exists $col_data->{r_dataset}) {
+                $r_dataset = $col_data->{r_dataset};
+            } else {
+                $r_dataset = 1;
+            }
+        } else {
+            if (exists $col_data->{r_layer}) {
+                $r_layer = $col_data->{r_layer};
+            } else {
+                $r_layer = 1;
+            }
+        }
+    } else {
+        $r_dataset = $col_data->{r_dataset} if exists $col_data->{r_dataset};
+        $r_layer = $col_data->{r_layer} if exists $col_data->{r_layer};
+    }
+    return "Rule must be based either on a layer or on a dataset." unless $r_dataset xor $r_layer;
     return undef;
 }
 

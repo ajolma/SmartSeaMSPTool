@@ -87,7 +87,7 @@ test_psgi $app, sub {
 
 sub create_required_objects {
     my ($cb, $obj) = @_;
-    my $columns = $obj->columns2;
+    my $columns = $obj->columns;
     for my $column (keys %$columns) {
         my $meta = $columns->{$column};
         next if $meta->{is_superclass} && $meta->{is_part};
@@ -129,7 +129,7 @@ sub test_creating_object {
 
     my $class = source2table($args->{source});
     my $obj = SmartSea::Object->new($args, $client);
-    my $columns = $obj->columns2;
+    my $columns = $obj->columns;
 
     create_required_objects($cb, $obj);
 

@@ -96,6 +96,8 @@ sub object_editor {
                 if (lc($value) eq $cmd && ($key eq 'request' || $key eq 'submit' || $key =~ /^\d+$/)) {
                     $request = $cmd;
                     $request = 'delete' if $request eq 'remove';
+                    $request = 'save' if $request eq 'update';
+                    $request = 'add' if $request eq 'create';
                     my $last = $oids->last;
                     if ($last) {
                         my ($class, $oid) = split /:/, $last;
@@ -189,13 +191,14 @@ sub object_editor {
         };
         if ($@) {
             push @body, error_message($@) if $@;
+            return json200({}, {error => $@}) if $self->{json};
             my $part = $self->read_object($oids);
-            return json200({}, $part) if $self->{json};
             push @body, $part;
         } elsif (@errors) {
-            say STDERR "can't create, will send form: @errors";
+            #say STDERR "can't create, will send form: @errors";
             $self->edit_object($obj, $oids, \@body);
         } else {
+            return json200({}, $obj->tree($oids)) if $self->{json};
             my $part = $self->read_object($oids);
             push @body, $part;
         }
@@ -212,14 +215,6 @@ sub object_editor {
         my $part = $self->read_object($oids);
         push @body, $part;
 
-    } elsif ($request eq 'update') { # RESTish API, json only
-        my $obj = SmartSea::Object->new({oid => $oids->first}, $self);
-        eval {
-            $obj->api_update();
-        };
-        return json200({}, {error => "$@"}) if $@;
-        return json200({}, {result => 'ok'});
-        
     } elsif ($request eq 'save') {
         eval {
             $obj->update_or_create($oids->with_index('last'));

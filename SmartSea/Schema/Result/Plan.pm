@@ -26,7 +26,7 @@ sub relationship_hash {
     return {
         uses => {
             source => 'Use',
-            ref_to_me => 'plan',
+            ref_to_parent => 'plan',
             class_column => 'use_class',
             class_widget => sub {
                 my ($self, $children) = @_;
@@ -46,10 +46,10 @@ sub relationship_hash {
             class_name => 'Extra datasets',
             source => 'Dataset',
             link_source => 'Plan2DatasetExtra',
-            ref_to_me => 'plan',
+            ref_to_parent => 'plan',
             ref_to_related => 'dataset',
             stop_edit => 1,
-            class_column => 'extra_dataset',
+            class_column => 'dataset',
             class_widget => sub {
                 my ($self, $children) = @_;
                 my $has = $self->{object}->datasets($self);
@@ -61,7 +61,7 @@ sub relationship_hash {
                     next if $has->{$obj->id};
                     push @objs, $obj;
                 }
-                return drop_down(name => 'extra_dataset', objs => \@objs);
+                return drop_down(name => 'dataset', objs => \@objs);
             }
         }
     };

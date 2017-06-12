@@ -6,8 +6,8 @@ use base qw/DBIx::Class::Core/;
 
 my @columns = (
     id      => {},
-    plan    => { is_foreign_key => 1, source => 'Plan' },
-    dataset => { is_foreign_key => 1, source => 'Dataset' },
+    plan    => { is_foreign_key => 1, source => 'Plan', not_null => 1 },
+    dataset => { is_foreign_key => 1, source => 'Dataset', not_null => 1 },
     );
 
 __PACKAGE__->table('plan2dataset_extra');

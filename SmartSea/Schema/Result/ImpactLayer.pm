@@ -52,9 +52,10 @@ sub relationship_hash {
         ecosystem_components => {
             source => 'EcosystemComponent',
             link_source => 'ImpactLayer2EcosystemComponent',
-            ref_to_me => 'impact_layer',
+            ref_to_parent => 'impact_layer',
             ref_to_related => 'ecosystem_component',
             class_column => 'ecosystem_component',
+            stop_edit => 1,
             class_widget => sub {
                 my ($self, $children) = @_;
                 my $has = $self->{object}->ecosystem_components($self);

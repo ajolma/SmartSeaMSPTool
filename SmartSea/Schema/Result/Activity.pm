@@ -10,7 +10,7 @@ use SmartSea::HTML qw(:all);
 my @columns = (
     id   =>  {},
     name =>  { data_type => 'text', html_size => 20, not_null => 1 },
-    ordr =>  { data_type => 'text', html_size => 10, empty_is_default => 1 },
+    ordr =>  { data_type => 'text', html_size => 10, not_null => 1, empty_is_default => 1 },
     );
 
 __PACKAGE__->table('activities');
@@ -25,7 +25,7 @@ sub relationship_hash {
     return { 
         pressures => {
             source => 'Pressure',
-            ref_to_me => 'activity',
+            ref_to_parent => 'activity',
             class_column => 'pressure_class',
             class_widget => sub {
                 my ($self, $children) = @_;

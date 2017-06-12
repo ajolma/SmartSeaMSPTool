@@ -6,8 +6,8 @@ use base qw/DBIx::Class::Core/;
 
 my @columns = (
     id   => {},
-    activity => {is_foreign_key => 1, source => 'Activity'},
-    use_class => {is_foreign_key => 1, source => 'UseClass'}
+    activity => {is_foreign_key => 1, source => 'Activity', not_null => 1},
+    use_class => {is_foreign_key => 1, source => 'UseClass', not_null => 1}
     );
 
 __PACKAGE__->table('use_class2activity');

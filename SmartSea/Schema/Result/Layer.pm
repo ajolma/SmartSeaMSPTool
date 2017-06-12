@@ -39,6 +39,8 @@ sub relationship_hash {
     return { 
         rules => {
             source => 'Rule',
+            ref_to_parent => 'rule_system',
+            relationship_key => 'rule_system',
             class_widget => sub {
                 my ($self, $children) = @_;
                 return undef;

@@ -13,22 +13,22 @@ use PDL::NiceSlice;
 my @columns = (
     id              => {},
     name            => { data_type => 'text',    html_size => 20, not_null => 1 },
-    custodian       => { is_foreign_key => 1, source => 'Organization', allow_null => 1 },
+    custodian       => { is_foreign_key => 1, source => 'Organization' },
     contact         => { data_type => 'text',    html_size => 20 },
     descr           => { data_type => 'textarea' },
-    data_model      => { is_foreign_key => 1, source => 'DataModel', allow_null => 1 },
-    is_a_part_of    => { is_foreign_key => 1, source => 'Dataset',   allow_null => 1, self_ref => 1 },
-    is_derived_from => { is_foreign_key => 1, source => 'Dataset',   allow_null => 1, self_ref => 1 },
-    license         => { is_foreign_key => 1, source => 'License',   allow_null => 1 },
+    data_model      => { is_foreign_key => 1, source => 'DataModel' },
+    is_a_part_of    => { is_foreign_key => 1, source => 'Dataset', self_ref => 1 },
+    is_derived_from => { is_foreign_key => 1, source => 'Dataset', self_ref => 1 },
+    license         => { is_foreign_key => 1, source => 'License' },
     attribution     => { data_type => 'text',    html_size => 40 },
     disclaimer      => { data_type => 'text',    html_size => 80 },
     path            => { data_type => 'text',    html_size => 30, empty_is_null => 1 },
     db_table        => { data_type => 'text',    html_size => 30 },
     min_value       => { data_type => 'text',    html_size => 20, empty_is_null => 1 },
     max_value       => { data_type => 'text',    html_size => 20, empty_is_null => 1 },
-    data_type       => { is_foreign_key => 1, source => 'NumberType', allow_null => 1 },
+    data_type       => { is_foreign_key => 1, source => 'NumberType' },
     class_semantics => { data_type => 'text',    html_size => 40, empty_is_null => 1 },
-    unit            => { is_foreign_key => 1, source => 'Unit',       allow_null => 1 },
+    unit            => { is_foreign_key => 1, source => 'Unit' },
     style           => { is_foreign_key => 1,  source => 'Style', is_part => 1 }
     );
 
@@ -52,7 +52,7 @@ sub relationship_hash {
         parts => {
             class_name => 'Subdatasets',
             source => 'Dataset',
-            ref_to_me => 'is_a_part_of',
+            ref_to_parent => 'is_a_part_of',
             set_to_null => 'is_derived_from',
             parent_is_parent => 0,
             class_widget => sub {
@@ -63,7 +63,7 @@ sub relationship_hash {
         derivatives => {
             class_name => 'Derivative datasets',
             source => 'Dataset',
-            ref_to_me => 'is_derived_from',
+            ref_to_parent => 'is_derived_from',
             set_to_null => 'is_a_part_of',
             parent_is_parent => 0,
             class_widget => sub {

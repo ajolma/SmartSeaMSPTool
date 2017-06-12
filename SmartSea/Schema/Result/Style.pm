@@ -28,7 +28,7 @@ use SmartSea::HTML qw(:all);
 
 my @columns = (
     id           => {},
-    color_scale =>  { is_foreign_key => 1, source => 'ColorScale', allow_null => 0, not_null => 1 },
+    color_scale =>  { is_foreign_key => 1, source => 'ColorScale', not_null => 1 },
     min =>          { data_type => 'text', html_size => 20, empty_is_null => 1 },
     max =>          { data_type => 'text', html_size => 20, empty_is_null => 1 },
     classes =>      { data_type => 'text', html_size => 20, empty_is_null => 1 }

@@ -57,7 +57,7 @@ $client->{parameters} = {
 };
 for my $source (sort $client->{schema}->sources) {
     my $obj = SmartSea::Object->new({source => $source}, $client);
-    my $columns = $obj->columns2;
+    my $columns = $obj->columns;
     my @err = $obj->values_from_parameters($columns);
     #print STDERR Dumper $columns if $source eq 'ImpactLayer';
     if ($source eq 'ImpactLayer') {
@@ -73,7 +73,7 @@ $client->{schema}->resultset('Use')->new({id => 2, plan => 1, use_class => 1})->
 my $use = SmartSea::Object->new({source => 'Use', id => 2}, $client);
 my $layer = SmartSea::Object->new({source => 'ImpactLayer'}, $client);
 
-my $columns = $layer->columns2;
+my $columns = $layer->columns;
 
 my $relationship = $use->relationship($layer);
 

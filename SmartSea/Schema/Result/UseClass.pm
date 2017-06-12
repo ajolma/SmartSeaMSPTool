@@ -26,7 +26,7 @@ sub relationship_hash {
         activities => {
             source => 'Activity',
             link_source => 'UseClass2Activity',
-            ref_to_me => 'use_class',
+            ref_to_parent => 'use_class',
             ref_to_related => 'activity',
             stop_edit => 1,
             class_column => 'activity',

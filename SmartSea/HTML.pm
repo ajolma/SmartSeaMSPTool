@@ -68,12 +68,12 @@ sub textarea {
 }
 sub drop_down {
     my (%arg) = @_;
-    warn_unknowns(\%arg, qw/name values visuals selected allow_null objs/);
+    warn_unknowns(\%arg, qw/name values visuals selected not_null objs/);
     my $name = $arg{name} // '';
     my $values = $arg{values};
     my $visuals = $arg{visuals} // {};
-    my $selected = $arg{selected} // ($arg{allow_null} ? 'NULL' : '');
-    $visuals->{NULL} = '' if $arg{allow_null};
+    my $selected = $arg{selected} // (!$arg{not_null} ? '' : 'NULL');
+    $visuals->{NULL} = '' unless $arg{not_null};
     if ($arg{objs}) {
         my %objs;
         $values = [];
@@ -85,7 +85,7 @@ sub drop_down {
             push @$values, $id;
         }
         #$values //= [sort {$objs{$a} cmp $objs{$b}} keys %objs];
-        unshift @$values, 'NULL' if $arg{allow_null};
+        unshift @$values, 'NULL' unless $arg{not_null};
     }
     my @options;
     for my $value (@$values) {

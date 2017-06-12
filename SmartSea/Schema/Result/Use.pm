@@ -33,7 +33,7 @@ sub relationship_hash {
     return {
         layers => {
             source => 'Layer',
-            ref_to_me => 'use',
+            ref_to_parent => 'use',
             class_column => 'layer_class',
             class_widget => sub {
                 my ($self, $children) = @_;
