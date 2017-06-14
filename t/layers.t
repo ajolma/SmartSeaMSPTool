@@ -72,22 +72,9 @@ create_db();
 test_psgi $app, sub {
     my $cb = shift;
 
-    if (0) {
-        my ($res, $dom, @href);
-        $res = $cb->(GET "/browser/use:1/layer");
-        eval {
-            $dom = $parser->load_xml(string => $res->content);
-        };
-        for my $a ($dom->documentElement->findnodes('//a')) {
-            my $href = $a->getAttribute('href');
-            push @href, $href;
-        }
-        ok(@href == 7 && $href[6] eq '/browser/plan:1/uses:1/layers:2?request=edit', "layer list");
-    }
-
     if (1) {
         my ($res, $dom, @href);
-        $res = $cb->(GET "/browser/plan:1/uses:1/layers:2");
+        $res = $cb->(GET "/browser/plan:1/uses:1/layers");
         eval {
             $dom = $parser->load_xml(string => $res->content);
         };
@@ -97,7 +84,21 @@ test_psgi $app, sub {
             push @href, $href;
         }
         my $n = @href;
-        ok(@href == 9 && $href[8] eq '/browser/plan:1/uses:1/layers:2?request=edit', "layer list ($n) with impact layer open");
+        ok(@href == 9 && $href[8] eq '/browser/plan:1/uses:1/layers:2?request=edit', "layer list $n");
+    }
+
+    if (1) {
+        my ($res, $dom, @href);
+        $res = $cb->(GET "/browser/plan:1/uses:1/layers:2");
+        eval {
+            $dom = $parser->load_xml(string => $res->content);
+        };
+        for my $a ($dom->documentElement->findnodes('//a')) {
+            my $href = $a->getAttribute('href');
+            push @href, $href;
+        }
+        my $n = @href;
+        ok(@href == 7 && $href[6] eq '/browser/plan:1/uses:1/layers:2?request=edit', "layer list ($n) with impact layer open");
     }
 
     {
@@ -114,7 +115,7 @@ test_psgi $app, sub {
         ok(@href == 8, "$n == 8 input elements in impact layer form");
     }
 
-    if (0) {
+    if (1) {
         my ($res, $dom, @href);
         $res = $cb->(GET "/browser/plan:1/uses:1/layers:2?request=edit");
         eval {
@@ -125,7 +126,7 @@ test_psgi $app, sub {
             push @href, $href;
         }
         my $n = @href;
-        ok(@href == 7, "$n == 7 select elements in impact layer form");
+        ok(@href == 6, "$n == 6 select elements in impact layer form");
     }
     
 };
