@@ -35,7 +35,7 @@ sub relationship_hash {
                     $has{$obj->use_class->id} = 1;
                 }
                 my @objs;
-                for my $obj ($self->{client}{schema}->resultset('UseClass')->all) {
+                for my $obj ($self->{app}{schema}->resultset('UseClass')->all) {
                     next if $has{$obj->id};
                     push @objs, $obj;
                 }
@@ -43,7 +43,7 @@ sub relationship_hash {
             }
         },
         extra_datasets => {
-            class_name => 'Extra datasets',
+            name => 'Extra dataset',
             source => 'Dataset',
             link_source => 'Plan2DatasetExtra',
             ref_to_parent => 'plan',
@@ -57,7 +57,7 @@ sub relationship_hash {
                     $has->{$obj->id} = 1;
                 }
                 my @objs;
-                for my $obj ($self->{client}{schema}->resultset('Dataset')->search({path => { '!=', undef }})) {
+                for my $obj ($self->{app}{schema}->resultset('Dataset')->search({path => { '!=', undef }})) {
                     next if $has->{$obj->id};
                     push @objs, $obj;
                 }
@@ -77,11 +77,11 @@ sub datasets {
     my ($self, $args) = @_;
     my %datasets;
     for my $use_class ($self->use_classes) {
-        my $use = $args->{client}{schema}->
+        my $use = $args->{app}{schema}->
             resultset('Use')->
             single({plan => $self->id, use_class => $use_class->id});
         for my $layer_class ($use->layer_classes) {
-            my $layer = $args->{client}{schema}->
+            my $layer = $args->{app}{schema}->
                 resultset('Layer')->
                 single({use => $use->id, layer_class => $layer_class->id});
             for my $rule ($layer->rules({cookie => DEFAULT})) {

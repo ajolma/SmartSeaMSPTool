@@ -37,7 +37,7 @@ sub relationship_hash {
                     $has{$obj->id} = 1;
                 }
                 my @objs;
-                for my $obj ($self->{client}{schema}->resultset('Activity')->all) {
+                for my $obj ($self->{app}{schema}->resultset('Activity')->all) {
                     next if $has{$obj->id};
                     push @objs, $obj;
                 }

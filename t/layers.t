@@ -82,25 +82,27 @@ test_psgi $app, sub {
             my $href = $a->getAttribute('href');
             push @href, $href;
         }
-        ok(@href == 7 && $href[6] eq '/browser/use:1/layer:2?request=edit', "layer list");
+        ok(@href == 7 && $href[6] eq '/browser/plan:1/uses:1/layers:2?request=edit', "layer list");
     }
 
     if (1) {
         my ($res, $dom, @href);
-        $res = $cb->(GET "/browser/use:1/layer:2");
+        $res = $cb->(GET "/browser/plan:1/uses:1/layers:2");
         eval {
             $dom = $parser->load_xml(string => $res->content);
         };
+        #pretty_print_XML($res->content);
         for my $a ($dom->documentElement->findnodes('//a')) {
             my $href = $a->getAttribute('href');
             push @href, $href;
         }
-        ok(@href == 5 && $href[4] eq '/browser/use:1/layer:2?request=edit', "layer list with impact layer open");
+        my $n = @href;
+        ok(@href == 9 && $href[8] eq '/browser/plan:1/uses:1/layers:2?request=edit', "layer list ($n) with impact layer open");
     }
 
     {
         my ($res, $dom, @href);
-        $res = $cb->(GET "/browser/use:1/layer:2?request=edit");
+        $res = $cb->(GET "/browser/plan:1/uses:1/layers:2?request=edit");
         eval {
             $dom = $parser->load_xml(string => $res->content);
         };
@@ -114,7 +116,7 @@ test_psgi $app, sub {
 
     if (0) {
         my ($res, $dom, @href);
-        $res = $cb->(GET "/browser/use:1/layer:2?request=edit");
+        $res = $cb->(GET "/browser/plan:1/uses:1/layers:2?request=edit");
         eval {
             $dom = $parser->load_xml(string => $res->content);
         };

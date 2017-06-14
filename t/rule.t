@@ -78,7 +78,7 @@ test_psgi $app, sub {
     #print STDERR Dumper $req;
     
     $res = $cb->($req);
-    #print STDERR Dumper $res;
+    #say STDERR $res->content;
     
     $res = decode_json $res->content;
     ok($res->{object}{value} == 2.5, "Update ok with cookie.");

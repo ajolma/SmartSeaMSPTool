@@ -38,10 +38,6 @@ __PACKAGE__->belongs_to(computation_method => 'SmartSea::Schema::Result::ImpactC
 __PACKAGE__->has_many(il2ec => 'SmartSea::Schema::Result::ImpactLayer2EcosystemComponent', 'impact_layer');
 __PACKAGE__->many_to_many(ecosystem_components => 'il2ec', 'ecosystem_component');
 
-sub superclass {
-    return 'Layer';
-}
-
 sub id {
     my $self = shift;
     return $self->super->id;
@@ -64,7 +60,7 @@ sub relationship_hash {
                     $has->{$obj->id} = 1;
                 }
                 my @objs;
-                for my $obj ($self->{client}{schema}->resultset('EcosystemComponent')->all) {
+                for my $obj ($self->{app}{schema}->resultset('EcosystemComponent')->all) {
                     next if $has->{$obj->id};
                     push @objs, $obj;
                 }

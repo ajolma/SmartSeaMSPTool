@@ -42,7 +42,7 @@ sub relationship_hash {
                     $has{$obj->layer_class->id} = 1;
                 }
                 my @objs;
-                for my $obj ($self->{client}{schema}->resultset('LayerClass')->all) {
+                for my $obj ($self->{app}{schema}->resultset('LayerClass')->all) {
                     next if $has{$obj->id};
                     push @objs, $obj;
                 }
@@ -54,7 +54,7 @@ sub relationship_hash {
             edit => 0 # through use class
         },
         ecosystem_impacts => {
-            class_name => 'Ecosystem impacts',
+            name => 'Ecosystem impact',
             source => 'EcosystemComponent',
             edit => 0 # computed
         }

@@ -12,7 +12,7 @@ require Exporter;
 our @ISA = qw(Exporter);
 our @EXPORT_OK = qw(
     common_responses html200 json200 http_status DEFAULT warn_unknowns
-    source2table table2source singular plural
+    source2class table2source singular plural
 );
 our %EXPORT_TAGS = (all => \@EXPORT_OK);
 
@@ -98,7 +98,7 @@ sub warn_unknowns {
     }
 }
 
-sub source2table {
+sub source2class {
     my $source = shift;
     $source =~ s/([a-z])([A-Z])/$1_$2/g;
     return lc($source);
@@ -138,85 +138,6 @@ sub plural {
         $w .= 's';
     }
     return $w;
-}
-
-{
-    package SmartSea::OIDS;
-    # a path of oids
-    # oid = table:id
-    sub new {
-        my ($class, $path, $root) = @_;
-        my $self = {};
-        my @oids;
-        if (defined $path) {
-            $path =~ s/^$root// if defined $root;
-            @oids = split /\//, $path;
-            shift @oids; # the first ''
-        }
-        $self->{oids} = \@oids;
-        $self->{n} = $#oids+1;
-        $self->{index} = $self->{n} > 0 ? 0 : -1;
-        bless $self, $class;
-    }
-    sub with_index {
-        my ($self, $index) = @_;
-        if ($index eq 'last') {
-            $self->{index} = $#{$self->{oids}};
-        } elsif ($index eq 'prev') {
-            --$self->{index} if $self->{index} > 0;
-        } elsif ($index eq 'next') {
-            ++$self->{index} if $self->{index} < $#{$self->{oids}};
-        } else {
-            $self->{index} = $index if $index >= 0 && $index <= $#{$self->{oids}};
-        }
-        return $self;
-    }
-    sub count {
-        my $self = shift;
-        return $self->{n};
-    }
-    sub at {
-        my ($self, $i) = @_;
-        $i //= $self->{index};
-        return undef if $i < 0 || $i >= $self->{n};
-        return $self->{oids}[$i];
-    }
-    sub is_empty {
-        my $self = shift;
-        return $self->{n} == 0;
-    }
-    sub first {
-        my $self = shift;
-        return undef if $self->{n} == 0;
-        return $self->{oids}[0];
-    }
-    sub last {
-        my $self = shift;
-        return undef if $self->{n} == 0;
-        return $self->{oids}[$self->{n}-1];
-    }
-    sub set_last_id {
-        my ($self, $id) = @_;
-        return undef if $self->{n} == 0;
-        my ($class, $oid) = split /:/, $self->{oids}[$self->{n}-1];
-        $self->{oids}[$self->{n}-1] = $class.':'.$id;
-    }
-    sub has_next {
-        my $self = shift;
-        return $self->{index}+1 < $self->{n};
-    }
-    sub next {
-        my $self = shift;
-        return $self->{oids}[$self->{index}+1];
-    }
-    sub has_prev {
-        my $self = shift;
-        return $self->{index}-1 >= 0;
-    }
-    sub prev {
-        my $self = shift;
-        return $self->{oids}[$self->{index}-1];
-    }
 }
 
 1;

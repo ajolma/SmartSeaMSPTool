@@ -38,7 +38,7 @@ sub relationship_hash {
                     $has{$obj->ecosystem_component->id} = 1;
                 }
                 my @objs;
-                for my $obj ($self->{client}{schema}->resultset('EcosystemComponent')->all) {
+                for my $obj ($self->{app}{schema}->resultset('EcosystemComponent')->all) {
                     next if $has{$obj->id};
                     push @objs, $obj;
                 }

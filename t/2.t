@@ -30,17 +30,15 @@ my $schema = SmartSea::Schema->connect('dbi:SQLite:tool.db', undef, undef, $opti
 my $client = {schema => $schema, user => 'guest'};
 my $parser = XML::LibXML->new(no_blanks => 1);
 
-my $service = SmartSea::Browser->new(
-    {
-        schema => $schema,
-        data_dir => '',
-        images => '',
-        debug => 0,
-        edit => 1,
-        sequences => 0,
-        no_js => 1,
-        fake_admin => 1
-    });
+my $service = SmartSea::Browser->new({
+    schema => $schema,
+    data_dir => '',
+    images => '',
+    debug => 0,
+    edit => 1,
+    sequences => 0,
+    no_js => 1,
+    fake_admin => 1});
 my $app = $service->to_app;
 
 my %unique = (
@@ -71,11 +69,8 @@ test_psgi $app, sub {
         my $class = $href;
         $class =~ s/^\///;
         
-        #next unless $class eq 'layer';
-        #$service->{debug} = 2;
+        test_creating_object($cb, {class => $class, source => table2source($class), app => $client});
 
-        test_creating_object($cb, {source => table2source($class)});
-        
         $res = $cb->(GET "$href:1");
         eval {
             $parser->load_xml(string => $res->content);
@@ -93,15 +88,10 @@ sub create_required_objects {
         next if $meta->{is_superclass} && $meta->{is_part};
         next unless $meta->{is_foreign_key} && $meta->{not_null};
         
-        my $class = source2table($meta->{source});
+        my $class = source2class($meta->{source});
         my $res = $cb->(GET '/'.$class.'?accept=json');
         my $data = decode_json $res->content;
-        if (@$data) {
-            #print STDERR Dumper $data;
-        } else {
-            test_creating_object($cb, {source => $meta->{source}});
-        }
-        
+        test_creating_object($cb, {class => $class, source => $meta->{source}, app => $client});   
     }
 }
 
@@ -127,29 +117,19 @@ sub add_required_data {
 sub test_creating_object {
     my ($cb, $args) = @_;
 
-    my $class = source2table($args->{source});
-    my $obj = SmartSea::Object->new($args, $client);
+    my $obj = SmartSea::Object->new($args);
     my $columns = $obj->columns;
 
     create_required_objects($cb, $obj);
 
     my %post = (submit => 'Add',add_required_data($columns));
 
-    for my $col (sort keys %post) {
-        #say STDERR "post: $col => $post{$col}";
-    }
-
-    #say STDERR $class;
-    #$service->{debug} = 2;
-    my $res = $cb->(POST '/'.$class, \%post);
-    #say STDERR $res->content;
+    my $res = $cb->(POST '/'.$args->{class}, \%post);
     eval {
         $parser->load_xml(string => $res->content);
     };
-    ok(!$@, "POST /$class {submit => Add}");
+    ok(!$@, "POST /$args->{class} {submit => Add}");
     pretty_print_XML($res->content) if $@;
-    #pretty_print_XML($res->content) if $class eq 'layer';
-    #exit;
 }
     
 done_testing;

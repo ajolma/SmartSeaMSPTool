@@ -56,7 +56,7 @@ $client->{parameters} = {
     plan => 1,
 };
 for my $source (sort $client->{schema}->sources) {
-    my $obj = SmartSea::Object->new({source => $source}, $client);
+    my $obj = SmartSea::Object->new({source => $source, app => $client});
     my $columns = $obj->columns;
     my @err = $obj->values_from_parameters($columns);
     #print STDERR Dumper $columns if $source eq 'ImpactLayer';
@@ -70,12 +70,10 @@ $client->{schema}->resultset('Plan')->new({id => 1, name => 'plan'})->insert;
 $client->{schema}->resultset('UseClass')->new({id => 1, name => 'use_class'})->insert;
 $client->{schema}->resultset('Use')->new({id => 2, plan => 1, use_class => 1})->insert;
 
-my $use = SmartSea::Object->new({source => 'Use', id => 2}, $client);
-my $layer = SmartSea::Object->new({source => 'ImpactLayer'}, $client);
+my $use = SmartSea::Object->new({source => 'Use', id => 2, app => $client});
+my $layer = SmartSea::Object->new({source => 'ImpactLayer', app => $client});
 
 my $columns = $layer->columns;
-
-my $relationship = $use->relationship($layer);
 
 $client->{parameters} = {layer_class => 5};
 

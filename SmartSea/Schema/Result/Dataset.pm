@@ -50,7 +50,7 @@ __PACKAGE__->has_many(derivatives => 'SmartSea::Schema::Result::Dataset', 'is_de
 sub relationship_hash {
     return {
         parts => {
-            class_name => 'Subdatasets',
+            name => 'Subdataset',
             source => 'Dataset',
             ref_to_parent => 'is_a_part_of',
             set_to_null => 'is_derived_from',
@@ -61,7 +61,7 @@ sub relationship_hash {
             }
         },
         derivatives => {
-            class_name => 'Derivative datasets',
+            name => 'Derivative dataset',
             source => 'Dataset',
             ref_to_parent => 'is_derived_from',
             set_to_null => 'is_a_part_of',

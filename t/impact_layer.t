@@ -27,8 +27,7 @@ my $schema = SmartSea::Schema->connect('dbi:SQLite:tool.db', undef, undef, $opti
 my $parser = XML::LibXML->new(no_blanks => 1);
 my $pp = XML::LibXML::PrettyPrint->new(indent_string => "  ");
 
-my $app = builder {
-    mount "/browser" => SmartSea::Browser->new(
+my $service = SmartSea::Browser->new(
     {
         schema => $schema,
         fake_admin => 1,
@@ -39,7 +38,9 @@ my $app = builder {
         sequences => 0,
         no_js => 1,
         root => '/browser'
-    })->to_app;
+    });
+my $app = builder {
+    mount "/browser" => $service->to_app;
 };
 
 $schema->resultset('Plan')->new({id => 1, name => 'plan', owner => 'ajolma'})->insert;
@@ -74,7 +75,7 @@ test_psgi $app, sub {
         computation_method => 1,
         owner => 'ajolma'
     ];
-    my $res = $cb->(POST "/browser/plan:1/use:1/layer?request=add", $post);
+    my $res = $cb->(POST "/browser/plan:1/uses:1/layers?request=add", $post);
     eval {
         $parser->load_xml(string => $res->content);
     };
@@ -88,10 +89,12 @@ test_psgi $app, sub {
     }
     ok($layer[0] == 2 && $layer[1] == 1, "Impact layer creation 2/2");
     $post = [
-        ecosystem_component => 1,
-        submit => 'Add'
-    ];
-    $res = $cb->(POST "/browser/plan:1/use:1/layer:2/ecosystem_component", $post);
+        #ecosystem_component => 1,
+        submit => 'Add',
+        #debug => 2
+        ];
+    #$service->{debug} = 2;
+    $res = $cb->(POST "/browser/plan:1/uses:1/layers:2/ecosystem_components:1", $post);
     $i = 0;
     @layer = ();
     for my $link ($schema->resultset('ImpactLayer2EcosystemComponent')->all) {
@@ -104,7 +107,7 @@ test_psgi $app, sub {
 
 {
     # read list
-    my $layer = SmartSea::Object->new({source => 'ImpactLayer'}, {schema => $schema, user => 'guest'});
+    my $layer = SmartSea::Object->new({source => 'ImpactLayer', app => {schema => $schema, user => 'guest'}});
     my $dom = $parser->load_xml(string => SmartSea::HTML->new([xml => $layer->item])->html);
     my $expected = <<'END_XML';
 <?xml version="1.0"?>
@@ -126,10 +129,15 @@ END_XML
 }
 
 my $descr = 'this is description';
-my $layer = SmartSea::Object->new(
-    {source => 'Layer', id => 2}, 
-    {schema => $schema, user => 'guest', parameters => {descr => $descr}, debug => 0}
-    );
+my $layer = SmartSea::Object->new({
+    source => 'Layer', 
+    id => 2,
+    app => {
+        schema => $schema, 
+        user => 'guest', 
+        parameters => {descr => $descr}, 
+        debug => 0}
+    });
 ok($layer->{source} eq 'ImpactLayer' && ref($layer->{object}) eq 'SmartSea::Schema::Result::ImpactLayer', 
    "Polymorphic new gives: $layer->{object}");
 
@@ -171,7 +179,7 @@ ok($schema->resultset('Layer')->single({id => 2})->descr eq $descr, "Set supercl
     <li>computation_method: method_1</li>
     <li><b>Ecosystem components</b>
       <ul>
-        <li><a href="/layer:2/ecosystem_component:1">component_1</a></li>
+        <li><a href="/layer:2/ecosystem_components:1">component_1</a></li>
       </ul>
     </li>
   </ul>
@@ -189,16 +197,6 @@ END_XML
         say STDERR "diff: $diff";
     }
     is $n, 0, "Read ImpactLayer as an item";
-}
-
-{
-    # read item with open child
-    $layer->{debug} = 0;
-    my $item = $layer->item(SmartSea::OIDS->new(['layer:2','ecosystem_component:1']));
-    my $dom = $parser->load_xml(string => SmartSea::HTML->new([xml => $item])->html);
-    #$pp->pretty_print($dom);
-    #print STDERR $dom->toString;
-    $layer->{debug} = 0;
 }
 
 $layer->{client}{debug} = 0;

@@ -1,6 +1,7 @@
 use Modern::Perl;
 use File::Basename;
 use Test::More;
+use Data::Dumper;
 
 use lib '.';
 use Test::Helper;
@@ -35,10 +36,16 @@ $schema->resultset('LayerClass')->single({id => 1})->
 my $root = 'SmartSea::Schema::Result::';
 my $parameters = {request => '', add => ''};
 
-for my $class ($schema->sources) {
-    my $obj = SmartSea::Object->new({source => $class}, {user => 'guest', schema => $schema, debug => 0});
-    my $result = $obj->item(SmartSea::OIDS->new, [], {url => ''});
-    ok(ref $result eq 'ARRAY', "$class simple HTML list");
+for my $source ($schema->sources) {
+    my $obj = SmartSea::Object->new({
+        name => '',
+        class => '',
+        source => $source,
+        app => {user => 'guest', schema => $schema, debug => 0}});
+    my $result = $obj->item([], {url => ''});
+    #print STDERR Dumper $result;
+    ok(ref $result eq 'ARRAY', "$source simple HTML list");
+    #exit;
 }
 
 unlink "tool.db";
