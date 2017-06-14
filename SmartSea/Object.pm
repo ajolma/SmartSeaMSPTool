@@ -212,6 +212,15 @@ sub str_all {
     return $str;
 }
 
+sub is {
+    my ($self, $source) = @_;
+    return 1 if $self->{source} eq $source;
+    return unless $self->{result}->has_column('super');
+    my $info = $self->{result}->column_info('super');
+    return 1 if $info->{source} eq $source;
+    return;
+}
+
 sub superclass {
     my ($self) = @_;
     return unless $self->{result}->has_column('super');
@@ -836,7 +845,7 @@ sub related_items {
         my $obj_is_open = 0;
         if ($next) {
             my $id = $next->{id};
-            if ($id && $next->{source} eq $relation->{source}) {
+            if ($id && $next->is($relation->{source})) {
                 for my $has_obj (@$objs) {
                     if ($has_obj->id == $id) {
                         $obj_is_open = 1;
@@ -894,8 +903,11 @@ sub item_class {
             push @content, [1 => ' '], button(%attr); # to do: remove or delete?
         }
         if ($self->{source} eq 'Dataset') {
-            my %opt = (url => $opt->{url}, stop_edit => 1);
-            my $p = SmartSea::Object->new({object => $obj, edit => 0, app => $self->{app}});
+            my %opt = (url => $url.':'.$obj->id, stop_edit => 1);
+            my $p = SmartSea::Object->new({
+                object => $obj,
+                edit => 0, 
+                app => $self->{app} });
             my @p = $p->related_items(\%opt);
             push @content, [ul => \@p] if @p;
         }
@@ -1014,9 +1026,10 @@ sub hidden_widgets {
             push @widgets, $part->hidden_widgets($meta->{columns});
         } else {
             if ($meta->{value} ne 'NULL') {
+                my $id = $meta->{target} // 'id';
                 my $val = $self->{app}{schema}->
                     resultset($meta->{source})->
-                    single({id => $meta->{value}})->name;
+                    single({$id => $meta->{value}})->name;
                 push @widgets, [p => [1 => "$column: $val"]];
             }
             push @widgets, hidden($column => $meta->{value});
