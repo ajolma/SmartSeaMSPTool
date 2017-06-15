@@ -126,7 +126,6 @@ sub new {
 sub id {
     my ($self, $id) = @_;
     if ($id) {
-        croak "Attempt to change the id of an object." if $self->{id};
         #my %pk;
         #for my $pkey ($self->{rs}->result_source->primary_columns) {
         #    if ($pkey eq 'id') {
@@ -715,11 +714,7 @@ sub delete {
 
     say STDERR "delete ",$self->str if $self->{app}{debug};
     
-    unless ($self->{object}) {
-        my $error = "Could not find the requested $self->{source}.";
-        say STDERR "Error: $error";
-        return $error;
-    }
+    croak "Will not delete all $self->{class} objects." unless $self->{object};
     
     my $columns = $self->columns;
     my %delete;
@@ -731,12 +726,7 @@ sub delete {
             $delete{$meta->{source}} = $child->id;
         }
     }
-    eval {
-        say STDERR "delete $self->{object}" if $self->{app}{debug} > 1;
-        $self->{object}->delete;
-    };
-    say STDERR "Error: $@" if $@;
-    return "$@" if $@;
+    $self->{object}->delete;
 
     # delete children:
     for my $source (keys %delete) {
@@ -747,13 +737,12 @@ sub delete {
     # delete superclass:
     my $super = $self->super;
     $super->delete if $super;
-
+    
     delete $self->{object};
 }
 
 sub all {
     my ($self) = @_;
-    say STDERR "all for $self->{source}" if $self->{app}{debug};
     return [$self->{rs}->list] if $self->{rs}->can('list');
     # todo: use self->rs and methods in it below
     my $col;

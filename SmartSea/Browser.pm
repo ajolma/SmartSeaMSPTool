@@ -105,17 +105,6 @@ sub object_editor {
     }
     if ($self->{parameters}{request}) {
         $request = $self->{parameters}{request};
-        if ($request eq 'create') {
-            my $class = $object->last->{class}; # what to create
-            my $id = $self->{parameters}{$class};
-            $object->last->id($id) if $id;
-        }
-    } elsif ($self->{parameters}{edit}) {
-        # from HTML link, open a form
-        $request = 'edit';
-    } elsif ($self->{parameters}{compute}) {
-        # from HTML form, do computation and go back to form with the data
-        $request = 'edit';
     } elsif ($self->{parameters}{delete}) {
         # from HTML form
         # attempt to delete and show the changed object
@@ -193,29 +182,55 @@ sub object_editor {
 
     # TODO: all actions should be wrapped in begin; commit;
 
+    if ($request eq 'compute') {
+        # from HTML form, do computation and go back to form with the data
+        $request = 'edit';
+    }
+
     if ($request eq 'create') {
+        my $class = $object->last->{class}; # what to create
+        my @id = $self->{parameters}->get_all($class);
         my @errors;
-        eval {
-            @errors = $object->last->create();
-        };
+        if (@id) {
+            for my $id (@id) {
+                $object->last->id($id);
+                eval {
+                    push @errors, $object->last->create();
+                };
+            }
+        } else {
+            eval {
+                push @errors, $object->last->create();
+            };
+        }
+        my $part;
         if ($@) {
             push @body, error_message($@) if $@;
             return json200({}, {error => $@}) if $self->{json};
-            my $part = [ul => [li => $object->first->item([], {url => $self->{root}})]];
-            push @body, $part;
         } elsif (@errors) {
             return json200({}, {error => \@errors}) if $self->{json};
-            push @body, [form => {action => $self->{path}, method => 'POST'}, $object->last->form];
+            $part = [form => {action => $self->{path}, method => 'POST'}, $object->last->form];
         } else {
             return json200({}, $object->first->read) if $self->{json};
-            my $part = [ul => [li => $object->first->item([], {url => $self->{root}})]];
-            push @body, $part;
         }
-
+        $part = [ul => [li => $object->first->item([], {url => $self->{root}})]] unless $part;
+        push @body, $part;
+        
     } elsif ($request eq 'delete') {
-        eval {
-            $object->last->delete;
-        };
+        my $class = $object->last->{class}; # what to create
+        my @id = $self->{parameters}->get_all($class);
+        if (@id) {
+            for my $id (@id) {
+                $object->last->id($id);
+                eval {
+                    $object->last->delete();
+                };
+            }
+        } else {
+            eval {
+                $object->last->delete();
+            };
+        }
         if ($self->{json}) {
             return json200({}, {error => "$@"}) if $@;
             return json200({}, {result => 'ok'});
