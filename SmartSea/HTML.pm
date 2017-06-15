@@ -10,7 +10,7 @@ use SmartSea::Core qw/:all/;
 require Exporter;
 
 our @ISA = qw(Exporter Geo::OGC::Service::XMLWriter);
-our @EXPORT_OK = qw(a button checkbox text_input textarea drop_down hidden);
+our @EXPORT_OK = qw(a button checkbox text_input textarea drop_down hidden javascript_string);
 our %EXPORT_TAGS = (all => \@EXPORT_OK);
 
 sub new {
@@ -35,10 +35,11 @@ sub a {
 }
 sub button {
     my (%arg) = @_;
-    $arg{name} //= 'submit';
-    my %attr = (type=>"submit", name=>$arg{name}, value=>$arg{value});
+    $arg{type} //= 'submit';
+    $arg{value} //= 1;
+    my %attr = (type => $arg{type}, name => $arg{name}, value => $arg{value});
     $attr{onclick} = $arg{onclick} if $arg{onclick};
-    return [input => \%attr]
+    return [button => \%attr, $arg{content}]
 }
 sub checkbox {
     my (%arg) = @_;
@@ -108,5 +109,12 @@ sub spinner {
                       max => $arg{max}, 
                       step => $arg{step}, 
                       value => $arg{value}}];
+}
+sub javascript_string {
+    my $str = shift;
+    $str =~ s/\\/\\\\/g;
+    $str =~ s/'/\\'/g;
+    $str =~ s/"//g;
+    return "'".$str."'"; # single quotes since js goes into attributes, which are in double quotes
 }
 1;

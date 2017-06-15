@@ -32,7 +32,7 @@ my $service = SmartSea::Plans->new(
         debug => 0,
         edit => 1,
         sequences => 0,
-        no_js => 1
+        js => 0
     });
 my $app = $service->to_app;
 

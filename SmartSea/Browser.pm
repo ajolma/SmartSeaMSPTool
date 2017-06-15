@@ -24,6 +24,7 @@ sub new {
     $self = Plack::Component->new($self);
     $self->{sources} = {map {source2class($_) => $_} $self->{schema}->sources};
     ($self->{main_sources}, $self->{simple_sources}) = $self->{schema}->simple_sources;
+    $self->{js} //= 1;
     return bless $self, $class;
 }
 
@@ -68,7 +69,12 @@ sub call {
     say STDERR "full path: $self->{path}" if $self->{debug};
     say STDERR "root: $self->{root}" if $self->{debug};
     say STDERR "objects: ",$object->str_all if $object && $self->{debug};
-    return $self->object_editor($object);
+    my $response;
+    eval {
+        $response = $self->object_editor($object);
+    };
+    return html200({}, SmartSea::HTML->new(html => [body => error_message($@)])->html) if $@;
+    return $response;
 }
 
 sub object_editor {
@@ -78,17 +84,7 @@ sub object_editor {
     $schemas =~ s/^_//;
     my $footer = [p => {style => 'font-size:0.8em'}, "Schema set = $schemas. User = $self->{user}."];
 
-    # CRUD: 
-    # create is one-step only for links, otherwise edit (without id) + save, 
-    # read is default, 
-    # update may create, and is known as edit + save
-    # modify is allowed only on rules and it is a (copy+)update identified with cookie
-    # delete does not do deep
-
-    my %parameters;
-    
     # $self->{parameters} is a multivalue hash
-    # we may have both object => command and object => id
     my $request;
     for my $key (sort keys %{$self->{parameters}}) {
         my @values = $self->{parameters}->get_all($key);
@@ -98,51 +94,39 @@ sub object_editor {
         }
         $self->{parameters}->add($key, @values);
         for my $value ($self->{parameters}->get_all($key)) {
-            $self->{debug} = $value if $key eq 'debug';
-            say STDERR "$key => $value" if $self->{debug} > 1;
-            if ($key eq 'submit' && $value =~ /^Compute/) {
-                $request = 'edit';
-                $self->{parameters}->add(compute => $value);
-                last;
-            }
-            my $done = 0;
-            for (qw/create add read edit modify update save delete remove/) {
-                # remove means "delete link or link object"
-                my $cmd = $_;
-                if (lc($value) eq $cmd && ($key eq 'request' || $key eq 'submit' || $key =~ /^\d+$/)) {
-                    $request = $cmd;
-                    $request = 'delete' if $request eq 'remove';
-                    $request = 'save' if $request eq 'update';
-                    $request = 'add' if $request eq 'create';
-                    # set target object id from button where, name is id, command is value
-                    #$object->set_last_id($key) if $key =~ /^\d+$/; # the key may also be the id
-                    $self->{parameters}->add($request => $key) if $key =~ /^\d+$/; # the key may also be the id
-                    $done = 1;
-                    last;
-                }
-            }
-            next if $done;
-            $done = 0;
-            if ($key eq 'accept' && $value eq 'json') {
+            if ($key eq 'debug') {
+                $self->{debug} = $value;
+            } elsif ($key eq 'accept' && $value eq 'json') {
                 $self->{json} = 1;
-                $done = 1;
-            }
-            next if $done;
-            if ($value eq 'NULL') {
-                $self->{parameters}->remove($key);
+            } else {
+                say STDERR "$key => $value" if $self->{debug};
             }
         }
     }
-    # set target object id from parameter
-    #unless ($object->is_empty) {
-        #my ($source, $oid) = $object->at('last');
-        #my $id = $self->{parameters}{$source};
-        #if ($source && $id && !$oid) {
-        #    $object->set_last_id($id);
-        #}
-    #}
+    if ($self->{parameters}{request}) {
+        $request = $self->{parameters}{request};
+        if ($request eq 'create') {
+            my $class = $object->last->{class}; # what to create
+            my $id = $self->{parameters}{$class};
+            $object->last->id($id) if $id;
+        }
+    } elsif ($self->{parameters}{edit}) {
+        # from HTML link, open a form
+        $request = 'edit';
+    } elsif ($self->{parameters}{compute}) {
+        # from HTML form, do computation and go back to form with the data
+        $request = 'edit';
+    } elsif ($self->{parameters}{delete}) {
+        # from HTML form
+        # attempt to delete and show the changed object
+        # delete does not do deep
+        my $class = $object->last->{class}; # what to delete
+        $self->{parameters}->remove($class); # from a select accompanying create button
+        $object->last->id($self->{parameters}{delete} =~ /(\d+)/);
+        $request = 'delete';
+    }
     $request //= 'read';
-    say STDERR "request = $request" if $self->{debug} > 1;
+    say STDERR "request = $request" if $self->{debug};
     #return http_status({}, 403);
 
     # to make jQuery happy:
@@ -179,7 +163,7 @@ sub object_editor {
 
     if ($request eq 'read') {
         return json200({}, $object->read) if $self->{json};
-        my $part = $self->read_object($object);
+        my $part = [ul => [li => $object->first->item([], {url => $self->{root}})]];
         push @body, $part;
         push @body, $footer;
         return html200({}, SmartSea::HTML->new(html => [body => @body])->html);
@@ -209,7 +193,7 @@ sub object_editor {
 
     # TODO: all actions should be wrapped in begin; commit;
 
-    if ($request eq 'add') {
+    if ($request eq 'create') {
         my @errors;
         eval {
             @errors = $object->last->create();
@@ -217,14 +201,14 @@ sub object_editor {
         if ($@) {
             push @body, error_message($@) if $@;
             return json200({}, {error => $@}) if $self->{json};
-            my $part = $self->read_object($object);
+            my $part = [ul => [li => $object->first->item([], {url => $self->{root}})]];
             push @body, $part;
         } elsif (@errors) {
             return json200({}, {error => \@errors}) if $self->{json};
-            $self->edit_object($object, \@body);
+            push @body, [form => {action => $self->{path}, method => 'POST'}, $object->last->form];
         } else {
             return json200({}, $object->first->read) if $self->{json};
-            my $part = $self->read_object($object->prev);
+            my $part = [ul => [li => $object->first->item([], {url => $self->{root}})]];
             push @body, $part;
         }
 
@@ -237,25 +221,25 @@ sub object_editor {
             return json200({}, {result => 'ok'});
         }
         push @body, error_message($@) if $@;
-        my $part = $self->read_object($object->prev);
+        my $part = [ul => [li => $object->first->item([], {url => $self->{root}})]];
         push @body, $part;
 
-    } elsif ($request eq 'save') {
+    } elsif ($request eq 'update' || $request eq 'save') {
         eval {
             $object->last->update_or_create;
         };
         if ($@) {
             push @body, error_message($@);
             return json200({}, {error=>"$@"}) if $self->{json};
-            $self->edit_object($object->last, \@body);
+            push @body, [form => {action => $self->{path}, method => 'POST'}, $object->last->form];
         } else {
             return json200({}, $object->first->read) if $self->{json};
-            my $part = $self->read_object($object->prev);
+            my $part = [ul => [li => $object->first->item([], {url => $self->{root}})]];
             push @body, $part;
         }
         
     } elsif ($request eq 'edit') {
-        $self->edit_object($object->last, \@body);
+        push @body, [form => {action => $self->{path}, method => 'POST'}, $object->last->form];
         
     } else {
         return http_status($header, 400);
@@ -266,24 +250,10 @@ sub object_editor {
     
 }
 
-sub read_object {
-    my ($self, $object) = @_;
-    if ($object) {
-        return [ul => [li => $object->first->item([], {url => $self->{root}})]];
-    } else {
-        return [p => {style => 'color:red'}, $@];
-    }
-}
-
-sub edit_object {
-    my ($self, $object, $body) = @_;
-    my @form = $object->last->form();
-    push @$body, [form => {action => $self->{path}, method => 'POST'}, @form];
-}
-
 sub error_message {
     my $error = shift;
-    say STDERR "Error: $@";
+    say STDERR "Error: $error";
+    $error =~ s/ at .*//;
     return [p => {style => 'color:red'}, "$error"];
 }
 

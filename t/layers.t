@@ -34,7 +34,7 @@ my $config = {
     debug => 0,
     edit => 1,
     sequences => 0,
-    no_js => 1,
+    js => 0,
     root => '/browser'
 };
 
@@ -107,12 +107,13 @@ test_psgi $app, sub {
         eval {
             $dom = $parser->load_xml(string => $res->content);
         };
+        #pretty_print_XML($res->content);
         for my $a ($dom->documentElement->findnodes('//input')) {
             my $href = $a->getAttribute('name');
             push @href, $href;
         }
         my $n = @href;
-        ok(@href == 8, "$n == 8 input elements in impact layer form");
+        ok(@href == 6, "$n == 6 input elements in impact layer form");
     }
 
     if (1) {

@@ -84,66 +84,24 @@ sub new {
         $self->{class} //= source2class($self->{source});
         $self->{name} //= $self->{source};
         $self->{rs} = $self->{app}{schema}->resultset($self->{source});
+        $self->{id} = $self->{object}->id;
     } elsif ($args->{source}) {
         $self->{source} = $args->{source};
         $self->{class} //= source2class($self->{source});
         $self->{name} //= $self->{source};
         $self->{result} = 'SmartSea::Schema::Result::'.$self->{source};
-        eval {
-            $self->{rs} = $self->{app}{schema}->resultset($self->{source});
-            if ($args->{search}) { # needed for getting a link object in some cases
-                if ($self->{app}{debug}) {
-                    for my $key (sort keys %{$args->{search}}) {
-                        say STDERR "search term $key => $args->{search}{$key}";
-                    }
-                }
-                $self->{object} = $self->{rs}->single($args->{search});
-                
-            } elsif (defined $args->{id}) {
-                #my %pk;
-                #for my $pkey ($self->{rs}->result_source->primary_columns) {
-                #    if ($pkey eq 'id') {
-                #        $pk{id} = $id;
-                #    } else {
-                #        $pk{$pkey} = $self->{$pkey};
-                #    }
-                #    croak "pk $pkey not defined for a $self->{source}" unless defined $pk{$pkey};
-                #}
-                #$self->{object} = $self->{rs}->single(\%pk);
-                
-                # todo: this assumes first pk is id (maybe not named 'id' but anyway)
-                my @pk = $self->{result}->primary_columns;
-                if (@pk == 1) {
-                    @pk = ($args->{id});
-                } elsif (@pk == 2) {
-                    # special case for rules, which have pk = id,cookie
-                    # 'find' of ResultSet for Rule is also replaced by 'my_find' to return default by default
-                    @pk = ($args->{id}, $self->{app}{cookie});
-                } else {
-                    die "$self->{result}: more than two primary keys!";
-                }
-                $self->{object} = $self->{rs}->can('my_find') ? 
-                    $self->{rs}->my_find(@pk) : $self->{rs}->find(@pk);
-                
-                # is this in fact a subclass object?
-                if ($self->{object} && $self->{object}->can('subclass')) {
-                    my $source = $self->{object}->subclass;
-                    if ($source) {
-                        my $object = $self->{app}{schema}->resultset($source)->single({super => $args->{id}});
-                        if ($object) {
-                            # ok
-                            $self->{source} = $source;
-                            $self->{name} = $source;
-                            $self->{result} = 'SmartSea::Schema::Result::'.$self->{source};
-                            $self->{rs} = $self->{app}{schema}->resultset($source);
-                            $self->{object} = $object;
-                        } else {
-                            say STDERR "Error in db, missing subclass object for $self->{source}:$args->{id}";
-                        }
-                    }
+        $self->{rs} = $self->{app}{schema}->resultset($self->{source});
+        if ($args->{search}) { # needed for getting a link object in some cases
+            if ($self->{app}{debug}) {
+                for my $key (sort keys %{$args->{search}}) {
+                    say STDERR "search term $key => $args->{search}{$key}";
                 }
             }
-        };
+            $self->{object} = $self->{rs}->single($args->{search});
+            $self->{id} = $self->{object}->id;    
+        } elsif (defined $args->{id}) {
+            id($self, $args->{id});
+        }
     } else {
         confess "SmartSea::Object->new requires either object or source";
     }
@@ -162,12 +120,60 @@ sub new {
     } else {
         $self->{edit} = 0;
     }
-    $self->{id} = $self->{object} ? $self->{object}->id : '';
-    if ($@) {
-        say STDERR "Error: $@" if $@;
-        return undef;
-    }
     bless $self, $class;
+}
+
+sub id {
+    my ($self, $id) = @_;
+    if ($id) {
+        croak "Attempt to change the id of an object." if $self->{id};
+        #my %pk;
+        #for my $pkey ($self->{rs}->result_source->primary_columns) {
+        #    if ($pkey eq 'id') {
+        #        $pk{id} = $id;
+        #    } else {
+        #        $pk{$pkey} = $self->{$pkey};
+        #    }
+        #    croak "pk $pkey not defined for a $self->{source}" unless defined $pk{$pkey};
+        #}
+        #$self->{object} = $self->{rs}->single(\%pk);
+        
+        # todo: this assumes first pk is id (maybe not named 'id' but anyway)
+        my @pk = $self->{result}->primary_columns;
+        if (@pk == 1) {
+            @pk = ($id);
+        } elsif (@pk == 2) {
+            # special case for rules, which have pk = id,cookie
+            # 'find' of ResultSet for Rule is also replaced by 'my_find' to return default by default
+            @pk = ($id, $self->{app}{cookie});
+        } else {
+            die "$self->{result}: more than two primary keys!";
+        }
+        $self->{object} = $self->{rs}->can('my_find') ? 
+            $self->{rs}->my_find(@pk) : $self->{rs}->find(@pk);
+        
+        # is this in fact a subclass object?
+        if ($self->{object} && $self->{object}->can('subclass')) {
+            my $source = $self->{object}->subclass;
+            if ($source) {
+                my $object = $self->{app}{schema}->resultset($source)->single({super => $id});
+                if ($object) {
+                    # ok
+                    $self->{source} = $source;
+                    $self->{name} = $source;
+                    $self->{result} = 'SmartSea::Schema::Result::'.$self->{source};
+                    $self->{rs} = $self->{app}{schema}->resultset($source);
+                    $self->{object} = $object;
+                } else {
+                    say STDERR "Error in db, missing subclass object for $self->{source}:$id";
+                }
+            }
+        }
+        $self->{id} = $self->{object}->id if $self->{object};
+    } else {
+        $self->{object} = undef;
+    }
+    return $self->{id};
 }
 
 sub first {
@@ -418,7 +424,6 @@ sub read {
         $url .= '/'.$self->{relation}{related};
         $url .= ':'.$self->{id} if $self->{object};
     }
-    
     if (exists $self->{object}) {
         my $columns = $self->columns;
         $self->values_from_self($columns) if $self->{object};
@@ -481,6 +486,10 @@ sub read {
     }
 }
 
+# create, update, and delete
+# the id or ids of the target object can be in parameters
+# where the key is the class/relation to parent 
+
 sub update_or_create {
     my $self = shift;
     if ($self->{object}) {
@@ -498,6 +507,8 @@ sub create {
 
     if ($self->{prev} && !$columns) {
         my $relationship = $self->{relation};
+        croak "Creating new $self->{class} into $relationship->{related} is not allowed." 
+            if $relationship->{stop_edit} && !$self->{id};
         confess "no key" unless $relationship->{key};
         my $parent_id = $self->{prev}{object}->get_column($relationship->{key});
 
@@ -736,6 +747,8 @@ sub delete {
     # delete superclass:
     my $super = $self->super;
     $super->delete if $super;
+
+    delete $self->{object};
 }
 
 sub all {
@@ -794,7 +807,7 @@ sub item {
     $opt //= {};
     $opt->{url} //= '';
     $self->{edit} = 0 if $opt->{stop_edit};
-    say STDERR "item for $self->{source}:$self->{id}, edit=$self->{edit}, url = $opt->{url}" if $self->{app}{debug};
+    say STDERR "item for ",$self->str,", edit=$self->{edit}, url = $opt->{url}" if $self->{app}{debug};
 
     return $self->item_class($self->all, $opt) unless exists $self->{object};
 
@@ -890,17 +903,18 @@ sub item_class {
         my @content = a(link => $obj->name, url => $url.':'.$obj->id);
         if ($self->{edit}) {
             push @content, [1 => ' '], a(link => 'edit', url => $url.':'.$obj->id.'?request=edit');
-            my $source = $obj->result_source->source_name;
-            my $name = '"'.$obj->name.'"';
-            $name =~ s/'//g;
-            $name = encode_entities_numeric($name);
-            my $onclick = $self->{prev} ?
-                "return confirm('Are you sure you want to remove the link to $source $name?')" :
-                "return confirm('Are you sure you want to delete the $source $name?')";
-            my $value = $self->{prev} ? 'Remove' : 'Delete';
-            my %attr = (name => $obj->id, value => $value);
-            $attr{onclick} = $onclick unless $self->{app}{no_js};
-            push @content, [1 => ' '], button(%attr); # to do: remove or delete?
+            my $action = $self->{prev} ? 'Remove' : 'Delete';
+            my $label = $action;
+            $label .= ' the link to' if $action eq 'Remove';
+            my $src = $obj->result_source->source_name;
+            my $str = 'Are you sure you want to '.lc($label).' '.$src." '".$obj->name."'?";
+            my %attr = (
+                content => $action,
+                name => 'delete',
+                value => $obj->id,
+                onclick => ($self->{app}{js} ? "return confirm(".javascript_string($str).")" : undef),
+                );
+            push @content, [1 => ' '], button(%attr);
         }
         if ($self->{source} eq 'Dataset') {
             my %opt = (url => $url.':'.$obj->id, stop_edit => 1);
@@ -914,19 +928,19 @@ sub item_class {
         push @li, [li => @content];
     }
     if ($self->{edit}) {
-        my $can_add = 1;
+        my $add = 1;
         my $extra = 0;
         if ($opt && defined $opt->{for_add}) {
             if (ref $opt->{for_add}) {
                 $extra = $opt->{for_add}
             } else {
-                $can_add = 0 if $opt->{for_add} == 0;
+                $add = 0 if $opt->{for_add} == 0;
             }
         }
-        if ($can_add) {
+        if ($add) {
             my @content;
             push @content, $extra, [0=>' '] if $extra;
-            push @content, button(value => $opt->{button} // 'Add');
+            push @content, button(name => 'request', value => 'create', content => $opt->{button} // 'Add');
             push @li, [li => \@content] if @content;
         }
     }
@@ -1006,8 +1020,11 @@ sub form {
     push @widgets, [
         fieldset => [[legend => $super->{source}], $super->widgets($columns->{super}{columns})]
     ] if $super;
-    push @widgets, $self->widgets($columns);
-    push @widgets, button(value => 'Save'), [1 => ' '], button(value => 'Cancel');
+    push @widgets, (
+        $self->widgets($columns),
+        button(name => 'request', value => 'save', content => 'Save'), 
+        [1 => ' '], 
+        button(content => 'Cancel'));
     return [fieldset => [[legend => $self->{source}], @widgets]];
 }
 

@@ -38,7 +38,7 @@ my $service = SmartSea::Browser->new(
         debug => 0,
         edit => 1,
         sequences => 0,
-        no_js => 1,
+        js => 0,
         fake_admin => 1
     });
 my $app = $service->to_app;
@@ -218,6 +218,7 @@ sub unique {
 sub get_schema {
     my ($cb, $class) = @_;
     $class = source2class($class);
+    $service->{debug} = 0;
     my $res = $cb->(GET "/$class:0?accept=json");
     #say STDERR $res->content;
     return decode_json $res->content;
@@ -253,7 +254,7 @@ sub create_object {
     my %data = set_data($cb, $class, $data);
     my $param = join(q{&}, map{qq{$_=$data{$_}}} keys %data);
     #say STDERR $param;
-    my $res = $cb->(POST "/$class?request=add&$param&accept=json");
+    my $res = $cb->(POST "/$class?request=create&$param&accept=json");
     #say STDERR $res->content;
     my $object = decode_json $res->content;
     $object->{id}{value} //= $object->{super}{value};

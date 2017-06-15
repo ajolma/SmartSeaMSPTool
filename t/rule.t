@@ -36,7 +36,7 @@ my $app = builder {
         debug => 0,
         edit => 1,
         sequences => 0,
-        no_js => 1,
+        js => 0,
         root => '/plans'
     })->to_app;
     mount "/browser" => SmartSea::Browser->new(
@@ -47,7 +47,7 @@ my $app = builder {
         debug => 0,
         edit => 1,
         sequences => 0,
-        no_js => 1,
+        js => 0,
         root => '/browser'
     })->to_app;
 };

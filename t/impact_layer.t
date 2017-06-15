@@ -36,7 +36,7 @@ my $service = SmartSea::Browser->new(
         debug => 0,
         edit => 1,
         sequences => 0,
-        no_js => 1,
+        js => 0,
         root => '/browser'
     });
 my $app = builder {
@@ -75,7 +75,7 @@ test_psgi $app, sub {
         computation_method => 1,
         owner => 'ajolma'
     ];
-    my $res = $cb->(POST "/browser/plan:1/uses:1/layers?request=add", $post);
+    my $res = $cb->(POST "/browser/plan:1/uses:1/layers?request=create", $post);
     eval {
         $parser->load_xml(string => $res->content);
     };
@@ -90,7 +90,7 @@ test_psgi $app, sub {
     ok($layer[0] == 2 && $layer[1] == 1, "Impact layer creation 2/2");
     $post = [
         #ecosystem_component => 1,
-        submit => 'Add',
+        request => 'create',
         #debug => 2
         ];
     #$service->{debug} = 2;
@@ -199,14 +199,15 @@ END_XML
     is $n, 0, "Read ImpactLayer as an item";
 }
 
-$layer->{client}{debug} = 0;
+$layer->{app}{debug} = 0;
 $layer->delete;
 my $i = 0;
 my $layer_id;
 for my $layer ($schema->resultset('Layer')->all) {
     $layer_id = $layer->id;
+    #say STDERR $layer_id;
     ++$i;
 }
-ok($i == 1 && $layer_id == 1, "Delete ImpactLayer.");
+ok($i == 1 && $layer_id == 1, "Delete ImpactLayer ($i == 1).");
 
 done_testing();
