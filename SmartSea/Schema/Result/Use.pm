@@ -121,11 +121,6 @@ sub ecosystem_impacts {
                     $e = $expected_value;
                 }
             }
-            my $n = $name;
-            $n =~ s/ /_/g;
-            if ($n eq 'Coastal_fish') {
-                say STDERR "Fish: $range $e $expected_value";
-            }
             $expected_values{$name}{$range} = $e;
         }
     }

@@ -8,7 +8,6 @@ use Scalar::Util 'blessed';
 use SmartSea::Core;
 use SmartSea::HTML qw(:all);
 use PDL;
-use PDL::NiceSlice;
 
 my @columns = (
     id              => {},
@@ -24,8 +23,8 @@ my @columns = (
     disclaimer      => { data_type => 'text',    html_size => 80 },
     path            => { data_type => 'text',    html_size => 30, empty_is_null => 1 },
     db_table        => { data_type => 'text',    html_size => 30 },
-    min_value       => { data_type => 'text',    html_size => 20, empty_is_null => 1 },
-    max_value       => { data_type => 'text',    html_size => 20, empty_is_null => 1 },
+    min_value       => { data_type => 'double',    html_size => 20, empty_is_null => 1 },
+    max_value       => { data_type => 'double',    html_size => 20, empty_is_null => 1 },
     data_type       => { is_foreign_key => 1, source => 'NumberType' },
     class_semantics => { data_type => 'text',    html_size => 40, empty_is_null => 1 },
     unit            => { is_foreign_key => 1, source => 'Unit' },
@@ -90,39 +89,101 @@ sub my_unit {
     return undef;
 }
 
+sub parse_gdalinfo {
+    my ($info, $args) = @_;
+    my %parsed;
+    for (@$info) {
+        #Band 1 Block=18520x1 Type=Byte, ColorInterp=Gray
+        if (/Type=(\w+)/) {
+            $parsed{type} = $1;
+        }
+        #    Computed Min/Max=1.000,1.000
+        if (/Min\/Max=([\-\d.]+),([\-\d.]+)/) {
+            $parsed{min_value} = $1;
+            $parsed{max_value} = $2;
+            next;
+        }
+        #  Min=0.000 Max=1.000 
+        if (/Min=([\-\d.]+)/) {
+            $parsed{min_value} = $1;
+        }
+        if (/Max=([\-\d.]+)/) {
+            $parsed{max_value} = $1;
+        }
+    }
+    if (defined $parsed{type}) {
+        my %types;
+        for my $type ($args->{schema}->resultset('NumberType')->all) {
+            $types{$type->name} = $type->id;
+        }
+        if ($parsed{type} =~ /Byte/ or $parsed{type} =~ /Int/) {
+            $parsed{data_type} = $types{integer};
+        } elsif ($parsed{type} =~ /Float/) {
+            $parsed{data_type} = $types{real};
+        }
+    }
+    delete $parsed{type};
+    return \%parsed;
+}
+
 sub auto_fill_cols {
     my ($self, $args) = @_;
-    my $path = $self->path // $args->{parameters}{path};
+    my $path = $self->path;
+    $path = $self->path($args->{parameters}{path}) if defined $args->{parameters}{path};
     if ($path && !($path =~ /^PG:/)) {
+        say STDERR "autofill from $path" if $args->{debug};
         my @info = `gdalinfo $args->{data_dir}$path`;
-        my $type;
-        my $min;
-        my $max;
-        for (@info) {
-            if (/Type=(\w+)/) {
-                $type = $1;
-            }
-            if (/Min=([\d.]+)/) {
-                $min = $1;
-            }
-            if (/Max=([\d.]+)/) {
-                $max = $1;
-            }
-        }
-        #say STDERR "type=$type";
-        if (defined $type) {
-            my %types;
-            for my $type ($args->{schema}->resultset('NumberType')->all) {
-                $types{$type->name} = $type->id;
-            }
-            if ($type =~ /Byte/ or $type =~ /Int/) {
-                $args->{parameters}->add(data_type => $types{'integer'});
-            } elsif ($type =~ /Float/) {
-                $args->{parameters}->add(data_type => $types{'real'});
+        my $parsed = parse_gdalinfo(\@info, $args);
+        my %col = @columns;
+        for my $key (sort keys %$parsed) {
+            my $value = $self->$key;
+            say STDERR "$key = $parsed->{$key}, value = $value" if $args->{debug} > 1;
+            if (defined($value) && defined($parsed->{$key})) {
+                my $comp;
+                if ($col{$key}{data_type} eq 'double') {
+                    $comp = $value == $parsed->{$key};
+                } elsif ($col{$key}{is_foreign_key}) {
+                    $comp = $value->id == $parsed->{$key};
+                } else {
+                    $comp = $value eq $parsed->{$key};
+                }
+                $self->$key($parsed->{$key}) if !$comp;
+            } else {
+                $self->$key($parsed->{$key}) if defined($value) || defined($parsed->{$key});
             }
         }
-        $args->{parameters}->add(min_value => $min) if defined $min;
-        $args->{parameters}->add(max_value => $max) if defined $max;
+    }
+}
+
+sub compute_cols {
+    my ($self, $args) = @_;
+    my $path = ref $self ? $self->path($args->{parameters}{path}) : $args->{parameters}{path};
+    if ($path && !($path =~ /^PG:/)) {
+        say STDERR "compute cols from $path"if $args->{debug};
+        my @info = `gdalinfo -mm $args->{data_dir}$path`;
+        my $parsed = parse_gdalinfo(\@info, $args);
+        my %col = @columns;
+        for my $key (sort keys %$parsed) {
+            say STDERR "$key = $parsed->{$key}" if $args->{debug} > 1;
+            if (ref $self) {
+                my $value = $self->$key;
+                if (defined($value) && defined($parsed->{$key})) {
+                    my $comp;
+                    if ($col{$key}{data_type} eq 'double') {
+                        $comp = $value == $parsed->{$key};
+                    } elsif ($col{$key}{is_foreign_key}) {
+                        $comp = $value->id == $parsed->{$key};
+                    } else {
+                        $comp = $value eq $parsed->{$key};
+                    }
+                    $self->$key($parsed->{$key}) if !$comp;
+                } else {
+                    $self->$key($parsed->{$key}) if defined($value) || defined($parsed->{$key});
+                }
+            } else {
+                $args->{parameters}->set($key => $parsed->{$key}) if defined $parsed->{$key};
+            }
+        }
     }
 }
 
@@ -156,7 +217,12 @@ sub tree {
     my $color_scale;
     my $style;
     if ($self->style) {
-        $self->style->prepare($self);
+        $self->style->prepare(
+            {
+                min =>  $self->min_value,
+                max =>  $self->max_value,
+                data_type => $self->data_type
+            });
         my $unit = $self->my_unit // '';
         $unit = $unit->name if $unit;
         my $range = '('.$self->style->min."$unit..".$self->style->max."$unit)";

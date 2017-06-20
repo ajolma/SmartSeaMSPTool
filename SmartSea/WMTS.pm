@@ -9,8 +9,8 @@ use JSON;
 use DBI;
 use Imager::Color;
 use Geo::GDAL;
-use PDL;
-use PDL::NiceSlice;
+#use PDL;
+#use PDL::NiceSlice;
 use Geo::OGC::Service;
 use Data::Dumper;
 
@@ -36,7 +36,7 @@ sub new {
 }
 
 sub config {
-    my ($self, $config) = @_;
+    my ($self, $config, $server) = @_;
     #print STDERR Dumper $config;
 
     # QGIS asks for capabilities and does not load unadvertised layers
@@ -82,19 +82,17 @@ sub config {
         };
     }
 
-    for my $protocol (qw/TMS WMS WMTS/) {
-        $config->{$protocol}->{TileSets} = \@tilesets;
-        $config->{$protocol}->{serve_arbitrary_layers} = 1;
-        $config->{$protocol}->{layer} = {'no-cache' => 1};
-    }
+    my %config;
+    $config{TileSets} = \@tilesets;
+    $config{resource} = $config->{resource};
 
-    return $config;
+    return \%config;
 }
 
 sub process {
-    my ($self, $dataset, $tile, $server) = @_;
-    #print STDERR Dumper $server->{env};
-    my $params = $server->{parameters};
+    my ($self, $args) = @_;
+
+    my $params = $args->{service}{parameters};
 
     # WMTS clients ask for layer and specify tilematrixset
     # WMS clients ask for layers and specify srs
@@ -108,90 +106,30 @@ sub process {
     } elsif ($params->{srs}) {
         ($epsg) = $params->{srs} =~ /EPSG:(\d+)/;
     }
-
-    my $debug = $params->{debug};
-
-    my @t = $tile->tile;
-    my @pw = $tile->projwin;
     
-    my $want = $params->{layer} // $params->{layers};
-    # $server->{env}->{REMOTE_ADDR};
-    say STDERR "$server->{service}&request=$params->{request}&crs=EPSG:$epsg&layer=$want";
-
     # the client asks for plan_use_layer_rule_rule_...
     # rules are those rules that the client wishes to be active
-    # no rules = all rules?
+    # no rules = all rules
 
-    my $layer = SmartSea::Layer->new({
+    my $debug = $params->{debug}//0;
+    #$debug += $self->{debug};
+    my $layer = $params->{layer} // $params->{layers};
+
+    #my @tile = ($params->{tilematrix},$params->{tilecol},$params->{tilerow});
+    #say STDERR "$server->{service}&request=$params->{request}&crs=EPSG:$epsg&layer=$want&tile=@tile";
+    
+    $layer = SmartSea::Layer->new({
         epsg => $epsg,
-        tile => $tile,
+        tile => $args->{tile},
         schema => $self->{schema},
         data_dir => $self->{data_dir},
         GDALVectorDataset => $self->{GDALVectorDataset},
-        cookie => $server->{request}->cookies->{SmartSea} // DEFAULT, 
-        trail => $want,
-        style => $params->{style} });
+        cookie => $args->{service}{request}->cookies->{SmartSea} // DEFAULT, 
+        trail => $layer,
+        style => $params->{style},
+        debug => $debug });
 
-    unless ($epsg && $layer->{duck}) {
-        my ($w, $h) = $tile->tile;
-        my $ds = Geo::GDAL::Driver('GTiff')->Create(
-            Name => "/vsimem/r.tiff", Width => $w, Height => $h);
-        my ($minx, $maxy, $maxx, $miny) = $tile->projwin;
-        $ds->GeoTransform($minx, ($maxx-$minx)/$w, 0, $maxy, 0, ($miny-$maxy)/$h);
-        $ds->SpatialReference(Geo::OSR::SpatialReference->new(EPSG=>$epsg));
-        say STDERR "NO EPSG!";
-        return $ds;
-    }
-    
-    if ($want eq 'suomi') {
-
-        #for my $key (sort keys %$params) {
-        #    say STDERR "$key $params->{$key}";
-        #}
-        
-        # use $params->{style} ?
-
-        my ($w, $h) = $tile->tile;
-        my $ds = Geo::GDAL::Driver('GTiff')->
-            Create(Name => "/vsimem/suomi.tiff", Width => $w, Height => $h);
-        my ($minx, $maxy, $maxx, $miny) = $tile->projwin;
-
-        my $scale = ($maxx-$minx)/256; # m/pixel
-        my $tolerance;
-        for my $x (1000,100,50) {
-            if ($scale > $x) {
-                $tolerance = $x;
-            }
-        }
-        $tolerance //= '';
-        my $layer = 'maat'.$tolerance;
-
-        $ds->GeoTransform($minx, ($maxx-$minx)/$w, 0, $maxy, 0, ($miny-$maxy)/$h);
-        $ds->SpatialReference(Geo::OSR::SpatialReference->new(EPSG=>3067));
-        #$ds->Band(1)->ColorTable($self->{palette}{suomi});
-        $self->{Suomi}->Rasterize($ds, [-burn => 1, -l => 'f_l1_3067']);
-        $self->{Suomi}->Rasterize($ds, [-burn => 2, -l => $layer]);
-        $self->{Suomi}->Rasterize($ds, [-burn => 3, -l => 'maakunnat_rajat']);
-        $self->{Suomi}->Rasterize($ds, [-burn => 3, -l => 'eez_rajat']);
-
-        #say STDERR $want;
-
-        # Cache-Control should be only max-age=seconds something
-        return $ds;
-    }
-
-    unless ($layer->{duck}) {
-        my ($w, $h) = $tile->tile;
-        my $ds = Geo::GDAL::Driver('GTiff')->
-            Create(Name => "/vsimem/suomi.tiff", Width => $w, Height => $h);
-        my ($minx, $maxy, $maxx, $miny) = $tile->projwin;
-        $ds->GeoTransform($minx, ($maxx-$minx)/$w, 0, $maxy, 0, ($miny-$maxy)/$h);
-        $ds->SpatialReference(Geo::OSR::SpatialReference->new(EPSG=>3067));
-        say STDERR "no layer";
-        return $ds;
-    }
-
-    my $result = $layer->compute($debug);
+    my $result = $layer->compute();
 
     # if $layer is in fact a dataset
     # Cache-Control should be only max-age=seconds something
@@ -199,14 +137,12 @@ sub process {
     # else
     # Cache-Control must be 'no-cache, no-store, must-revalidate'
     # since layer may change
-    return $result;
-}
 
-sub count {
-    my ($x, $val, @size) = @_;
-    my $ones = zeroes(@size);
-    $ones->where($x == $val) .= 1;
-    return $ones->sum;
+    push @{$args->{headers}}, ('Cache-Control' => 'no-cache, no-store, must-revalidate');
+    push @{$args->{headers}}, ('Pragma' => 'no-cache');
+    push @{$args->{headers}}, ('Expires' => 0);
+    
+    return $result;
 }
 
 1;

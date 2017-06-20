@@ -126,6 +126,7 @@ sub new {
 sub id {
     my ($self, $id) = @_;
     if ($id) {
+        confess '' if $id eq 'NULL';
         #my %pk;
         #for my $pkey ($self->{rs}->result_source->primary_columns) {
         #    if ($pkey eq 'id') {
@@ -363,6 +364,7 @@ sub values_from_parameters {
                 next;
             }
             next unless $meta->{is_foreign_key};
+            next if $meta->{value} eq 'NULL';
             my $related = SmartSea::Object->new({source => $meta->{source}, id => $meta->{value}, app => $self->{app}});
             if (defined $related->{object}) {
                 $meta->{value} = $related->{object};
@@ -371,14 +373,17 @@ sub values_from_parameters {
             }
         }
     }
+    #for my $column (sort keys %$columns) {
+    #    say STDERR "value from parameter: $column = ",$columns->{$column}{value}//'undef';
+    #}
     return @errors;
 }
 
 sub values_from_self {
     my ($self, $columns) = @_;
+    confess "no obj" unless $self->{object};
     for my $column (keys %$columns) {
         my $meta = $columns->{$column};
-        confess "no obj" unless $self->{object};
         $meta->{value} = $self->{object}->$column;
         if ($meta->{columns}) {
             if ($meta->{value}) {
@@ -648,6 +653,7 @@ sub update {
         next if $self->{app}{parameters}{$col} eq '' && $meta->{empty_is_default};
         $col_data->{$col} = $self->{app}{parameters}{$col} if exists $self->{app}{parameters}{$col};
         $col_data->{$col} = undef if $meta->{empty_is_null} && $col_data->{$col} eq '';
+        $col_data->{$col} = undef if $col_data->{$col} eq 'NULL';
     }
 
     if ($self->{object}->can('is_ok')) {
@@ -970,41 +976,39 @@ sub form {
         push @widgets, $self->hidden_widgets($columns);
     }
 
+    # if the object has external sources for column values
+    # example: dataset, if path is given, that can be examined
+    $self->{object}->auto_fill_cols($self->{app}) if $self->{object} && $self->{object}->can('auto_fill_cols');
+
     # obtain default values for widgets
     $self->values_from_parameters($columns);
-    
-    if ($self->{object}) {
-        # edit
-        $self->values_from_self($columns);
 
-        # if the object has external sources for column values
-        # example: dataset, if path is given, that can be examined
-        if ($self->{object}->can('auto_fill_cols')) {
-            $self->{object}->auto_fill_cols($self->{app});
+    # simple data from parent/upstream objects
+    my %from_upstream; 
+    my $obj = $self->first;
+    while (my $next = $obj->next) {
+        last unless $obj->{object};
+        for my $key (keys %$columns) {
+            next if $key eq 'id';
+            next unless $obj->{object}->result_source->has_column($key);
+            say STDERR "getting $key from upstream" if $self->{app}{debug} > 2;
+            set_value_to_columns($columns, $key, $obj->{object}->$key, 'from_up');
         }
-
-        # todo: dataset have in-form button for computing min and max
-        # that returns here and changes parameters
-        # my $b = Geo::GDAL::Open($args{data_dir}.$self->path)->Band;
-        #    $b->ComputeStatistics(0);
-        #    $parameters->{min} = $b->GetMinimum;
-        #    $parameters->{max} = $b->GetMaximum;
-
-    } else {
-        # create
-        my %from_upstream; # simple data from parent/upstream objects
-        my $obj = $self->first;
-        while (my $next = $obj->next) {
-            last unless $obj->{object};
-            for my $key (keys %$columns) {
-                next if $key eq 'id';
-                next unless $obj->{object}->result_source->has_column($key);
-                say STDERR "getting $key from upstream" if $self->{app}{debug} > 2;
-                set_value_to_columns($columns, $key, $obj->{object}->$key, 'from_up');
-            }
-            $obj = $next;
-        }
+        $obj = $next;
     }
+
+    $self->values_from_self($columns) if $self->{object};
+
+    my @unsaved;
+    if ($self->{object}) {
+        my %dirty = $self->{object}->get_dirty_columns;
+        @unsaved = sort keys %dirty;
+    } else {
+        @unsaved = ('all');
+    }
+
+    my $compute = $self->{result}->can('compute_cols');
+    
     my $super = $self->super;
     push @widgets, [
         fieldset => [[legend => $super->{source}], $super->widgets($columns->{super}{columns})]
@@ -1014,7 +1018,22 @@ sub form {
         button(name => 'request', value => 'save', content => 'Save'), 
         [1 => ' '], 
         button(content => 'Cancel'));
+    push @widgets, (
+        [1 => "&nbsp;&nbsp;&nbsp;"], 
+        button(name => 'request', value => 'compute', content => 'Obtain values from data')
+    ) if $compute;
+    push @widgets, [1 => '&nbsp;&nbsp;There is unsaved data in columns: '.join(', ',@unsaved)] if @unsaved;
     return [fieldset => [[legend => $self->{source}], @widgets]];
+}
+
+sub compute_cols {
+    my ($self) = @_;
+    return unless $self->{result}->can('compute_cols');
+    if ($self->{object}) {
+        $self->{object}->compute_cols($self->{app});
+    } else {
+        $self->{result}->compute_cols($self->{app});
+    }
 }
 
 sub hidden_widgets {
@@ -1061,7 +1080,7 @@ sub widgets {
         for my $info_text (qw/data_type html_input/) {
             $meta->{$info_text} = '' unless $meta->{$info_text};
         }
-        if ($meta->{data_type} eq 'text') {
+        if ($meta->{data_type} eq 'text' || $meta->{data_type} eq 'double') {
             $input = text_input(
                 name => $column,
                 size => ($meta->{html_size} // 10),

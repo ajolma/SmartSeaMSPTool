@@ -85,7 +85,6 @@ sub object_editor {
     my $footer = [p => {style => 'font-size:0.8em'}, "Schema set = $schemas. User = $self->{user}."];
 
     # $self->{parameters} is a multivalue hash
-    my $request;
     for my $key (sort keys %{$self->{parameters}}) {
         my @values = $self->{parameters}->get_all($key);
         $self->{parameters}->remove($key);
@@ -103,6 +102,7 @@ sub object_editor {
             }
         }
     }
+    my $request;
     if ($self->{parameters}{request}) {
         $request = $self->{parameters}{request};
     } elsif ($self->{parameters}{delete}) {
@@ -113,10 +113,10 @@ sub object_editor {
         $self->{parameters}->remove($class); # from a select accompanying create button
         $object->last->id($self->{parameters}{delete} =~ /(\d+)/);
         $request = 'delete';
+    } else {
+        $request = 'read';
     }
-    $request //= 'read';
     say STDERR "request = $request" if $self->{debug};
-    #return http_status({}, 403);
 
     # to make jQuery happy:
     my $header = { 'Access-Control-Allow-Origin' => $self->{origin},
@@ -149,6 +149,7 @@ sub object_editor {
     }
 
     my @body = [p => a(link => 'All classes', url => $self->{root})];
+    #push @body, [div => {class=>"se-pre-con"}, ''];
 
     if ($request eq 'read') {
         return json200({}, $object->read) if $self->{json};
@@ -184,10 +185,10 @@ sub object_editor {
 
     if ($request eq 'compute') {
         # from HTML form, do computation and go back to form with the data
-        $request = 'edit';
-    }
-
-    if ($request eq 'create') {
+        $object->last->compute_cols();
+        push @body, [form => {action => $self->{path}, method => 'POST'}, $object->last->form];
+        
+    } elsif ($request eq 'create') {
         my $class = $object->last->{class}; # what to create
         my @id = $self->{parameters}->get_all($class);
         my @errors;
@@ -261,7 +262,7 @@ sub object_editor {
     }
 
     push @body, $footer;
-    return html200({}, SmartSea::HTML->new(html => [body => @body])->html);
+    return html200({}, SmartSea::HTML->new(html => [head(),[body => @body]])->html);
     
 }
 
@@ -270,6 +271,35 @@ sub error_message {
     say STDERR "Error: $error";
     $error =~ s/ at .*//;
     return [p => {style => 'color:red'}, "$error"];
+}
+
+sub head {
+    return [head => ''];
+    my $css = <<'END_CSS';
+.no-js #loader { display: none;  }
+.js #loader { display: block; position: absolute; left: 100px; top: 0; }
+.se-pre-con {
+	position: fixed;
+	left: 0px;
+	top: 0px;
+	width: 100%;
+	height: 100%;
+	z-index: 9999;
+	background: url(images/loader-64x/Preloader_2.gif) center no-repeat #fff;
+}
+END_CSS
+    my $js = <<'END_JS';
+	$(window).load(function() {
+		// Animate loader off screen
+		$(".se-pre-con").fadeOut("slow");;
+	});
+END_JS
+return [head => [
+            [script => {src=>"http://ajax.googleapis.com/ajax/libs/jquery/1.5.2/jquery.min.js"}, ''],
+            [script => {src=>"http://cdnjs.cloudflare.com/ajax/libs/modernizr/2.8.2/modernizr.js"}, ''],
+            [script => [1 => $js]], 
+            [style => {type=>"text/css"},[1 => $css]]
+        ]];
 }
 
 1;

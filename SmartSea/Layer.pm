@@ -23,25 +23,40 @@ use SmartSea::Core qw(:all);
 sub new {
     my ($class, $self) = @_;
     my ($use_id, $layer_id, @rules) = split /_/, $self->{trail} // '';
-    return bless $self, $class unless $layer_id;
+    #return bless $self, $class unless $layer_id;
 
+    # set min, max, data_type, unit, labels
+    # these are propagated to style but style can override them
+    # then style values are propagated back here
+    # labels, if given, defines classes
     if ($use_id == 0) {
         $self->{dataset} = $self->{schema}->resultset('Dataset')->single({ id => $layer_id });
-        croak "Dataset $layer_id does not exist!" unless $self->{dataset};
-        $self->{min} = $self->{dataset}->min_value;
-        $self->{max} = $self->{dataset}->max_value;
-        $self->{min} = 0 if $self->{min} == $self->{max}; # hack, probably nodata/1 type raster
+        croak "Dataset $layer_id does not exist.\n" unless $self->{dataset};
+        # min, max, data type should have been obtained with gdalinfo
+        $self->{min} = $self->{dataset}->min_value // 0;
+        $self->{max} = $self->{dataset}->max_value // 1;
+        $self->{min} = $self->{max} if $self->{min} > $self->{max};
+        if (my $t = $self->{dataset}->data_type) {
+            $self->{data_type} = $t->id; # NumberType, 1 = int, 2 = float
+        } else {
+            $self->{data_type} = 1;
+        }
         my $unit = $self->{dataset}->unit;
-        $self->{unit} = $unit->name if defined $unit;
-        $self->{labels} = $self->{dataset}->class_semantics;
+        $self->{unit} = defined $unit ? $unit->name : '';
         if ($self->{dataset}->class_semantics) {
-            $self->{classes} = $self->{dataset}->max_value - $self->{dataset}->min_value + 1;
+            $self->{labels} = [split(/\s*;\s*/, $self->{dataset}->class_semantics)];
+        } elsif ($self->{min} == $self->{max}) {
+            $self->{labels} = [''];
         }
         $self->{duck} = $self->{dataset};
         
     } elsif ($use_id == 1) {
         $self->{duck} = $self->{schema}->resultset('EcosystemComponent')->single({ id => $layer_id });
         croak "Ecosystem component $layer_id does not exist!" unless $self->{duck};
+        $self->{min} = 1;
+        $self->{max} = 1;
+        $self->{data_type} = 1;
+        $self->{labels} = ['exists'];
         $self->{rules} = [];
         
     } else {
@@ -50,10 +65,16 @@ sub new {
         croak "Layer $layer_id does not exist!" unless $self->{duck};
         my $class = $self->{layer}->rule_system->rule_class->name;
         if ($class eq 'exclusive' or $class eq 'inclusive') {
+            # result is 1 or nodata
+            $self->{min} = 1;
+            $self->{max} = 1;
+            $self->{data_type} = 1;
+            $self->{labels} = ['valid'];
+        } else {
+            # result is a floating point value or nodata
             $self->{min} = 0;
             $self->{max} = 1;
-            $self->{classes} = 1;
-            $self->{labels} = 'valid';
+            $self->{data_type} = 2;
         }
         $self->{rules} = [];
         # rule list is optional, if no rules, then all rules (QGIS plugin does not send any rules)
@@ -73,6 +94,7 @@ sub new {
         }
         
     }
+    
     if ($self->{rules} && @{$self->{rules}} == 0) {
         # all rules of this layer, preferring those with given cookie
         my %rules;
@@ -93,10 +115,6 @@ sub new {
     # $color_scale =~ s/-/_/g;
     # $color_scale =~ s/\W.*$//g;
 
-    # min, max, classes get default values from data etc
-    # these are propagated to style but style can override them
-    # then style values are propagated back here
-
     $self->{unit} //= '';
     $self->{style} = $self->{duck}->style;
     $self->{style}->prepare($self);
@@ -110,39 +128,49 @@ sub new {
 sub legend {
     my ($self, $args) = @_;
     $args->{unit} //= $self->{unit};
-    $args->{labels} //= $self->{labels};
+    $args->{labels} //= $self->{labels} // [];
     return $self->{style}->legend($args);
 }
 
 sub post_process {
-    my ($self, $y, $debug) = @_;
+    my ($self, $y) = @_;
 
     my $result = $self->mask();
+    
     my $mask = $result->Band->Piddle; # 1 = target area, 0 not
     $mask->inplace->setvaltobad(0);
-
-    my $n_classes = $self->{classes};
-    
-    if ($debug) {
-        say STDERR "post processing: classes = $n_classes";
-        print STDERR "mask:", $mask;
-    }    
         
     $y *= $mask;
 
-    my $min = $self->{min};
-    my $max = $self->{max};
-    if ($debug) {
-        say STDERR "scale to $min .. $max";
-    }    
+    my $n_classes = $self->{classes};
+
+    # if classes == 1, all zero cells get color 0 and non-zero cells get color 1
+
+    if ($n_classes == 1) {
+
+        $y->where($y != 0) .= 1;
+        
+    } else {
     
-    # scale and bound to min .. max => 0 .. $nc-1
-    $y = double $y;
-    my $k = $n_classes/($max-$min);
-    my $b = $min * $k;
-    $y = $k*$y - $b;
-    $y->where($y > ($n_classes-1)) .= $n_classes-1;
-    $y->where($y < 0) .= 0;
+        my $min = $self->{min};
+        my $max = $self->{max};
+      
+        # scale and bound to min .. max => 0 .. $nc-1
+        $y = double $y;
+        my $k = $n_classes/($max-$min);
+        my $b = $min * $k;
+    
+        say STDERR "scale to $min .. $max, $n_classes classes, k = $k b = $b" if $self->{debug};
+    
+        $y = $k*$y - $b;
+        $y->where($y > ($n_classes-1)) .= $n_classes-1;
+        $y->where($y < 0) .= 0;
+    }
+    
+    if ($self->{debug} && $self->{debug} > 1) {
+        my @stats = stats($y); # 3 and 4 are min and max
+        say STDERR "Result min=$stats[3], max=$stats[4]";
+    }
 
     $y->inplace->setbadtoval(255);
     $result->Band->Piddle(byte $y);
@@ -151,48 +179,35 @@ sub post_process {
 }
 
 sub compute {
-    my ($self, $debug) = @_;
+    my ($self) = @_;
 
     if ($self->{dataset}) {
         my $result = $self->{dataset}->Piddle($self);
-        if ($debug) {
+        if ($self->{debug}) {
             my @stats = stats($result); # 3 and 4 are min and max
-            say STDERR "Dataset: ",$self->{dataset}->name;
-            say STDERR "  result min=$stats[3], max=$stats[4]";
+            say STDERR "Dataset ",$self->{dataset}->name," min=$stats[3], max=$stats[4]";
         }
-        return $self->post_process($result, $debug);
+        return $self->post_process($result);
     }
 
     my $result = zeroes($self->{tile}->tile);
 
     my $method = $self->{duck}->rule_system->rule_class->name;
-
+    
     unless ($method =~ /^incl/) {
         $result += 1;
     }
     # inclusive: start from 0 everywhere and add 1
     
-    if ($debug) {
-        #say STDERR "Compute: ",$plan->name,' ',$use_class->name,' ',$layer_class->name;
-        my @stats = stats($result); # 3 and 4 are min and max
-        say STDERR "  result min=$stats[3], max=$stats[4]";
-    }
+    
+    say STDERR "Compute layer, method = $method" if $self->{debug};
     for my $rule (@{$self->{rules}}) {
-        if ($debug) {
-            my $val = $rule->value // 1;
-            say STDERR "apply: ",$rule->name," ",$val;
-        }
-        $rule->apply($method, $result, $self, $debug);
-        if ($debug) {
+        $rule->apply($method, $result, $self);
+        if ($self->{debug} && $self->{debug} > 1) {
             my @stats = stats($result); # 3 and 4 are min and max
-            say STDERR "  result min=$stats[3], max=$stats[4]";
+            my $sum = $result->nelem*$stats[0];
+            say STDERR $rule->name,": min=$stats[3], max=$stats[4], sum=$sum";
         }
-    }
-    if ($debug) {
-        if ($debug > 1) {
-            print STDERR $result;
-        }
-        say STDERR "End compute";
     }
 
     if ($method =~ /^add/) {
@@ -202,7 +217,7 @@ sub compute {
         $result->where($result > 1) .= 1;
     }
 
-    return $self->post_process($result, $debug);
+    return $self->post_process($result);
 }
 
 sub mask {

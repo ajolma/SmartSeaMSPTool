@@ -23,7 +23,6 @@ sub color_table {
     
     if ($n == 1) {
 
-        $colors->Color(0, [0,0,0,0]);
         my $color;
         for ($palette) {
             if    (/inverse-grayscale/)  { $color = [127,127,127,255] }
@@ -36,6 +35,7 @@ sub color_table {
             elsif (/brown/)         { $color = [179,101,  0,255] }
             else                    { $color = [  0,  0,  0,255] }
         }
+        $colors->Color(0, [0,0,0,0]);
         $colors->Color(1, $color);
         
     } elsif ($palette eq 'grayscale') { # black to white

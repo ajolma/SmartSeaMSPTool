@@ -20,7 +20,6 @@ use SmartSea::HTML qw(:all);
 #     NULL => continuous data (101 colors)
 #     1    => class 1 = no color, class 2 = color
 #     >=2  => classes colors
-# class_labels should have the format "1 = class 1 label; 2 = class 2 label; ..."
 # colortable values are 
 #     0..100 for continuous data
 #     0..classes-1 for discrete data
@@ -57,8 +56,18 @@ sub prepare {
     # calls below will not update db unless insert or update is called
     $self->min($args->{min} // 0) unless defined $self->min;
     $self->max($args->{max} // 1) unless defined $self->max;
-    $self->max($self->min + 1) if $self->max <= $self->min;
-    $self->classes($args->{classes} // 101) unless defined $self->classes;
+    $self->max($self->min) if $self->min > $self->max;
+    unless (defined $self->classes) {
+        my $n;
+        if ($args->{labels}) {
+            $n = @{$args->{labels}};
+        } elsif ($args->{data_type} == 1 && ($args->{max} - $args->{min} + 1) < 100) {
+            $n = $args->{max} - $args->{min} + 1;
+        } else {
+            $n = 101;
+        }
+        $self->classes($n);
+    }
     $self->{color_table} = $self->color_scale->color_table($self->classes);
 }
 
@@ -117,24 +126,21 @@ sub legend {
     $first_class_to_have_label = 1 if $first_class_to_have_label < 1;
     
     # labels
-    my @labels;
+    my @labels = @{$args->{labels}};
     
-    if ($args->{labels}) {
-        my $labels = encode utf8 => $args->{labels};
-        @labels = split /\s*;\s*/, $labels;
+    if (@labels) {
         for (@labels) {
-            s/^\s*\d+\s*=\s*//;
+            $_ = encode utf8 => $_;
         }
     } else {
-        my $x = $min;
         my $step = ($max - $min) / $n;
-        $x += $step;
+        my $x = $min + $step;
         push @labels, sprintf("<= %.1f", $x) . $unit;
-        my $low = $min;
+        my $low;
         for my $class (2..$n-1) {
-            push @labels, sprintf("(%.1f,%.1f]", $low, $x) . $unit;
             $low = $x;
             $x += $step;
+            push @labels, sprintf("(%.1f,%.1f]", $low, $x) . $unit;
         }
         push @labels, sprintf("> %.1f", $x) . $unit;
     }
