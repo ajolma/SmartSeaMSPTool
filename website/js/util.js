@@ -159,4 +159,39 @@ Widget.prototype = {
         var self = this;
         $(self.container_id+' #'+self.id).html(html);
     },
+};
+
+function makeMenu(args) {
+    var menu = $(args.menu);
+    var options = '';
+    $.each(args.options, function(i, item) {
+        if (Array.isArray(item)) {
+            var first = item.shift();
+            var sub = '';
+            $.each(item, function(i2, item2) {
+                sub += element('li', {}, element('div', {tag:item2.cmd}, item2.label));
+            });
+            sub = element('div', {}, first.label)+element('ul', {}, sub);
+            options += element('li', {}, sub);
+        } else {
+            options += element('li', {}, element('div', {tag:item.cmd}, item.label));
+        }
+    });
+    menu.html(options);
+    menu.menu({
+        select:function( event, ui ) {
+            var cmd = ui.item.children().attr('tag');
+            menu.hide();
+            args.select(cmd);
+        }
+    });
+    menu.menu("refresh");
+    args.element.contextmenu(function(e) {
+        menu.css('position', 'absolute');
+        menu.css('top', e.pageY);
+        menu.css('left', e.pageX);
+        $(".menu").hide(); // close all other menus
+        menu.show();
+        return false;
+    });
 }
