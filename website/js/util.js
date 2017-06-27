@@ -128,9 +128,8 @@ Widget.prototype = {
         var self = this;
         return $(self.container_id+' #'+self.id).prop('checked');
     },
-    selected: function() {
+    fromList: function(id) {
         var self = this;
-        var id = $(self.container_id+' #'+self.id).val();
         if (!id) return null;
         var retval = null;
         $.each(self.list, function(i, item) {
@@ -141,12 +140,16 @@ Widget.prototype = {
         });
         return retval;
     },
+    selected: function() {
+        var self = this;
+        return self.fromList($(self.container_id+' #'+self.id).val());
+    },
     selected_ids: function() {
         var self = this;
         if (self.type === 'checkbox-list') {
             var ids = {};
             $.each($(self.container_id+' :checkbox'), function(i, item) {
-                if (item.checked) ids[item.attr('item')]= 1;
+                if (item.checked) ids[item.getAttribute('item')]= 1;
             });
             return ids;
         }

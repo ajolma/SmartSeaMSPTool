@@ -79,6 +79,7 @@ MSP.prototype = {
     },
     getPlans: function() {
         var self = this;
+        if (self.plan) self.firstPlan = self.plan.id;
         self.removeLayers();
         self.removeSite();
         // the planning system is a tree: root->plans->uses->layers->rules
@@ -163,7 +164,7 @@ MSP.prototype = {
         $.each(data, function(i, dataset) {
             self.plan.data[dataset.id] = 1;
         });
-        // todo: add datasets to Data plan
+        // todo: add datasets to Data plan?
         self.changePlan(self.plan.id);
     },
     deletePlan: function(id) {
@@ -309,27 +310,34 @@ MSP.prototype = {
         });
         return retval;
     },
+    deleteUse: function(id) {
+        var self = this;
+        var uses = [];
+        $.each(self.plan.uses, function(i, use) {
+            if (use.id != id) {
+                uses.push(use);
+            }
+        });
+        self.plan.uses = uses;
+        self.createLayers(false);
+    },
     createLayers: function(boot) {
         var self = this;
         self.removeSite();
-        // reverse order to add to map in correct order
-        $.each(self.plan.uses.reverse(), function(i, use) {
+        $.each(self.plan.uses.reverse(), function(i, use) { // reverse order to show in correct order
             var redo_layers = false;
             $.each(use.layers.reverse(), function(j, layer) {
                 if (layer.object) self.map.removeLayer(layer.object);
-                if (boot || !layer.wmts) {
-                    // initial boot or new plan
+                if (boot || !layer.wmts) { // initial boot or new plan
                     var wmts = layer.use_class_id + '_' + layer.id;
                     if (layer.rules && layer.rules.length > 0) {
                         var rules = '';
-                        // add rules
                         $.each(layer.rules, function(i, rule) {
-                            if (rule.active) rules += '_'+rule.id;
+                            if (rule.active) rules += '_'+rule.id; // add rules
                         });
                         if (rules == '') rules = '_0'; // avoid no rules = all rules
                         wmts += rules;
-                        // needs to be updated
-                        if (layer.object) layer.object = null;
+                        if (layer.object) layer.object = null; // needs to be updated
                     }
                     layer.wmts = wmts;
                 }
@@ -338,12 +346,9 @@ MSP.prototype = {
                     return true;
                 }
                 if (!layer.object) layer.object = createLayer(layer, self.proj);
-                layer.object.on('change:visible', function () {
-                    this.visible = !this.visible;
-                }, layer);
-                // restore visibility:
+                layer.object.on('change:visible', function () {this.visible = !this.visible}, layer);
                 var visible = layer.visible;
-                layer.object.setVisible(visible);
+                layer.object.setVisible(visible); // restore visibility
                 layer.visible = visible;
                 self.map.addLayer(layer.object);
             });
@@ -359,9 +364,34 @@ MSP.prototype = {
         self.newLayerList.notify();
         self.addSite();
     },
-    addLayer: function(use, layer) {
+    addLayer: function(use, data) {
         var self = this;
-        use.layers.unshift(layer);
+        if (data.id !== null && typeof data.id === 'object') { // it's from REST API
+            data.id = data.id.value;
+            data.class_id = data.layer_class.value;
+            data.owner = data.owner.value;
+            data.rules = [];
+            data.use_class_id = use.class_id;
+        }
+        use.layers.unshift(data);
+        self.createLayers(true);
+    },
+    deleteLayer: function(use_id, layer_id) {
+        var self = this;
+        $.each(self.plan.uses, function(i, use) {
+            if (use.id = use_id) {
+                var layers = [];
+                $.each(use.layers, function(j, layer) {
+                    if (layer.id == layer_id) {
+                        if (layer.object) self.map.removeLayer(layer.object);
+                    } else {
+                        layers.push(layer);
+                    }
+                });
+                use.layers = layers;
+                return false;
+            }
+        });
         self.createLayers(false);
     },
     removeLayers: function() {
@@ -408,15 +438,6 @@ MSP.prototype = {
         self.layer = null;
         if (unselect) self.layerUnselected.notify(layer);
         return layer;
-    },
-    deleteLayer: function(id) {
-        var self = this;
-        if (self.layer && self.layer.id == id) self.layer = null;
-        var layer = self.getLayer(id);
-        if (layer) {
-            layer.delete = true;
-            self.createLayers(false);
-        }
     },
     selectRule: function(id) {
         var self = this;

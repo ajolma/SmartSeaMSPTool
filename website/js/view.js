@@ -179,7 +179,7 @@ MSPView.prototype = {
             self.elements.layers.append(item.element);
             if (self.model.auth && use.owner == user) {
                 var options = [];
-                if (use.id == 1) {
+                if (use.id == 0) {
                     options.push({cmd:'edit', label:'Edit...'});
                 }
                 if (use.id > 1) {
@@ -207,7 +207,7 @@ MSPView.prototype = {
                         menu: $(selector+" #menu"+layer.id),
                         options: options,
                         select: function(cmd) {
-                            self.layerCommand.notify({cmd:cmd, layer:layer});
+                            self.layerCommand.notify({cmd:cmd, use:use, layer:layer});
                         }
                     });
                 });

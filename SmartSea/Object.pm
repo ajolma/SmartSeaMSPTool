@@ -31,6 +31,7 @@ sub from_app {
         my %args = (id => $id, app => $app);
         unless ($object) {
             # first in path, tag is table name
+            croak "The first thing in the path must be a class name." unless $tag;
             $args{class} = $tag;
             $args{source} = $app->{sources}{$tag};
             croak "No such class: '$args{class}'." unless $args{source};
