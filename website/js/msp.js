@@ -44,6 +44,8 @@ function MSP(args) {
     self.layer = null;
     self.rule = null;
 
+    // events
+
     self.newPlans = new Event(self);
     self.planChanged = new Event(self);
     self.newLayerList = new Event(self);
@@ -89,6 +91,7 @@ MSP.prototype = {
             self.plans = plans;
             // pseudo uses, note reserved use class id's
             $.each(self.plans, function(i, plan) {
+                if (!plan.uses) plan.uses = [];
                 if (plan.id == 0) { // a pseudo plan Data
                     self.datasets = plan.uses[0];
                 } else if (plan.id == 1) { // a pseudo plan Ecosystem
@@ -103,16 +106,80 @@ MSP.prototype = {
             self.error(msg);
         });
     },
-    getPlan: function(plan_id) {
-        for (var i = 0; i < this.plans.length; ++i) {
-            if (this.plans[i].id == plan_id) return this.plans[i];
+    getPlan: function(id) {
+        var self = this;
+        for (var i = 0; i < self.plans.length; ++i) {
+            if (self.plans[i].id == id) return this.plans[i];
         }
     },
-    addPlan: function(plan) {
+    planNameOk: function(name) {
         var self = this;
-        self.plans.unshift(plan);
+        var ok = true;
+        for (var i = 0; i < self.plans.length; ++i) {
+            if (self.plans[i].name == name) {
+                ok = false;
+                break;
+            }
+        }
+        return ok;
+    },
+    addPlan: function(data) {
+        var self = this;
+        if (!data.uses) data.uses = [];
+        if (!data.data) data.data = {};
+        if (data.id !== null && typeof data.id === 'object') { // it's from REST API
+            data.id = data.id.value;
+            data.owner = data.owner.value;
+            data.name = data.name.value;
+        }
+        self.plans.unshift(data);
+        self.newPlans.notify();
+        self.changePlan(data.id);
+        self.initSite();
+    },
+    editPlan: function(data) {
+        var self = this;
+        var plan;
+        if (data.id !== null && typeof data.id === 'object') { // it's from REST API
+            plan = self.getPlan(data.id.value);
+            if (plan) {
+                plan.owner = data.owner.value;
+                plan.name = data.name.value;
+            }
+        } else {
+            plan = self.getPlan(data.id);
+            if (plan) {
+                plan.owner = data.owner;
+                plan.name = data.name;
+            }
+        }
         self.newPlans.notify();
         self.changePlan(plan.id);
+        self.initSite();
+    },
+    setPlanData: function(data) {
+        var self = this;
+        self.plan.data = [];
+        $.each(data, function(i, dataset) {
+            self.plan.data[dataset.id] = 1;
+        });
+        // todo: add datasets to Data plan
+        self.changePlan(self.plan.id);
+    },
+    deletePlan: function(id) {
+        var self = this;
+        self.removeLayers();
+        self.removeSite();
+        var plans = [];
+        for (var i = 0; i < self.plans.length; ++i) {
+            if (self.plans[i].id != id) {
+                plans.push(self.plans[i]);
+            }
+        }
+        if (id == self.firstPlan) self.firstPlan = plans[0].id;
+        self.plans = plans;
+        self.newPlans.notify();
+        self.changePlan(self.firstPlan);
         self.initSite();
     },
     datasetsInRules: function() {
@@ -201,6 +268,7 @@ MSP.prototype = {
         // add datasets and ecosystem as an extra use
         self.plan.uses.push(self.ecosystem);
         self.plan.uses.push(datasets);
+        self.createLayers(true);
         if (self.plan) self.planChanged.notify({ plan: self.plan });
     },
     setUseOrder: function(order) {
@@ -215,6 +283,19 @@ MSP.prototype = {
             });
         });
         self.plan.uses = newUses;
+        self.createLayers(false);
+    },
+    addUse: function(data) {
+        var self = this;
+        if (data.id !== null && typeof data.id === 'object') { // it's from REST API
+            data.id = data.id.value;
+            data.owner = data.owner.value;
+            data.plan = data.plan.value;
+            data.class_id = data.use_class.value;
+            data.layers = [];
+            // name is set in controller
+        }
+        self.plan.uses.unshift(data);
         self.createLayers(false);
     },
     hasUse: function(class_id) {

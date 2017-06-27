@@ -34,8 +34,8 @@ function MSPView(model, elements, id) {
     self.elements = elements;
     self.id = id;
     self.draw = {key:null, draw:null, source:null};
-    // elements are plans, layers, rule_info, rules, site_type, site_info, ...
-    // ids are rules
+    // elements DOM elements selected with jquery $()
+    // ids are jquery selectors
 
     self.elements.layers.sortable({
         stop: function () {
@@ -47,18 +47,12 @@ function MSPView(model, elements, id) {
                 n = n.replace(/use/, '');
                 newOrder.push(n);
             }
-            self.newUseOrder.notify({ order : newOrder });
+            self.model.setUseOrder(newOrder);
         }
     });
 
-    self.planSelected = new Event(self);
-    self.planCommand = new Event(self);
-    self.newUseOrder = new Event(self);
-    self.useCommand = new Event(self);
-    self.layerCommand = new Event(self);
-    self.ruleSelected = new Event(self);
-
-    // attach model listeners
+    // model event listeners
+    
     self.model.newPlans.attach(function(sender, args) {
         self.buildPlans();
     });
@@ -86,9 +80,15 @@ function MSPView(model, elements, id) {
         self.elements.site_info.html(args.report);
     });
 
-    // send signals, there are more in functions below
+    // events
+    
+    self.planCommand = new Event(self);
+    self.useCommand = new Event(self);
+    self.layerCommand = new Event(self);
+    self.ruleSelected = new Event(self);
+
     self.elements.plans.change(function(e) {
-        self.planSelected.notify({ id : self.elements.plans.val() });
+        self.model.changePlan(self.elements.plans.val());
     });
 }
 
@@ -111,6 +111,7 @@ MSPView.prototype = {
         self.elements.color_scale.html('');
     },
     buildPlans: function() {
+        // add plans to the plan drop down
         var self = this;
         if (user != 'guest') self.elements.user.html('Hello '+user+'!');
         self.elements.plans.html('');
@@ -121,39 +122,29 @@ MSPView.prototype = {
         self.cleanUp();
     },
     buildPlan: function(plan) {
+        // activate selected plan
         var self = this;
         if (self.model.auth) {
             var options = [{cmd:'add', label:'Add...'}];
             if (self.model.plan.owner == user) {
-                var id = self.model.plan.id;
-                options.push({cmd:'edit '+id, label:'Edit...'});
-                options.push({cmd:'delete '+id, label:'Delete'});
-                options.push([{label:'Use'},{cmd:'add '+id, label:'Add'}]);
+                options.push({cmd:'edit', label:'Edit...'});
+                options.push({cmd:'delete', label:'Delete...'});
+                options.push({cmd:'add_use', label:'Add use...'});
             }    
             makeMenu({
-                element: $("#plan"),
-                menu: $("#plan-menu"),
+                element: self.elements.plan,
+                menu: self.elements.plan_menu,
                 options: options,
                 select: function(cmd) {
-                    var id = 0, plan;
-                    var command = cmd;
-                    if (/^edit/.test(command)) {
-                        command = 'edit';
-                        id = /\s(.*)/.exec(command);
-                    } else if (/^delete/.test(command)) {
-                        command = 'delete';
-                        id = /\s(.*)/.exec(command);
-                    }
-                    if (id) plan = self.model.getPlan(id[1]);
-                    self.planCommand.notify({cmd: command, plan:plan});
+                    self.planCommand.notify({cmd: cmd});
                 }
             });
         }
-        self.model.createLayers(true);
         self.elements.rules.empty();
         self.fillRulesPanel();
     },
     usesItem: function(use) {
+        // an openable use item for a list
         var self = this;
         var use_item = element('button', {class:'use', type:'button'}, '&rtrif;') + '&nbsp;' + use.name;
         var layers = '';
@@ -162,7 +153,7 @@ MSPView.prototype = {
             use_item += element('ul', {class:'menu', id:"menu", style:'display:none'}, '');
         }
         $.each(use.layers.reverse(), function(j, layer) {
-            var attr = { type: 'checkbox', class: 'visible'+layer.id };
+            var attr = {type: 'checkbox', class: 'visible'+layer.id};
             var id = 'layer'+layer.id;
             var name = layer.name;
             var lt = element('div', {id:id, style:'display:inline;'}, name);
@@ -170,30 +161,34 @@ MSPView.prototype = {
                 lt += element('ul', {class:'menu', id:"menu"+layer.id, style:'display:none'}, '');
             }
             layers += element('input', attr, lt+'<br/>');
-            attr = { class:'opacity'+layer.id, type:'range', min:'0', max:'1', step:'0.01' };
+            attr = {class:'opacity'+layer.id, type:'range', min:'0', max:'1', step:'0.01'};
             layers += element('div', {class:'opacity'+layer.id}, element('input', attr, '<br/>'));
         });
         layers = element('div', {class:'use'}, layers);
         return {element: element('li', {id:'use'+use.id}, use_item + layers)};
     },
     buildLayers: function() {
+        // an openable list of use items
         var self = this;
         self.elements.layers.html('');
         // all uses with controls: on/off, select/unselect, transparency
         // end to beginning to maintain overlay order
         $.each(self.model.plan.uses.reverse(), function(i, use) {
+            var selector = self.id.uses+" #use"+use.id;
             var item = self.usesItem(use);
             self.elements.layers.append(item.element);
             if (self.model.auth && use.owner == user) {
                 var options = [];
-                options.push({cmd:'edit', label:'Edit...'});
+                if (use.id == 1) {
+                    options.push({cmd:'edit', label:'Edit...'});
+                }
                 if (use.id > 1) {
-                    options.push({cmd:'delete', label:'Delete'});
-                    options.push([{label:'Layer'},{cmd:'add_layer', label:'Add layer'}]);
+                    options.push({cmd:'delete', label:'Delete...'});
+                    options.push({cmd:'add_layer', label:'Add layer...'});
                 }
                 makeMenu({
-                    element: $("#useslist #use"+use.id+" label"),
-                    menu: $("#useslist #use"+use.id+" #menu"),
+                    element: $(selector+" label"),
+                    menu: $(selector+" #menu"),
                     options: options,
                     select: function(cmd) {
                         self.useCommand.notify({cmd:cmd, use:use});
@@ -203,13 +198,13 @@ MSPView.prototype = {
                     if (use.id < 2) return true;
                     var options = [];
                     options.push({cmd:'edit', label:'Edit...'});
-                    options.push({cmd:'delete', label:'Delete'});
+                    options.push({cmd:'delete', label:'Delete...'});
                     options.push([{label:'Rule'},
                                   {cmd:'add_rule', label:'Add...'},
                                   {cmd:'delete_rule', label:'Delete...'}]);
                     makeMenu({
-                        element: $("#useslist #use"+use.id+" #layer"+layer.id),
-                        menu: $("#useslist #use"+use.id+" #menu"+layer.id),
+                        element: $(selector+" #layer"+layer.id),
+                        menu: $(selector+" #menu"+layer.id),
                         options: options,
                         select: function(cmd) {
                             self.layerCommand.notify({cmd:cmd, layer:layer});
@@ -227,14 +222,15 @@ MSPView.prototype = {
         });
         self.selectLayer(); // restore selected layer
         $.each(self.model.plan.uses, function(i, use) {
+            var selector = self.id.uses+" #use"+use.id;
             // edit use
-            $('li#use'+use.id+' button.edit').click(function() {
+            $(selector+' button.edit').click(function() {
                 self.editUse.notify(use);
             });
             // open and close a use item
-            var b = $('li#use'+use.id+' button.use');
-            b.on('click', null, {use:use}, function(event) {
-                $('li#use'+event.data.use.id+' div.use').toggle();
+            var useButton = $(selector+' button.use');
+            useButton.on('click', null, {use:use}, function(event) {
+                $(self.id.uses+" #use"+event.data.use.id+' div.use').toggle();
                 if (!arguments.callee.flipflop) {
                     arguments.callee.flipflop = 1;
                     $(this).html('&dtrif;');
@@ -245,13 +241,13 @@ MSPView.prototype = {
                     event.data.use.open = false;
                 }
             });
-            $('li#use'+use.id+' div.use').hide();
+            $(selector+' div.use').hide();
             // show/hide layer and set its transparency
             $.each(use.layers, function(j, layer) {
                 // show/hide layer
-                var cb = $('li#use'+use.id+' input.visible'+layer.id);
+                var cb = $(selector+' input.visible'+layer.id);
                 cb.change({use:use, layer:layer}, function(event) {
-                    $('li#use'+event.data.use.id+' div.opacity'+event.data.layer.id).toggle();
+                    $(self.id.uses+" #use"+event.data.use.id+' div.opacity'+event.data.layer.id).toggle();
                     event.data.layer.object.setVisible(this.checked);
                     if (this.checked) {
                         self.model.unselectLayer();
@@ -262,11 +258,11 @@ MSPView.prototype = {
                     else
                         self.elements.site.html('');
                 });
-                var slider = $('li#use'+use.id+' input.opacity'+layer.id);
+                var slider = $(selector+' input.opacity'+layer.id);
                 if (layer.visible) {
                     cb.prop('checked', true);
                 } else {
-                    $('li#use'+use.id+' div.opacity'+layer.id).hide();
+                    $(selector+' div.opacity'+layer.id).hide();
                 }
                 slider.on('input change', null, {layer:layer}, function(event) {
                     event.data.layer.object.setOpacity(parseFloat(this.value));
@@ -276,7 +272,7 @@ MSPView.prototype = {
             if (use.hasOwnProperty('open') && use.open) {
                 // restore openness of use
                 use.open = true;
-                b.trigger('click');  // triggers b.on('click'... above
+                useButton.trigger('click');  // triggers useButton.on('click'... above
             } else {
                 use.open = false;
             }
@@ -284,6 +280,7 @@ MSPView.prototype = {
         self.cleanUp();
     },
     selectLayer: function() {
+        // hilite a layer, get its legend and show info about rules
         if (!this.model.layer) return;
         var plan = this.model.plan;
         var layer = this.model.layer;
@@ -395,4 +392,3 @@ MSPView.prototype = {
         addInteraction();
     }
 };
-

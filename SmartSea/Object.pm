@@ -511,10 +511,56 @@ sub create {
 
     if ($self->{prev} && !$columns) {
         my $relationship = $self->{relation};
-        croak "Creating new $self->{class} into $relationship->{related} is not allowed." 
-            if $relationship->{stop_edit} && !$self->{id};
         confess "no key" unless $relationship->{key};
         my $parent_id = $self->{prev}{object}->get_column($relationship->{key});
+        
+        if ($relationship->{stop_edit} && !$self->{id}) {
+            # update link(s)
+            # delete old
+            my $method = $relationship->{related};
+            my @links = $self->{prev}{object}->$method;
+            if ($relationship->{link_source}) {
+                for my $child (@links) {
+                    my $args = {
+                        source => $relationship->{link_source}, 
+                        search => {
+                            $relationship->{ref_to_parent} => $self->{prev}{id},
+                            $relationship->{ref_to_related} => $child->id},
+                        app => $self->{app}
+                    };
+                    my $link = SmartSea::Object->new($args);
+                    $link->{object}->delete if $link && $link->{object};
+                }
+            } else {
+                for my $child (@links) {
+                    $child->update({$relationship->{ref_to_parent} => undef});
+                }
+            }
+            # add new
+            my @id = $self->{app}{parameters}->get_all($self->{class});
+            if ($relationship->{link_source}) {
+                for my $id (@id) {
+                    my $link = SmartSea::Object->new({source => $relationship->{link_source}, app => $self->{app}});
+                    my $columns = $link->columns;
+                    set_value_to_columns($columns, $relationship->{ref_to_parent}, $parent_id);
+                    set_value_to_columns($columns, $relationship->{ref_to_related}, $id);
+                    my @errors = $link->values_from_parameters($columns);
+                    return @errors if @errors;
+                    $link->create($columns);
+                }
+            } else {
+                for my $id (@id) {
+                    my $args = {
+                        source => $self->{source}, 
+                        id => $id,
+                        app => $self->{app}
+                    };
+                    my $child = SmartSea::Object->new($args);
+                    $child->update({$relationship->{ref_to_parent} => $parent_id});
+                }
+            }
+            return;
+        }
 
         say STDERR "create ",$self->{prev}->str," -> ",$self->str if $self->{app}{debug};
         if ($self->{object}) { # create a link

@@ -39,6 +39,7 @@ DAMAGE.
         map: $("#map"),
         user: $("#user"),
         plan: $("#plan"),
+        plan_menu: $("#plan-menu"),
         plans: $("#plans"),
         layers: $("#layers"),
         rule_header: $("#rule-header"),
@@ -49,6 +50,7 @@ DAMAGE.
         site_info: $('#site-info'),
         color_scale: $('#color-scale')
     }, {
+        uses: "#useslist",
         rules: "#rules"
     });
     var controller = new MSPController(model, view);

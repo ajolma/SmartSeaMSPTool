@@ -41,41 +41,35 @@ function MSPController(model, view) {
     self.use_classes = null;
     self.layer_classes = null;
 
-    self.view.planSelected.attach(function(sender, args) {
-        self.changePlan(args.id);
-    });
-    
     self.view.planCommand.attach(function(sender, args) {
         if (args.cmd == 'add')
             self.addPlan();
         else if (args.cmd == 'edit')
-            self.editPlan(args.plan);
+            self.editPlan(self.model.plan);
         else if (args.cmd == 'delete')
-            self.deletePlan(args.plan);
-    });
-    
-    self.view.newUseOrder.attach(function(sender, args) {
-        self.model.setUseOrder(args.order);
+            self.deletePlan(self.model.plan);
+        else if (args.cmd == 'add_use')
+            self.addUse(self.model.plan);
     });
     
     self.view.useCommand.attach(function(sender, args) {
-        if (args.cmd == 'add')
-            self.addUse();
-        else if (args.cmd == 'edit')
+        if (args.cmd == 'edit')
             self.editUse(args.use);
         else if (args.cmd == 'delete')
             self.deleteUse(args.use);
+        else if (args.cmd == 'add_layer')
+            self.addLayer(args.use);
     });
     
     self.view.layerCommand.attach(function(sender, args) {
-        if (args.cmd == 'add')
-            self.addLayer();
-        else if (args.cmd == 'edit')
+        if (args.cmd == 'edit')
             self.editLayer(args.layer);
         else if (args.cmd == 'delete')
             self.deleteLayer(args.layer);
-        else if (args.cmd == 'rules')
-            self.editRules(args.layer);
+        else if (args.cmd == 'add_rule')
+            self.addRule(args.layer);
+        else if (args.cmd == 'delete_rule')
+            self.deleteRule(args.layer);
     });
     
     self.view.ruleSelected.attach(function(sender, args) {
@@ -93,8 +87,7 @@ function MSPController(model, view) {
         modal: true,
         buttons: {
             Ok: function() {
-                self.ok();
-                self.editor.dialog('close');
+                if (self.ok()) self.editor.dialog('close');
             },
             Cancel: function() {
                 self.editor.dialog('close');
@@ -173,22 +166,29 @@ MSPController.prototype = {
         }
         return self.klasses[klass];
     },
-    changePlan: function(id) {
-        this.model.changePlan(id);
-    },
-    addPlan: function() {
+    addPlan: function(args) {
         var self = this;
+        if (!args) args = {};
         self.editor.dialog('option', 'title', 'Uusi suunnitelma');
         self.editor.dialog('option', 'height', 400);
         var name = 'plan-name';
-        self.editor.html('Name for the new plan: '+element('input', {type:'text', id:name}, ''));
+        var html = 'Anna nimi suunnitelmalle: '+element('input', {type:'text', id:name}, '');
+        if (args.error) html = element('p', {style:'color:red;'}, args.error)+html;
+        self.editor.html(html);
         self.ok = function() {
             name = $(self.editor_id+' #'+name).val();
-            self.post({
-                url: 'http://'+server+'/browser/plan?request=save',
-                payload: { name: name },
-                atSuccess: function(data) {self.model.addPlan(data)}
-            });
+            if (self.model.planNameOk(name)) {
+                self.post({
+                    url: 'http://'+server+'/browser/plan?request=save',
+                    payload: { name: name },
+                    atSuccess: function(data) {
+                        self.model.addPlan(data);
+                    }
+                });
+            } else {
+                self.addPlan({error:"Suunnitelma '"+name+"' on jo olemassa."});
+                return false;
+            }
         };
         self.editor.dialog('open');
     },
@@ -197,31 +197,40 @@ MSPController.prototype = {
         self.editor.dialog('option', 'title', 'Suunnitelma');
         self.editor.dialog('option', 'height', 400);
         var name = 'plan-name';
-        var del = 'delete-plan';
         var html = element('input', {type:'text', id:name, value:plan.name}, '');
-        html = element('p', {}, 'Name for the plan: ' + html);
-        html += element('p', {}, element('input', {id:del, type:'checkbox'},  'Delete plan '+plan.name));
+        html = element('p', {}, 'Suunnitelman nimi: ' + html);
         self.editor.html(html);
         self.ok = function() {
             name = $(self.editor_id+' #'+name).val();
-            del = $(self.editor_id+' #'+del).prop('checked');
-            if (del) {
-                self.post({
-                    url: 'http://'+server+'/browser/plan:'+plan.id+'?request=delete',
-                    payload: {},
-                    atSuccess: function(data) {self.model.deletePlan(plan.id)}
-                });
-            } else {
+            if (self.model.planNameOk(name)) {
                 self.post({
                     url: 'http://'+server+'/browser/plan:'+plan.id+'?request=update',
                     payload: { name: name },
                     atSuccess: function(data) {self.model.editPlan(data)}
                 });
+            } else {
+                self.addPlan({error:"Suunnitelma '"+name+"' on jo olemassa."});
+                return false;
             }
+            return true;
         };
         self.editor.dialog('open');
     },
-    addUse: function() {
+    deletePlan: function(plan) {
+        var self = this;
+        self.editor.dialog('option', 'title', 'Poista suunnitelma?');
+        self.editor.dialog('option', 'height', 400);
+        self.editor.html("Haluatko varmasti poistaa koko suunnitelman '"+plan.name+"'?");
+        self.ok = function() {
+            self.post({
+                url: 'http://'+server+'/browser/plan:'+plan.id+'?request=delete',
+                atSuccess: function(data) {self.model.deletePlan(plan.id)}
+            });
+            return true;
+        };
+        self.editor.dialog('open');
+    },
+    addUse: function(plan) {
         var self = this;
         self.editor.dialog('option', 'title', 'New use');
         self.editor.dialog('option', 'height', 400);
@@ -239,47 +248,60 @@ MSPController.prototype = {
         self.ok = function() {
             id = $(self.editor_id+' #'+id).val();
             self.post({
-                url: 'http://'+server+'/browser/use?request=save',
-                payload: { plan:self.model.plan.id, use_class:id },
-                atSuccess: function(data) {self.model.addUse(data)}
+                url: 'http://'+server+'/browser/plan:'+plan.id+'/uses?request=create',
+                payload: {use_class: id},
+                atSuccess: function(data) {
+                    $.each(classes, function(i, klass) {
+                        if (klass.id == data.use_class.value) {
+                            data.name = klass.name;
+                            return false;
+                        }
+                    });
+                    self.model.addUse(data);
+                }
             });
+            return true;
         };
         self.editor.dialog('open');
     },
     editUse: function(use) {
+        if (use.id != 0) return; // only for "Data"
         var self = this;
         self.editor.dialog('option', 'title', 'Use');
         self.editor.dialog('option', 'height', 400);
-        var html = '';
 
         // put into the list those datasets that are not in rules
         // selected are those in self.model.plan.data
-        var dataset_list = null;
-        if (use.id == 0) {
-            var inRules = self.model.datasetsInRules();
-            var notInRules = [];
-            $.each(self.model.datasets.layers, function(i, layer) {
-                if (!inRules[layer.id]) notInRules.push(layer);
-            });
-            dataset_list = new Widget({
-                container_id:self.editor_id,
-                id:'dataset_list',
-                type:'checkbox-list',
-                list:notInRules,
-                selected:self.model.plan.data,
-                pretext:'Select the extra datasets for this plan: '
-            });
-            html += element('p', {}, dataset_list.content());
-        }
+        
+        var inRules = self.model.datasetsInRules();
+        var notInRules = [];
+        $.each(self.model.datasets.layers, function(i, layer) {
+            if (!inRules[layer.id]) notInRules.push(layer);
+        });
+        var dataset_list = new Widget({
+            container_id:self.editor_id,
+            id:'dataset_list',
+            type:'checkbox-list',
+            list:notInRules,
+            selected:self.model.plan.data,
+            pretext:'Select the extra datasets for this plan: '
+        });
+        var html = element('p', {}, dataset_list.content());
         
         self.editor.html(html);
         self.ok = function() {
-            if (dataset_list) {
-                var selected = dataset_list.selected_ids();
-                // add to plan:(use.plan).extra_datasets or data? those that are in selected but not in self.model.plan.data
-                // remove those in self.model.plan.data but not in selected
-                
-            }
+            var selected = dataset_list.selected_ids();
+            var plan_id = self.model.plan.id;
+            var update = '';
+            $.each(selected, function(i, id) {
+                if (update) update += '&';
+                update += 'dataset='+id;
+            });
+            self.post({
+                url: 'http://'+server+'/browser/plan:'+plan_id+'/extra_datasets?request=update',
+                payload: update,
+                atSuccess: function(data) {self.model.setPlanData(data)}
+            });
         };
         self.editor.dialog('open');
     },
@@ -386,7 +408,7 @@ MSPController.prototype = {
             atSuccess: function(data) {self.model.deleteLayer(layer.id)}
         });
     },
-    editRules: function(layer) {
+    addRule: function(layer) {
         var self = this;
         self.editor.dialog('option', 'title', 'Rules in '+layer.name);
         self.editor.dialog('option', 'height', 400);
@@ -507,7 +529,11 @@ MSPController.prototype = {
             self.editor.dialog('close');
         };
         self.editor.dialog('open');
-        
+    },
+    deleteRule: function(layer) {
+        var self = this;
+        self.editor.dialog('option', 'title', 'Delete rules from '+layer.name);
+        self.editor.dialog('option', 'height', 400);
     },
     modifyRule: function(args) {
         var self = this;

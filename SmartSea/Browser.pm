@@ -249,7 +249,7 @@ sub object_editor {
             return json200({}, {error=>"$@"}) if $self->{json};
             push @body, [form => {action => $self->{path}, method => 'POST'}, $object->last->form];
         } else {
-            return json200({}, $object->first->read) if $self->{json};
+            return json200({}, $object->last->read) if $self->{json};
             my $part = [ul => [li => $object->first->item([], {url => $self->{root}})]];
             push @body, $part;
         }
