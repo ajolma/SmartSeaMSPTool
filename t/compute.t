@@ -340,9 +340,9 @@ sub add_rule {
         rule_system => $rule_system
     };
     if ($based->{layer_id}) {
-        $rule->{r_layer} = $based->{layer_id};
+        $rule->{layer} = $based->{layer_id};
     } elsif ($based->{dataset_id}) {
-        $rule->{r_dataset} = $based->{dataset_id};
+        $rule->{dataset} = $based->{dataset_id};
     }
     if ($data->{op_id}) {
         $rule->{op} = $data->{op_id};

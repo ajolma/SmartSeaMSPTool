@@ -349,7 +349,11 @@ sub values_from_parameters {
         } elsif ($column eq 'owner') {
             $meta->{value} = $self->{app}{user}; # admin can set user?
         } elsif ($column eq 'cookie') {
-            $meta->{value} = $self->{app}{cookie};
+            if ($self->{app}{request} && $self->{app}{request} eq 'modify') {
+                $meta->{value} = $self->{app}{cookie};
+            } else {
+                $meta->{value} = DEFAULT;
+            }
         } else {
             next if !$meta->{not_null} && !(exists $parameters->{$column});
             $meta->{value} = $parameters->{$column};

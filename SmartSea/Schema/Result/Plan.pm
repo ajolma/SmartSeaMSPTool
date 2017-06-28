@@ -85,7 +85,7 @@ sub datasets {
                 resultset('Layer')->
                 single({use => $use->id, layer_class => $layer_class->id});
             for my $rule ($layer->rules({cookie => DEFAULT})) {
-                $datasets{$rule->r_dataset->id} = $rule->r_dataset if $rule->r_dataset;
+                $datasets{$rule->dataset->id} = $rule->dataset if $rule->dataset;
             }
         }
     }

@@ -15,8 +15,8 @@ my @columns = (
     cookie       => {},
     made         => {},
     rule_system  => { is_foreign_key => 1, source => 'RuleSystem', not_null => 1 },
-    r_layer      => { is_foreign_key => 1, source => 'Layer' },
-    r_dataset    => { is_foreign_key => 1, source => 'Dataset',    not_null => 1, objs => {path => {'!=',undef}} },
+    layer        => { is_foreign_key => 1, source => 'Layer' },
+    dataset      => { is_foreign_key => 1, source => 'Dataset',    not_null => 1, objs => {path => {'!=',undef}} },
     op           => { is_foreign_key => 1, source => 'Op'  },
     value        => { data_type => 'text', type => 'double', empty_is_default => 1 },
     min_value    => { data_type => 'text', type => 'double', empty_is_default => 1 },
@@ -39,8 +39,8 @@ __PACKAGE__->add_columns(@columns);
 __PACKAGE__->set_primary_key('id', 'cookie');
 
 __PACKAGE__->belongs_to(rule_system => 'SmartSea::Schema::Result::RuleSystem');
-__PACKAGE__->belongs_to(r_layer => 'SmartSea::Schema::Result::Layer');
-__PACKAGE__->belongs_to(r_dataset => 'SmartSea::Schema::Result::Dataset');
+__PACKAGE__->belongs_to(layer => 'SmartSea::Schema::Result::Layer');
+__PACKAGE__->belongs_to(dataset => 'SmartSea::Schema::Result::Dataset');
 __PACKAGE__->belongs_to(op => 'SmartSea::Schema::Result::Op');
 
 sub my_columns_info {
@@ -63,7 +63,7 @@ sub my_columns_info {
         }
         my %info = (%{$self->column_info($col)});
         if (blessed($self) && $col eq 'value') {
-            my $dataset = $self->r_dataset ? $self->r_dataset : undef;
+            my $dataset = $self->dataset ? $self->dataset : undef;
             my $value_semantics = $dataset ? $dataset->class_semantics : undef;
             if ($value_semantics) {
                 my @objs;
@@ -94,27 +94,27 @@ sub column_values_from_context {
 
 sub is_ok {
     my ($self, $col_data) = @_;
-    my $r_dataset;
-    my $r_layer;
+    my $dataset;
+    my $layer;
     if (ref $self) {
-        if ($self->r_dataset) {
-            if (exists $col_data->{r_dataset}) {
-                $r_dataset = $col_data->{r_dataset};
+        if ($self->dataset) {
+            if (exists $col_data->{dataset}) {
+                $dataset = $col_data->{dataset};
             } else {
-                $r_dataset = 1;
+                $dataset = 1;
             }
         } else {
-            if (exists $col_data->{r_layer}) {
-                $r_layer = $col_data->{r_layer};
+            if (exists $col_data->{layer}) {
+                $layer = $col_data->{layer};
             } else {
-                $r_layer = 1;
+                $layer = 1;
             }
         }
     } else {
-        $r_dataset = $col_data->{r_dataset} if exists $col_data->{r_dataset};
-        $r_layer = $col_data->{r_layer} if exists $col_data->{r_layer};
+        $dataset = $col_data->{dataset} if exists $col_data->{dataset};
+        $layer = $col_data->{layer} if exists $col_data->{layer};
     }
-    return "Rule must be based either on a layer or on a dataset." unless $r_dataset xor $r_layer;
+    return "Rule must be based either on a layer or on a dataset." unless $dataset xor $layer;
     return undef;
 }
 
@@ -127,8 +127,8 @@ sub name {
 
     my $class = $self->rule_system->rule_class // '';
     $class = $class->name // '' if $class;
-    my $layer  = $self->r_layer ? $self->r_layer : undef;
-    my $dataset = $self->r_dataset ? $self->r_dataset : undef;
+    my $layer  = $self->layer ? $self->layer : undef;
+    my $dataset = $self->dataset ? $self->dataset : undef;
 
     my $criteria = $dataset ? $dataset->name : ($layer ? $layer->name : 'unknown');
 
@@ -166,17 +166,17 @@ sub name {
 sub tree {
     my ($self) = @_;
     my %rule = (
-        name => $self->r_dataset ? $self->r_dataset->name : 'undef',
+        name => $self->dataset ? $self->dataset->name : 'undef',
         op => $self->op->name,
         binary => JSON::false,
         id => $self->id, 
         active => JSON::true,
         value => $self->value+0,
-        description => $self->r_dataset ? $self->r_dataset->descr : '',
-        dataset_id => $self->r_dataset ? $self->r_dataset->id : '',
+        description => $self->dataset ? $self->dataset->descr : '',
+        dataset_id => $self->dataset ? $self->dataset->id : '',
         );
 
-    my $dataset = $self->r_dataset ? $self->r_dataset : undef;
+    my $dataset = $self->dataset ? $self->dataset : undef;
     my $value_semantics = $dataset ? $dataset->class_semantics : undef;
     if ($value_semantics) {
         my %value_semantics;
@@ -190,7 +190,7 @@ sub tree {
     } else {
         my $class = $self->rule_system->rule_class->name;
         if ($class eq 'exclusive' || $class eq 'inclusive') {
-            my $dataset = $self->r_dataset;
+            my $dataset = $self->dataset;
             my $style = $dataset ? $dataset->style : undef;
             my $n_classes = $style ? $style->classes : undef;
             if ($n_classes) {
@@ -289,27 +289,19 @@ sub apply {
 
 sub operand {
     my ($self, $rules) = @_;
-    if ($self->r_layer) {
-        # we need the rules associated with the 2nd plan.use.layer
-        my $plan = $self->r_plan ? $self->r_plan : $self->plan;
-        my $use = $self->r_use ? $self->r_use : $self->use;
-            
-        # TODO: how to avoid circular references?
-
-        my $rules = SmartSea::Layer->new($rules->{schema}, $plan, $use, $self->r_layer);
-
-        say STDERR 
-            $plan->name,".",$use->name,".",$self->r_layer->name,
-            " did not return any rules" unless $rules->rules;
+    
+    if ($self->layer) {
         
-        if ($self->r_layer->name eq 'Allocation') {
-            return $rules->compute_allocation($rules);
-        } else {
-            return $rules->compute_value($rules);
-        }
-    } elsif ($self->r_dataset) {
-        return $self->r_dataset->Piddle($rules);
+        # not tested!
+        # how to avoid circular references?
+        
+        return $self->layer->rule_system->compute;
+        
+    } elsif ($self->dataset) {
+        return $self->dataset->Piddle($rules);
+        
     }
+    
     return undef;
 }
 

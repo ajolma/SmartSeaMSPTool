@@ -975,10 +975,10 @@ ALTER SEQUENCE rule_systems_id_seq OWNED BY rule_systems.id;
 
 CREATE TABLE rules (
     id integer NOT NULL,
-    r_layer integer,
+    layer integer,
     op integer DEFAULT 1 NOT NULL,
     value double precision DEFAULT 1 NOT NULL,
-    r_dataset integer,
+    dataset integer,
     min_value double precision DEFAULT 0 NOT NULL,
     max_value double precision DEFAULT 1 NOT NULL,
     cookie text DEFAULT 'default'::text NOT NULL,
@@ -993,10 +993,10 @@ CREATE TABLE rules (
 ALTER TABLE rules OWNER TO ajolma;
 
 --
--- Name: COLUMN rules.r_layer; Type: COMMENT; Schema: tool; Owner: ajolma
+-- Name: COLUMN rules.layer; Type: COMMENT; Schema: tool; Owner: ajolma
 --
 
-COMMENT ON COLUMN rules.r_layer IS 'data for this this rule (alternative to r_dataset)';
+COMMENT ON COLUMN rules.layer IS 'data for this this rule (alternative to r_dataset)';
 
 
 --
@@ -1007,10 +1007,10 @@ COMMENT ON COLUMN rules.value IS 'threshold, used together with op';
 
 
 --
--- Name: COLUMN rules.r_dataset; Type: COMMENT; Schema: tool; Owner: ajolma
+-- Name: COLUMN rules.dataset; Type: COMMENT; Schema: tool; Owner: ajolma
 --
 
-COMMENT ON COLUMN rules.r_dataset IS 'data for this this rule (alternative to r_layer)';
+COMMENT ON COLUMN rules.dataset IS 'data for this this rule (alternative to r_layer)';
 
 
 --
@@ -2025,7 +2025,7 @@ ALTER TABLE ONLY rule_systems
 --
 
 ALTER TABLE ONLY rules
-    ADD CONSTRAINT rules_r_dataset_fkey FOREIGN KEY (r_dataset) REFERENCES data.datasets(id);
+    ADD CONSTRAINT rules_r_dataset_fkey FOREIGN KEY (dataset) REFERENCES data.datasets(id);
 
 
 --
@@ -2033,7 +2033,7 @@ ALTER TABLE ONLY rules
 --
 
 ALTER TABLE ONLY rules
-    ADD CONSTRAINT rules_r_layer_fkey FOREIGN KEY (r_layer) REFERENCES layers(id);
+    ADD CONSTRAINT rules_r_layer_fkey FOREIGN KEY (layer) REFERENCES layers(id);
 
 
 --

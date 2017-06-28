@@ -51,6 +51,7 @@ function MSP(args) {
     self.newLayerList = new Event(self);
     self.layerSelected = new Event(self);
     self.layerUnselected = new Event(self);
+    self.layerRulesChanged = new Event(self);
     self.ruleEdited = new Event(self);
     self.siteInitialized = new Event(self);
     self.siteInformationReceived = new Event(self);
@@ -124,35 +125,21 @@ MSP.prototype = {
         }
         return ok;
     },
-    addPlan: function(data) {
+    addPlan: function(plan) {
         var self = this;
-        if (!data.uses) data.uses = [];
-        if (!data.data) data.data = {};
-        if (data.id !== null && typeof data.id === 'object') { // it's from REST API
-            data.id = data.id.value;
-            data.owner = data.owner.value;
-            data.name = data.name.value;
-        }
-        self.plans.unshift(data);
+        if (!plan.uses) plan.uses = [];
+        if (!plan.data) plan.data = {};
+        self.plans.unshift(plan);
         self.newPlans.notify();
-        self.changePlan(data.id);
+        self.changePlan(plan.id);
         self.initSite();
     },
-    editPlan: function(data) {
+    editPlan: function(plan) {
         var self = this;
-        var plan;
-        if (data.id !== null && typeof data.id === 'object') { // it's from REST API
-            plan = self.getPlan(data.id.value);
-            if (plan) {
-                plan.owner = data.owner.value;
-                plan.name = data.name.value;
-            }
-        } else {
-            plan = self.getPlan(data.id);
-            if (plan) {
-                plan.owner = data.owner;
-                plan.name = data.name;
-            }
+        var plan = self.getPlan(plan.id);
+        if (plan) {
+            plan.owner = plan.owner;
+            plan.name = plan.name;
         }
         self.newPlans.notify();
         self.changePlan(plan.id);
@@ -286,17 +273,9 @@ MSP.prototype = {
         self.plan.uses = newUses;
         self.createLayers(false);
     },
-    addUse: function(data) {
+    addUse: function(use) {
         var self = this;
-        if (data.id !== null && typeof data.id === 'object') { // it's from REST API
-            data.id = data.id.value;
-            data.owner = data.owner.value;
-            data.plan = data.plan.value;
-            data.class_id = data.use_class.value;
-            data.layers = [];
-            // name is set in controller
-        }
-        self.plan.uses.unshift(data);
+        self.plan.uses.unshift(use);
         self.createLayers(false);
     },
     hasUse: function(class_id) {
@@ -364,16 +343,9 @@ MSP.prototype = {
         self.newLayerList.notify();
         self.addSite();
     },
-    addLayer: function(use, data) {
+    addLayer: function(use, layer) {
         var self = this;
-        if (data.id !== null && typeof data.id === 'object') { // it's from REST API
-            data.id = data.id.value;
-            data.class_id = data.layer_class.value;
-            data.owner = data.owner.value;
-            data.rules = [];
-            data.use_class_id = use.class_id;
-        }
-        use.layers.unshift(data);
+        use.layers.unshift(layer);
         self.createLayers(true);
     },
     deleteLayer: function(use_id, layer_id) {
@@ -438,6 +410,20 @@ MSP.prototype = {
         self.layer = null;
         if (unselect) self.layerUnselected.notify(layer);
         return layer;
+    },
+    addRule: function(layer, rule) {
+        layer.rules.push(rule);
+        self.layerRulesChanged.notify({layer:layer});
+    },
+    deleteRule: function(layer, rules) {
+        var rules2 = [];
+        $.each(layer.rules, function(i, rule) {
+            if (!rules[rule.id]) {
+                rules2.push(rule);
+            }
+        });
+        layer.rules = rules2;
+        self.layerRulesChanged.notify({layer:layer});
     },
     selectRule: function(id) {
         var self = this;

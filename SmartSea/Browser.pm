@@ -105,6 +105,7 @@ sub object_editor {
     my $request;
     if ($self->{parameters}{request}) {
         $request = $self->{parameters}{request};
+        delete $self->{parameters}{request};
     } elsif ($self->{parameters}{delete}) {
         # from HTML form
         # attempt to delete and show the changed object
@@ -112,10 +113,12 @@ sub object_editor {
         my $class = $object->last->{class}; # what to delete
         $self->{parameters}->remove($class); # from a select accompanying create button
         $object->last->id($self->{parameters}{delete} =~ /(\d+)/);
+        delete $self->{parameters}{delete};
         $request = 'delete';
     } else {
         $request = 'read';
     }
+    $self->{request} = $request;
     say STDERR "request = $request" if $self->{debug};
 
     # to make jQuery happy:

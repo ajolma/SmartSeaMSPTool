@@ -178,6 +178,7 @@ sub post_process {
     return $result
 }
 
+# todo: move this to rule_system
 sub compute {
     my ($self) = @_;
 

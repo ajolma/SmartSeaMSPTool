@@ -140,9 +140,17 @@ Widget.prototype = {
         });
         return retval;
     },
+    value: function() {
+        var self = this;
+        var value = $(self.container_id+' #'+self.id).val();
+        if (self.type === 'select')
+            return self.fromList(value);
+        else
+            return value;
+    },
     selected: function() {
         var self = this;
-        return self.fromList($(self.container_id+' #'+self.id).val());
+        return self.value();
     },
     selected_ids: function() {
         var self = this;
@@ -154,7 +162,7 @@ Widget.prototype = {
             return ids;
         }
     },
-    change: function(fct) {
+    changed: function(fct) {
         var self = this;
         $(self.container_id+' #'+self.id).change(fct);
     },

@@ -70,6 +70,9 @@ function MSPView(model, elements, id) {
     self.model.layerUnselected.attach(function(sender, args) {
         self.unselectLayer(args);
     });
+    self.model.layerRulesChanged.attach(function(sender, args) {
+        if (args.layer.id == self.model.layer.id) self.fillRulesPanel(self.model.layer);
+    });
     self.model.ruleEdited.attach(function(sender, args) {
         self.fillRulesPanel(self.model.layer);
     });
