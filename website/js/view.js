@@ -84,7 +84,8 @@ function MSPView(model, elements, id) {
     });
 
     // events
-    
+
+    self.error = new Event(self);
     self.planCommand = new Event(self);
     self.useCommand = new Event(self);
     self.layerCommand = new Event(self);
@@ -119,8 +120,7 @@ MSPView.prototype = {
         if (user != 'guest') self.elements.user.html('Hello '+user+'!');
         self.elements.plans.html('');
         $.each(self.model.plans, function(i, plan) {
-            if (plan.id > 1) // not Ecosystem and Data, which are 'pseudo plans'
-                self.elements.plans.append(element('option',{value:plan.id},plan.name));
+            self.elements.plans.append(element('option',{value:plan.id},plan.name));
         });
         self.cleanUp();
     },
@@ -365,7 +365,7 @@ MSPView.prototype = {
         var typeSelect = self.elements.site_type[0];
         $(typeSelect).val('');
         self.elements.site_info.html('');
-        function addInteraction() {
+        typeSelect.onchange = (function addInteraction() {
             var value = typeSelect.value;
             self.model.removeInteraction(self.draw);
             self.draw = {key:null, draw:null, source:null};
@@ -388,8 +388,7 @@ MSPView.prototype = {
                 source.clear();
                 self.elements.site_info.html('');
             }
-        }
-        typeSelect.onchange = addInteraction;
-        addInteraction();
+            return addInteraction;
+        }());
     }
 };

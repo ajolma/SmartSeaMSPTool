@@ -26,75 +26,6 @@ USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 DAMAGE.
 */
 
-function createLayer(template, projection) {
-    if (template.bg && template.bg == 'osm') {
-        return [
-            new ol.layer.Tile({
-                source: new ol.source.OSM()
-            })
-            // how to add 'http://t1.openseamap.org/seamark/' on top of this?
-        ]
-    }
-    if (template.bg && template.bg == 'mml') {
-        return [new ol.layer.Tile({
-            opacity: 1,
-            extent: projection.extent,
-            source: new ol.source.TileWMS({
-                attributions: [new ol.Attribution({
-                    html: 'Map: Ministry of Education and Culture, Data: OpenStreetMap contributors'
-                })],
-                url: 'http://avaa.tdata.fi/geoserver/osm_finland/wms',
-                params: {'LAYERS': 'osm-finland', 'TILED': true},
-                serverType: 'geoserver',
-                matrixSet: 'ETRS-TM35FIN',
-                projection: projection.projection,
-                tileGrid: new ol.tilegrid.WMTS({
-                    origin: ol.extent.getTopLeft(projection.extent),
-                    resolutions: projection.resolutions,
-                    matrixIds: projection.matrixIds
-                })
-            })
-            /*
-            source: new ol.source.WMTS({
-                attributions: [new ol.Attribution({
-                    html: 'Tiles &copy; <a href="http://www.maanmittauslaitos.fi/avoindata_lisenssi">MML</a>'
-                })],
-                url: 'http://avoindata.maanmittauslaitos.fi/mapcache/wmts',
-                layer: 'taustakartta',
-                matrixSet: 'ETRS-TM35FIN',
-                format: 'image/png',
-                projection: projection.projection,
-                tileGrid: new ol.tilegrid.WMTS({
-                    origin: ol.extent.getTopLeft(projection.extent),
-                    resolutions: projection.resolutions,
-                    matrixIds: projection.matrixIds
-                }),
-                style: 'default'
-            })
-            */
-        })];
-    }
-    if (template.bg && template.bg == 'test') {
-        return [new ol.layer.Tile({
-            opacity: 1,
-            extent: projection.extent,
-            source: new ol.source.WMTS({
-                url: 'http://' + server + '/WMTS',
-                layer: 'suomi',
-                matrixSet: projection.matrixSet,
-                format: 'image/png',
-                projection: projection.projection,
-                tileGrid: new ol.tilegrid.WMTS({
-                    origin: ol.extent.getTopLeft(projection.extent),
-                    resolutions: projection.resolutions,
-                    matrixIds: projection.matrixIds
-                }),
-                style: 'default'
-            })
-        })];
-    }
-}
-
 function MSPLayer(args) {
     var self = this;
     for (var key in args){
@@ -105,6 +36,7 @@ function MSPLayer(args) {
         $.each(self.rules, function(i, rule) {
             rule.model = self.model;
             rule.layer = self;
+            rule.active = true;
             rule = new MSPRule(rule);
             rules.push(rule);
         });
@@ -185,7 +117,6 @@ MSPLayer.prototype = {
                 ind = i;
             }
         });
-        coll.removeAt(ind);
         self.newLayer();
         coll.setAt(ind, self.layer);
         self.map.render();
@@ -243,6 +174,7 @@ MSPRule.prototype = {
     getName: function() {
         var self = this;
         var dataset = self.model.getDataset(self.dataset);
+        if (!dataset) return "Dataset "+self.dataset+" is missing.";
         var name = dataset.name;
         if (dataset.classes > 1) {
             var value = self.value;
@@ -250,5 +182,29 @@ MSPRule.prototype = {
             name += ' '+self.op+' '+value;
         }
         return name;
+    },
+    getMinMax: function() {
+        var self = this;
+        var dataset = self.model.getDataset(self.dataset);
+        if (!dataset) return {
+            min:null,
+            max:null,
+            classes:null,
+            data_type:null,
+            semantics:null
+        };
+        return {
+            min:dataset.min_value,
+            max:dataset.max_value,
+            classes:dataset.classes,
+            data_type:dataset.data_type,
+            semantics:data_type.semantics
+        };
+    },
+    description: function() {
+        var self = this;
+        var dataset = self.model.getDataset(self.dataset);
+        if (!dataset) return "Dataset "+self.dataset+" is missing. Its database entry is probably incomplete.";
+        return dataset.description;
     }
 };

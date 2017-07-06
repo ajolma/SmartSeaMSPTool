@@ -30,10 +30,11 @@ DAMAGE.
 
 function MSP(args) {
     var self = this;
+    self.proj = args.proj;
+    self.map = args.map;
     self.firstPlan = args.firstPlan;
     self.auth = args.auth;
-    self.proj = null;
-    self.map = null;
+    
     self.site = null; // layer showing selected location or area
     self.plans = null;
     // pseudo uses
@@ -46,6 +47,7 @@ function MSP(args) {
 
     // events
 
+    self.error = new Event(self);
     self.newPlans = new Event(self);
     self.planChanged = new Event(self);
     self.newLayerList = new Event(self);
@@ -56,71 +58,20 @@ function MSP(args) {
     self.siteInitialized = new Event(self);
     self.siteInformationReceived = new Event(self);
 
-    self.dialog = $('#error');
-    self.dialog.dialog({
-        autoOpen: false,
-        height: 400,
-        width: 350,
-        modal: true,
-        buttons: {
-            Ok: function() {
-                self.dialog.dialog('close');
-            },
-        },
-        close: function() {
-        }
-    });
 }
 
 MSP.prototype = {
-    error: function(msg) {
-        var self = this;
-        self.dialog.html(msg)
-        self.dialog.dialog('open');
-    },
-    getPlans: function() {
+    setPlans: function(plans, ecosystem, datasets) {
         var self = this;
         if (self.plan) self.firstPlan = self.plan.id;
         self.removeLayers();
         self.removeSite();
-        // the planning system is a tree: root->plans->uses->layers->rules
-        $.ajax({
-            url: 'http://'+server+'/plans',
-            xhrFields: {
-                withCredentials: true
-            }
-        }).done(function(plans) {
-            self.plans = plans;
-            // pseudo uses, note reserved use class id's
-            $.each(self.plans, function(i, plan) {
-                if (!plan.uses) plan.uses = [];
-                if (plan.id == 0) { // a pseudo plan Data
-                    self.datasets = plan.uses[0];
-                } else if (plan.id == 1) { // a pseudo plan Ecosystem
-                    self.ecosystem = plan.uses[0];
-                }
-            });
-            $.each(self.plans, function(i, plan) {
-                $.each(plan.uses, function(i, use) {
-                    var layers = [];
-                    $.each(use.layers, function(j, layer) {
-                        layer.model = self;
-                        layer.server = 'http://' + server + '/WMTS';
-                        layer.map = self.map;
-                        layer.projection = self.proj;
-                        layer.use_class_id = use.class_id;
-                        layers.push(new MSPLayer(layer));
-                    });
-                    use.layers = layers;
-                });
-            });
-            self.newPlans.notify();
-            self.changePlan(self.firstPlan);
-            self.initSite();
-        }).fail(function(xhr, textStatus, errorThrown) {
-            var msg = 'The configured SmartSea MSP server at '+server+' is not responding.';
-            self.error(msg);
-        });
+        self.plans = plans;
+        self.ecosystem = ecosystem;
+        self.datasets = datasets;
+        self.newPlans.notify();
+        self.changePlan(self.firstPlan);
+        self.initSite();
     },
     getPlan: function(id) {
         var self = this;
@@ -191,8 +142,8 @@ MSP.prototype = {
             if (use.id > 1) {
                 $.each(use.layers, function(i, layer) {
                     $.each(layer.rules, function(i, rule) {
-                        datasets[rule.dataset] = self.getDataset(rule.dataset);
-                        return false;
+                        var d = self.getDataset(rule.dataset);
+                        if (d) datasets[rule.dataset] = d;
                     });
                 });
             }
@@ -204,25 +155,24 @@ MSP.prototype = {
         // remove extra uses
         if (self.plan) {
             var newUses = [];
-            for (var i = 0; i < this.plan.uses.length; ++i) {
-                if (this.plan.uses[i].id > 1) // not a pseudo plan
-                    newUses.push(this.plan.uses[i]);
-            }
+            $.each(self.plan.uses, function(i, use) {
+                if (use.id > 1) newUses.push(use);
+            });
             this.plan.uses = newUses;
         }
         self.plan = null;
         self.layer = null;
         $.each(self.plans, function(i, plan) {
-            if (id == plan.id) self.plan = plan;
+            if (id == plan.id) {
+                self.plan = plan;
+                return false;
+            }
         });
         if (!self.plan) {
-            $.each(self.plans, function(i, plan) {
-                if (plan.id > 1) {
-                    self.plan = plan;
-                    return false;
-                }
-            });
-            if (!self.plan) self.plan = {id:2, name:'No plan', data:[], uses:[]};
+            if (self.plans.length > 0)
+                self.plan = self.plans[0];
+            else
+                self.plan = {id:2, name:'No plan', data:[], uses:[]};
         }
         // pseudo use
         var datasets = {
@@ -242,15 +192,18 @@ MSP.prototype = {
                 }
             });
         });
+        var by_name = function (a, b) {
+            if (a.name < b.name) return -1;
+            if (a.name > b.name) return 1;
+            return 0;
+        };
         var array = []
         $.each(layers, function(i, layer) {
             array.push(layer);
         });
-        datasets.layers = array.sort(function (a, b) {
-            if (a.name < b.name) return -1;
-            if (a.name > b.name) return 1;
-            return 0;
-        });
+        datasets.layers = array.sort(by_name);
+        var uses = self.plan.uses.sort(by_name);
+        self.plan.uses = uses;
 
         // add datasets and ecosystem as an extra use
         self.plan.uses.push(self.ecosystem);
@@ -305,7 +258,10 @@ MSP.prototype = {
         // reverse order to show in correct order
         $.each(self.plan.uses.reverse(), function(i, use) {
             $.each(use.layers.reverse(), function(j, layer) {
-                layer.addToMap();
+                if (layer)
+                    layer.addToMap();
+                else
+                    console.log("Layer undefined in use "+use.id+" "+j);
             });
         });
         self.newLayerList.notify();
@@ -357,6 +313,22 @@ MSP.prototype = {
             if (retval) return false;
         });
         return retval;
+    },
+    updateLayer: function(data) {
+        var self = this;
+        var ok = false;
+        $.each(self.plan.uses, function(i, use) {
+            $.each(use.layers, function(i, layer) {
+                if (layer.id == data.id) {
+                    layer.color_scale = data.color_scale;
+                    layer.refresh();
+                    ok = true;
+                    return false;
+                }
+            });
+            if (ok) return false;
+        });
+        self.newLayerList.notify();
     },
     selectLayer: function(id) {
         var self = this;
@@ -411,9 +383,9 @@ MSP.prototype = {
         var self = this;
         return self.rule;
     },
-    modifyRule: function(object) {
+    editRule: function(rule) {
         var self = this;
-        self.rule.value = object.value;
+        self.rule.value = rule.value;
         self.layer.refresh();
         self.ruleEdited.notify();
     },
@@ -497,4 +469,3 @@ MSP.prototype = {
         }
     }
 };
-

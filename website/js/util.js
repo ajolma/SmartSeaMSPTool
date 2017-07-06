@@ -111,14 +111,14 @@ function Widget(args) {
                     if (name === self._selected) attr.selected = 'selected';
                 } else {
                     attr = {value:i};
-                    if (i === self._value) attr.selected = 'selected';
+                    if (i == self._value) attr.selected = 'selected'; // '==' because i is string and _value is number
                 }
                 x = '';
             } else if (self.type == 'checkbox-list') {
                 tag = 'input';
                 name = element('a', {id:'item', item:item.id}, name);
                 attr = {type:'checkbox', item:item.id};
-                if (self._value[item.id]) attr.checked="checked"; 
+                if (self._selected[item.id]) attr.checked="checked"; 
                 x = element('br');
             }
             content += element(tag, attr, name) + x;
@@ -187,7 +187,7 @@ Widget.prototype = {
         if (self.type === 'spinner')
             return $(self.selector).spinner('value');
         else if (self.type === 'slider')
-            return $(self.selector).slider('value');
+            return self._value; //$(self.selector).slider('value'); is not the same for some reason
         else
             return value;
     },

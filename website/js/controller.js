@@ -33,6 +33,7 @@ function MSPController(model, view) {
     self.server = 'http://'+server+'/browser/';
     self.model = model;
     self.view = view;
+    self.msg = $('#error');
     self.editor_id = '#editor';
     self.editor = $(self.editor_id);
     self.rule_editor_id = '#rule-editor';
@@ -74,11 +75,33 @@ function MSPController(model, view) {
     });
     
     self.view.ruleSelected.attach(function(sender, args) {
-        self.modifyRule(args);
+        self.editRule(args);
     });
 
     self.model.newPlans.attach(function(sender, args) {
         self.editor.dialog('close');
+    });
+
+    self.model.error.attach(function(sender, args) {
+        self.error(args.msg);
+    });
+
+    self.view.error.attach(function(sender, args) {
+        self.error(args.msg);
+    });
+
+    self.msg.dialog({
+        autoOpen: false,
+        height: 400,
+        width: 350,
+        modal: true,
+        buttons: {
+            Ok: function() {
+                self.msg.dialog('close');
+            },
+        },
+        close: function() {
+        }
     });
 
     self.editor.dialog({
@@ -117,6 +140,11 @@ function MSPController(model, view) {
 }
 
 MSPController.prototype = {
+    error: function(msg) {
+        var self = this;
+        self.msg.html(msg)
+        self.msg.dialog('open');
+    },
     post: function(args) {
         var self = this;
         $.ajaxSetup({
@@ -166,6 +194,42 @@ MSPController.prototype = {
             });
         }
         return self.klasses[klass];
+    },
+    loadPlans: function() {
+        var self = this;
+        self.post({
+            url: 'http://'+server+'/plans',
+            payload: {},
+            atSuccess: function(data) {
+                var plans = [], ecosystem, datasets;
+                $.each(data, function(i, plan) {
+                    if (!plan.uses) plan.uses = [];
+                    $.each(plan.uses, function(j, use) {
+                        var layers = [];
+                        $.each(use.layers, function(k, layer) {
+                            layer.model = self.model;
+                            layer.server = 'http://' + server + '/WMTS';
+                            layer.map = self.model.map;
+                            layer.projection = self.model.proj;
+                            layer.use_class_id = use.class_id;
+                            layers.push(new MSPLayer(layer));
+                        });
+                        use.layers = layers;
+                    });
+                });
+                // pseudo uses, note reserved use class id's
+                $.each(data, function(i, plan) {
+                    if (plan.id == 0) { // a pseudo plan Data
+                        datasets = plan.uses[0];
+                    } else if (plan.id == 1) { // a pseudo plan Ecosystem
+                        ecosystem = plan.uses[0];
+                    } else {
+                        plans.push(plan);
+                    }
+                });
+                self.model.setPlans(plans, ecosystem, datasets);
+            }
+        });
     },
     addPlan: function(args) {
         var self = this;
@@ -436,6 +500,24 @@ MSPController.prototype = {
         
         self.ok = function() {
             var color = color_list.selected(); // fixme, when is this set?
+            var payload = {
+                color_scale: color.id
+            };
+            self.post({
+                url: self.server+'layer:'+layer.id+'?request=update',
+                payload: payload,
+                atSuccess: function(data) {
+                    self.model.updateLayer({
+                        id: data.id.value,
+                        color_scale: color.name,
+                        /*
+                        class_id: data.layer_class.value,
+                        owner: data.owner.value,
+                        use_class_id: use.class_id,
+                        rule_class: rule_class.name
+                        */
+                    })}
+            });
             return true;
         };
         self.editor.dialog('open');
@@ -580,55 +662,59 @@ MSPController.prototype = {
         };
         self.editor.dialog('open');
     },
-    modifyRule: function(args) {
+    editRule: function(args) {
         var self = this;
-        self.rule_editor.dialog('option', 'title', 'Modify rule');
+        self.rule_editor.dialog('option', 'title', 'Edit rule');
         self.rule_editor.dialog('option', 'height', 400);
         
         var rule = self.model.selectRule(args.id);
-        var dataset = self.model.getDataset(rule.dataset);
-        var html = dataset.name;
+        var html = rule.getName();
+        var owner = rule.layer.owner == user;
+
+        if (!owner) html += element('p', {}, 'Et ole tämän tason omistaja. Muutokset ovat tilapäisiä.');
         
         html = html
             .replace(/^- If/, 'Do not allocate if')
             .replace(/==/, 'equals:');
 
         var threshold;
+        var ruleAttr = rule.getMinMax();
         var args = {
             container_id:self.rule_editor_id,
             id:'threshold',
             value: rule.value,
-            min: dataset.min_value,
-            max: dataset.max_value,
+            min: ruleAttr.min,
+            max: ruleAttr.max,
         };
-        if (dataset.classes == 1) {
+        if (ruleAttr.classes == 1) {
             html += element('p', {}, 'Binary rule, nothing to edit.');
         } else {
-            if (dataset.semantics) {
+            if (ruleAttr.semantics) {
                 if (self.model.layer.rule_class == 'exclusive') {
                     html = 'Unmark cell if '+html+' is '+rule.op+' than';
                 }
                 args.type = 'select';
-                args.list = dataset.semantics;                
-            } else if (dataset.data_type == 'integer') {
+                args.list = ruleAttr.semantics;
+            } else if (ruleAttr.data_type == 'integer') {
                 args.type = 'spinner';
-            } else if (dataset.data_type == 'real') {
+            } else if (ruleAttr.data_type == 'real') {
                 args.type = 'slider';
             }
             threshold = new Widget(args);
             html += element('p', {}, threshold.content());
         }
-        html += element('p', {}, dataset.description);
+        html += element('p', {}, rule.description());
         self.rule_editor.html(html);
 
         if (threshold) threshold.prepare();
         self.apply = function() {
             var value = threshold.value();
+            var request = owner ? 'update' : 'modify';
             self.post({
-                url: self.server+'rule:'+rule.id+'?request=modify',
+                url: self.server+'rule:'+rule.id+'?request='+request,
                 payload: { value: value },
                 atSuccess: function(data) {
-                    self.model.modifyRule(data.object);
+                    self.model.editRule({value: value});
                 }
                 // if (xhr.status == 403)
                 // self.model.error('Rule modification requires cookies. Please enable cookies and reload this app.');

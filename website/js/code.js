@@ -28,12 +28,39 @@ DAMAGE.
 
 (function() {
     $('body').addClass('stop-scrolling');
-    var model = new MSP({firstPlan:14, auth:config.auth});
     $(".menu").hide();
     $(document).click(function (e) {
         if ($(".menu").has(e.target).length === 0) {
             $(".menu").hide();
         }
+    });
+    var x = /bg=(\w+)/.exec(window.location.href);
+    if (x && x[1]) {
+        config.bg = x[1];
+        if (config.bg == "osm") {
+            config.epsg = 3857;
+            config.matrixSet = 'EPSG:3857';
+            config.center = [2671763, 8960514];
+            config.zoom = 6;
+        }
+    }
+    var proj = projection(config);
+    var map = new ol.Map({
+        layers: [],
+        target: 'map',
+        controls: ol.control.defaults({
+            attributionOptions:{
+                collapsible: false
+            }
+        }),
+        view: proj.view
+    });
+    map.addControl(new ol.control.ScaleLine());
+    var model = new MSP({
+        proj: proj,
+        map: map,
+        firstPlan: 14,
+        auth: config.auth
     });
     var view = new MSPView(model, {
         map: $("#map"),
@@ -54,40 +81,37 @@ DAMAGE.
         rules: "#rules"
     });
     var controller = new MSPController(model, view);
-
-    var regex = /bg=(\w+)/;
-    var x = regex.exec(window.location.href);
-    if (x && x[1]) {
-        config.bg = x[1];
-        if (config.bg == "osm") {
-            config.epsg = 3857;
-            config.matrixSet = 'EPSG:3857';
-            config.center = [2671763, 8960514];
-            config.zoom = 6;
-        }
+    
+    if (config.bg == 'osm') {
+        map.addLayer(new ol.layer.Tile({
+            source: new ol.source.OSM()
+        }));
+    } else {
+        map.addLayer(new ol.layer.Tile({
+            opacity: 1,
+            extent: projection.extent,
+            source: new ol.source.TileWMS({
+                attributions: [new ol.Attribution({
+                    html: 'Map: Ministry of Education and Culture, Data: OpenStreetMap contributors'
+                })],
+                url: 'http://avaa.tdata.fi/geoserver/osm_finland/wms',
+                params: {'LAYERS': 'osm-finland', 'TILED': true},
+                serverType: 'geoserver',
+                matrixSet: 'ETRS-TM35FIN',
+                projection: proj.projection,
+                tileGrid: new ol.tilegrid.WMTS({
+                    origin: ol.extent.getTopLeft(proj.extent),
+                    resolutions: proj.resolutions,
+                    matrixIds: proj.matrixIds
+                })
+            })
+        }));
     }
-        
-    model.proj = projection(config);
 
-    model.map = new ol.Map({
-        layers: [],
-        target: 'map',
-        controls: ol.control.defaults({
-            attributionOptions:{
-                collapsible: false
-            }
-        }),
-        view: model.proj.view
-    });
-    model.map.addControl(new ol.control.ScaleLine());
-    $.each(createLayer({bg: config.bg}, model.proj), function(i, layer) {
-        model.map.addLayer(layer);
-    });
-
-    model.getPlans();
-    $("#reload").click( function() {
-        model.getPlans();
-    });
+    $("#reload").click((function reload() {
+        controller.loadPlans();
+        return reload;
+    }()));
 
     $(window).resize(function(){view.windowResize()});
     view.windowResize();
