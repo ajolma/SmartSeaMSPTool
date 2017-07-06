@@ -3,6 +3,7 @@ use strict;
 use warnings;
 use 5.010000;
 use base qw/DBIx::Class::Core/;
+use Carp;
 use Storable qw(dclone);
 use Scalar::Util 'blessed';
 use Encode qw(decode encode);
@@ -31,6 +32,7 @@ my @columns = (
     min =>          { data_type => 'text', html_size => 20, empty_is_null => 1 },
     max =>          { data_type => 'text', html_size => 20, empty_is_null => 1 },
     classes =>      { data_type => 'text', html_size => 20, empty_is_null => 1 }
+    # todo: add semantics here, which in dataset case gets its value from there primarily
     );
 
 __PACKAGE__->table('styles');
@@ -53,6 +55,7 @@ sub name {
 
 sub prepare {
     my ($self, $args) = @_;
+    #say STDERR "prepare style ",$self->id;
     # calls below will not update db unless insert or update is called
     $self->min($args->{min} // 0) unless defined $self->min;
     $self->max($args->{max} // 1) unless defined $self->max;
@@ -66,6 +69,7 @@ sub prepare {
         } else {
             $n = 101;
         }
+        #say STDERR "classes = ",$n;
         $self->classes($n);
     }
     $self->{color_table} = $self->color_scale->color_table($self->classes);

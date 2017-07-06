@@ -70,8 +70,8 @@ function MSPView(model, elements, id) {
     self.model.layerUnselected.attach(function(sender, args) {
         self.unselectLayer(args);
     });
-    self.model.layerRulesChanged.attach(function(sender, args) {
-        if (args.layer.id == self.model.layer.id) self.fillRulesPanel(self.model.layer);
+    self.model.rulesChanged.attach(function(sender, args) {
+        self.fillRulesPanel(self.model.layer);
     });
     self.model.ruleEdited.attach(function(sender, args) {
         self.fillRulesPanel(self.model.layer);
@@ -209,6 +209,10 @@ MSPView.prototype = {
                         element: $(selector+" #layer"+layer.id),
                         menu: $(selector+" #menu"+layer.id),
                         options: options,
+                        prelude: function() {
+                            self.model.unselectLayer();
+                            self.model.selectLayer(layer.id);
+                        },
                         select: function(cmd) {
                             self.layerCommand.notify({cmd:cmd, use:use, layer:layer});
                         }
@@ -251,7 +255,7 @@ MSPView.prototype = {
                 var cb = $(selector+' input.visible'+layer.id);
                 cb.change({use:use, layer:layer}, function(event) {
                     $(self.id.uses+" #use"+event.data.use.id+' div.opacity'+event.data.layer.id).toggle();
-                    event.data.layer.object.setVisible(this.checked);
+                    event.data.layer.setVisible(this.checked);
                     if (this.checked) {
                         self.model.unselectLayer();
                         self.model.selectLayer(event.data.layer.id);
@@ -268,9 +272,9 @@ MSPView.prototype = {
                     $(selector+' div.opacity'+layer.id).hide();
                 }
                 slider.on('input change', null, {layer:layer}, function(event) {
-                    event.data.layer.object.setOpacity(parseFloat(this.value));
+                    event.data.layer.setOpacity(parseFloat(this.value));
                 });
-                slider.val(String(layer.object.getOpacity()));
+                slider.val(String(layer.getOpacity()));
             });
             if (use.hasOwnProperty('open') && use.open) {
                 // restore openness of use
@@ -328,9 +332,10 @@ MSPView.prototype = {
             self.elements.rules.append(layer.descr);
         else if (layer.rules)
             $.each(layer.rules, function(i, rule) {
+                var name = rule.getName();
                 var item;
                 if (layer.name == 'Value')
-                    item = rule.name;
+                    item = name;
                 else {
                     var attr = {
                         type:'checkbox',
@@ -338,12 +343,6 @@ MSPView.prototype = {
                         rule:rule.id
                     };
                     if (rule.active) attr.checked = 'checked';
-                    var name = rule.name;
-                    if (!rule.binary) {
-                        var value = rule.value;
-                        if (rule.value_semantics) value = rule.value_semantics[value];
-                        name += ' '+rule.op+' '+value;
-                    }
                     item = element('a', {id:'rule', rule:rule.id}, name);
                     if (layer.use_class_id > 1) item = element('input', attr, item);
                 }
@@ -355,8 +354,7 @@ MSPView.prototype = {
             // todo: send message rule activity changed
             var rule_id = $(this).attr('rule');
             var active = this.checked;
-            self.model.setRuleActive(rule_id, active);
-            self.model.createLayers(true);
+            self.model.layer.setRuleActive(rule_id, active);
         });
         $(self.id.rules+' #rule').click(function() {
             self.ruleSelected.notify({id:$(this).attr('rule')});

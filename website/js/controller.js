@@ -35,8 +35,8 @@ function MSPController(model, view) {
     self.view = view;
     self.editor_id = '#editor';
     self.editor = $(self.editor_id);
-    self.rule_tool_id = '#rule-tool';
-    self.rule_tool = $(self.rule_tool_id);
+    self.rule_editor_id = '#rule-editor';
+    self.rule_editor = $(self.rule_editor_id);
     self.klasses = {};
 
     self.use_classes = null;
@@ -98,7 +98,7 @@ function MSPController(model, view) {
         }
     });
 
-    self.rule_tool.dialog({
+    self.rule_editor.dialog({
         autoOpen: false,
         height: 400,
         width: 350,
@@ -108,7 +108,7 @@ function MSPController(model, view) {
                 self.apply();
             },
             Close: function() {
-                self.rule_tool.dialog('close');
+                self.rule_editor.dialog('close');
             }
         },
         close: function() {
@@ -396,7 +396,11 @@ MSPController.prototype = {
                     rule_class:rule_class.id
                 },
                 atSuccess: function(data) {
-                    var layer = {
+                    var layer = new MSPLayer({
+                        model: self.model,
+                        server: 'http://' + server + '/WMTS',
+                        map: self.model.map,
+                        projection: self.model.proj,
                         id: data.id.value,
                         class_id: data.layer_class.value,
                         owner: data.owner.value,
@@ -405,7 +409,7 @@ MSPController.prototype = {
                         color_scale: color.name,
                         name: klass.name,
                         rule_class: rule_class.name
-                    };
+                    });
                     self.model.addLayer(use, layer);
                 }
             });
@@ -453,7 +457,7 @@ MSPController.prototype = {
     addRule: function(plan, use, layer) {
         var self = this;
         self.editor.dialog('option', 'title', 'Lisää sääntö tasoon '+layer.name);
-        self.editor.dialog('option', 'height', 400);
+        self.editor.dialog('option', 'height', 500);
         
         var dataset = new Widget({
             container_id:self.editor_id,
@@ -479,6 +483,10 @@ MSPController.prototype = {
             pretext:'Define the operator and the threshold:<br/>'
         });
         var threshold;
+        var args = {
+            container_id: self.editor_id,
+            id: 'threshold'
+        };
         self.editor.html(html);
         dataset.changed((function changed() {
             var set = dataset.selected();
@@ -488,18 +496,20 @@ MSPController.prototype = {
             } else if (set.classes == 1) {
                 rule.html('Binary rule');
             } else {
-                var args = {
-                    container_id:self.editor_id,
-                    id:'threshold',
-                };
-                if (set.class_semantics) {
+                if (set.semantics) {
                     args.type = 'select';
-                    args.list = set.class_semantics.split(/;\s+/);
-                } else {
-                    args.type = 'text';
+                    args.list = set.semantics;
+                } else if (set.data_type == 'integer') {
+                    args.type = 'spinner';
+                } else if (set.data_type == 'real') {
+                    args.type = 'slider';
                 }
+                args.min = set.min_value;
+                args.max = set.max_value;
+                args.value = set.min_value;
                 threshold = new Widget(args);
                 rule.html(op.content() + '&nbsp;' + threshold.content());
+                threshold.prepare();
             }
             return changed;
         }()));
@@ -509,24 +519,25 @@ MSPController.prototype = {
             var operator = op.selected();
             var value = 0;
             if (set.classes != 1) value = threshold.value();
+            var payload = {dataset:set.id};
+            if (operator) {
+                payload.op = operator.id;
+                payload.value = value;
+            }
             self.post({
                 url: self.server+'plan:'+plan.id+'/uses:'+use.id+'/layers:'+layer.id+'/rules?request=save',
-                payload: {dataset:set.id, op:operator.id, value:value},
+                payload: payload,
                 atSuccess: function(data) {
                     var rule = {
                         id: data.id.value,
-                        binary: set.classes == 1,
-                        name: set.name,
-                        min: data.min_value.value,
-                        max: data.max_value.value,
-                        op: operator.name,
+                        dataset: data.dataset.value,
                         value: data.value.value,
-                        dataset_id: data.dataset.value,
-                        data_type: set.data_type,
-                        active: true,
-                        description: set.descr,
+                        active: true
                     };
-                    self.model.addRule(layer, rule);
+                    if (operator) {
+                        rule.op = operator.name;
+                    }
+                    self.model.addRule(rule);
                 }
             });
             return true;
@@ -545,13 +556,7 @@ MSPController.prototype = {
             list:layer.rules,
             selected:{},
             get_item_name:function(rule) {
-                var name = rule.name;
-                if (!rule.binary) {
-                    var value = rule.value;
-                    if (rule.value_semantics) value = rule.value_semantics[value];
-                    name += ' '+rule.op+' '+value;
-                }
-                return name;
+                return rule.getName();
             }
         });
         
@@ -569,7 +574,7 @@ MSPController.prototype = {
             self.post({
                 url: self.server+'plan:'+plan.id+'/uses:'+use.id+'/layers:'+layer.id+'/rules?request=delete',
                 payload: deletes,
-                atSuccess: function(data) {self.model.deleteRule(layer, selected)}
+                atSuccess: function(data) {self.model.deleteRules(selected)}
             });
             return true;
         };
@@ -577,71 +582,48 @@ MSPController.prototype = {
     },
     modifyRule: function(args) {
         var self = this;
-        self.rule_tool.dialog('option', 'title', 'Modify rule');
-        self.editor.dialog('option', 'height', 400);
+        self.rule_editor.dialog('option', 'title', 'Modify rule');
+        self.rule_editor.dialog('option', 'height', 400);
+        
         var rule = self.model.selectRule(args.id);
-        var html = rule.name;
+        var dataset = self.model.getDataset(rule.dataset);
+        var html = dataset.name;
         
         html = html
             .replace(/^- If/, 'Do not allocate if')
             .replace(/==/, 'equals:');
 
-        var editor = 'rule-editor';
-        var slider_value = 'rule-slider-value';
-        if (rule.value_semantics) {
-            if (self.model.layer.rule_class == 'exclusive')
-                html = 'Unmark cell if '+html+' is '+rule.op+' than';
-            //var label = element('label',{for:'rule-editor'},'Select value');
-            var options = '';
-            $.each(rule.value_semantics, function(i, semantic) {
-                var attr = {value:i};
-                if (i == rule.value) attr.selected = 'selected';
-                options += element('option', attr, semantic);
-            });
-            var menu = element('select', {id:editor}, options);
-            html += element('p',{},menu);
-        } else if (rule.binary) {
-            html += element('p',{},'Binary rule, nothing to edit.');
-        } else if (rule.type == 'integer') {
-            html += element('p',{},element('input', {id:editor}));
-        } else if (rule.type == 'real') {
-            html += element('p', {}, element('div', {id:editor}));
-            html += element('p', {id:slider_value}, '');
-        }
-        html += element('p', {}, rule.description);
-        self.rule_tool.html(html);
-
-        editor = self.rule_tool_id+' #'+editor;
-        slider_value = self.rule_tool_id+' #'+slider_value;
-        
-        if (rule.type == 'integer') {
-            $(editor)
-                .spinner({
-                    min: rule.min,
-                    max: rule.max
-                })
-                .spinner('value', rule.value);
-        } else if (rule.type == 'real') {
-            $(editor).slider({
-                min: parseFloat(rule.min),
-                max: parseFloat(rule.max),
-                step: 0.1, // todo fix this
-                value: parseFloat(rule.value),
-                slide: function (event, ui) {
-                    var value = slider.slider('value');
-                    $(slider_value).html(value);
+        var threshold;
+        var args = {
+            container_id:self.rule_editor_id,
+            id:'threshold',
+            value: rule.value,
+            min: dataset.min_value,
+            max: dataset.max_value,
+        };
+        if (dataset.classes == 1) {
+            html += element('p', {}, 'Binary rule, nothing to edit.');
+        } else {
+            if (dataset.semantics) {
+                if (self.model.layer.rule_class == 'exclusive') {
+                    html = 'Unmark cell if '+html+' is '+rule.op+' than';
                 }
-            });
-            $(slider_value).html(rule.value);
+                args.type = 'select';
+                args.list = dataset.semantics;                
+            } else if (dataset.data_type == 'integer') {
+                args.type = 'spinner';
+            } else if (dataset.data_type == 'real') {
+                args.type = 'slider';
+            }
+            threshold = new Widget(args);
+            html += element('p', {}, threshold.content());
         }
+        html += element('p', {}, dataset.description);
+        self.rule_editor.html(html);
+
+        if (threshold) threshold.prepare();
         self.apply = function() {
-            var value;
-            if (rule.value_semantics)
-                value = $(editor).find(':selected').attr('value');
-            else if (rule.type == 'integer')
-                value = $(editor).spinner('value');
-            else if (rule.type == 'real')
-                value = $(editor).slider('value');
+            var value = threshold.value();
             self.post({
                 url: self.server+'rule:'+rule.id+'?request=modify',
                 payload: { value: value },
@@ -652,7 +634,7 @@ MSPController.prototype = {
                 // self.model.error('Rule modification requires cookies. Please enable cookies and reload this app.');
             });
         };
-        self.rule_tool.dialog('open');
+        self.rule_editor.dialog('open');
     }
 };
 

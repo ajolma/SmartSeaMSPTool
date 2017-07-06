@@ -43,8 +43,8 @@ sub new {
         }
         my $unit = $self->{dataset}->unit;
         $self->{unit} = defined $unit ? $unit->name : '';
-        if ($self->{dataset}->class_semantics) {
-            $self->{labels} = [split(/\s*;\s*/, $self->{dataset}->class_semantics)];
+        if ($self->{dataset}->semantics) {
+            $self->{labels} = [split(/\s*;\s*/, $self->{dataset}->semantics)];
         } elsif ($self->{min} == $self->{max}) {
             $self->{labels} = [''];
         }

@@ -100,7 +100,7 @@ CREATE TABLE datasets (
     min_value double precision,
     max_value double precision,
     data_type integer,
-    class_semantics text
+    semantics text
 );
 
 
@@ -118,6 +118,13 @@ COMMENT ON COLUMN datasets.style IS 'required if path is not null, ie real data'
 --
 
 COMMENT ON COLUMN datasets.db_table IS 'For raster datasets: the table from it was created';
+
+
+--
+-- Name: COLUMN datasets.semantics; Type: COMMENT; Schema: data; Owner: ajolma
+--
+
+COMMENT ON COLUMN datasets.semantics IS 'map of cell values to their meanings, format: i = meaning; ...';
 
 
 --

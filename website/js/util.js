@@ -62,29 +62,36 @@ function Widget(args) {
     self.type = args.type;
     self.container_id = args.container_id;
     self.id = args.id;
+    self.selector = self.container_id+' #'+self.id;
+    self._selected = args.selected;
+    self._value = args.value;
+    self.min = args.min;
+    self.max = args.max;
     if (args.pretext)
         self.pretext = args.pretext;
     else
         self.pretext = '';
     var tag;
-    var attr = {id:args.id};
-    if (args.type == 'checkbox' || args.type == 'text') {
+    var attr = {id:self.id};
+    if (self.type == 'checkbox' || self.type == 'text') {
         tag = 'input';
-        attr.type = args.type
-    } else if (args.type == 'select') {
+        attr.type = self.type
+    } else if (self.type == 'select') {
         tag = 'select';
-    } else if (args.type == 'checkbox-list') {
+    } else if (self.type == 'checkbox-list') {
         attr.style = 'overflow-y:scroll; max-height:350px; background-color:#c7ecfe;';
         tag = 'div';
-    } else if (args.type == 'para') {
+    } else if (self.type == 'para') {
         tag = 'p';
+    } else if (self.type == 'spinner') {
+        tag = 'input';
     }
     var content = '';
     if (args.content) {
         content = args.content;
     } else if (args.list) {
         self.list = args.list;
-        $.each(args.list, function(i, item) {
+        $.each(self.list, function(i, item) {
             var tag, attr, name, x;
             if (args.get_item) {
                 item = args.get_item(i, item);
@@ -97,36 +104,70 @@ function Widget(args) {
             } else {
                 name = item;
             }
-            if (args.type == 'select') {
+            if (self.type == 'select') {
                 tag = 'option';
                 if (typeof item === 'object') {
                     attr = {value:item.id};
+                    if (name === self._selected) attr.selected = 'selected';
                 } else {
                     attr = {value:i};
+                    if (i === self._value) attr.selected = 'selected';
                 }
-                if (name === args.selected) attr.selected = 'selected';
                 x = '';
-            } else if (args.type == 'checkbox-list') {
+            } else if (self.type == 'checkbox-list') {
                 tag = 'input';
                 name = element('a', {id:'item', item:item.id}, name);
                 attr = {type:'checkbox', item:item.id};
-                if (args.selected[item.id]) attr.checked="checked"; 
+                if (self._value[item.id]) attr.checked="checked"; 
                 x = element('br');
             }
             content += element(tag, attr, name) + x;
         });
     }
-    self.element = element(tag, attr, content);
+    if (self.type == 'slider') {
+        self.element = element('p', {}, element('div', attr));
+        self.element += element('input', {id:'slider-value', type:'text'}, '');
+        self.value_selector = self.container_id+' #'+'slider-value';
+    } else {
+        self.element = element(tag, attr, content);
+    }
 }
 
 Widget.prototype = {
+    prepare: function() {
+        var self = this;
+        if (self.type == 'spinner') {
+            $(self.selector)
+                .spinner({
+                    min: self.min,
+                    max: self.max
+                })
+                .spinner('value', self._value);
+        } else if (self.type == 'slider') {
+            var slider = $(self.selector).slider({
+                min: parseFloat(self.min),
+                max: parseFloat(self.max),
+                step: 0.1, // todo fix this
+                value: parseFloat(self._value),
+                slide: function (event, ui) {
+                    self._value = slider.slider('value');
+                    $(self.value_selector).val(self._value);
+                }
+            });
+            $(self.value_selector).val(self._value);
+            $(self.value_selector).change(function() {
+                self._value = $(self.value_selector).val();
+                slider.slider('value', self._value);
+            });
+        }
+    },
     content: function() {
         var self = this;
         return self.pretext+self.element;
     },
     checked: function() {
         var self = this;
-        return $(self.container_id+' #'+self.id).prop('checked');
+        return $(self.selector).prop('checked');
     },
     fromList: function(id) {
         var self = this;
@@ -142,15 +183,17 @@ Widget.prototype = {
     },
     value: function() {
         var self = this;
-        var value = $(self.container_id+' #'+self.id).val();
-        if (self.type === 'select')
-            return self.fromList(value);
+        var value = $(self.selector).val();
+        if (self.type === 'spinner')
+            return $(self.selector).spinner('value');
+        else if (self.type === 'slider')
+            return $(self.selector).slider('value');
         else
             return value;
     },
     selected: function() {
         var self = this;
-        return self.value();
+        return self.fromList(self.value());
     },
     selected_ids: function() {
         var self = this;
@@ -164,11 +207,11 @@ Widget.prototype = {
     },
     changed: function(fct) {
         var self = this;
-        $(self.container_id+' #'+self.id).change(fct);
+        $(self.selector).change(fct);
     },
     html: function(html) {
         var self = this;
-        $(self.container_id+' #'+self.id).html(html);
+        $(self.selector).html(html);
     },
 };
 
@@ -198,6 +241,7 @@ function makeMenu(args) {
     });
     menu.menu("refresh");
     args.element.contextmenu(function(e) {
+        if (args.prelude) args.prelude();
         menu.css('position', 'absolute');
         menu.css('top', e.pageY);
         menu.css('left', e.pageX);

@@ -72,7 +72,7 @@ sub my_unit {
 sub tree {
     my ($self) = @_;
     my @rules;
-    for my $rule (sort {$a->name cmp $b->name} $self->rules({cookie => DEFAULT})) {
+    for my $rule (sort {$a->criteria->name cmp $b->criteria->name} $self->rules({cookie => DEFAULT})) {
         push @rules, $rule->tree;
     }
     return {

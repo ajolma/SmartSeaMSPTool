@@ -51,7 +51,7 @@ function MSP(args) {
     self.newLayerList = new Event(self);
     self.layerSelected = new Event(self);
     self.layerUnselected = new Event(self);
-    self.layerRulesChanged = new Event(self);
+    self.rulesChanged = new Event(self);
     self.ruleEdited = new Event(self);
     self.siteInitialized = new Event(self);
     self.siteInformationReceived = new Event(self);
@@ -100,6 +100,20 @@ MSP.prototype = {
                     self.ecosystem = plan.uses[0];
                 }
             });
+            $.each(self.plans, function(i, plan) {
+                $.each(plan.uses, function(i, use) {
+                    var layers = [];
+                    $.each(use.layers, function(j, layer) {
+                        layer.model = self;
+                        layer.server = 'http://' + server + '/WMTS';
+                        layer.map = self.map;
+                        layer.projection = self.proj;
+                        layer.use_class_id = use.class_id;
+                        layers.push(new MSPLayer(layer));
+                    });
+                    use.layers = layers;
+                });
+            });
             self.newPlans.notify();
             self.changePlan(self.firstPlan);
             self.initSite();
@@ -130,8 +144,8 @@ MSP.prototype = {
         if (!plan.uses) plan.uses = [];
         if (!plan.data) plan.data = {};
         self.plans.unshift(plan);
-        self.newPlans.notify();
         self.changePlan(plan.id);
+        self.newPlans.notify();
         self.initSite();
     },
     editPlan: function(plan) {
@@ -141,8 +155,8 @@ MSP.prototype = {
             plan.owner = plan.owner;
             plan.name = plan.name;
         }
-        self.newPlans.notify();
         self.changePlan(plan.id);
+        self.newPlans.notify();
         self.initSite();
     },
     setPlanData: function(data) {
@@ -177,12 +191,8 @@ MSP.prototype = {
             if (use.id > 1) {
                 $.each(use.layers, function(i, layer) {
                     $.each(layer.rules, function(i, rule) {
-                        $.each(self.datasets.layers, function(i, layer) {
-                            if (layer.id == rule.dataset_id) {
-                                datasets[layer.id] = layer;
-                                return false;
-                            }
-                        });
+                        datasets[rule.dataset] = self.getDataset(rule.dataset);
+                        return false;
                     });
                 });
             }
@@ -191,7 +201,7 @@ MSP.prototype = {
     },
     changePlan: function(id) {
         var self = this;
-        // remove extra use
+        // remove extra uses
         if (self.plan) {
             var newUses = [];
             for (var i = 0; i < this.plan.uses.length; ++i) {
@@ -214,13 +224,6 @@ MSP.prototype = {
             });
             if (!self.plan) self.plan = {id:2, name:'No plan', data:[], uses:[]};
         }
-        $.each(self.plans, function(i, plan) {
-            $.each(plan.uses, function(i, use) {
-                $.each(use.layers, function(j, layer) {
-                    if (layer.object) self.map.removeLayer(layer.object);
-                });
-            });
-        });
         // pseudo use
         var datasets = {
             id:self.datasets.id,
@@ -244,19 +247,15 @@ MSP.prototype = {
             array.push(layer);
         });
         datasets.layers = array.sort(function (a, b) {
-            if (a.name < b.name) {
-                return -1;
-            }
-            if (a.name > b.name) {
-                return 1;
-            }
+            if (a.name < b.name) return -1;
+            if (a.name > b.name) return 1;
             return 0;
         });
 
         // add datasets and ecosystem as an extra use
         self.plan.uses.push(self.ecosystem);
         self.plan.uses.push(datasets);
-        self.createLayers(true);
+        self.createLayers();
         if (self.plan) self.planChanged.notify({ plan: self.plan });
     },
     setUseOrder: function(order) {
@@ -271,12 +270,12 @@ MSP.prototype = {
             });
         });
         self.plan.uses = newUses;
-        self.createLayers(false);
+        self.createLayers();
     },
     addUse: function(use) {
         var self = this;
         self.plan.uses.unshift(use);
-        self.createLayers(false);
+        self.createLayers();
     },
     hasUse: function(class_id) {
         var self = this;
@@ -298,47 +297,16 @@ MSP.prototype = {
             }
         });
         self.plan.uses = uses;
-        self.createLayers(false);
+        self.createLayers();
     },
-    createLayers: function(boot) {
+    createLayers: function() {
         var self = this;
         self.removeSite();
-        $.each(self.plan.uses.reverse(), function(i, use) { // reverse order to show in correct order
-            var redo_layers = false;
+        // reverse order to show in correct order
+        $.each(self.plan.uses.reverse(), function(i, use) {
             $.each(use.layers.reverse(), function(j, layer) {
-                if (layer.object) self.map.removeLayer(layer.object);
-                if (boot || !layer.wmts) { // initial boot or new plan
-                    var wmts = layer.use_class_id + '_' + layer.id;
-                    if (layer.rules && layer.rules.length > 0) {
-                        var rules = '';
-                        $.each(layer.rules, function(i, rule) {
-                            if (rule.active) rules += '_'+rule.id; // add rules
-                        });
-                        if (rules == '') rules = '_0'; // avoid no rules = all rules
-                        wmts += rules;
-                        if (layer.object) layer.object = null; // needs to be updated
-                    }
-                    layer.wmts = wmts;
-                }
-                if (layer.delete) {
-                    redo_layers = true;
-                    return true;
-                }
-                if (!layer.object) layer.object = createLayer(layer, self.proj);
-                layer.object.on('change:visible', function () {this.visible = !this.visible}, layer);
-                var visible = layer.visible;
-                layer.object.setVisible(visible); // restore visibility
-                layer.visible = visible;
-                self.map.addLayer(layer.object);
+                layer.addToMap();
             });
-            if (redo_layers) {
-                var layers = [];
-                $.each(use.layers, function(j, layer) {
-                    if (layer.delete) return true;
-                    layers.push(layer);
-                });
-                use.layers = layers;
-            }
         });
         self.newLayerList.notify();
         self.addSite();
@@ -346,7 +314,7 @@ MSP.prototype = {
     addLayer: function(use, layer) {
         var self = this;
         use.layers.unshift(layer);
-        self.createLayers(true);
+        self.createLayers();
     },
     deleteLayer: function(use_id, layer_id) {
         var self = this;
@@ -355,7 +323,7 @@ MSP.prototype = {
                 var layers = [];
                 $.each(use.layers, function(j, layer) {
                     if (layer.id == layer_id) {
-                        if (layer.object) self.map.removeLayer(layer.object);
+                        layer.removeFromMap();
                     } else {
                         layers.push(layer);
                     }
@@ -364,14 +332,14 @@ MSP.prototype = {
                 return false;
             }
         });
-        self.createLayers(false);
+        self.createLayers();
     },
     removeLayers: function() {
         var self = this;
         if (!self.plan) return;
         $.each(self.plan.uses, function(i, use) {
             $.each(use.layers, function(j, layer) {
-                if (layer.object) self.map.removeLayer(layer.object);
+                layer.removeFromMap();
             });
         });
         self.newLayerList.notify();
@@ -411,48 +379,42 @@ MSP.prototype = {
         if (unselect) self.layerUnselected.notify(layer);
         return layer;
     },
-    addRule: function(layer, rule) {
-        layer.rules.push(rule);
-        self.layerRulesChanged.notify({layer:layer});
-    },
-    deleteRule: function(layer, rules) {
-        var rules2 = [];
-        $.each(layer.rules, function(i, rule) {
-            if (!rules[rule.id]) {
-                rules2.push(rule);
-            }
-        });
-        layer.rules = rules2;
-        self.layerRulesChanged.notify({layer:layer});
-    },
-    selectRule: function(id) {
+    getDataset: function(id) {
         var self = this;
-        self.rule = null;
-        $.each(self.layer.rules, function(i, rule) {
-            if (rule.id == id) {
-                self.rule = rule;
+        var dataset;
+        $.each(self.datasets.layers, function(i, layer) {
+            if (layer.id == id) {
+                dataset = layer;
                 return false;
             }
         });
+        return dataset;
+    },
+    addRule: function(rule) {
+        var self = this;
+        self.layer.addRule(rule);
+        // todo: add rule.dataset to use 'Data'
+        self.rulesChanged.notify();
+    },
+    deleteRules: function(rules) {
+        var self = this;
+        self.layer.deleteRules(rules);
+        // todo: remove rule.dataset(s) from use 'Data'
+        self.rulesChanged.notify();
+    },
+    selectRule: function(id) {
+        var self = this;
+        self.rule = self.layer.selectRule(id);
         return self.rule;
     },
     selectedRule: function() {
         var self = this;
         return self.rule;
     },
-    setRuleActive: function(id, active) {
-        var self = this;
-        $.each(self.layer.rules, function(i, rule) {
-            if (rule.id == id) {
-                rule.active = active;
-                return false;
-            }
-        });
-    },
     modifyRule: function(object) {
         var self = this;
         self.rule.value = object.value;
-        self.createLayers(true);
+        self.layer.refresh();
         self.ruleEdited.notify();
     },
     initSite: function() {

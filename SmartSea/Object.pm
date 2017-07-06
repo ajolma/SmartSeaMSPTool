@@ -412,7 +412,7 @@ sub jsonify {
             } else {
                 next if $key eq 'objs';
                 next if $key =~ /^_/ || ref $meta->{$key} eq 'CODE';
-                if (ref $meta->{$key}) {
+                if (blessed $meta->{$key}) {
                     $json->{$key} = $meta->{$key}->id;
                 } else {
                     $json->{$key} = $meta->{$key};

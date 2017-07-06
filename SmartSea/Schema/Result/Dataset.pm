@@ -23,12 +23,12 @@ my @columns = (
     disclaimer      => { data_type => 'text',    html_size => 80 },
     path            => { data_type => 'text',    html_size => 30, empty_is_null => 1 },
     db_table        => { data_type => 'text',    html_size => 30 },
-    min_value       => { data_type => 'double',    html_size => 20, empty_is_null => 1 },
-    max_value       => { data_type => 'double',    html_size => 20, empty_is_null => 1 },
+    min_value       => { data_type => 'double',  html_size => 20, empty_is_null => 1 },
+    max_value       => { data_type => 'double',  html_size => 20, empty_is_null => 1 },
     data_type       => { is_foreign_key => 1, source => 'NumberType' },
-    class_semantics => { data_type => 'text',    html_size => 40, empty_is_null => 1 },
+    semantics       => { data_type => 'textarea', rows => 10, cols => 20, empty_is_null => 1 },
     unit            => { is_foreign_key => 1, source => 'Unit' },
-    style           => { is_foreign_key => 1,  source => 'Style', is_part => 1 }
+    style           => { is_foreign_key => 1, source => 'Style', is_part => 1 }
     );
 
 __PACKAGE__->table('datasets');
@@ -45,6 +45,40 @@ __PACKAGE__->belongs_to(style => 'SmartSea::Schema::Result::Style');
 
 __PACKAGE__->has_many(parts => 'SmartSea::Schema::Result::Dataset', 'is_a_part_of');
 __PACKAGE__->has_many(derivatives => 'SmartSea::Schema::Result::Dataset', 'is_derived_from');
+
+sub classes {
+    my $self = shift;
+    return unless $self->data_type;
+    if ($self->data_type->id == 1) { # integer
+        my $min = $self->min_value // 0;
+        my $max = $self->max_value // 1;
+        my $n = $max - $min + 1;
+        $n = 101 if $n > 101;
+        return $n;
+    } else {
+        return 101;
+    }
+}
+
+sub semantics_hash {
+    my $self = shift;
+    if (defined $self->semantics) {
+        my %semantics;
+        for my $item (split /;/, $self->semantics) {
+            say STDERR "Bad semantics item $item in dataset ".$self->id unless $item =~ /=/;
+            my ($value, $meaning) = split /=/, $item;
+            $value = 0 unless $value;
+            $meaning //= '';
+            $value =~ s/^\D+//;
+            $value =~ s/\D+$//;
+            $meaning =~ s/^\s+//;
+            $meaning =~ s/\s+$//;
+            $semantics{$value+0} = $meaning;
+        }
+        return \%semantics;
+    }
+    return undef;
+}
 
 sub relationship_hash {
     return {
@@ -140,7 +174,7 @@ sub auto_fill_cols {
             say STDERR "$key = $parsed->{$key}, value = $value" if $args->{debug} > 1;
             if (defined($value) && defined($parsed->{$key})) {
                 my $comp;
-                if ($col{$key}{data_type} eq 'double') {
+                if ($col{$key}{data_type} && $col{$key}{data_type} eq 'double') {
                     $comp = $value == $parsed->{$key};
                 } elsif ($col{$key}{is_foreign_key}) {
                     $comp = $value->id == $parsed->{$key};
@@ -221,7 +255,7 @@ sub tree {
             {
                 min =>  $self->min_value,
                 max =>  $self->max_value,
-                data_type => $self->data_type
+                data_type => $self->data_type->id
             });
         my $unit = $self->my_unit // '';
         $unit = $unit->name if $unit;
@@ -229,7 +263,7 @@ sub tree {
         $color_scale = $self->style->color_scale->name;
         $style = $color_scale.' '.$range;
     }
-    return {
+    my %dataset = (
         id => $self->id,
         use_class_id => 0, # reserved use class id
         name => $self->name,
@@ -241,9 +275,10 @@ sub tree {
         min_value => $self->min_value,
         max_value => $self->max_value,
         data_type => $data_type ? $data_type->name : undef,
-        class_semantics => $self->class_semantics,
+        semantics => $self->semantics_hash,
         owner => 'ajolma'
-    };
+        );
+    return \%dataset;
 }
 
 sub Piddle {

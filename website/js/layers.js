@@ -93,24 +93,162 @@ function createLayer(template, projection) {
             })
         })];
     }
-    if (template.wmts) {
-        return new ol.layer.Tile({
-            opacity: 0.6,
-            extent: projection.extent,
-            visible: false,
-            source: new ol.source.WMTS({
-                url: 'http://' + server + '/WMTS',
-                layer: template.wmts,
-                matrixSet: projection.matrixSet,
-                format: 'image/png',
-                projection: projection.projection,
-                tileGrid: new ol.tilegrid.WMTS({
-                    origin: ol.extent.getTopLeft(projection.extent),
-                    resolutions: projection.resolutions,
-                    matrixIds: projection.matrixIds
-                }),
-                style: template.style
-            })
+}
+
+function MSPLayer(args) {
+    var self = this;
+    for (var key in args){
+        self[key] = args[key];
+    }
+    var rules = [];
+    if (self.rules) {
+        $.each(self.rules, function(i, rule) {
+            rule.model = self.model;
+            rule.layer = self;
+            rule = new MSPRule(rule);
+            rules.push(rule);
         });
     }
+    self.rules = rules;
+    if (self.layer) self.map.removeLayer(self.layer);
 }
+
+MSPLayer.prototype = {
+    getOpacity: function() {
+        var self = this;
+        return self.layer.getOpacity();
+    },
+    setOpacity: function(opacity) {
+        var self = this;
+        self.layer.setOpacity(opacity);
+    },
+    layerName: function() {
+        var self = this;
+        var name = self.use_class_id + '_' + self.id;
+        if (self.rules && self.rules.length > 0) {
+            var rules = '';
+            $.each(self.rules, function(i, rule) {
+                if (rule.active) rules += '_'+rule.id; // add rules
+            });
+            if (rules == '') rules = '_0'; // avoid no rules = all rules
+            name += rules;
+        }
+        return name;
+    },
+    newLayer: function() {
+        var self = this;
+        self.layer = new ol.layer.Tile({
+            opacity: 0.6,
+            extent: self.projection.extent,
+            visible: false,
+            source: new ol.source.WMTS({
+                url: self.server,
+                layer: self.layerName(),
+                matrixSet: self.projection.matrixSet,
+                format: 'image/png',
+                projection: self.projection.projection,
+                tileGrid: new ol.tilegrid.WMTS({
+                    origin: ol.extent.getTopLeft(self.projection.extent),
+                    resolutions: self.projection.resolutions,
+                    matrixIds: self.projection.matrixIds
+                }),
+                style: self.color_scale
+            })
+        });
+        self.layer.set('msp_id', self.id);
+        self.layer.on('change:visible', function () {this.visible = !this.visible}, self);
+        var visible = self.visible;
+        self.layer.setVisible(visible); // restore visibility
+        self.visible = visible;
+    },
+    addToMap: function(boot) {
+        var self = this;
+        if (self.layer) self.map.removeLayer(self.layer);
+        self.newLayer();
+        self.map.addLayer(self.layer);
+    },
+    removeFromMap: function() {
+        var self = this;
+        if (self.layer) self.map.removeLayer(self.layer);
+    },
+    setVisible: function(visible) {
+        var self = this;
+        self.layer.setVisible(visible);
+    },
+    refresh: function() {
+        var self = this;
+        var ind;
+        var coll = self.map.getLayers();
+        coll.forEach(function (elem, i, arr) {
+            var id = elem.get('msp_id');
+            if (id == self.id) {
+                ind = i;
+            }
+        });
+        coll.removeAt(ind);
+        self.newLayer();
+        coll.setAt(ind, self.layer);
+        self.map.render();
+    },
+    addRule: function(rule) {
+        var self = this;
+        rule.model = self.model;
+        rule.layer = self;
+        rule = new MSPRule(rule);
+        self.rules.push(rule);
+        self.refresh();
+    },
+    deleteRules: function(rules) {
+        var self = this;
+        var rules2 = [];
+        $.each(self.rules, function(i, rule) {
+            if (!rules[rule.id]) {
+                rules2.push(rule);
+            }
+        });
+        self.rules = rules2;
+        self.refresh();
+    },
+    selectRule: function(id) {
+        var self = this;
+        var retval = null;
+        $.each(self.rules, function(i, rule) {
+            if (rule.id == id) {
+                retval = rule;
+                return false;
+            }
+        });
+        return retval;
+    },
+    setRuleActive: function(id, active) {
+        var self = this;
+        $.each(self.rules, function(i, rule) {
+            if (rule.id == id) {
+                rule.active = active;
+                return false;
+            }
+        });
+        self.refresh();
+    }
+};
+
+function MSPRule(args) {
+    var self = this;
+    for (var key in args){
+        self[key] = args[key];
+    }
+}
+
+MSPRule.prototype = {
+    getName: function() {
+        var self = this;
+        var dataset = self.model.getDataset(self.dataset);
+        var name = dataset.name;
+        if (dataset.classes > 1) {
+            var value = self.value;
+            if (dataset.semantics) value = dataset.semantics[value];
+            name += ' '+self.op+' '+value;
+        }
+        return name;
+    }
+};

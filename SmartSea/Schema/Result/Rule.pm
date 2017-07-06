@@ -5,6 +5,7 @@ use 5.010000;
 use base qw/DBIx::Class::Core/;
 use Storable qw(dclone);
 use Scalar::Util 'blessed';
+use Carp;
 use PDL;
 use SmartSea::Core qw(:all);
 use SmartSea::HTML qw(:all);
@@ -43,6 +44,11 @@ __PACKAGE__->belongs_to(layer => 'SmartSea::Schema::Result::Layer');
 __PACKAGE__->belongs_to(dataset => 'SmartSea::Schema::Result::Dataset');
 __PACKAGE__->belongs_to(op => 'SmartSea::Schema::Result::Op');
 
+sub criteria {
+    my $self = shift;
+    return $self->dataset ? $self->dataset : ($self->layer ? $self->layer : undef);
+}
+
 sub my_columns_info {
     my ($self, $parent) = @_;
     my %my_info;
@@ -63,21 +69,22 @@ sub my_columns_info {
         }
         my %info = (%{$self->column_info($col)});
         if (blessed($self) && $col eq 'value') {
-            my $dataset = $self->dataset ? $self->dataset : undef;
-            my $value_semantics = $dataset ? $dataset->class_semantics : undef;
-            if ($value_semantics) {
-                my @objs;
-                my @values;
-                for my $item (split /; /, $value_semantics) {
-                    my ($value, $semantics) = split / = /, $item;
-                    push @objs, {id => $value, name => $semantics};
-                    push @values, $value;
+            my $criteria = $self->criteria;
+            if ($criteria) {
+                my $semantics = $criteria->semantics_hash;
+                if ($semantics) {
+                    my @objs;
+                    my @values;
+                    for my $value (keys %$semantics) {
+                        push @objs, {id => $value, name => $semantics->{$value}};
+                        push @values, $value;
+                    }
+                    %info = (
+                        is_foreign_key => 1,
+                        objs => \@objs,
+                        values => \@values
+                        );
                 }
-                %info = (
-                    is_foreign_key => 1,
-                    objs => \@objs,
-                    values => \@values
-                );
             }
         }
         $my_info{$col} = \%info;
@@ -125,29 +132,29 @@ sub order_by {
 sub name {
     my ($self, %args) = @_;
 
-    my $class = $self->rule_system->rule_class // '';
-    $class = $class->name // '' if $class;
-    my $layer  = $self->layer ? $self->layer : undef;
-    my $dataset = $self->dataset ? $self->dataset : undef;
+    my $criteria = $self->criteria;
+    croak "Rule ".$self->id." does not have criteria!" unless $criteria;
 
-    my $criteria = $dataset ? $dataset->name : ($layer ? $layer->name : 'unknown');
+    my $class = $self->rule_system->rule_class->name;
 
     if ($class eq 'exclusive' || $class eq 'inclusive') {
         my $sign = $class eq 'exclusive' ? '-' : '+';
-        my $op = $self->op->name;
-        unless ($args{no_value}) {
-            my $value = $self->value;
-            # semantics => dataset is type integer and has min value
-            # semantics is "meaning_of_min_value; meaning_of_min_value+1; ..."
-            my $semantics = $dataset ? $dataset->class_semantics : undef;
-            if ($semantics) {
-                my @semantics = split /;\s+/, $semantics;
-                my $min = $dataset->min_value;
-                $value = $semantics[$value - $min + 1];
+        my $n = $criteria->classes;
+        say STDERR "Rule ".$self->id." is based on dataset without data type!" unless defined $n;
+        $n //= 1;
+        return "$sign if ".$criteria->name if $n == 1;
+        my $op = $self->op->name // '';
+        my $value = $self->value // '';
+        say STDERR "Rule ".$self->id." does not have a threshold!" if $op eq '' || $value eq '';
+        my $semantics = $criteria->semantics_hash;
+        if ($semantics) {
+            if (defined $semantics->{$value}) {
+                $value = $semantics->{$value};
+            } elsif ($value ne '') {
+                say STDERR "Value $value does not have a meaning in rule ".$self->id."!";
             }
-            return "$sign if $criteria $op $value";
+            return "$sign if ".$criteria->name." $op $value";
         }
-        return "$sign if $criteria $op";
     }
     
     my $x_min = $self->min_value;
@@ -164,56 +171,16 @@ sub name {
 }
 
 sub tree {
-    my ($self) = @_;
-    my %rule = (
-        name => $self->dataset ? $self->dataset->name : 'undef',
-        op => $self->op->name,
-        binary => JSON::false,
+    my $self = shift;
+    return {
         id => $self->id, 
-        active => JSON::true,
+        #layer => undef,
+        op => $self->op->name,
         value => $self->value+0,
-        description => $self->dataset ? $self->dataset->descr : '',
-        dataset_id => $self->dataset ? $self->dataset->id : '',
-        );
-
-    my $dataset = $self->dataset ? $self->dataset : undef;
-    my $value_semantics = $dataset ? $dataset->class_semantics : undef;
-    if ($value_semantics) {
-        my %value_semantics;
-        for my $item (split /; /, $value_semantics) {
-            my ($value, $semantics) = split / = /, $item;
-            $value_semantics{$value} = $semantics;
-        }
-        $rule{value_semantics} = \%value_semantics;
-        $rule{min} = $dataset->min_value;
-        $rule{max} = $dataset->max_value;
-    } else {
-        my $class = $self->rule_system->rule_class->name;
-        if ($class eq 'exclusive' || $class eq 'inclusive') {
-            my $dataset = $self->dataset;
-            my $style = $dataset ? $dataset->style : undef;
-            my $n_classes = $style ? $style->classes : undef;
-            if ($n_classes) {
-                if ($n_classes == 1) {
-                    $rule{binary} = JSON::true;
-                } else {
-                    $rule{min} = 1;
-                    $rule{max} = $style->classes;
-                }
-            } elsif ($dataset) {
-                $rule{min} = $dataset->min_value // ($style ? $style->min : 0) // 0;
-                $rule{max} = $dataset->max_value // ($style ? $style->max : 1) // 1;
-            }
-        } elsif ($class eq 'additive' || $class eq 'multiplicative') {
-            $rule{min} = $self->min_value;
-            $rule{min} = $self->max_value;
-        }
-    }
-    if ($dataset) {
-        my $type = $dataset->data_type;
-        $rule{data_type} = defined $type ? $type->name : 'real';
-    }
-    return \%rule;
+        dataset => $self->dataset ? $self->dataset->id : undef,
+        #min_value => $self->min_value,
+        #max_value => $self->max_value
+    };
 }
 
 # this is needed by modify request
