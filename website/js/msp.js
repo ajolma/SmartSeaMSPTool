@@ -255,9 +255,9 @@ MSP.prototype = {
     createLayers: function() {
         var self = this;
         self.removeSite();
-        // reverse order to show in correct order
-        $.each(self.plan.uses.reverse(), function(i, use) {
-            $.each(use.layers.reverse(), function(j, layer) {
+        // reverse order to show in correct order, slice to not to mutate
+        $.each(self.plan.uses.slice().reverse(), function(i, use) {
+            $.each(use.layers.slice().reverse(), function(j, layer) {
                 if (layer)
                     layer.addToMap();
                 else

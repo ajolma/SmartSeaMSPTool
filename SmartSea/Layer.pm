@@ -48,7 +48,7 @@ sub new {
         if ($self->{dataset}->semantics) {
             $self->{labels} = $self->{dataset}->semantics_hash;
         } elsif ($self->{min} == $self->{max}) {
-            $self->{labels} = {};
+            #$self->{labels} = jotain;
         }
         $self->{duck} = $self->{dataset};
         
@@ -58,7 +58,7 @@ sub new {
         $self->{min} = 1;
         $self->{max} = 1;
         $self->{data_type} = 1;
-        $self->{labels} = {};
+        #$self->{labels} = jotain;
         $self->{rules} = [];
         
     } else {
@@ -112,26 +112,17 @@ sub new {
         }
     }
 
-    # todo: if style is defined by a client
-    # my $color_scale = $self->{style} // $self->{duck}->style->color_scale->name // 'grayscale';
-    # $color_scale =~ s/-/_/g;
-    # $color_scale =~ s/\W.*$//g;
-
-    $self->{unit} //= '';
-    $self->{style} = $self->{duck}->style;
-    $self->{style}->prepare($self);
-    $self->{min} = $self->{style}->min;
-    $self->{max} = $self->{style}->max;
-    $self->{classes} = $self->{style}->classes;    
-    
     return bless $self, $class;
 }
 
 sub legend {
     my ($self, $args) = @_;
-    $args->{unit} //= $self->{unit};
-    $args->{labels} //= $self->{labels};
-    return $self->{style}->legend($args);
+    $args->{data_type} = $self->{data_type};
+    $args->{min} = $self->{min};
+    $args->{max} = $self->{max};
+    $args->{unit} = $self->{unit};
+    $args->{labels} = $self->{labels};
+    return $self->{duck}->style->legend($args);
 }
 
 sub post_process {
@@ -144,28 +135,25 @@ sub post_process {
         
     $y *= $mask;
 
-    my $n_classes = $self->{classes};
+    my $style = $self->{duck}->style;
 
     # if classes == 1, all zero cells get color 0 and non-zero cells get color 1
+    $style->prepare($self);
 
-    if ($n_classes == 1) {
+    if ($style->classes == 1) {
 
         $y->where($y != 0) .= 1;
         
     } else {
-    
-        my $min = $self->{min};
-        my $max = $self->{max};
+
+        my $k = $style->classes / ($style->max - $style->min);
+        my $b = $style->min * $k;
+        say STDERR "scale ".$style->min." .. ".$style->max." to ".$style->classes." classes".
+            ", k = $k, b = $b" if $self->{debug};
       
-        # scale and bound to min .. max => 0 .. $nc-1
         $y = double $y;
-        my $k = $n_classes/($max-$min);
-        my $b = $min * $k;
-    
-        say STDERR "scale to $min .. $max, $n_classes classes, k = $k b = $b" if $self->{debug};
-    
         $y = $k*$y - $b;
-        $y->where($y > ($n_classes-1)) .= $n_classes-1;
+        $y->where($y > ($style->classes - 1)) .= $style->classes - 1;
         $y->where($y < 0) .= 0;
     }
     
@@ -176,7 +164,7 @@ sub post_process {
 
     $y->inplace->setbadtoval(255);
     $result->Band->Piddle(byte $y);
-    $result->Band->ColorTable($self->{style}{color_table});
+    $result->Band->ColorTable($style->color_scale->color_table($style->classes));
     return $result
 }
 

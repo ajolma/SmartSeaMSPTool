@@ -32,7 +32,6 @@ sub call {
         
     my $image = $layer ?
         $layer->legend({
-            data_type => $layer->{data_type},
             font => '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
             font_size => 10,
             width => 200, # layout.css.right.width

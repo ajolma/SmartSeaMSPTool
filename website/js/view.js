@@ -155,7 +155,7 @@ MSPView.prototype = {
         if (self.model.auth && use.owner == user) {
             use_item += element('ul', {class:'menu', id:"menu", style:'display:none'}, '');
         }
-        $.each(use.layers.reverse(), function(j, layer) {
+        $.each(use.layers, function(j, layer) {
             var attr = {type: 'checkbox', class: 'visible'+layer.id};
             var id = 'layer'+layer.id;
             var name = layer.name;
@@ -176,7 +176,7 @@ MSPView.prototype = {
         self.elements.layers.html('');
         // all uses with controls: on/off, select/unselect, transparency
         // end to beginning to maintain overlay order
-        $.each(self.model.plan.uses.reverse(), function(i, use) {
+        $.each(self.model.plan.uses, function(i, use) {
             var selector = self.id.uses+" #use"+use.id;
             var item = self.usesItem(use);
             self.elements.layers.append(item.element);

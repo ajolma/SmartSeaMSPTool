@@ -149,6 +149,10 @@ Widget.prototype = {
                 max: parseFloat(self.max),
                 step: 0.1, // todo fix this
                 value: parseFloat(self._value),
+                change: function (event, ui) {
+                    self._value = slider.slider('value');
+                    $(self.value_selector).val(self._value);
+                },
                 slide: function (event, ui) {
                     self._value = slider.slider('value');
                     $(self.value_selector).val(self._value);

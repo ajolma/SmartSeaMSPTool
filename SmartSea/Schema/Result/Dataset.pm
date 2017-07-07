@@ -254,31 +254,22 @@ sub tree {
     my ($self) = @_;
     my $data_type = $self->data_type;
     my $color_scale;
-    my $style;
-    if ($self->style) {
-        $self->style->prepare(
-            {
-                min =>  $self->min_value,
-                max =>  $self->max_value,
-                data_type => $self->data_type->id
-            });
-        my $unit = $self->my_unit // '';
-        $unit = $unit->name if $unit;
-        my $range = '('.$self->style->min."$unit..".$self->style->max."$unit)";
-        $color_scale = $self->style->color_scale->name;
-        $style = $color_scale.' '.$range;
-    }
+    my $args = {
+        min => $self->min_value,
+        max => $self->max_value,
+        data_type => $data_type ? $data_type->id : undef,
+    };
+    $self->style->prepare($args) if $self->style;
     my %dataset = (
         id => $self->id,
         use_class_id => 0, # reserved use class id
         name => $self->name,
         descr => $self->descr,
         provenance => $self->lineage,
-        color_scale => $color_scale,
-        style => $style,
-        classes => $self->style ? $self->style->classes : '',
+        color_scale => $self->style->color_scale->name,
         min_value => $self->min_value,
         max_value => $self->max_value,
+        classes => $self->style ? $self->style->classes : undef,
         data_type => $data_type ? $data_type->name : undef,
         semantics => $self->semantics_hash,
         owner => 'ajolma'

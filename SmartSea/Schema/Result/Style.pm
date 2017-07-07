@@ -13,11 +13,10 @@ use Geo::GDAL;
 use SmartSea::Core;
 use SmartSea::HTML qw(:all);
 
-# This is a mixture of a row and Geo::GDAL::ColorTable
-#     call prepare to create the Geo::GDAL::ColorTable
-#
 # min..max is the range of data values that is mapped to colors
-# classes is the number of colors 
+# values less than min are mapped to first color
+# values greater than max are mapped to last color
+# classes is the number of colors
 #     NULL => continuous data (101 colors)
 #     1    => class 1 = no color, class 2 = color
 #     >=2  => classes colors
@@ -55,31 +54,39 @@ sub name {
 
 sub prepare {
     my ($self, $args) = @_;
-    #say STDERR "prepare style ",$self->id;
-    # calls below will not update db unless insert or update is called
-    $self->min($args->{min} // 0) unless defined $self->min;
-    $self->max($args->{max} // 1) unless defined $self->max;
-    $self->max($self->min) if $self->min > $self->max;
-    unless (defined $self->classes) {
-        my $n;
-        if ($args->{data_type} == 1 && ($args->{max} - $args->{min} + 1) < 100) {
-            $n = $args->{max} - $args->{min} + 1;
-        } else {
-            $n = 101;
-        }
-        #say STDERR "classes = ",$n;
-        $self->classes($n);
-    }
-    $self->{color_table} = $self->color_scale->color_table($self->classes);
-}
 
-sub value_to_color {
-    my ($self, $value) = @_;
-    my $n = $self->classes;
-    return $self->{color_table}->Color(1) if $n == 1;
-    my $class = int($n * ($value - $self->min)/($self->max - $self->min));
-    --$class if $class > $n-1;
-    return $self->{color_table}->Color($class);
+    if (defined $self->min) {
+        if (defined $args->{min}) {
+            $args->{bound} = $args->{min} < $self->min;
+        }
+    } else {
+        $self->min($args->{min} // 0);
+    }
+    if (defined $self->max) {
+        if (defined $args->{max}) {
+            $args->{bound} = $args->{max} > $self->max;
+        }
+    } else {
+        $self->max($args->{max} // 1);
+    }
+
+    unless (defined $self->classes) {
+        if ($args->{data_type} && $args->{data_type} == 1) {
+            $self->classes($self->max - $self->min + 1);
+        } else {
+            $self->classes(101);
+            $args->{ticks} = 1;
+            $args->{ranges} = 1;
+        }
+    }
+    unless ($args->{ticks}) {
+        if ($self->classes > 101) {
+            $self->classes(101);
+            $args->{ticks} = 1;
+            $args->{ranges} = 1;
+        }
+    }
+    $args->{ranges} = 1 if $args->{data_type} != 1;
 }
 
 sub legend {
@@ -91,6 +98,20 @@ sub legend {
     # if labels or limited range of ints -> classed
     # height is from classes
 
+    $self->prepare($args);
+    my $color_table = $self->color_scale->color_table($self->classes);
+
+    $args->{value_to_color} = sub {
+        my $value = shift;
+        return $color_table->Color(1) if $self->classes == 1;
+        my $class = int($self->classes * ($value - $self->min)/($self->max - $self->min));
+        $class = 0 if $class < 0;
+        $class = $self->classes - 1 if $class >= $self->classes;
+        return $color_table->Color($class);
+    };
+
+    #say STDERR $self->min.' .. '.$self->max.' '.($self->classes // '');
+
     $args->{width} //= 200;
     $args->{height} //= 140;
     $args->{unit} //= '';
@@ -101,11 +122,9 @@ sub legend {
 
     $args->{class_height} = $args->{font_size} + 2 * $args->{label_vertical_padding};
 
-    if ($args->{data_type} != 1 || $self->max - $self->min > $args->{max_labels}) {
-        return $self->ticked_legend($args);
-    } else {
-        return $self->classed_legend($args);
-    }
+    return $self->ticked_legend($args) if $args->{ticks};
+    return $self->classed_legend($args);
+    
     
 }
 
@@ -123,7 +142,7 @@ sub ticked_legend {
     my $k = ($self->max - $self->min) / ($y2 - $y1);
     for my $y ($y2 .. $y1) {
         my $value = $self->min + ($y - $y1) * $k;
-        my $color = $image->colorAllocateAlpha($self->value_to_color($value));
+        my $color = $image->colorAllocateAlpha($args->{value_to_color}($value));
         $image->line(0,$y,$args->{colorbar_width},$y,$color);
     }
 
@@ -132,9 +151,9 @@ sub ticked_legend {
     my $color = $image->colorAllocateAlpha(0,0,0,0);
     my $x = $args->{colorbar_width} + 1;
     for (my $y = $y1; $y > 0; $y -= $args->{class_height}) {
-        my $yl = $y;
-        ++$yl if $y < $y1;
-        $image->line($x,$yl,$x + $args->{tick_width},$yl,$color);
+        my $yLine = $y;
+        ++$yLine if $y < $y1;
+        $image->line($x,$yLine,$x + $args->{tick_width},$yLine,$color);
     }
     
     # labels
@@ -148,11 +167,11 @@ sub ticked_legend {
         );
 
     for (my $y = $y1; $y > 0; $y -= $args->{class_height}) {
-        my $yl = $y;
-        ++$yl if $y < $y1;
-        my $value = $self->min + ($yl - $y1) * $k;
+        my $yLine = $y;
+        ++$yLine if $y < $y1;
+        my $value = $self->min + ($yLine - $y1) * $k;
         my $label = $value . ' ' . $args->{unit};
-        $image->stringFT(@string, $yl + $args->{font_size}/2, $label);
+        $image->stringFT(@string, $yLine + $args->{font_size}/2, $label);
     }
 
     return $image;
@@ -170,8 +189,10 @@ sub classed_legend {
 
     my $y1 = $height - 1;
     my $y2 = $y1 - $args->{class_height} + 1;
-    for my $value ($self->min..$self->max) {
-        my $color = $image->colorAllocateAlpha($self->value_to_color($value));
+    my $k = ($self->max - $self->min) / $self->classes;
+    for my $class (0..$self->classes-1) {
+        my $value = $self->min + $class * $k;
+        my $color = $image->colorAllocateAlpha($args->{value_to_color}($value));
         $image->filledRectangle(0,$y1,$args->{colorbar_width},$y2,$color);
         $y1 = $y2 + 1;
         $y2 -= $args->{class_height};
@@ -179,7 +200,7 @@ sub classed_legend {
 
     # labels
     
-    my $labels = $args->{labels} // {};
+    my $labels = $args->{labels};
 
     my @string = (
         $image->colorAllocateAlpha(0,0,0,0), 
@@ -190,8 +211,34 @@ sub classed_legend {
         );
 
     my $y = $height - 1 - $args->{label_vertical_padding};
-    for my $value ($self->min..$self->max) {
-        my $label = $labels->{$value} // $value;
+    $k = ($self->max - $self->min) / $self->classes;
+    my $x = $self->min;
+    for my $class (0..$self->classes-1) {
+        my $value = $self->min + $class * $k;
+        my $label;
+        if ($labels) {
+            $label = $labels->{$x};
+            ++$x; # FIXME assuming continuous range! fixing would require changes to rendering
+        } elsif ($args->{ranges}) {
+            my $next = $self->min + ($class+1) * $k;
+            if ($args->{bound}) {
+                if ($class == 0) {
+                    $label = "< $next $args->{unit}";
+                } elsif ($class == $self->classes-1) {
+                    $label = ">= $value $args->{unit}";
+                } else {
+                    $label = "($value..$next] $args->{unit}";
+                }
+            } else {
+                if ($class == 0) {
+                    $label = "[$value..$next] $args->{unit}";
+                } else {
+                    $label = "($value..$next] $args->{unit}";
+                }
+            }
+        } else {
+            $label = $value;
+        }
         $image->stringFT(@string, $y, (encode utf8 => $label));
         $y -= $args->{class_height};
     }
