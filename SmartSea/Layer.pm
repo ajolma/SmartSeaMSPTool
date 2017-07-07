@@ -29,6 +29,8 @@ sub new {
     # these are propagated to style but style can override them
     # then style values are propagated back here
     # labels, if given, defines classes
+    $use_id //= 0;
+    $layer_id //= 0;
     if ($use_id == 0) {
         $self->{dataset} = $self->{schema}->resultset('Dataset')->single({ id => $layer_id });
         croak "Dataset $layer_id does not exist.\n" unless $self->{dataset};
@@ -44,9 +46,9 @@ sub new {
         my $unit = $self->{dataset}->unit;
         $self->{unit} = defined $unit ? $unit->name : '';
         if ($self->{dataset}->semantics) {
-            $self->{labels} = [split(/\s*;\s*/, $self->{dataset}->semantics)];
+            $self->{labels} = $self->{dataset}->semantics_hash;
         } elsif ($self->{min} == $self->{max}) {
-            $self->{labels} = [''];
+            $self->{labels} = {};
         }
         $self->{duck} = $self->{dataset};
         
@@ -56,7 +58,7 @@ sub new {
         $self->{min} = 1;
         $self->{max} = 1;
         $self->{data_type} = 1;
-        $self->{labels} = ['exists'];
+        $self->{labels} = {};
         $self->{rules} = [];
         
     } else {
@@ -69,13 +71,13 @@ sub new {
             $self->{min} = 1;
             $self->{max} = 1;
             $self->{data_type} = 1;
-            $self->{labels} = ['valid'];
         } else {
             # result is a floating point value or nodata
             $self->{min} = 0;
             $self->{max} = 1;
             $self->{data_type} = 2;
         }
+        $self->{labels} = $self->{layer}->layer_class->semantics_hash;
         $self->{rules} = [];
         # rule list is optional, if no rules, then all rules (QGIS plugin does not send any rules)
         if (@rules) {
@@ -128,7 +130,7 @@ sub new {
 sub legend {
     my ($self, $args) = @_;
     $args->{unit} //= $self->{unit};
-    $args->{labels} //= $self->{labels} // [];
+    $args->{labels} //= $self->{labels};
     return $self->{style}->legend($args);
 }
 

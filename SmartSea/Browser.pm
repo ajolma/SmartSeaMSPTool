@@ -23,7 +23,7 @@ sub new {
     my ($class, $self) = @_;
     $self = Plack::Component->new($self);
     $self->{sources} = {map {source2class($_) => $_} $self->{schema}->sources};
-    ($self->{main_sources}, $self->{simple_sources}) = $self->{schema}->simple_sources;
+    ($self->{main_sources}, $self->{simple_sources}, $self->{other_sources}) = $self->{schema}->simple_sources;
     $self->{js} //= 1;
     return bless $self, $class;
 }
@@ -132,7 +132,7 @@ sub object_editor {
             my @li;
             for my $source (sort keys %{$self->{main_sources}}) {
                 my $class = source2class($source);
-                push @li, [li => a(link => SmartSea::Object::plural($source), url => $self->{root}.'/'.$class)];
+                push @li, [li => a(link => plural($source), url => $self->{root}.'/'.$class)];
                 push @classes, {class => $class, href => $self->{url}.$self->{root}.'/'.$class.'?accept=json'};
             }
             push @body, [p => [1 => "Main classes"],[ul=>\@li]];
@@ -141,10 +141,19 @@ sub object_editor {
             my @li;
             for my $source (sort keys %{$self->{simple_sources}}) {
                 my $class = source2class($source);
-                push @li, [li => a(link => SmartSea::Object::plural($source), url => $self->{root}.'/'.$class)];
+                push @li, [li => a(link => plural($source), url => $self->{root}.'/'.$class)];
                 push @classes, {class => $class, href => $self->{url}.$self->{root}.'/'.$class.'?accept=json'};
             }
             push @body, [p => [1 => "Simple classes"],[ul=>\@li]];
+        }
+        {
+            my @li;
+            for my $source (sort keys %{$self->{other_sources}}) {
+                my $class = source2class($source);
+                push @li, [li => a(link => plural($source), url => $self->{root}.'/'.$class)];
+                push @classes, {class => $class, href => $self->{url}.$self->{root}.'/'.$class.'?accept=json'};
+            }
+            push @body, [p => [1 => "Other classes"],[ul=>\@li]];
         }
         return json200({}, \@classes) if $self->{json};
         push @body, $footer;
@@ -221,7 +230,7 @@ sub object_editor {
         push @body, $part;
         
     } elsif ($request eq 'delete') {
-        my $class = $object->last->{class}; # what to create
+        my $class = $object->last->{class}; # what to delete
         my @id = $self->{parameters}->get_all($class);
         if (@id) {
             for my $id (@id) {

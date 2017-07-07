@@ -11,9 +11,11 @@ sub simple_sources {
     my %sources = map {$_ => 1} $self->sources;
     my (%ok, %not_ok);
     my %simple;
+    my %rest;
     for my $source ($self->sources) {
         if ($source =~ /2/) {
             delete $sources{$source};
+            $rest{$source} = 1;
             next;
         }
         my $is_not_simple;
@@ -24,7 +26,10 @@ sub simple_sources {
         for my $r (keys %$rs) {
             $is_not_simple = 1 unless $is_not_simple;
             next if $rs->{$r}{stop_edit} || (defined $rs->{$r}{edit} && $rs->{$r}{edit} == 0);
-            delete $sources{$rs->{$r}{source}} unless $source eq $rs->{$r}{source};
+            unless ($source eq $rs->{$r}{source}) {
+                delete $sources{$rs->{$r}{source}};
+                $rest{$rs->{$r}{source}} = 1;
+            }
         }
         
         # is the class non-independent part class?
@@ -51,9 +56,10 @@ sub simple_sources {
     }
     for my $source (keys %not_ok) {
         next if $ok{$source};
+        $rest{$source} = 1;
         delete $sources{$source};
     }
-    return (\%sources, \%simple);
+    return (\%sources, \%simple, \%rest);
 }
 
 1;

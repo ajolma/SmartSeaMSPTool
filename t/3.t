@@ -149,6 +149,7 @@ sub crud {
     my %data;
     for my $key (keys %$schema) {
         next unless ref $schema->{$key};
+        next if $key eq 'cookie';
         next if $key eq 'related';
         next if $key eq 'id';
         next if $key eq 'owner';

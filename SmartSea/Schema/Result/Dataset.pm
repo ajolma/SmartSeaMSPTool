@@ -110,8 +110,8 @@ sub relationship_hash {
 sub lineage {
     my $self = shift;
     my $lineage = $self->name;
-    $lineage .= ' (a part of) '.$self->is_a_part_of->name if $self->is_a_part_of;
-    $lineage .= ' (derived from) '.$self->is_derived_from->name if $self->is_derived_from;
+    $lineage .= ' (is a part of) '.$self->is_a_part_of->name if $self->is_a_part_of;
+    $lineage .= ' (is derived from) '.$self->is_derived_from->name if $self->is_derived_from;
     return $lineage;
 }
 
@@ -186,6 +186,11 @@ sub auto_fill_cols {
                 $self->$key($parsed->{$key}) if defined($value) || defined($parsed->{$key});
             }
         }
+    }
+    if ($path && ($path =~ /^PG:/)) {
+        $self->min_value(0);
+        $self->max_value(1);
+        $self->data_type(1);
     }
 }
 

@@ -140,7 +140,7 @@ sub name {
     if ($class eq 'exclusive' || $class eq 'inclusive') {
         my $sign = $class eq 'exclusive' ? '-' : '+';
         my $n = $criteria->classes;
-        say STDERR "Rule ".$self->id." is based on dataset without data type!" unless defined $n;
+        say STDERR "Rule ".$self->id.": dataset ".$criteria->name." lacks data type!" unless defined $n;
         $n //= 1;
         return "$sign if ".$criteria->name if $n == 1;
         my $op = $self->op->name // '';
@@ -153,8 +153,8 @@ sub name {
             } elsif ($value ne '') {
                 say STDERR "Value $value does not have a meaning in rule ".$self->id."!";
             }
-            return "$sign if ".$criteria->name." $op $value";
         }
+        return "$sign if ".$criteria->name." $op $value";
     }
     
     my $x_min = $self->min_value;

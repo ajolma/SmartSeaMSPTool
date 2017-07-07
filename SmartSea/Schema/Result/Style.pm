@@ -62,9 +62,7 @@ sub prepare {
     $self->max($self->min) if $self->min > $self->max;
     unless (defined $self->classes) {
         my $n;
-        if ($args->{labels}) {
-            $n = @{$args->{labels}};
-        } elsif ($args->{data_type} == 1 && ($args->{max} - $args->{min} + 1) < 100) {
+        if ($args->{data_type} == 1 && ($args->{max} - $args->{min} + 1) < 100) {
             $n = $args->{max} - $args->{min} + 1;
         } else {
             $n = 101;
@@ -79,9 +77,7 @@ sub value_to_color {
     my ($self, $value) = @_;
     my $n = $self->classes;
     return $self->{color_table}->Color(1) if $n == 1;
-    my $min = $self->min;
-    my $max = $self->max;
-    my $class = int($n*($value-$min)/($max-$min));
+    my $class = int($n * ($value - $self->min)/($self->max - $self->min));
     --$class if $class > $n-1;
     return $self->{color_table}->Color($class);
 }
@@ -89,69 +85,115 @@ sub value_to_color {
 sub legend {
     my ($self, $args) = @_;
     
-    my $min = $self->min;
-    my $max = $self->max;
-    my $n = $self->classes;
-    my $unit = $args->{unit};
+    # $args->{data_type}; # 1 is int
 
-    my $half_font = $args->{font_size}/2;
-    my $symbology_height = $args->{height}-$args->{font_size};
+    # legend is classed or ticked
+    # if labels or limited range of ints -> classed
+    # height is from classes
+
+    $args->{width} //= 200;
+    $args->{height} //= 140;
+    $args->{unit} //= '';
+    $args->{tick_width} //= 5;
+    $args->{label_vertical_padding} //= 2;
+    $args->{label_horizontal_padding} //= 5;
+    $args->{max_labels} //= 30;
+
+    $args->{class_height} = $args->{font_size} + 2 * $args->{label_vertical_padding};
+
+    if ($args->{data_type} != 1 || $self->max - $self->min > $args->{max_labels}) {
+        return $self->ticked_legend($args);
+    } else {
+        return $self->classed_legend($args);
+    }
+    
+}
+
+sub ticked_legend {
+    my ($self, $args) = @_;
     
     my $image = GD::Image->new($args->{width}, $args->{height});
-    
-    my $color = $image->colorAllocateAlpha(255,255,255,0);
-    $image->filledRectangle($args->{symbology_width},0,99,$args->{height}-1+$args->{font_size},$color);
-    for my $y (0..$half_font-1) {
-        $image->line(0, $y, $args->{symbology_width}-1, $y, $color);
-        my $y2 = $args->{height} - $half_font + $y;
-        $image->line(0, $y2, $args->{symbology_width}-1, $y2, $color);
+    $image->filledRectangle(0,0,$args->{width}-1,$args->{height}-1,$image->colorAllocateAlpha(255,255,255,0));
+
+    # color bar
+
+    my $padding = $args->{font_size}/2 + $args->{label_vertical_padding};
+    my $y1 = $args->{height} - 1 - $padding;
+    my $y2 = $padding;
+    my $k = ($self->max - $self->min) / ($y2 - $y1);
+    for my $y ($y2 .. $y1) {
+        my $value = $self->min + ($y - $y1) * $k;
+        my $color = $image->colorAllocateAlpha($self->value_to_color($value));
+        $image->line(0,$y,$args->{colorbar_width},$y,$color);
     }
 
-    for my $h (0..$symbology_height-1) {
-        my $y = $min + ($symbology_height-1-$h)*($max-$min)/($symbology_height-1);
-        my $color = $image->colorAllocateAlpha($self->value_to_color($y));
-        my $yl = $half_font+$h;
-        $image->line(0, $yl, $args->{symbology_width}-1, $yl, $color);
-    }
-    
-    $color = $image->colorAllocateAlpha(0,0,0,0);
-    
-    my @string = ($color, $args->{font}, $args->{font_size}, 0, $args->{symbology_width}+7);
+    # ticks
 
-    # how many labels fit in max?
-    my $max_labels = int($symbology_height/($args->{font_size}+2));
-        
-    # classes per label
-    my $classes_per_label = int($n/$max_labels);
-    $classes_per_label = 1 if $classes_per_label < 1;
-    
-    # first class to have a label
-    my $first_class_to_have_label = int($classes_per_label / 2);
-    $first_class_to_have_label = 1 if $first_class_to_have_label < 1;
+    my $color = $image->colorAllocateAlpha(0,0,0,0);
+    my $x = $args->{colorbar_width} + 1;
+    for (my $y = $y1; $y > 0; $y -= $args->{class_height}) {
+        my $yl = $y;
+        ++$yl if $y < $y1;
+        $image->line($x,$yl,$x + $args->{tick_width},$yl,$color);
+    }
     
     # labels
-    my @labels = @{$args->{labels}};
     
-    if (@labels) {
-        for (@labels) {
-            $_ = encode utf8 => $_;
-        }
-    } else {
-        my $step = ($max - $min) / $n;
-        my $x = $min + $step;
-        push @labels, sprintf("<= %.1f", $x) . $unit;
-        my $low;
-        for my $class (2..$n-1) {
-            $low = $x;
-            $x += $step;
-            push @labels, sprintf("(%.1f,%.1f]", $low, $x) . $unit;
-        }
-        push @labels, sprintf("> %.1f", $x) . $unit;
+    my @string = (
+        $image->colorAllocateAlpha(0,0,0,0), 
+        $args->{font}, 
+        $args->{font_size}, 
+        0, # angle
+        $args->{colorbar_width} + $args->{tick_width} + $args->{label_horizontal_padding} # x
+        );
+
+    for (my $y = $y1; $y > 0; $y -= $args->{class_height}) {
+        my $yl = $y;
+        ++$yl if $y < $y1;
+        my $value = $self->min + ($yl - $y1) * $k;
+        my $label = $value . ' ' . $args->{unit};
+        $image->stringFT(@string, $yl + $args->{font_size}/2, $label);
     }
+
+    return $image;
+}
+
+sub classed_legend {
+    my ($self, $args) = @_;
+        
+    my $height = int($args->{class_height} * $self->classes);
+
+    my $image = GD::Image->new($args->{width}, $height);
+    $image->filledRectangle(0,0,$args->{width}-1,$height-1,$image->colorAllocateAlpha(255,255,255,0));
+
+    # color bar
+
+    my $y1 = $height - 1;
+    my $y2 = $y1 - $args->{class_height} + 1;
+    for my $value ($self->min..$self->max) {
+        my $color = $image->colorAllocateAlpha($self->value_to_color($value));
+        $image->filledRectangle(0,$y1,$args->{colorbar_width},$y2,$color);
+        $y1 = $y2 + 1;
+        $y2 -= $args->{class_height};
+    }
+
+    # labels
     
-    for (my $class = $first_class_to_have_label; $class <= $n; $class += $classes_per_label) {
-        my $y = $args->{height} - int(($class-0.5)*$symbology_height/$n) - 1;
-        $image->stringFT(@string, $y, $labels[$class-1] // '');
+    my $labels = $args->{labels} // {};
+
+    my @string = (
+        $image->colorAllocateAlpha(0,0,0,0), 
+        $args->{font}, 
+        $args->{font_size}, 
+        0, # angle
+        $args->{colorbar_width} + $args->{label_horizontal_padding} # x
+        );
+
+    my $y = $height - 1 - $args->{label_vertical_padding};
+    for my $value ($self->min..$self->max) {
+        my $label = $labels->{$value} // $value;
+        $image->stringFT(@string, $y, (encode utf8 => $label));
+        $y -= $args->{class_height};
     }
 
     return $image;

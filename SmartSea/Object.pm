@@ -53,13 +53,15 @@ sub from_app {
         $object = SmartSea::Object->new(\%args);
         push @objects, $object;
     }
-    my $prev;
-    for my $obj (@objects) {
-        $obj->{prev} = $prev;
-        $prev->{next} = $obj if $prev;
-        weaken($obj->{prev});
-        weaken($prev->{next});
-        $prev = $obj;
+    if (@objects > 1) {
+        my $prev;
+        for my $obj (@objects) {
+            $obj->{prev} = $prev;
+            $prev->{next} = $obj if $prev;
+            weaken($obj->{prev});
+            weaken($prev->{next});
+            $prev = $obj;
+        }
     }
 
     return unless @objects;
@@ -295,9 +297,10 @@ sub columns {
     my $columns_info;
     confess unless defined $self->{result};
     if ($self->{result}->can('my_columns_info')) {
+        my $prev = $self->{prev} ? $self->{prev}{object} : undef;
         $columns_info = $self->{object} ? 
-            $self->{object}->my_columns_info($self->{prev}{object}) : 
-            $self->{result}->my_columns_info($self->{prev}{object});
+            $self->{object}->my_columns_info($prev) : 
+            $self->{result}->my_columns_info($prev);
     } else {
         $columns_info = $self->{result}->columns_info;
     }
@@ -469,7 +472,7 @@ sub read {
         }
 
         $url .= ':';
-        if ($self->{prev}) {
+        if ($self->{prev} && $self->{prev}{object}) {
             my $method = $self->{relation}{related};
             for my $row ($self->{prev}{object}->$method($search)) {
                 #next unless $row->ecosystem_component->name =~ /Vege/;
@@ -514,7 +517,7 @@ sub update_or_create {
 sub create {
     my ($self, $columns) = @_;
 
-    if ($self->{prev} && !$columns) {
+    if ($self->{prev} && $self->{prev}{object} && !$columns) {
         my $relationship = $self->{relation};
         confess "no key" unless $relationship->{key};
         my $parent_id = $self->{prev}{object}->get_column($relationship->{key});
@@ -771,7 +774,7 @@ sub delete {
 
     say STDERR "delete ",$self->str if $self->{app}{debug};
     
-    croak "Will not delete all $self->{class} objects." unless $self->{object};
+    croak "A request to delete unexisting ".$self->{source}." object." unless $self->{object};
     
     my $columns = $self->columns;
     my %delete;
@@ -1013,9 +1016,9 @@ sub form {
     push @widgets, [p => $title];
 
     # if the form is in the context of a parent
-    if ($self->{prev}) {
+    if ($self->{prev} && $self->{prev}{object}) {
         my $relationship = $self->{relation};
-        my $parent_id = $self->{prev}->{object}->get_column($relationship->{key});
+        my $parent_id = $self->{prev}{object}->get_column($relationship->{key});
         if ($self->{object} && $relationship->{link_source}) {
             my $related_id = $self->{id};
             $self = SmartSea::Object->new({source => $relationship->{link_source}, app => $self->{app}});

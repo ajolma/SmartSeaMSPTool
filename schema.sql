@@ -601,7 +601,8 @@ ALTER SEQUENCE impacts_id_seq1 OWNED BY impacts.id;
 
 CREATE TABLE layer_classes (
     id integer NOT NULL,
-    name text NOT NULL
+    name text NOT NULL,
+    semantics text
 );
 
 

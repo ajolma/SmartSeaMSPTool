@@ -171,6 +171,10 @@ function MSPRule(args) {
 }
 
 MSPRule.prototype = {
+    getCriteria: function() {
+        var self = this;
+        return self.model.getDataset(self.dataset);
+    },
     getName: function() {
         var self = this;
         var dataset = self.model.getDataset(self.dataset);
@@ -198,7 +202,7 @@ MSPRule.prototype = {
             max:dataset.max_value,
             classes:dataset.classes,
             data_type:dataset.data_type,
-            semantics:data_type.semantics
+            semantics:dataset.semantics
         };
     },
     description: function() {

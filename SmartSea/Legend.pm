@@ -32,11 +32,12 @@ sub call {
         
     my $image = $layer ?
         $layer->legend({
+            data_type => $layer->{data_type},
             font => '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
             font_size => 10,
             width => 200, # layout.css.right.width
             height => 140,
-            symbology_width => 50}) 
+            colorbar_width => 50}) 
         :
         GD::Image->new('/usr/share/icons/cab_view.png');
 

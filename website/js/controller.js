@@ -668,7 +668,7 @@ MSPController.prototype = {
         self.rule_editor.dialog('option', 'height', 400);
         
         var rule = self.model.selectRule(args.id);
-        var html = rule.getName();
+        var html = rule.getCriteria().name;
         var owner = rule.layer.owner == user;
 
         if (!owner) html += element('p', {}, 'Et ole tämän tason omistaja. Muutokset ovat tilapäisiä.');
@@ -691,7 +691,7 @@ MSPController.prototype = {
         } else {
             if (ruleAttr.semantics) {
                 if (self.model.layer.rule_class == 'exclusive') {
-                    html = 'Unmark cell if '+html+' is '+rule.op+' than';
+                    html = 'Alue ei ole sopiva jos '+html+' on '+rule.op+' kuin';
                 }
                 args.type = 'select';
                 args.list = ruleAttr.semantics;
