@@ -158,9 +158,9 @@ sub make_polygon_report {
     my $gt = $self->{mask}->GeoTransform;
     my ($canvas, $extent, $overview, $cell_area, @clip) = canvas($gt, $polygon, $region);
         
-    my $a = $canvas->Band()->Piddle();
+    my $p = $canvas->Band()->Piddle();
     my $s = $self->{mask}->Band()->Piddle(@clip);
-    my $A = sum($a*$s); # cells in polygon
+    my $A = sum($p * $s); # cells in polygon
 
     my $report = '';
 
@@ -175,10 +175,10 @@ sub make_polygon_report {
             $s = $self->{mask}->Band()->Piddle(@clip);
         };
         unless ($@) {
-            $s = $a*($s+1); # adjust land cover values to 1..4
+            $s = $p*($s+1); # adjust land cover values to 1..4
             my @lc;
             for my $i (0..3) {
-                my $result = $a*0;
+                my $result = $p*0;
                 my $x = $result->where($s == ($i+1));
                 $x .= 1;
                 $lc[$i] = int(sum($result)/$A*100);

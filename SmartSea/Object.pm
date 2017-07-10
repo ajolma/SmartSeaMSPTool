@@ -129,7 +129,6 @@ sub new {
 sub id {
     my ($self, $id) = @_;
     if ($id) {
-        confess '' if $id eq 'NULL';
         #my %pk;
         #for my $pkey ($self->{rs}->result_source->primary_columns) {
         #    if ($pkey eq 'id') {
@@ -239,23 +238,30 @@ sub superclass {
 
 sub super {
     my $self = shift;
-    return unless $self->{object};
+    #return unless $self->{object};
     return unless $self->{result}->has_column('super');
-    my $super = $self->{object}->super;
-    return unless $super;
+    my $info = $self->{result}->column_info('super');
+    my $super = $self->{object} ? $self->{object}->super : undef;
+    #return unless $super;
     return SmartSea::Object->new({
         object => $super,
         name => $self->{name},
-        class => $self->superclass,
+        source => $info->{source},
         relation => $self->{relation},
         stop_edit => $self->{stop_edit},
         app => $self->{app}});
 }
 
 sub subclass {
-    my ($self) = @_;
-    croak "Must have result object to call subclass." unless $self->{object};
-    return $self->{object}->subclass if $self->{object}->can('subclass');
+    my ($self, $columns) = @_;
+    my $can = $self->{result}->can('subclass');
+    if ($self->{object}) {
+        return $self->{object}->subclass if $can;
+    } elsif ($columns) {
+        return $self->{result}->subclass($columns) if $can;
+    } else {
+        croak "Must have result object or column data to call subclass." unless $self->{object};
+    }
 }
 
 sub next_id {
@@ -358,21 +364,28 @@ sub values_from_parameters {
                 $meta->{value} = DEFAULT;
             }
         } else {
-            next if !$meta->{not_null} && !(exists $parameters->{$column});
-            $meta->{value} = $parameters->{$column};
-            unless (defined($meta->{value})) {
-                $meta->{value} = $meta->{default} if exists $meta->{default};
-            }
-            if (defined($meta->{value}) && $meta->{value} eq '') {
-                $meta->{value} = $meta->{default} if $meta->{empty_is_default};
-                $meta->{value} = undef if $meta->{empty_is_null};
-            }
-            if (!defined($meta->{value}) && $meta->{not_null}) {
-                push @errors, "$column is required for $self->{source}";
+            # The goal is to get values from parameters and report errors
+            # empty parameter string is interpreted as NULL
+            # column meta values observed:
+            # not_null: the column is NOT NULL in DB
+            # has_default: the column hass DEFAULT in DB
+            # is_foreign_key: the column points to a related object
+            unless (exists $parameters->{$column}) {
+                push @errors, "$column is required for $self->{source}" if $meta->{not_null};
                 next;
             }
+            $meta->{value} = $parameters->{$column};
+            if (!defined($meta->{value}) || $meta->{value} eq '') {
+                if ($meta->{not_null}) {
+                    push @errors, "$column is required for $self->{source}";
+                    next;
+                } elsif ($meta->{has_default}) {
+                    delete $meta->{value};
+                } else {
+                    $meta->{value} = undef;
+                }
+            }
             next unless $meta->{is_foreign_key};
-            next if $meta->{value} eq 'NULL';
             my $related = SmartSea::Object->new({source => $meta->{source}, id => $meta->{value}, app => $self->{app}});
             if (defined $related->{object}) {
                 $meta->{value} = $related->{object};
@@ -626,15 +639,7 @@ sub create {
         my $meta = $columns->{$column};
         next if $column eq 'id' && $self->{app}{sequences};
         if (exists $meta->{value}) {
-            if (defined $meta->{value}) {
-                if ($meta->{value} eq 'NULL') {
-                    $values{$column} = undef;
-                } else {
-                    $values{$column} = $meta->{value};
-                }
-            } else {
-                $values{$column} = undef;
-            }
+            $values{$column} = $meta->{value};
             say STDERR "  $column => ",($meta->{value}//'undef') if $self->{app}{debug} > 1;
         }
     }
@@ -642,19 +647,22 @@ sub create {
         my $error = $self->{result}->is_ok(\%values);
         croak $error if $error;
     }
+
     $self->{object} = $self->{rs}->create(\%values);
     $self->{id} = $self->{object}->id;
     $self->{id} = $self->{id}->id if ref $self->{id};
     say STDERR "created $self->{source}, id is ",$self->{id} if $self->{app}{debug};
 
-    # make subclass object -- this is hack, should know what to create in the first place
-    my $class = $self->subclass;
-    if ($class) {
+    # make subclass object, try to delete super object if this fails
+    if (my $class = $self->subclass) {
         say STDERR "Create $class subclass object with id $self->{id}" if $self->{app}{debug};
-        my $obj = SmartSea::Object->new({source => $class, app => $self->{app}});
-        $columns = $obj->columns;
-        my @errors = $obj->values_from_parameters($columns);
-        croak @errors if @errors;
+        my $object = SmartSea::Object->new({source => $class, app => $self->{app}});
+        my $columns = $object->columns;
+        my @errors = $object->values_from_parameters($columns);
+        if (@errors) {
+            $self->delete;
+            croak join(', ',@errors);
+        }
         # assuming no new parts
         my %value;
         for my $column (keys %$columns) {
@@ -665,7 +673,7 @@ sub create {
                 $value{$column} = ref $meta->{value} ? $meta->{value}->id : $meta->{value};
             }
         }   
-        $obj->{object} = $obj->{rs}->create(\%value);
+        $object->{object} = $object->{rs}->create(\%value);
     }
     return ();
 }
@@ -715,7 +723,6 @@ sub update {
         next if $self->{app}{parameters}{$col} eq '' && $meta->{empty_is_default};
         $col_data->{$col} = $self->{app}{parameters}{$col} if exists $self->{app}{parameters}{$col};
         $col_data->{$col} = undef if $meta->{empty_is_null} && $col_data->{$col} eq '';
-        $col_data->{$col} = undef if $col_data->{$col} eq 'NULL';
     }
 
     if ($self->{object}->can('is_ok')) {
@@ -845,9 +852,9 @@ sub simple_items {
         } else {
             $value //= '(undef)';
             if (ref $value) {
-                for my $b (qw/name id data/) {
-                    if ($value->can($b)) {
-                        $value = $value->$b;
+                for my $key (qw/name id data/) {
+                    if ($value->can($key)) {
+                        $value = $value->$key;
                         last;
                     }
                 }
@@ -1012,17 +1019,14 @@ sub item_class {
 }
 
 sub form {
-    my $self = shift;
+    my ($self, $args) = @_;
     say STDERR "form for $self->{source}" if $self->{app}{debug};
 
     # TODO: child columns are now in parameters and may mix with parameters for self
 
     my $columns = $self->columns;
     my @widgets;
-    my $title = $self->{object} ? 'Editing ' : 'Creating ';
-    $title .= $self->{object} ? $self->{object}->name : $self->{source};
-    push @widgets, [p => $title];
-
+    
     # if the form is in the context of a parent
     if ($self->{prev} && $self->{prev}{object}) {
         my $relationship = $self->{relation};
@@ -1034,7 +1038,7 @@ sub form {
             set_value_to_columns($columns, $relationship->{ref_to_related}, $related_id);
         }
         set_value_to_columns($columns, $relationship->{ref_to_parent}, $parent_id);
-        set_value_to_columns($columns, $relationship->{set_to_null}, 'NULL') if $relationship->{set_to_null};
+        set_value_to_columns($columns, $relationship->{set_to_null}, undef) if $relationship->{set_to_null};
         push @widgets, $self->hidden_widgets($columns);
     }
 
@@ -1044,6 +1048,22 @@ sub form {
 
     # obtain default values for widgets
     $self->values_from_parameters($columns);
+    push @widgets, $self->hidden_widgets($columns) if $args->{input_is_fixed};
+
+    # possible upgrade to subclass
+    if (my $source = $self->subclass($columns)) {
+        say STDERR "my class is $source";
+        $self->{source} = $source;
+        $self->{name} = $source;
+        $self->{result} = 'SmartSea::Schema::Result::'.$self->{source};
+        $self->{rs} = $self->{app}{schema}->resultset($source);
+        $columns = $self->columns;
+        #print STDERR Dumper $columns;
+    }
+
+    #my $title = $self->{object} ? 'Editing ' : 'Creating ';
+    #$title .= $self->{object} ? $self->{object}->name : $self->{source};
+    #unshift @widgets, [p => $title];
 
     # simple data from parent/upstream objects
     my %from_upstream; 
@@ -1071,10 +1091,11 @@ sub form {
 
     my $compute = $self->{result}->can('compute_cols');
     
-    my $super = $self->super;
-    push @widgets, [
-        fieldset => [[legend => $super->{source}], $super->widgets($columns->{super}{columns})]
-    ] if $super;
+    if (my $super = $self->super) {
+        push @widgets, [
+            fieldset => [[legend => $super->{source}], $super->widgets($columns->{super}{columns})]
+        ];
+    }
     push @widgets, (
         $self->widgets($columns),
         button(name => 'request', value => 'save', content => 'Save'), 
@@ -1105,21 +1126,31 @@ sub hidden_widgets {
         next if $column eq 'id';
         next if $column eq 'owner';
         my $meta = $columns->{$column};
-        next unless defined $meta->{value};
-        say STDERR "known data: $column => $meta->{value}" if $self->{app}{debug} > 1;
+        next unless exists $meta->{value};
+        say STDERR "known data: $column => ".($meta->{value}//'undef') if $self->{app}{debug};
         
         if ($meta->{columns}) {
             my $part = SmartSea::Object->new({object => $meta->{value}, app => $self->{app}});
             push @widgets, $part->hidden_widgets($meta->{columns});
-        } else {
-            if ($meta->{value} ne 'NULL') {
-                my $id = $meta->{target} // 'id';
-                my $val = $self->{app}{schema}->
-                    resultset($meta->{source})->
-                    single({$id => $meta->{value}})->name;
+        } elsif (!$meta->{widget}) {
+            my $id = $meta->{target} // 'id';
+            my $val;
+            if (defined $meta->{value}) {
+                if (ref $meta->{value}) {
+                    $val = $meta->{value}->name;
+                } else {
+                    $val = $self->{app}{schema}->
+                        resultset($meta->{source})->
+                        single({$id => $meta->{value}})->name;
+                }
                 push @widgets, [p => [1 => "$column: $val"]];
+                if (ref $meta->{value}) {
+                    $val = $meta->{value}->$id;
+                } else {
+                    $val = $meta->{value};
+                }
             }
-            push @widgets, hidden($column => $meta->{value});
+            push @widgets, hidden($column => $val // '');
             $meta->{widget} = 1;
         }
     }

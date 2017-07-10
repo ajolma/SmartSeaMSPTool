@@ -73,8 +73,7 @@ sub drop_down {
     my $name = $arg{name} // '';
     my $values = $arg{values};
     my $visuals = $arg{visuals} // {};
-    my $selected = $arg{selected} // (!$arg{not_null} ? '' : 'NULL');
-    $visuals->{NULL} = '' unless $arg{not_null};
+    $visuals->{''} = '' unless $arg{not_null};
     if ($arg{objs}) {
         my %objs;
         $values = [];
@@ -86,8 +85,9 @@ sub drop_down {
             push @$values, $id;
         }
         #$values //= [sort {$objs{$a} cmp $objs{$b}} keys %objs];
-        unshift @$values, 'NULL' unless $arg{not_null};
+        unshift @$values, '' unless $arg{not_null};
     }
+    my $selected = $arg{selected} // $values->[0];
     my @options;
     for my $value (@$values) {
         my $attr = {value => $value};

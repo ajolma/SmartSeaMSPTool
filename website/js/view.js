@@ -186,6 +186,7 @@ MSPView.prototype = {
                     options.push({cmd:'edit', label:'Edit...'});
                 }
                 if (use.id > 1) {
+                    options.push({cmd:'edit', label:'Edit...'});
                     options.push({cmd:'delete', label:'Delete...'});
                     options.push({cmd:'add_layer', label:'Add layer...'});
                 }

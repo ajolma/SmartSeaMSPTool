@@ -150,12 +150,12 @@ sub post_process {
     } else {
 
         my $k = $style->classes / ($style->max - $style->min);
-        my $b = $style->min * $k;
+        my $c = $style->min * $k;
         say STDERR "scale ".$style->min." .. ".$style->max." to ".$style->classes." classes".
-            ", k = $k, b = $b" if $self->{debug};
+            ", k = $k, b = $c" if $self->{debug};
       
         $y = double $y;
-        $y = $k*$y - $b;
+        $y = $k*$y - $c;
         $y->where($y > ($style->classes - 1)) .= $style->classes - 1;
         $y->where($y < 0) .= 0;
     }

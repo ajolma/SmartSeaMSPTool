@@ -222,7 +222,7 @@ sub object_editor {
             return json200({}, {error => $@}) if $self->{json};
         } elsif (@errors) {
             return json200({}, {error => \@errors}) if $self->{json};
-            $part = [form => {action => $self->{path}, method => 'POST'}, $object->last->form];
+            $part = [form => {action => $self->{path}, method => 'POST'}, $object->last->form({input_is_fixed=>1})];
         } else {
             return json200({}, $object->first->read) if $self->{json};
         }

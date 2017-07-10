@@ -29,8 +29,8 @@ my %translations = (
 sub name {
     my $self = shift;
     my @name;
-    for my $a (qw/recovery extent resilience temporal_extent/) {
-        push @name, $translations{$a}.': '.$self->$a if $self->$a;
+    for my $key (qw/recovery extent resilience temporal_extent/) {
+        push @name, $translations{$key}.': '.$self->$key if $self->$key;
     }
     return join(', ', @name);
 }

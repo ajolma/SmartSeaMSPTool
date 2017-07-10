@@ -19,12 +19,12 @@ my @columns = (
     layer        => { is_foreign_key => 1, source => 'Layer' },
     dataset      => { is_foreign_key => 1, source => 'Dataset',    not_null => 1, objs => {path => {'!=',undef}} },
     op           => { is_foreign_key => 1, source => 'Op'  },
-    value        => { data_type => 'text', type => 'double', empty_is_default => 1 },
-    min_value    => { data_type => 'text', type => 'double', empty_is_default => 1 },
-    max_value    => { data_type => 'text', type => 'double', empty_is_default => 1 },
-    value_at_min => { data_type => 'text', type => 'double', empty_is_default => 1 },
-    value_at_max => { data_type => 'text', type => 'double', empty_is_default => 1 },
-    weight       => { data_type => 'text', type => 'double', empty_is_default => 1 }
+    value        => { data_type => 'text', type => 'double', has_default => 1 },
+    min_value    => { data_type => 'text', type => 'double', has_default => 1 },
+    max_value    => { data_type => 'text', type => 'double', has_default => 1 },
+    value_at_min => { data_type => 'text', type => 'double', has_default => 1 },
+    value_at_max => { data_type => 'text', type => 'double', has_default => 1 },
+    weight       => { data_type => 'text', type => 'double', has_default => 1 }
     );
 
 # how to compute the weighted value for x:

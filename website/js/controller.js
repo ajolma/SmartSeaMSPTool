@@ -55,9 +55,12 @@ function MSPController(model, view) {
     });
     
     self.view.useCommand.attach(function(sender, args) {
-        if (args.cmd == 'edit')
-            self.editUse(self.model.plan, args.use);
-        else if (args.cmd == 'delete')
+        if (args.cmd == 'edit') {
+            if (args.use.id == 0) // "Data"
+                self.editDatasetList(self.model.plan, args.use);
+            else
+                self.editUse(self.model.plan, args.use);
+        } else if (args.cmd == 'delete')
             self.deleteUse(self.model.plan, args.use);
         else if (args.cmd == 'add_layer')
             self.addLayer(self.model.plan, args.use);
@@ -179,7 +182,7 @@ MSPController.prototype = {
                 headers: {
                     Accept: 'application/json'
                 },
-                url: self.server+klass+'?'+query,
+                url: self.server+klass+query,
                 success: function (result) {
                     if (result.isOk == false) self.error(result.message);
                     self.klasses[klass] = result;
@@ -349,9 +352,40 @@ MSPController.prototype = {
         self.editor.dialog('open');
     },
     editUse: function(plan, use) {
-        if (use.id != 0) return; // only for "Data"
         var self = this;
-        self.editor.dialog('option', 'title', 'Use');
+        self.editor.dialog('option', 'title', use.name);
+        self.editor.dialog('option', 'height', 400);
+
+        var activities = {};
+        $.each(self.simpleObjects('use_class', ':'+use.class_id+'/activities'), function(i, item) {
+            activities[item.id] = item;
+        });
+        var activities = new Widget({
+            container_id:self.editor_id,
+            id:'activities_list',
+            type:'checkbox-list',
+            list:self.simpleObjects('activity'),
+            selected:activities,
+            pretext:''
+        });
+        var html = element('p', {}, 'This is now for your information only.')
+            + element('p', {}, activities.content());
+
+        self.editor.html(html);
+        self.ok = function() {
+            var selected = datasets.selected_ids();
+            var update = '';
+            $.each(selected, function(id, i) {
+                if (update) update += '&';
+                update += 'dataset='+id;
+            });
+            return true;
+        };
+        self.editor.dialog('open');
+    },
+    editDatasetList: function(plan, use) {
+        var self = this;
+        self.editor.dialog('option', 'title', 'Dataset list');
         self.editor.dialog('option', 'height', 400);
 
         // put into the list those datasets that are not in rules
@@ -546,7 +580,7 @@ MSPController.prototype = {
             container_id:self.editor_id,
             id:'rule-dataset',
             type:'select',
-            list:self.model.datasets.layers, //self.simpleObjects('dataset', 'path=notnull'),
+            list:self.model.datasets.layers,
             pretext:'Rule is based on the dataset: '
         });
         var rule = new Widget({
