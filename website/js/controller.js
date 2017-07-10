@@ -65,7 +65,7 @@ function MSPController(model, view) {
     
     self.view.layerCommand.attach(function(sender, args) {
         if (args.cmd == 'edit')
-            self.editLayer(args.layer);
+            self.editLayer(self.model.plan, args.use, args.layer);
         else if (args.cmd == 'delete')
             self.deleteLayer(self.model.plan, args.use, args.layer);
         else if (args.cmd == 'add_rule')
@@ -159,7 +159,7 @@ MSPController.prototype = {
         $.post(args.url, args.payload,
                function(data) {
                    if (data.error)
-                       self.model.error(data.error);
+                       self.error(data.error);
                     else
                         args.atSuccess(data);
                 }
@@ -168,7 +168,7 @@ MSPController.prototype = {
                 var msg = xhr.responseText;
                 if (msg == '') msg = textStatus;
                 msg = 'Calling SmartSea MSP server failed. The error message is: '+msg;
-                self.model.error(msg);
+                self.error(msg);
             });  
     },
     simpleObjects: function(klass, query) {
@@ -181,14 +181,14 @@ MSPController.prototype = {
                 },
                 url: self.server+klass+'?'+query,
                 success: function (result) {
-                    if (result.isOk == false) self.model.error(result.message);
+                    if (result.isOk == false) self.error(result.message);
                     self.klasses[klass] = result;
                 },
                 fail: function (xhr, textStatus, errorThrown) {
                     var msg = xhr.responseText;
                     if (msg == '') msg = textStatus;
                     msg = 'Calling SmartSea MSP server failed. The error message is: '+msg;
-                    self.model.error(msg);
+                    self.error(msg);
                 },
                 async: false
             });
@@ -481,7 +481,7 @@ MSPController.prototype = {
         };
         self.editor.dialog('open');
     },
-    editLayer: function(layer) {
+    editLayer: function(plan, use, layer) {
         var self = this;
         self.editor.dialog('option', 'title', 'Layer');
         self.editor.dialog('option', 'height', 400);
@@ -503,21 +503,22 @@ MSPController.prototype = {
             var payload = {
                 color_scale: color.id
             };
-            self.post({
-                url: self.server+'layer:'+layer.id+'?request=update',
-                payload: payload,
-                atSuccess: function(data) {
-                    self.model.updateLayer({
-                        id: data.id.value,
-                        color_scale: color.name,
-                        /*
-                        class_id: data.layer_class.value,
-                        owner: data.owner.value,
-                        use_class_id: use.class_id,
-                        rule_class: rule_class.name
-                        */
-                    })}
-            });
+            var url;
+            if (use.id == 0) {
+                // layer is dataset
+                layer.color_scale = color.name;
+                layer.refresh();
+                self.model.selectLayer({use:use.id,layer:layer.id});
+            } else {
+                self.post({
+                    url: self.server+'layer:'+layer.id+'?request=update',
+                    payload: payload,
+                    atSuccess: function(data) {
+                        layer.refresh();
+                        self.model.selectLayer({use:use.id,layer:layer.id});
+                    }
+                });
+            }
             return true;
         };
         self.editor.dialog('open');
@@ -545,7 +546,7 @@ MSPController.prototype = {
             container_id:self.editor_id,
             id:'rule-dataset',
             type:'select',
-            list:self.model.getPlan(0).uses[0].layers, //self.simpleObjects('dataset', 'path=notnull'),
+            list:self.model.datasets.layers, //self.simpleObjects('dataset', 'path=notnull'),
             pretext:'Rule is based on the dataset: '
         });
         var rule = new Widget({
@@ -717,7 +718,7 @@ MSPController.prototype = {
                     self.model.editRule({value: value});
                 }
                 // if (xhr.status == 403)
-                // self.model.error('Rule modification requires cookies. Please enable cookies and reload this app.');
+                // self.error('Rule modification requires cookies. Please enable cookies and reload this app.');
             });
         };
         self.rule_editor.dialog('open');

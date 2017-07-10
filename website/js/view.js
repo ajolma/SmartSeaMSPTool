@@ -198,20 +198,21 @@ MSPView.prototype = {
                     }
                 });
                 $.each(use.layers, function(j, layer) {
-                    if (use.id < 2) return true;
                     var options = [];
                     options.push({cmd:'edit', label:'Edit...'});
-                    options.push({cmd:'delete', label:'Delete...'});
-                    options.push([{label:'Rule'},
-                                  {cmd:'add_rule', label:'Add...'},
-                                  {cmd:'delete_rule', label:'Delete...'}]);
+                    if (use.id > 2) {
+                        options.push({cmd:'delete', label:'Delete...'});
+                        options.push([{label:'Rule'},
+                                      {cmd:'add_rule', label:'Add...'},
+                                      {cmd:'delete_rule', label:'Delete...'}]);
+                    }
                     makeMenu({
                         element: $(selector+" #layer"+layer.id),
                         menu: $(selector+" #menu"+layer.id),
                         options: options,
                         prelude: function() {
                             self.model.unselectLayer();
-                            self.model.selectLayer(layer.id);
+                            self.model.selectLayer({use:use.id,layer:layer.id});
                         },
                         select: function(cmd) {
                             self.layerCommand.notify({cmd:cmd, use:use, layer:layer});
@@ -220,10 +221,10 @@ MSPView.prototype = {
                 });
             }
             $.each(use.layers, function(j, layer) {
-                $("#layer"+layer.id).click(function() {
+                $("#use"+use.id+" #layer"+layer.id).click(function() {
                     var layer2 = self.model.unselectLayer();
-                    if (!layer2 || layer2.id != layer.id)
-                        self.model.selectLayer(layer.id);
+                    if (!layer2 || !(layer2.id == layer.id && layer2.use_class_id == layer.use_class_id))
+                        self.model.selectLayer({use:use.id,layer:layer.id});
                 });
             });
         });
@@ -258,7 +259,7 @@ MSPView.prototype = {
                     event.data.layer.setVisible(this.checked);
                     if (this.checked) {
                         self.model.unselectLayer();
-                        self.model.selectLayer(event.data.layer.id);
+                        self.model.selectLayer({use:event.data.use.id,layer:event.data.layer.id});
                     }
                     if (self.model.layer)
                         self.elements.site.html(self.model.layer.name);
@@ -293,9 +294,11 @@ MSPView.prototype = {
         var layer = this.model.layer;
         $('#layer'+layer.id).css('background-color','yellow');
         var url = 'http://'+server+'/legend';
+        var style = '';
+        if (layer.color_scale) style = '&style='+layer.color_scale;
         var cache_breaker = '&time='+new Date().getTime();
         this.elements.color_scale.html(
-            element('img',{src:url+'?layer='+layer.use_class_id+'_'+layer.id+cache_breaker},'')
+            element('img',{src:url+'?layer='+layer.use_class_id+'_'+layer.id+style+cache_breaker},'')
         );
         if (layer.use_class_id == 0) { // Data
             this.elements.rule_header.html('Information about dataset:');

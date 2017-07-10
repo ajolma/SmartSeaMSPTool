@@ -97,9 +97,12 @@ sub legend {
     # legend is classed or ticked
     # if labels or limited range of ints -> classed
     # height is from classes
+    for (qw/min max data_type/) {
+        croak "legend: $_ not defined\n" unless defined $args->{$_};
+    }
 
     $self->prepare($args);
-    my $color_table = $self->color_scale->color_table($self->classes);
+    my $color_table = $args->{color_table} // $self->color_scale->color_table($self->classes);
 
     $args->{value_to_color} = sub {
         my $value = shift;
@@ -241,6 +244,12 @@ sub classed_legend {
         }
         $image->stringFT(@string, $y, (encode utf8 => $label));
         $y -= $args->{class_height};
+    }
+
+    if ($args->{title}) {
+        $x = $string[4] + $args->{label_width};
+        $y = int(($height + $args->{font_size})/2); 
+        $image->stringFT(@string[0..3], $x, $y, (encode utf8 => $args->{title}));
     }
 
     return $image;

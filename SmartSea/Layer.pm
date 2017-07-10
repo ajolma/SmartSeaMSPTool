@@ -25,10 +25,6 @@ sub new {
     my ($use_id, $layer_id, @rules) = split /_/, $self->{trail} // '';
     #return bless $self, $class unless $layer_id;
 
-    # set min, max, data_type, unit, labels
-    # these are propagated to style but style can override them
-    # then style values are propagated back here
-    # labels, if given, defines classes
     $use_id //= 0;
     $layer_id //= 0;
     if ($use_id == 0) {
@@ -110,6 +106,13 @@ sub new {
         for my $i (sort {$rules{$a}->name cmp $rules{$b}->name} keys %rules) {
             push @{$self->{rules}}, $rules{$i};
         }
+    }
+
+    # color scale may have been set in the constructor, 
+    # let it override the one from database
+    if ($self->{duck}->style && $self->{style}) {
+        my $color_scale = $self->{schema}->resultset('ColorScale')->find({name => $self->{style}});
+        $self->{duck}->style->color_scale($color_scale->id) if $color_scale;
     }
 
     return bless $self, $class;

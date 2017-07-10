@@ -117,6 +117,7 @@ sub process {
 
     #my @tile = ($params->{tilematrix},$params->{tilecol},$params->{tilerow});
     #say STDERR "$server->{service}&request=$params->{request}&crs=EPSG:$epsg&layer=$want&tile=@tile";
+    #say STDERR "style = $params->{style}";
     
     $layer = SmartSea::Layer->new({
         epsg => $epsg,

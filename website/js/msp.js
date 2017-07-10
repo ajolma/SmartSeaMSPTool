@@ -304,31 +304,17 @@ MSP.prototype = {
         var self = this;
         var retval = null;
         $.each(self.plan.uses, function(i, use) {
-            $.each(use.layers, function(i, layer) {
-                if (layer.id == id) {
-                    retval = layer;
-                    return false;
-                }
-            });
-            if (retval) return false;
+            if (use.id == id.use) {
+                $.each(use.layers, function(i, layer) {
+                    if (layer.id == id.layer) {
+                        retval = layer;
+                        return false;
+                    }
+                });
+                return false;
+            }
         });
         return retval;
-    },
-    updateLayer: function(data) {
-        var self = this;
-        var ok = false;
-        $.each(self.plan.uses, function(i, use) {
-            $.each(use.layers, function(i, layer) {
-                if (layer.id == data.id) {
-                    layer.color_scale = data.color_scale;
-                    layer.refresh();
-                    ok = true;
-                    return false;
-                }
-            });
-            if (ok) return false;
-        });
-        self.newLayerList.notify();
     },
     selectLayer: function(id) {
         var self = this;

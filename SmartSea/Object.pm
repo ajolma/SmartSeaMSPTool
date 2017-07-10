@@ -626,7 +626,15 @@ sub create {
         my $meta = $columns->{$column};
         next if $column eq 'id' && $self->{app}{sequences};
         if (exists $meta->{value}) {
-            $values{$column} = $meta->{value};
+            if (defined $meta->{value}) {
+                if ($meta->{value} eq 'NULL') {
+                    $values{$column} = undef;
+                } else {
+                    $values{$column} = $meta->{value};
+                }
+            } else {
+                $values{$column} = undef;
+            }
             say STDERR "  $column => ",($meta->{value}//'undef') if $self->{app}{debug} > 1;
         }
     }

@@ -54,7 +54,7 @@ sub call {
     my $dataset;
     if (defined $use_id && $use_id == 0) {
         $dataset = $self->{schema}->resultset('Dataset')->single({id => $layer_id});
-        say STDERR $dataset->db_table;
+        say STDERR $dataset->path;
     }
     
     my $report = '';
@@ -97,6 +97,26 @@ sub make_point_report {
 
     for my $key (sort keys %{$self->{schema}{storage}}) {
         #say STDERR "$key => $self->{schema}{storage}{$key}" if $self->{debug};
+    }
+
+    if ($dataset && $dataset->id == 110) {
+        my $table = $dataset->path;
+        $table =~ s/^PG://;
+        $table =~ s/\./"."/g;
+        my $sql = 
+            "select * from \"$table\" ".
+            "where st_within(st_geomfromtext('POINT(@$point)',3067),geom)";
+        my $result = $self->{schema}{storage}{_dbh}->selectall_hashref($sql, 'gid');
+        my $html = '';
+        for my $gid (sort {$a <=> $b} keys %$result) {
+            $html .= "<i>gid</i>: $gid<br />";
+            for my $key (sort keys %{$result->{$gid}}) {
+                next if $key eq 'gid';
+                next if $key eq 'geom';
+                $html .= "&nbsp;&nbsp;<i>$key</i>: $result->{$gid}{$key}<br />";
+            }
+        }
+        return $html;
     }
 
     if ($dataset && $dataset->id == 78) {

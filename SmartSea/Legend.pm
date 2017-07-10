@@ -22,10 +22,13 @@ sub call {
     my $parameters = $request->parameters;
     
     my $layer;
+    my $style;
+    $style = $parameters->{style} if $parameters->{style};
     eval {
         $layer = SmartSea::Layer->new({
             schema => $self->{schema},
             cookie => DEFAULT,
+            style => $style,
             trail => $parameters->{layer}});
     };
     print STDERR "$@";
