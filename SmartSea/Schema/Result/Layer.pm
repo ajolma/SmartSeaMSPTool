@@ -11,10 +11,10 @@ use SmartSea::HTML qw(:all);
 my @columns = (
     id          => {},
     use         => { is_foreign_key => 1, source => 'Use', parent => 1, not_null => 1 },
-    layer_class => { is_foreign_key => 1, source => 'LayerClass', not_null => 1 },
+    layer_class => { is_foreign_key => 1, source => 'LayerClass', not_null => 1, no_edit => 1 },
     rule_system => { is_foreign_key => 1, source => 'RuleSystem', is_part => 1, not_null => 1 },
     style       => { is_foreign_key => 1, source => 'Style', is_part => 1, not_null => 1 },
-    descr       => { data_type => 'text', html_size => 30 },
+    descr       => { html_input => 'textarea', rows => 10, cols => 20 },
     owner       => {}
     );
 
@@ -35,7 +35,7 @@ sub subclass {
         my $class = $self->layer_class->name // '';
         return 'ImpactLayer' if $class eq 'Impact';
     } elsif ($columns) {
-        return 'ImpactLayer' if $columns->{layer_class}->{value}->name eq 'Impact';
+        return 'ImpactLayer' if $columns->{layer_class}->{fixed}->name eq 'Impact';
     }
 }
 

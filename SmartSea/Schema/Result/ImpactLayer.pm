@@ -35,39 +35,9 @@ __PACKAGE__->belongs_to(super => 'SmartSea::Schema::Result::Layer');
 __PACKAGE__->belongs_to(allocation => 'SmartSea::Schema::Result::Layer');
 __PACKAGE__->belongs_to(computation_method => 'SmartSea::Schema::Result::ImpactComputationMethod');
 
-__PACKAGE__->has_many(il2ec => 'SmartSea::Schema::Result::ImpactLayer2EcosystemComponent', 'impact_layer');
-__PACKAGE__->many_to_many(ecosystem_components => 'il2ec', 'ecosystem_component');
-
 sub id {
     my $self = shift;
     return $self->super->id;
-}
-
-sub relationship_hash {
-    return {
-        ecosystem_components => {
-            source => 'EcosystemComponent',
-            link_source => 'ImpactLayer2EcosystemComponent',
-            ref_to_parent => 'impact_layer',
-            key => 'super',
-            ref_to_related => 'ecosystem_component',
-            class_column => 'ecosystem_component',
-            stop_edit => 1,
-            class_widget => sub {
-                my ($self, $children) = @_;
-                my $has = $self->{object}->ecosystem_components($self);
-                for my $obj (@$children) {
-                    $has->{$obj->id} = 1;
-                }
-                my @objs;
-                for my $obj ($self->{app}{schema}->resultset('EcosystemComponent')->all) {
-                    next if $has->{$obj->id};
-                    push @objs, $obj;
-                }
-                return drop_down(name => 'ecosystem_component', objs => \@objs);
-            }
-        }
-    };
 }
 
 sub need_form_for_child {

@@ -32,6 +32,7 @@ sub name {
 sub relationship_hash {
     return {
         layers => {
+            name => 'Layer',
             source => 'Layer',
             ref_to_parent => 'use',
             class_column => 'layer_class',
@@ -51,12 +52,12 @@ sub relationship_hash {
         },
         activities => {
             source => 'Activity',
-            edit => 0 # through use class
+            no_edit => 1 # through use class
         },
         ecosystem_impacts => {
             name => 'Ecosystem impact',
             source => 'EcosystemComponent',
-            edit => 0 # computed
+            no_edit => 1 # computed
         }
     };
 }

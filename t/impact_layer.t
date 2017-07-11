@@ -88,20 +88,6 @@ test_psgi $app, sub {
         ++$i;
     }
     ok($layer[0] == 2 && $layer[1] == 1, "Impact layer creation 2/2");
-    $post = [
-        #ecosystem_component => 1,
-        request => 'create',
-        #debug => 2
-        ];
-    #$service->{debug} = 2;
-    $res = $cb->(POST "/browser/plan:1/uses:1/layers:2/ecosystem_components:1", $post);
-    $i = 0;
-    @layer = ();
-    for my $link ($schema->resultset('ImpactLayer2EcosystemComponent')->all) {
-        @layer = ($link->impact_layer->id, $link->ecosystem_component->id);
-        ++$i;
-    }
-    ok($layer[0] == 2 && $layer[1] == 1, "Link to ecosystem component created");
 };
 #exit;
 
@@ -177,11 +163,6 @@ ok($schema->resultset('Layer')->single({id => 2})->descr eq $descr, "Set supercl
       </ul></li>
     <li>allocation: plan.use_class.Allocation</li>
     <li>computation_method: method_1</li>
-    <li><b>Ecosystem components</b>
-      <ul>
-        <li><a href="/layer:2/ecosystem_components:1">component_1</a></li>
-      </ul>
-    </li>
   </ul>
 </xml>
 END_XML

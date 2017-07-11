@@ -35,7 +35,8 @@ sub relationship_hash {
         },
         impacts => {
             source => 'Impact',
-            edit => 0
+            ref_to_parent => 'ecosystem_component',
+            no_edit => 1
         }
     };
 }

@@ -64,7 +64,7 @@ test_psgi $app, sub {
 
         for my $relationship (keys %{$schema->{related}}) {
             my $rel = $schema->{related}{$relationship};
-            next if defined $rel->{edit} && $rel->{edit} == 0; # relationship is purely computed
+            next unless $rel->{edit}; # relationship is purely computed
             next if $rel->{stop_edit};
 
             my %data = set_data($cb, $rel->{class});
@@ -82,7 +82,7 @@ test_psgi $app, sub {
 
         for my $relationship (keys %{$schema->{related}}) {
             my $rel = $schema->{related}{$relationship};
-            next if defined $rel->{edit} && $rel->{edit} == 0; # relationship is purely computed
+            next unless $rel->{edit}; # relationship is purely computed
 
             if ($rel->{stop_edit}) {
                 # the related object needs to exist
@@ -112,9 +112,7 @@ sub test_create_related {
     my $id = $object->{id}{value};
     for my $relation (keys %{$schema->{related}}) {
         my $rel = $schema->{related}{$relation};
-        next if defined $rel->{edit} && $rel->{edit} == 0; # relationship is purely computed
-
-        $service->{debug} = 0;
+        next unless $rel->{edit}; # relationship is purely computed
         
         if ($rel->{stop_edit}) {
             # the related object needs to exist
@@ -219,7 +217,6 @@ sub unique {
 sub get_schema {
     my ($cb, $class) = @_;
     $class = source2class($class);
-    $service->{debug} = 0;
     my $res = $cb->(GET "/$class:0?accept=json");
     #say STDERR $res->content;
     return decode_json $res->content;
