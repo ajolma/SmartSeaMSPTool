@@ -10,7 +10,7 @@ use SmartSea::HTML qw(:all);
 my @columns = (
     id        => {},
     name      => {data_type => 'text', html_size => 30, not_null => 1},
-    semantics => {data_type => 'textarea', rows => 10, cols => 20, empty_is_null => 1},
+    semantics => {html_input => 'textarea', rows => 10, cols => 20},
     );
 
 __PACKAGE__->table('layer_classes');

@@ -139,9 +139,11 @@ sub process {
     # Cache-Control must be 'no-cache, no-store, must-revalidate'
     # since layer may change
 
-    push @{$args->{headers}}, ('Cache-Control' => 'no-cache, no-store, must-revalidate');
-    push @{$args->{headers}}, ('Pragma' => 'no-cache');
-    push @{$args->{headers}}, ('Expires' => 0);
+    push @{$args->{headers}}, (
+        'Cache-Control' => 'no-cache, no-store, must-revalidate',
+        'Pragma' => 'no-cache',
+        'Expires' => 0
+    );
     
     return $result;
 }

@@ -10,7 +10,7 @@ use SmartSea::HTML qw(:all);
 my @columns = (
     id       => {},
     name     => { data_type => 'text',  html_size => 30, not_null => 1 },
-    ordr     => { data_type => 'text',  html_size => 10 },
+    ordr     => { data_type => 'integer',  html_size => 10 },
     category => { is_foreign_key => 1, source => 'PressureCategory', not_null => 1 },
     );
 

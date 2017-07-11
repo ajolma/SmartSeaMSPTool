@@ -114,6 +114,7 @@ sub new {
         my $color_scale = $self->{schema}->resultset('ColorScale')->find({name => $self->{style}});
         $self->{duck}->style->color_scale($color_scale->id) if $color_scale;
     }
+    #$self->{debug} = 2;
 
     return bless $self, $class;
 }
@@ -188,7 +189,7 @@ sub compute {
 
     my $method = $self->{duck}->rule_system->rule_class->name;
     
-    unless ($method =~ /^incl/) {
+    unless ($method eq 'inclusive' || $method eq 'additive') {
         $result += 1;
     }
     # inclusive: start from 0 everywhere and add 1
@@ -196,19 +197,12 @@ sub compute {
     
     say STDERR "Compute layer, method = $method" if $self->{debug};
     for my $rule (@{$self->{rules}}) {
-        $rule->apply($method, $result, $self);
+        $rule->apply($method, $result, $self, $self->{debug});
         if ($self->{debug} && $self->{debug} > 1) {
             my @stats = stats($result); # 3 and 4 are min and max
             my $sum = $result->nelem*$stats[0];
             say STDERR $rule->name,": min=$stats[3], max=$stats[4], sum=$sum";
         }
-    }
-
-    if ($method =~ /^add/) {
-        say STDERR "$self";
-        $result /= $self->max; # ?? there is $self->{pu}l->additive_max
-        say STDERR "$result";
-        $result->where($result > 1) .= 1;
     }
 
     return $self->post_process($result);

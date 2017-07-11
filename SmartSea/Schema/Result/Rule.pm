@@ -18,13 +18,13 @@ my @columns = (
     rule_system  => { is_foreign_key => 1, source => 'RuleSystem', not_null => 1 },
     layer        => { is_foreign_key => 1, source => 'Layer' },
     dataset      => { is_foreign_key => 1, source => 'Dataset',    not_null => 1, objs => {path => {'!=',undef}} },
-    op           => { is_foreign_key => 1, source => 'Op'  },
-    value        => { data_type => 'text', type => 'double', has_default => 1 },
-    min_value    => { data_type => 'text', type => 'double', has_default => 1 },
-    max_value    => { data_type => 'text', type => 'double', has_default => 1 },
-    value_at_min => { data_type => 'text', type => 'double', has_default => 1 },
-    value_at_max => { data_type => 'text', type => 'double', has_default => 1 },
-    weight       => { data_type => 'text', type => 'double', has_default => 1 }
+    op           => { is_foreign_key => 1, source => 'Op', has_default => 1  },
+    value        => { data_type => 'double', has_default => 1 },
+    min_value    => { data_type => 'double', has_default => 1 },
+    max_value    => { data_type => 'double', has_default => 1 },
+    value_at_min => { data_type => 'double', has_default => 1 },
+    value_at_max => { data_type => 'double', has_default => 1 },
+    weight       => { data_type => 'double', has_default => 1 }
     );
 
 # how to compute the weighted value for x:
@@ -202,6 +202,31 @@ sub values {
 sub apply {
     my ($self, $method, $y, $rules, $debug) = @_;
 
+    # y is a piddle with values so far
+    # after this method y has this rule applied
+    #
+    # in the beginning, y = 0 for inclusive & additive rule systems
+    # and y = 1 for exclusive and multiplicative rule systems
+    #
+    # operand (x) is a piddle from a dataset or from another layer
+    # x may contain 'bad' values, i.e. cells with no value (not known, 
+    # outside of study are, ...)
+    #
+    # exclusive and inclusive rules compare x to rule value
+    # using rule comparison operator 
+    #
+    # exclusive rules set those cells to 0 where the comparison is true
+    # inclusive rules set those cells to 1 where the comparison is true
+    #
+    # additive rules add the scaled and weighted x to the cell value
+    # multiplicative rules multiply the cell value with the scaled and weighted x
+    #
+    # scaling and weighing of x:
+    #
+    # k = (y_max - y_min) / (x_max - x_min)
+    # c = y_min - k * x_min
+    # x' = w * (k * x + c)
+
     # the operand (x)
     my $x = $self->operand($rules);
     return unless defined $x;
@@ -215,12 +240,12 @@ sub apply {
         }
     }
 
-    if ($method =~ /^incl/ || $method =~ /^excl/) {
+    if ($method eq 'exclusive' || $method eq 'inclusive') {
 
         my $op = $self->op->name;
         my $value = $self->value;
 
-        my $value_if_true = $method =~ /^incl/ ? 1 : 0;
+        my $value_if_true = $method eq 'inclusive' ? 1 : 0;
 
         if ($op eq '<=')    { $y->where($x <= $value) .= $value_if_true; } 
         elsif ($op eq '<')  { $y->where($x <  $value) .= $value_if_true; }
@@ -232,8 +257,8 @@ sub apply {
         
         my $x_min = $self->min_value;
         my $x_max = $self->max_value;
-        my $y_min = $self->value_at_min // 0;
-        my $y_max = $self->value_at_max // 1;
+        my $y_min = $self->value_at_min;
+        my $y_max = $self->value_at_max;
         my $w = $self->weight;
 
         my $kw = $w * ($y_max-$y_min)/($x_max-$x_min);
@@ -265,6 +290,7 @@ sub operand {
         return $self->layer->rule_system->compute;
         
     } elsif ($self->dataset) {
+        
         return $self->dataset->Piddle($rules);
         
     }

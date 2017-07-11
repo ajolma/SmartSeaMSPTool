@@ -28,9 +28,9 @@ use SmartSea::HTML qw(:all);
 my @columns = (
     id           => {},
     color_scale =>  { is_foreign_key => 1, source => 'ColorScale', not_null => 1 },
-    min =>          { data_type => 'text', html_size => 20, empty_is_null => 1 },
-    max =>          { data_type => 'text', html_size => 20, empty_is_null => 1 },
-    classes =>      { data_type => 'text', html_size => 20, empty_is_null => 1 }
+    min =>          { data_type => 'double', html_size => 20 },
+    max =>          { data_type => 'double', html_size => 20 },
+    classes =>      { data_type => 'integer', html_size => 20 }
     # todo: add semantics here, which in dataset case gets its value from there primarily
     );
 

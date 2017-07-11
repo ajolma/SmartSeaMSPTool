@@ -8,7 +8,7 @@ use SmartSea::HTML qw(:all);
 
 my @columns = (
     id              => {},
-    value           => {data_type => 'text', html_size => 20},
+    value           => {data_type => 'integer', html_size => 20, has_default => 1},
     recovery        => {data_type => 'text', html_size => 30},
     extent          => {data_type => 'text', html_size => 30},
     resilience      => {data_type => 'text', html_size => 30},

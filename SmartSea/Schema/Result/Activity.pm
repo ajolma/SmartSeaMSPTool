@@ -10,7 +10,7 @@ use SmartSea::HTML qw(:all);
 my @columns = (
     id   =>  {},
     name =>  { data_type => 'text', html_size => 20, not_null => 1 },
-    ordr =>  { data_type => 'text', html_size => 10, not_null => 1, has_default => 1 },
+    ordr =>  { data_type => 'integer', html_size => 10, has_default => 1 },
     );
 
 __PACKAGE__->table('activities');

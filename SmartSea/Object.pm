@@ -368,15 +368,15 @@ sub values_from_parameters {
             # empty parameter string is interpreted as NULL
             # column meta values observed:
             # not_null: the column is NOT NULL in DB
-            # has_default: the column hass DEFAULT in DB
+            # has_default: the column has DEFAULT in DB
             # is_foreign_key: the column points to a related object
             unless (exists $parameters->{$column}) {
-                push @errors, "$column is required for $self->{source}" if $meta->{not_null};
+                push @errors, "$column is required for $self->{source}" if $meta->{not_null} && !$meta->{has_default};
                 next;
             }
             $meta->{value} = $parameters->{$column};
-            if (!defined($meta->{value}) || $meta->{value} eq '') {
-                if ($meta->{not_null}) {
+            if (!defined($meta->{value}) || $meta->{value} eq '') { # considered default
+                if ($meta->{not_null} && !$meta->{has_default}) {
                     push @errors, "$column is required for $self->{source}";
                     next;
                 } elsif ($meta->{has_default}) {
@@ -714,27 +714,52 @@ sub update {
         }
     }
 
+    my @errors;
+
     # collect update data from input
     for my $col (keys %$columns) {
         my $meta = $columns->{$col};
         next if $meta->{is_part};
+
+        # lighter version of what's in values_from_parameters
         next unless exists $self->{app}{parameters}{$col};
-        # todo: $parameters->{$col} may be undef?
-        next if $self->{app}{parameters}{$col} eq '' && $meta->{empty_is_default};
-        $col_data->{$col} = $self->{app}{parameters}{$col} if exists $self->{app}{parameters}{$col};
-        $col_data->{$col} = undef if $meta->{empty_is_null} && $col_data->{$col} eq '';
+        $col_data->{$col} = $self->{app}{parameters}{$col};
+        if (!defined($col_data->{$col}) || $col_data->{$col} eq '') { # considered default
+            if ($meta->{has_default}) {
+                delete $col_data->{$col};
+                next;
+            } else {
+                $col_data->{$col} = undef;
+            }
+        }
+        next unless $meta->{is_foreign_key};
+        if (defined $col_data->{$col}) {
+            my $related = SmartSea::Object->new(
+                {
+                    source => $meta->{source}, 
+                    id => $col_data->{$col}, 
+                    app => $self->{app}
+                });
+            unless (defined $related->{object}) {
+                push @errors, "$meta->{source}:$col_data->{$col} does not exist";
+            }
+        } else {
+            push @errors, "will not delete link to $meta->{source}";
+            #what? delete link?
+        }
     }
 
     if ($self->{object}->can('is_ok')) {
         my $error = $self->{object}->is_ok($col_data);
-        croak $error if $error;
+        push @errors, $error if $error;
     }
 
     if ($self->{app}{debug} > 1) {
         for my $col (sort keys %$col_data) {
-            say STDERR "  $col => ",($col_data->{$col}//'undef');
+            say STDERR "  update $col => ",($col_data->{$col}//'undef');
         }
     }
+    croak join(', ', @errors) if @errors;
     $self->{object}->update($col_data);
 
     # delete children:
@@ -743,8 +768,9 @@ sub update {
     }
 
     # update superclass:
-    my $super = $self->super;
-    $super->update if $super;
+    if (my $super = $self->super) {
+        $super->update;
+    }
     
 }
 
@@ -1125,6 +1151,7 @@ sub hidden_widgets {
     for my $column (keys %$columns) {
         next if $column eq 'id';
         next if $column eq 'owner';
+        next if $column eq 'cookie';
         my $meta = $columns->{$column};
         next unless exists $meta->{value};
         say STDERR "known data: $column => ".($meta->{value}//'undef') if $self->{app}{debug};
@@ -1169,22 +1196,30 @@ sub widgets {
             "widget: $column => ",
             ($meta->{value}//'undef'),' ',
             ($meta->{is_part}//'reg') if $self->{app}{debug} > 2;
+        
         my $input;
-        for my $info_text (qw/data_type html_input/) {
-            $meta->{$info_text} = '' unless $meta->{$info_text};
-        }
-        if ($meta->{data_type} eq 'text' || $meta->{data_type} eq 'double') {
-            $input = text_input(
-                name => $column,
-                size => ($meta->{html_size} // 10),
-                value => $meta->{value} // ''
-            );
-        } elsif ($meta->{data_type} eq 'textarea') {
+        $meta->{data_type} //= '';
+        $meta->{html_input} //= '';
+        
+        if ($meta->{html_input} eq 'textarea') {
             $input = textarea(
                 name => $column,
                 rows => $meta->{rows},
                 cols => $meta->{cols},
                 value => $meta->{value} // ''
+            );
+        } elsif ($meta->{html_input} eq 'checkbox') {
+            $input = checkbox(
+                name => $column,
+                visual => $meta->{cue},
+                checked => $meta->{value}
+            );
+        } elsif ($meta->{html_input} eq 'spinner') {
+            $input = spinner(
+                name => $column,
+                min => $meta->{min},
+                max => $meta->{max},
+                value => $meta->{value} // 1
             );
         } elsif ($meta->{is_foreign_key} && !$meta->{is_part}) {
             my $objs;
@@ -1216,19 +1251,12 @@ sub widgets {
                 selected => $id,
                 values => $meta->{values},
                 not_null => $meta->{not_null}
-            );
-        } elsif ($meta->{html_input} eq 'checkbox') {
-            $input = checkbox(
+                );
+        } elsif ($meta->{data_type} eq 'text' || $meta->{data_type} eq 'integer' || $meta->{data_type} eq 'double') {
+            $input = text_input(
                 name => $column,
-                visual => $meta->{cue},
-                checked => $meta->{value}
-            );
-        } elsif ($meta->{html_input} eq 'spinner') {
-            $input = spinner(
-                name => $column,
-                min => $meta->{min},
-                max => $meta->{max},
-                value => $meta->{value} // 1
+                size => ($meta->{html_size} // 10),
+                value => $meta->{value} // ''
             );
         }
         if ($meta->{is_part}) {

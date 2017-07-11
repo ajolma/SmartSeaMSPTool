@@ -439,8 +439,9 @@ MSPController.prototype = {
     },
     addLayer: function(plan, use) {
         var self = this;
-        self.editor.dialog('option', 'title', 'New layer');
+        self.editor.dialog('option', 'title', 'New layer for '+use.name);
         self.editor.dialog('option', 'height', 400);
+        
         var klass_list = new Widget({
             container_id:self.editor_id,
             id:'layer-klass',
@@ -459,6 +460,16 @@ MSPController.prototype = {
             },
             pretext:'Select the class for the new layer: '
         });
+
+        var rule_class_list = new Widget({
+            container_id:self.editor_id,
+            id:'layer-rule-class',
+            type:'select',
+            selected:'exclusive',
+            list:self.simpleObjects('rule_class'),
+            pretext:'Select the rule type for the new layer: '
+        });
+        
         var color_list = new Widget({
             container_id:self.editor_id,
             id:'layer-color',
@@ -466,25 +477,18 @@ MSPController.prototype = {
             list:self.simpleObjects('color_scale'),
             pretext:'Select the color for the new layer: '
         });
-
-        var rule_class_list = new Widget({
-            container_id:self.editor_id,
-            id:'rule_class',
-            type:'select',
-            list:self.simpleObjects('rule_class'),
-            pretext:'Select the rule class for the new layer: '
-        });
         
         var name = 'layer-name';
         var html = element('p', {}, klass_list.content());
         html += element('p', {},
-                        'The layer will be computed by rules that exclude areas from the layer.'+
+                        'The layer will be computed by rules that are based on datasets.'+
                         ' You can add rules after you have created the layer first.');
+        html += element('p', {}, rule_class_list.content());
         html += element('p', {}, color_list.content());
         self.editor.html(html)
         self.ok = function() {
             var klass = klass_list.selected();
-            var rule_class = rule_class_list.fromList(1); // excusive
+            var rule_class = rule_class_list.selected(); // excusive
             var color = color_list.selected();
             self.post({
                 url: self.server+'plan:'+plan.id+'/uses:'+use.id+'/layers?request=create',
@@ -528,7 +532,11 @@ MSPController.prototype = {
             selected:layer.color_scale
         });
         
-        var html = element('p', {}, color_list.content());
+        var html = element('p', {}, 'Set the color for this layer: ') +
+            element('p', {}, color_list.content());
+        if (use.id == 0) {
+            html += element('p', {}, 'The color setting is temporary for datasets.');
+        }
         
         self.editor.html(html);
         
