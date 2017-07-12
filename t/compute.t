@@ -20,42 +20,18 @@ my $schemas = create_sqlite_schemas($tables, $deps, $indexes);
 my $options = {on_connect_do => ["ATTACH 'data.db' AS aux"]};
 my $schema = SmartSea::Schema->connect('dbi:SQLite:tool.db', undef, undef, $options);
 
-# the tile that we'll ask the layer to compute
-{
-    package Tile;
-    sub new {
-        my ($class, $self) = @_;
-        bless $self, $class;
-    }
-    sub tile {
-        my ($self) = @_;
-        return @{$self}[0..1]; # width, height
-    }
-    sub projwin {
-        my ($self) = @_;
-        return @{$self}[2..5]; # minx maxy maxx miny
-    }
-}
-
-my $epsg = 3067;
-my $x_min = 61600.000;
-my $y_max = 7304000.000;
-my $cell_wh = 20.0;
-my $data_wh = 3;
-
-my $tile = Tile->new([$data_wh,$data_wh, $x_min,$y_max,$x_min+$cell_wh*$data_wh,$y_max-$cell_wh*$data_wh]);
+my $tile = Tile->new;
 
 # set up the mask (the layer reads it from its datasource)
 
-my $data_dir = '/vsimem/';
-
 {
+    my ($w, $h) = $tile->size;
     my $mask = Geo::GDAL::Driver('GTiff')->Create(
-        Name => $data_dir.'mask.tiff',
+        Name => $tile->data_dir.'mask.tiff',
         Type => 'Byte',
-        Width => $data_wh, 
-        Height => $data_wh)->Band;
-    $mask->Dataset->GeoTransform($x_min,$cell_wh,0, $y_max,0,-$cell_wh);
+        Width => $w, 
+        Height => $h)->Band;
+    $mask->Dataset->GeoTransform($tile->geotransform);
     $mask->WriteTile([[255,1,1],[1,1,1],[1,1,1]]);
 }
 
@@ -129,8 +105,10 @@ sub test_additive_rules {
     my %args = @_;
     my $color_scale = $color_scale_rs->single({id=>1}); #grayscale, no meaning here
 
-    my $dataset_1 = make_dataset('Byte', [[1,2,3],[4,5,6],[7,8,9]]);
-    my $dataset_2 = make_dataset('Float64', [[1,2,3],[4,5,6],[7,8,9]]);
+    my $dataset_1 = make_dataset($schema, $tile, $dataset_id, 'Byte', [[1,2,3],[4,5,6],[7,8,9]], $style_id); 
+    $style_id++; $dataset_id++;
+    my $dataset_2 = make_dataset($schema, $tile, $dataset_id, 'Float64', [[1,2,3],[4,5,6],[7,8,9]], $style_id); 
+    $style_id++; $dataset_id++;
     
     my $rule_class = $rule_class_rs->single({id=>ADDITIVE_RULE});
     my $layer = make_layer(
@@ -145,12 +123,12 @@ sub test_additive_rules {
         rule_class => $rule_class,
         rules => [
             {
-                based => { dataset_id => $dataset_1 },
+                based => { dataset_id => $dataset_1->id },
                 data => { 
                     x_min => 1, x_max => 10, y_min => 0, y_max => 1, weight => 2 
                 }
             },{
-                based => { dataset_id => $dataset_2 },
+                based => { dataset_id => $dataset_2->id },
                 data => { x_min => 1, x_max => 10, y_min => 0, y_max => 1, weight => 1 }
             }
         ]
@@ -169,7 +147,8 @@ sub test_multiplicative_rules {
     my $color_scale = $color_scale_rs->single({id=>1}); #grayscale, no meaning here
 
     my $datatype = 'Int32';
-    my $dataset_id = make_dataset($datatype, [[1,2,3],[150,160,180],[0,16,17]]);
+    my $dataset = make_dataset($schema, $tile, $dataset_id, $datatype, [[1,2,3],[150,160,180],[0,16,17]], $style_id); 
+    $style_id++; $dataset_id++;
     
     my $rule_class = $rule_class_rs->single({id=>MULTIPLICATIVE_RULE}); # multiplicative
     my $layer = make_layer(
@@ -184,7 +163,7 @@ sub test_multiplicative_rules {
         rule_class => $rule_class,
         rules => [
             {
-                based => { dataset_id => $dataset_id },
+                based => { dataset_id => $dataset->id },
                 data => { x_min => 1, x_max => 200, y_min => 0, y_max => 1, weight => 2 }
             }]
         );
@@ -202,7 +181,8 @@ sub test_exclusive_rules {
     my $color_scale = $color_scale_rs->single({id=>1}); #grayscale, no meaning here
     
     my $datatype = 'Int32';
-    my $dataset_id = make_dataset($datatype, [[1,2,3],[150,160,180],[0,16,17]]);
+    my $dataset = make_dataset($schema, $tile, $dataset_id, $datatype, [[1,2,3],[150,160,180],[0,16,17]], $style_id);
+    $style_id++; $dataset_id++;
  
     my $rule_class = $rule_class_rs->single({id=>EXCLUSIVE_RULE});
     my $layer = make_layer(
@@ -217,7 +197,7 @@ sub test_exclusive_rules {
         rule_class => $rule_class,
         rules => [
             {
-                based => { dataset_id => $dataset_id },
+                based => { dataset_id => $dataset->id },
                 data => { reduce => 1, op_id => 1, value => 5.0, index => 1 }
             }]
         );
@@ -233,7 +213,8 @@ sub test_inclusive_rules {
     my $color_scale = $color_scale_rs->single({id=>1}); #grayscale, no meaning here
     
     my $datatype = 'Int32';
-    my $dataset_id = make_dataset($datatype, [[1,2,3],[150,160,180],[0,16,17]]);
+    my $dataset = make_dataset($schema, $tile, $dataset_id, $datatype, [[1,2,3],[150,160,180],[0,16,17]], $style_id); 
+    $style_id++; $dataset_id++;
  
     my $rule_class = $rule_class_rs->single({id=>INCLUSIVE_RULE});
     my $layer = make_layer(
@@ -248,7 +229,7 @@ sub test_inclusive_rules {
         rule_class => $rule_class,
         rules => [
             {
-                based => { dataset_id => $dataset_id },
+                based => { dataset_id => $dataset->id },
                 data => { reduce => 1, op_id => 1, value => 5.0, index => 1 }
             }]
         );
@@ -265,12 +246,13 @@ sub test_a_dataset_layer {
     for my $datatype (qw/Byte Int16 Int32 Float32 Float64/) {
         for my $color_scale ($color_scale_rs->all) {
             for my $classes (undef, 2, 10) {
-                my $style = {min => 0, max => 120, classes => $classes, color_scale => $color_scale->id};
-                my $dataset_id = make_dataset($datatype, [[1,2,3],[150,160,180],[0,16,17]], $style);
+                my $style = {id => $style_id, min => 0, max => 120, classes => $classes, color_scale => $color_scale->id};
+                my $dataset = make_dataset($schema, $tile, $dataset_id, $datatype, [[1,2,3],[150,160,180],[0,16,17]], $style); 
+                $style_id++; $dataset_id++;
        
-                print Geo::GDAL::Open(Name => $data_dir.$dataset_id.'.tiff')->Band->Piddle if $args{debug};
+                print Geo::GDAL::Open(Name => $tile->data_dir.$dataset->id.'.tiff')->Band->Piddle if $args{debug};
                 
-                my $layer = make_layer(use_class_id => 0, id => $dataset_id);
+                my $layer = make_layer(use_class_id => 0, id => $dataset->id);
                 my $result = $layer->compute($args{debug});
                 my $output = $result->Band->ReadTile;
                 
@@ -321,10 +303,10 @@ sub make_layer {
         ++$layer_id;
     }
     return SmartSea::Layer->new({
-        epsg => $epsg,
+        epsg => $tile->epsg,
         tile => $tile,
         schema => $schema,
-        data_dir => $data_dir,
+        data_dir => $tile->data_dir,
         GDALVectorDataset => undef,
         cookie => '', 
         trail => $arg{use_class_id}.'_'.$id });
@@ -357,56 +339,4 @@ sub add_rule {
     }
     $rule_rs->new($rule)->insert;
     ++$rule_id;
-}
-
-sub make_dataset {
-    my ($datatype, $data, $style) = @_;
-    # min_value, max_value, classes, style, descr
-    my $min;
-    my $max;
-    for my $row (@$data) {
-        for my $x (@$row) {
-            $min = $x unless defined $min;
-            $max = $x unless defined $max;
-            $min = $x if $x < $min;
-            $max = $x if $x > $max;
-        }
-    }
-    $style //= {
-        min => undef,
-        max => undef,
-        classes => undef,
-        color_scale => 1
-    };
-    $style->{id} = $style_id;
-    $style_rs->new($style)->insert;
-    $dataset_rs->update_or_new(
-        {id => $dataset_id,
-         name => "dataset_".$dataset_id,
-         custodian => '',
-         contact => '',
-         descr => '',
-         data_model => undef,
-         is_a_part_of => undef,
-         is_derived_from => undef,
-         license => undef,
-         attribution => '',
-         disclaimer => '',
-         path => $dataset_id.'.tiff',
-         min_value => $min,
-         max_value => $max,
-         unit => undef,
-         style => $style_id
-        }, 
-        {key => 'primary'})->insert;
-    my $test = Geo::GDAL::Driver('GTiff')->Create(
-        Name => $data_dir.$dataset_id.".tiff",
-        Type => $datatype, 
-        Width => $data_wh, 
-        Height => $data_wh)->Band;
-    $test->Dataset->GeoTransform($x_min,$cell_wh,0, $y_max,0,-$cell_wh);
-    $test->WriteTile($data);
-    ++$style_id;
-    ++$dataset_id;
-    return $dataset_id-1;
 }

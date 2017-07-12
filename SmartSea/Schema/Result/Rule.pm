@@ -242,15 +242,6 @@ sub apply {
     my $x = $self->operand($args);
     return unless defined $x;
     
-    if ($args->{debug}) {
-        if ($args->{debug} > 1) {
-            print STDERR $x;
-        } else {
-            my @stats = stats($x); # 3 and 4 are min and max
-            say STDERR "  operand min=$stats[3], max=$stats[4]";
-        }
-    }
-
     if ($method == EXCLUSIVE_RULE || $method == INCLUSIVE_RULE) {
 
         my $op = $self->op->name;
@@ -294,11 +285,77 @@ sub apply {
         my $x1 = $self->boxcar_x1;
         my $x2 = $self->boxcar_x2;
         my $x3 = $self->boxcar_x3;
+        my $w = $self->weight;
 
-        
+        if ($boxcar) {
+            my $divisor = $x1 - $x0;
+            my $xleft;
+            if ($divisor != 0) {
+                $xleft = ($x - $x0) / $divisor;
+                $xleft *= ($xleft >= 0) + ($xleft <= 1) - 1;
+            } else {
+                $xleft = 0;
+            }
+            
+            #print "left ",$xleft;
+
+            $divisor = $x3 - $x2;
+            my $xright;
+            if ($divisor != 0) {
+                $xright = ($x3 - $x) / $divisor;
+                $xright *= ($xright >= 0) + ($xright <= 1) - 1;
+            } else {
+                $xright = 0;
+            }
+            
+            #print "right ",$xright;
+
+            my $xmiddle = ($x >= $x1) + ($x <= $x2) - 1;
+
+            #print "middle ",$xmiddle;
+
+            $y += $w * ($xleft + $xmiddle + $xright);
+            
+        } else {
+            my $divisor = $x1 - $x0;
+            my $xleft;
+            if ($divisor != 0) {
+                $xleft = ($x1 - $x) / $divisor;
+                $xleft *= ($xleft >= 0) + ($xleft <= 1) - 1;
+                $xleft += $x < $x0;
+            } else {
+                $xleft = $x <= $x0;
+            }
+            
+            #print "left ",$xleft;
+
+            $divisor = $x3 - $x2;
+            my $xright;
+            if ($divisor != 0) {
+                $xright = ($x - $x2) / $divisor;
+                $xright *= ($xright >= 0) + ($xright <= 1) - 1;
+                $xright += $x > $x3;
+            } else {
+                $xright = $x >= $x3;
+            }
+            
+            #print "right ",$xright;
+
+            $y += $w * ($xleft + $xright);
+            
+        }
         
     } else {
         croak "Unknown rule class: ".$self->rule_system->rule_class->name;
+    }
+    
+    if ($args->{debug} && $args->{debug} > 1) {
+        my @stats = stats($x); # 3 and 4 are min and max
+        my @stats2 = stats($y); # 3 and 4 are min and max
+        say STDERR 
+            "Rule ",$self->id," method ",$method,
+            " operand=[$stats[3]..$stats[4]] result=[$stats2[3]..$stats2[4]]";
+        
     }
 }
 
@@ -316,6 +373,10 @@ sub operand {
         
         return $self->dataset->Piddle($args);
         
+    } else {
+
+        croak "Missing layer or dataset in rule ".$self->id;
+
     }
     
     return undef;

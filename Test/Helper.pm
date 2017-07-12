@@ -7,7 +7,7 @@ use XML::LibXML::PrettyPrint;
 
 require Exporter;
 our @ISA = qw(Exporter);
-our @EXPORT = qw(read_postgresql_dump create_sqlite_schemas select_all pretty_print_XML);
+our @EXPORT = qw(read_postgresql_dump create_sqlite_schemas select_all pretty_print_XML make_dataset);
 
 sub read_postgresql_dump {
     my ($dump) = @_;
@@ -164,6 +164,98 @@ sub pretty_print_XML {
     if ($@) {
         say STDERR $xml;
     }
+}
+
+# the tile that we'll ask the layer to compute
+{
+    package Tile;
+    my $epsg = 3067;
+    my $x_min = 61600.000;
+    my $y_max = 7304000.000;
+    my $cell_wh = 20.0;
+    my $data_wh = 3;
+    my $data_dir = '/vsimem/';
+    sub new {
+        my ($class, $self) = @_;
+        $self //= [
+            $data_wh,
+            $data_wh, 
+            $x_min,
+            $y_max,
+            $x_min+$cell_wh*$data_wh,
+            $y_max-$cell_wh*$data_wh
+            ];
+        bless $self, $class;
+    }
+    sub data_dir {
+        return $data_dir;
+    }
+    sub epsg {
+        return $epsg;
+    }
+    sub tile {
+        my ($self) = @_;
+        return @{$self}[0..1]; # width, height
+    }
+    *size = *tile;
+    sub projwin {
+        my ($self) = @_;
+        return @{$self}[2..5]; # minx maxy maxx miny
+    }
+    sub geotransform {
+        return ($x_min,$cell_wh,0, $y_max,0,-$cell_wh);
+    }
+}
+
+sub make_dataset {
+    my ($schema, $tile, $id, $datatype, $data, $style) = @_;
+    # min_value, max_value, classes, style, descr
+    my $min;
+    my $max;
+    for my $row (@$data) {
+        for my $x (@$row) {
+            $min = $x unless defined $min;
+            $max = $x unless defined $max;
+            $min = $x if $x < $min;
+            $max = $x if $x > $max;
+        }
+    }
+    $style = {
+        id => $style,
+        min => undef,
+        max => undef,
+        classes => undef,
+        color_scale => 1
+    } unless ref $style;
+    $schema->resultset('Style')->new($style)->insert;
+    $schema->resultset('Dataset')->update_or_new(
+        {id => $id,
+         name => "dataset_".$id,
+         custodian => '',
+         contact => '',
+         descr => '',
+         data_model => undef,
+         is_a_part_of => undef,
+         is_derived_from => undef,
+         license => undef,
+         attribution => '',
+         disclaimer => '',
+         path => $id.'.tiff',
+         min_value => $min,
+         max_value => $max,
+         unit => undef,
+         style => $style->{id}
+        }, 
+        {key => 'primary'})->insert;
+    my ($w,$h) = $tile->size;
+    my $test = Geo::GDAL::Driver('GTiff')->Create(
+        Name => $tile->data_dir.$id.".tiff",
+        Type => $datatype, 
+        Width => $w, 
+        Height => $h)->Band;
+    $test->Dataset->GeoTransform($tile->geotransform);
+    $test->WriteTile($data);
+    return $schema->resultset('Dataset')->single({id => $id});
 }
 
 1;
