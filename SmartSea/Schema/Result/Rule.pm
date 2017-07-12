@@ -14,8 +14,8 @@ use SmartSea::Layer;
 
 my @columns = (
     id           => {},
-    cookie       => {},
-    made         => {},
+    cookie       => { system_column => 1 },
+    made         => { system_column => 1 },
     rule_system  => { is_foreign_key => 1, source => 'RuleSystem', not_null => 1 },
     layer        => { is_foreign_key => 1, source => 'Layer' },
     dataset      => { is_foreign_key => 1, source => 'Dataset',    not_null => 1, objs => {path => {'!=',undef}} },
@@ -54,13 +54,14 @@ sub my_columns_info {
     if (ref $self) {
         $class = $self->rule_system->rule_class->id;
     } elsif ($parent) {
-        if ($parent->can('rule_system')) {
-            $class = $parent->rule_system->rule_class->id;
+        if ($parent->can('rule_class')) {
+            $class = $parent->rule_class->id;
         } elsif ($parent->can('distribution')) {
             $class = $parent->distribution->rule_class->id;
         }
     }
     $class //= 0;
+    #say STDERR "rule column info class = $class";
     my $clusive = $class == EXCLUSIVE_RULE || $class == INCLUSIVE_RULE;
     my $tive = $class == MULTIPLICATIVE_RULE || $class == ADDITIVE_RULE;
     my $boxcar = $class == BOXCAR_RULE;
@@ -155,18 +156,27 @@ sub name {
             }
         }
         return "$sign if ".$criteria->name." $op $value";
-    }
-    
-    my $x_min = $self->min_value;
-    my $x_max = $self->max_value;
-    my $y_min = $self->value_at_min;
-    my $y_max = $self->value_at_max;
-    my $w = $self->weight;
-    
-    if ($class == ADDITIVE_RULE) {
-        return "+ $y_min - $w * ($y_max-$y_min)/($x_max-$x_min) * ($criteria - $x_min)";
-    } elsif ($class == MULTIPLICATIVE_RULE) {
-        return "* $y_min - $w * ($y_max-$y_min)/($x_max-$x_min) * ($criteria - $x_min)";
+        
+    } elsif ($class == MULTIPLICATIVE_RULE || $class == ADDITIVE_RULE) {
+        my $x_min = $self->min_value;
+        my $x_max = $self->max_value;
+        my $y_min = $self->value_at_min;
+        my $y_max = $self->value_at_max;
+        my $w = $self->weight;
+        if ($class == ADDITIVE_RULE) {
+            return "+ $y_min - $w * ($y_max-$y_min)/($x_max-$x_min) * ($criteria - $x_min)";
+        } else {
+            return "* $y_min - $w * ($y_max-$y_min)/($x_max-$x_min) * ($criteria - $x_min)";
+        }
+        
+    } elsif ($class == BOXCAR_RULE) {
+        return "Normal with turning points at ".
+            $self->boxcar_x0.', '.$self->boxcar_x1.', '.$self->boxcar_x2.', '.$self->boxcar_x3 if $self->boxcar;
+        return "Inverted with turning points at ".
+            $self->boxcar_x0.', '.$self->boxcar_x1.', '.$self->boxcar_x2.', '.$self->boxcar_x3;
+        
+    } else {
+        #croak "Unknown rule class: ".$self->rule_system->rule_class->name;
     }
 }
 
@@ -202,7 +212,7 @@ sub values {
 sub apply {
     my ($self, $y, $args) = @_;
 
-    my $method = $self->rule_system->rule_class->id;
+    my $class = $self->rule_system->rule_class->id;
     
     # y is a piddle with values so far
     # after this method y has this rule applied
@@ -242,12 +252,12 @@ sub apply {
     my $x = $self->operand($args);
     return unless defined $x;
     
-    if ($method == EXCLUSIVE_RULE || $method == INCLUSIVE_RULE) {
+    if ($class == EXCLUSIVE_RULE || $class == INCLUSIVE_RULE) {
 
         my $op = $self->op->name;
         my $value = $self->value;
 
-        my $value_if_true = $method == INCLUSIVE_RULE ? 1 : 0;
+        my $value_if_true = $class == INCLUSIVE_RULE ? 1 : 0;
 
         if ($op eq '<=')    { $y->where($x <= $value) .= $value_if_true; } 
         elsif ($op eq '<')  { $y->where($x <  $value) .= $value_if_true; }
@@ -255,7 +265,7 @@ sub apply {
         elsif ($op eq '>')  { $y->where($x >  $value) .= $value_if_true; }
         elsif ($op eq '==') { $y->where($x == $value) .= $value_if_true; }
 
-    } elsif ($method == MULTIPLICATIVE_RULE || $method == ADDITIVE_RULE) {
+    } elsif ($class == MULTIPLICATIVE_RULE || $class == ADDITIVE_RULE) {
         
         my $x_min = $self->min_value;
         my $x_max = $self->max_value;
@@ -268,7 +278,7 @@ sub apply {
 
         # todo: limit $x to min max
 
-        if ($method == 2) {
+        if ($class == MULTIPLICATIVE_RULE) {
             
             $y *= $kw * $x + $c;
             
@@ -278,7 +288,7 @@ sub apply {
             
         }
 
-    } elsif ($method == BOXCAR_RULE) {
+    } elsif ($class == BOXCAR_RULE) {
 
         my $boxcar = $self->boxcar;
         my $x0 = $self->boxcar_x0;
@@ -346,14 +356,14 @@ sub apply {
         }
         
     } else {
-        croak "Unknown rule class: ".$self->rule_system->rule_class->name;
+        #croak "Unknown rule class: ".$self->rule_system->rule_class->name;
     }
     
     if ($args->{debug} && $args->{debug} > 1) {
         my @stats = stats($x); # 3 and 4 are min and max
         my @stats2 = stats($y); # 3 and 4 are min and max
         say STDERR 
-            "Rule ",$self->id," method ",$method,
+            "Rule ",$self->id," class ",$class,
             " operand=[$stats[3]..$stats[4]] result=[$stats2[3]..$stats2[4]]";
         
     }

@@ -270,6 +270,7 @@ sub read_object {
 
 sub read_class {
     my ($cb, $class, $id, $related) = @_;
+    #say STDERR "/$class:$id/$related?accept=json";
     my $res = $cb->(GET "/$class:$id/$related?accept=json");
     #say STDERR $res->content;
     my $object = decode_json $res->content;

@@ -68,32 +68,16 @@ my $dataset_rs = $schema->resultset('Dataset');
 my $rule_rs = $schema->resultset('Rule');
 
 # sequences
-my $layer_id = 1;
-my $rule_id = 1; 
-my $dataset_id = 1;
-my $style_id = 1;
+my $sequences = {
+    layer => 1,
+    rule => 1,
+    dataset => 1,
+    style => 1
+};
 
 # test a layer that is based on a dataset
 
 test_a_dataset_layer(debug => 0);
-
-# test computing a layer
-# there are three methods a layer can be computed
-
-# dataset has a link to style
-# layer has a link to style, and possibly a link to dataset
-# style = min_value, max_value, classes, color scale, scale (text)
-# base class rule = cookie, made, pul, class
-# rule that uses dataset = + dataset_id
-# rule that uses pul = + pul (is visualization needed?)
-# sequential rule = + reduce, op, value, index
-#   y = (reduce ? 0 : 1) if x op value
-# multiplicative and additive rule = + x_min, x_max, y_min, y_max, weight
-#   y = w * (y_min + (x-x_min)*(y_max-y_min)/(x_max-x_min))
-#   y = wy_min + (x-x_min)*kw
-#   y = wy_min + kw*x - kwx_min
-#   y = kw*x + c
-
 test_inclusive_rules(debug => 0);
 test_exclusive_rules(debug => 0);
 test_multiplicative_rules(debug => 0);
@@ -105,16 +89,19 @@ sub test_additive_rules {
     my %args = @_;
     my $color_scale = $color_scale_rs->single({id=>1}); #grayscale, no meaning here
 
-    my $dataset_1 = make_dataset($schema, $tile, $dataset_id, 'Byte', [[1,2,3],[4,5,6],[7,8,9]], $style_id); 
-    $style_id++; $dataset_id++;
-    my $dataset_2 = make_dataset($schema, $tile, $dataset_id, 'Float64', [[1,2,3],[4,5,6],[7,8,9]], $style_id); 
-    $style_id++; $dataset_id++;
+    my $dataset_1 = make_dataset($schema, $sequences, $tile, 'Byte', [[1,2,3],[4,5,6],[7,8,9]]);
+    my $dataset_2 = make_dataset($schema, $sequences, $tile, 'Float64', [[1,2,3],[4,5,6],[7,8,9]]); 
     
     my $rule_class = $rule_class_rs->single({id=>ADDITIVE_RULE});
-    my $layer = make_layer(
+    my $layer = make_layer({
+        schema => $schema,
+        sequences => $sequences,
+        tile => $tile,
+        id => $sequences->{layer}++,
         use_class_id => 2,
         layer_class_id => 4,
         style => {
+            id => $sequences->{style}++,
             color_scale => $color_scale, 
             min => 0, 
             max => 12,
@@ -132,7 +119,7 @@ sub test_additive_rules {
                 data => { x_min => 1, x_max => 10, y_min => 0, y_max => 1, weight => 1 }
             }
         ]
-        );
+        });
     my $result = $layer->compute($args{debug});
     
     my $output = $result->Band->ReadTile;
@@ -147,14 +134,18 @@ sub test_multiplicative_rules {
     my $color_scale = $color_scale_rs->single({id=>1}); #grayscale, no meaning here
 
     my $datatype = 'Int32';
-    my $dataset = make_dataset($schema, $tile, $dataset_id, $datatype, [[1,2,3],[150,160,180],[0,16,17]], $style_id); 
-    $style_id++; $dataset_id++;
+    my $dataset = make_dataset($schema, $sequences, $tile, $datatype, [[1,2,3],[150,160,180],[0,16,17]]);
     
     my $rule_class = $rule_class_rs->single({id=>MULTIPLICATIVE_RULE}); # multiplicative
-    my $layer = make_layer(
+    my $layer = make_layer({
+        schema => $schema,
+        sequences => $sequences,
+        tile => $tile,
+        id => $sequences->{layer}++,
         use_class_id => 2,
         layer_class_id => 3,
         style => {
+            id => $sequences->{style}++,
             color_scale => $color_scale,
             min => 0, 
             max => 2, 
@@ -166,7 +157,7 @@ sub test_multiplicative_rules {
                 based => { dataset_id => $dataset->id },
                 data => { x_min => 1, x_max => 200, y_min => 0, y_max => 1, weight => 2 }
             }]
-        );
+        });
     my $result = $layer->compute($args{debug});
     
     my $output = $result->Band->ReadTile;
@@ -181,14 +172,18 @@ sub test_exclusive_rules {
     my $color_scale = $color_scale_rs->single({id=>1}); #grayscale, no meaning here
     
     my $datatype = 'Int32';
-    my $dataset = make_dataset($schema, $tile, $dataset_id, $datatype, [[1,2,3],[150,160,180],[0,16,17]], $style_id);
-    $style_id++; $dataset_id++;
+    my $dataset = make_dataset($schema, $sequences, $tile, $datatype, [[1,2,3],[150,160,180],[0,16,17]]);
  
     my $rule_class = $rule_class_rs->single({id=>EXCLUSIVE_RULE});
-    my $layer = make_layer(
+    my $layer = make_layer({
+        schema => $schema,
+        sequences => $sequences,
+        tile => $tile,
+        id => $sequences->{layer}++,
         use_class_id => 2,
         layer_class_id => 2, 
         style => {
+            id => $sequences->{style}++,
             color_scale => $color_scale,
             min => 0, 
             max => 1, 
@@ -200,7 +195,7 @@ sub test_exclusive_rules {
                 based => { dataset_id => $dataset->id },
                 data => { reduce => 1, op_id => 1, value => 5.0, index => 1 }
             }]
-        );
+        });
     my $result = $layer->compute($args{debug});
     my $exp = [[255,1,1],[0,0,0],[1,0,0]];
     my $output = $result->Band->ReadTile;
@@ -213,14 +208,18 @@ sub test_inclusive_rules {
     my $color_scale = $color_scale_rs->single({id=>1}); #grayscale, no meaning here
     
     my $datatype = 'Int32';
-    my $dataset = make_dataset($schema, $tile, $dataset_id, $datatype, [[1,2,3],[150,160,180],[0,16,17]], $style_id); 
-    $style_id++; $dataset_id++;
+    my $dataset = make_dataset($schema, $sequences, $tile, $datatype, [[1,2,3],[150,160,180],[0,16,17]]);
  
     my $rule_class = $rule_class_rs->single({id=>INCLUSIVE_RULE});
-    my $layer = make_layer(
+    my $layer = make_layer({
+        schema => $schema,
+        sequences => $sequences,
+        tile => $tile,
+        id => $sequences->{layer}++,
         use_class_id => 2,
         layer_class_id => 1, 
         style => {
+            id => $sequences->{style}++,
             color_scale => $color_scale,
             min => 0, 
             max => 1, 
@@ -232,7 +231,7 @@ sub test_inclusive_rules {
                 based => { dataset_id => $dataset->id },
                 data => { reduce => 1, op_id => 1, value => 5.0, index => 1 }
             }]
-        );
+        });
     my $result = $layer->compute($args{debug});
 
     my $output = $result->Band->ReadTile;
@@ -246,14 +245,32 @@ sub test_a_dataset_layer {
     for my $datatype (qw/Byte Int16 Int32 Float32 Float64/) {
         for my $color_scale ($color_scale_rs->all) {
             for my $classes (undef, 2, 10) {
-                my $style = {id => $style_id, min => 0, max => 120, classes => $classes, color_scale => $color_scale->id};
-                my $dataset = make_dataset($schema, $tile, $dataset_id, $datatype, [[1,2,3],[150,160,180],[0,16,17]], $style); 
-                $style_id++; $dataset_id++;
-       
-                print Geo::GDAL::Open(Name => $tile->data_dir.$dataset->id.'.tiff')->Band->Piddle if $args{debug};
+                my $style = {
+                    id => $sequences->{style}++,
+                    min => 0, 
+                    max => 120, 
+                    classes => $classes, 
+                    color_scale => $color_scale->id
+                };
                 
-                my $layer = make_layer(use_class_id => 0, id => $dataset->id);
-                my $result = $layer->compute($args{debug});
+                my $dataset = make_dataset($schema, $sequences, $tile, $datatype, [[1,2,3],[150,160,180],[0,16,17]], $style);
+       
+                print "Dataset: ",Geo::GDAL::Open(Name => $tile->data_dir.$dataset->id.'.tiff')->Band->Piddle if $args{debug};
+                
+                my $layer = make_layer(
+                    {
+                        schema => $schema,
+                        sequences => $sequences,
+                        tile => $tile,
+                        use_class_id => 0,
+                        id => $dataset->id, 
+                        debug => $args{debug}
+                    });
+                
+                my $result = $layer->compute();
+
+                print "Result: ",$result->Band->Piddle() if $args{debug};
+                
                 my $output = $result->Band->ReadTile;
                 
                 my $exp;
@@ -264,79 +281,18 @@ sub test_a_dataset_layer {
                 } elsif ($classes == 10) {
                     $exp = [[255,0,0],[9,9,9],[0,1,1]];
                 }
+
+                if ($args{debug}) {
+                    say "Expected: ";
+                    for (@$exp) {
+                        say "@$_";
+                    }
+                }
                 my $nclasses = $classes // 'undef';
                 my $ok = is_deeply($output, $exp, "dataset with $nclasses classes, $datatype");
-
-                print $result->Band->Piddle() if !$ok && $args{debug};
-                
+                                
             }
             
         }
     }
-}
-
-sub make_layer {
-    my %arg = @_;
-    my $id = $arg{id};
-    if ($arg{use_class_id} > 1) {
-        $style_rs->new({
-            id => $style_id, 
-            color_scale => $arg{style}->{color_scale}->id,
-            min => $arg{style}->{min},
-            max => $arg{style}->{max},
-            classes => $arg{style}->{classes} })->insert;
-        $schema->resultset('RuleSystem')->create({
-            id => $layer_id, 
-            rule_class => $arg{rule_class}->id });
-        $schema->resultset('Layer')->create({
-            id => $layer_id,
-            layer_class => $arg{layer_class_id},
-            use => 1,
-            rule_system => $layer_id,
-            style => $style_id });
-        $id = $layer_id;
-        for my $rule (@{$arg{rules}}) {
-            # $args->{rule_class}->id and $rule->{data} must match...
-            add_rule($id, $rule->{based}, $rule->{data});
-        }
-        ++$style_id;
-        ++$layer_id;
-    }
-    return SmartSea::Layer->new({
-        epsg => $tile->epsg,
-        tile => $tile,
-        schema => $schema,
-        data_dir => $tile->data_dir,
-        GDALVectorDataset => undef,
-        cookie => '', 
-        trail => $arg{use_class_id}.'_'.$id });
-}
-
-sub add_rule {
-    my ($rule_system, $based, $data) = @_;
-    my $rule = {
-        id => $rule_id,
-        min_value => 0,
-        max_value => 1,
-        cookie => '',
-        made => undef,
-        rule_system => $rule_system
-    };
-    if ($based->{layer_id}) {
-        $rule->{layer} = $based->{layer_id};
-    } elsif ($based->{dataset_id}) {
-        $rule->{dataset} = $based->{dataset_id};
-    }
-    if ($data->{op_id}) {
-        $rule->{op} = $data->{op_id};
-        $rule->{value} = $data->{value};
-    } else {
-        $rule->{value_at_min} = $data->{'y_min'};
-        $rule->{value_at_max} = $data->{'y_max'};
-        $rule->{min_value} = $data->{x_min};
-        $rule->{max_value} = $data->{x_max};
-        $rule->{weight} = $data->{weight};
-    }
-    $rule_rs->new($rule)->insert;
-    ++$rule_id;
 }

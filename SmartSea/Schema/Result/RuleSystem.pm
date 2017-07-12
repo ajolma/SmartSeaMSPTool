@@ -33,4 +33,14 @@ sub name {
     return $name.'.';
 }
 
+sub relationship_hash {
+    return {
+        rules => {
+            name => 'Rule',
+            source => 'Rule',
+            ref_to_parent => 'rule_system',
+        }
+    };
+}
+
 1;

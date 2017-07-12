@@ -38,9 +38,12 @@ __PACKAGE__->table('styles');
 __PACKAGE__->add_columns(@columns);
 __PACKAGE__->set_primary_key('id');
 __PACKAGE__->belongs_to(color_scale => 'SmartSea::Schema::Result::ColorScale');
+__PACKAGE__->has_many(layer => 'SmartSea::Schema::Result::Layer', 'style'); # 0 or 1
+__PACKAGE__->has_many(dataset => 'SmartSea::Schema::Result::Dataset', 'style'); # 0 or 1
+__PACKAGE__->has_many(ecosystem_component => 'SmartSea::Schema::Result::EcosystemComponent', 'style'); # 0 or 1
 
 sub order_by {
-    return {-asc => 'color_scale'};
+    return {-asc => [qw/color_scale id/]};
 }
 
 sub name {
@@ -49,6 +52,12 @@ sub name {
     $name .= $self->color_scale->name // '' if $self->color_scale;
     $name .= ' ['.$self->min.'..'.$self->max.']' if defined $self->min && defined $self->max;
     $name .= ' '.$self->classes.' classes' if defined $self->classes;
+    my @layer = $self->layer;
+    $name .= " for ".$layer[0]->name if @layer;
+    @layer = $self->ecosystem_component;
+    $name .= " for ".$layer[0]->name if @layer;
+    @layer = $self->dataset;
+    $name .= " for ".$layer[0]->name if @layer;
     return $name;
 }
 

@@ -190,18 +190,25 @@ sub compute {
 
     my $method = $self->{duck}->rule_system->rule_class->id;
     say STDERR "Compute layer, method => $method" if $self->{debug};
-    
+
+    my $sum_of_weights = 0;
     if ($method == EXCLUSIVE_RULE || $method == MULTIPLICATIVE_RULE) {
         $result += 1;
     }
     
     for my $rule (@{$self->{rules}}) {
+        $sum_of_weights += $rule->weight;
         $rule->apply($result, $self);
         if ($self->{debug} && $self->{debug} > 1) {
             my @stats = stats($result); # 3 and 4 are min and max
             my $sum = $result->nelem*$stats[0];
             say STDERR $rule->name,": min=$stats[3], max=$stats[4], sum=$sum";
         }
+    }
+
+    if ($method == BOXCAR_RULE) {
+        $self->{duck}->style->min(0) unless defined $self->{duck}->style->min;
+        $self->{duck}->style->max($sum_of_weights) unless defined $self->{duck}->style->max;
     }
 
     return $self->post_process($result);

@@ -46,7 +46,14 @@ my $args = {
 $schema->resultset('RuleClass')->new({id => BOXCAR_RULE, name => 'boxcar'})->insert;
 $schema->resultset('RuleSystem')->new({id => 1, rule_class => BOXCAR_RULE})->insert;
 
-my $dataset = make_dataset($schema, $tile, 1, 'Float64', [[1,2,3],[4,5,6],[7,8,9]], 1);
+my $sequences = {
+    layer => 1,
+    rule => 1,
+    dataset => 1,
+    style => 1
+};
+
+my $dataset = make_dataset($schema, $sequences, $tile, 'Float64', [[1,2,3],[4,5,6],[7,8,9]]);
 my $x = $dataset->Piddle($args);
 
 my $rule_id = 1;
@@ -194,5 +201,7 @@ $rule->apply($y, $args);
 
 #print $y;
 is_deeply(unpdl($y), [[2,2,2],[0,0,0],[2,2,2]], "Inverted boxcar rule with both sides vertical");
+
+
 
 done_testing();

@@ -7,7 +7,9 @@ use XML::LibXML::PrettyPrint;
 
 require Exporter;
 our @ISA = qw(Exporter);
-our @EXPORT = qw(read_postgresql_dump create_sqlite_schemas select_all pretty_print_XML make_dataset);
+our @EXPORT = qw(
+read_postgresql_dump create_sqlite_schemas select_all pretty_print_XML 
+make_dataset make_layer);
 
 sub read_postgresql_dump {
     my ($dump) = @_;
@@ -208,7 +210,7 @@ sub pretty_print_XML {
 }
 
 sub make_dataset {
-    my ($schema, $tile, $id, $datatype, $data, $style) = @_;
+    my ($schema, $sequences, $tile, $datatype, $data, $style) = @_;
     # min_value, max_value, classes, style, descr
     my $min;
     my $max;
@@ -220,33 +222,41 @@ sub make_dataset {
             $max = $x if $x > $max;
         }
     }
-    $style = {
-        id => $style,
-        min => undef,
-        max => undef,
-        classes => undef,
-        color_scale => 1
-    } unless ref $style;
+    unless ($style) {
+        $style = {
+            id => $sequences->{style},
+            min => undef,
+            max => undef,
+            classes => undef,
+            color_scale => 1
+        };
+        $sequences->{style}++;
+    }
     $schema->resultset('Style')->new($style)->insert;
+    my $id = $sequences->{dataset};
     $schema->resultset('Dataset')->update_or_new(
-        {id => $id,
-         name => "dataset_".$id,
-         custodian => '',
-         contact => '',
-         descr => '',
-         data_model => undef,
-         is_a_part_of => undef,
-         is_derived_from => undef,
-         license => undef,
-         attribution => '',
-         disclaimer => '',
-         path => $id.'.tiff',
-         min_value => $min,
-         max_value => $max,
-         unit => undef,
-         style => $style->{id}
+        {
+            id => $id,
+            name => "dataset_".$id,
+            custodian => '',
+            contact => '',
+            descr => '',
+            data_model => undef,
+            is_a_part_of => undef,
+            is_derived_from => undef,
+            license => undef,
+            attribution => '',
+            disclaimer => '',
+            path => $id.'.tiff',
+            min_value => $min,
+            max_value => $max,
+            unit => undef,
+            style => $style->{id}
         }, 
-        {key => 'primary'})->insert;
+        {
+            key => 'primary'
+        })
+        ->insert;
     my ($w,$h) = $tile->size;
     my $test = Geo::GDAL::Driver('GTiff')->Create(
         Name => $tile->data_dir.$id.".tiff",
@@ -255,7 +265,74 @@ sub make_dataset {
         Height => $h)->Band;
     $test->Dataset->GeoTransform($tile->geotransform);
     $test->WriteTile($data);
+    $sequences->{dataset}++;
     return $schema->resultset('Dataset')->single({id => $id});
 }
+
+sub make_layer {
+    my ($args) = @_;
+    my $id = $args->{id};
+    my $schema = $args->{schema};
+    if ($args->{use_class_id} > 1) {
+        $schema->resultset('Style')->new({
+            id => $args->{style}->{id},
+            color_scale => $args->{style}->{color_scale}->id,
+            min => $args->{style}->{min},
+            max => $args->{style}->{max},
+            classes => $args->{style}->{classes} })->insert;
+        $schema->resultset('RuleSystem')->create({
+            id => $id, 
+            rule_class => $args->{rule_class}->id });
+        $schema->resultset('Layer')->create({
+            id => $id,
+            layer_class => $args->{layer_class_id},
+            use => 1,
+            rule_system => $id,
+            style => $args->{style}->{id} });
+        for my $rule (@{$args->{rules}}) {
+            # $args->{rule_class}->id and $rule->{data} must match...
+            add_rule($id, $rule->{based}, $rule->{data}, $args);
+        }
+    }
+    return SmartSea::Layer->new({
+        epsg => $args->{tile}->epsg,
+        tile => $args->{tile},
+        schema => $schema,
+        data_dir => $args->{tile}->data_dir,
+        GDALVectorDataset => undef,
+        cookie => '', 
+        trail => $args->{use_class_id}.'_'.$id });
+}
+
+sub add_rule {
+    my ($rule_system, $based, $data, $args) = @_;
+    my $schema = $args->{schema};
+    my $rule = {
+        id => $args->{sequences}{rule},
+        min_value => 0,
+        max_value => 1,
+        cookie => '',
+        made => undef,
+        rule_system => $rule_system
+    };
+    if ($based->{layer_id}) {
+        $rule->{layer} = $based->{layer_id};
+    } elsif ($based->{dataset_id}) {
+        $rule->{dataset} = $based->{dataset_id};
+    }
+    if ($data->{op_id}) {
+        $rule->{op} = $data->{op_id};
+        $rule->{value} = $data->{value};
+    } else {
+        $rule->{value_at_min} = $data->{'y_min'};
+        $rule->{value_at_max} = $data->{'y_max'};
+        $rule->{min_value} = $data->{x_min};
+        $rule->{max_value} = $data->{x_max};
+        $rule->{weight} = $data->{weight};
+    }
+    $schema->resultset('Rule')->new($rule)->insert;
+    $args->{sequences}{rule}++;
+}
+
 
 1;

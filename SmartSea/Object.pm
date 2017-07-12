@@ -311,6 +311,7 @@ sub columns {
         $columns_info = $self->{result}->columns_info;
     }
     for my $column ($self->{result}->columns) {
+        next unless exists $columns_info->{$column};
         my $meta = $columns_info->{$column};
         delete $meta->{value};
         if ($meta->{is_superclass} || $meta->{is_part}) {
@@ -370,13 +371,14 @@ sub values_from_parameters {
             # not_null: the column is NOT NULL in DB
             # has_default: the column has DEFAULT in DB
             # is_foreign_key: the column points to a related object
+            my $required = $meta->{not_null} && !$meta->{has_default};
             unless (exists $parameters->{$column}) {
-                push @errors, "$column is required for $self->{source}" if $meta->{not_null} && !$meta->{has_default};
+                push @errors, "$column is required for $self->{source}" if $required;
                 next;
             }
             $meta->{$key} = $parameters->{$column};
             if (!defined($meta->{$key}) || $meta->{$key} eq '') { # considered default
-                if ($meta->{not_null} && !$meta->{has_default}) {
+                if ($required) {
                     push @errors, "$column is required for $self->{source}";
                     next;
                 } elsif ($meta->{has_default}) {
@@ -390,7 +392,7 @@ sub values_from_parameters {
             if (defined $related->{object}) {
                 $meta->{$key} = $related->{object};
             } else {
-                push @errors, "$meta->{source}:$meta->{$key} does not exist" ;
+                push @errors, "$meta->{source}:$meta->{$key} does not exist" if $required;
             }
         }
     }
@@ -513,11 +515,13 @@ sub read {
 
 sub update_or_create {
     my $self = shift;
+    my @errors;
     if ($self->{object}) {
-        $self->update;
+        @errors = $self->update;
     } else {
-        $self->create;
+        @errors = $self->create;
     }
+    croak join(', ', @errors) if @errors;
 }
 
 # attempt to create an object or a link between objects, 
@@ -773,7 +777,8 @@ sub update {
     if (my $super = $self->super) {
         $super->update;
     }
-    
+
+    return;
 }
 
 # remove the link between this object and previous in path or delete this object
@@ -871,6 +876,7 @@ sub simple_items {
     my ($self, $columns) = @_;
     my @li;
     for my $column ($self->{result}->columns) {
+        next unless exists $columns->{$column};
         my $meta = $columns->{$column};
         my $value = exists $meta->{value} ? $meta->{value} : introspection($meta);
         if ($meta->{columns}) {
@@ -1158,7 +1164,9 @@ sub widgets {
     for my $column ($self->{result}->columns) {
         next if $column eq 'id';
         next if $column eq 'super';
+        next unless exists $columns->{$column};
         my $meta = $columns->{$column};
+        next if $meta->{system_column};
         next if $meta->{widget};
         say STDERR 
             "widget: $column => ",
@@ -1208,7 +1216,7 @@ sub widgets {
                 min => $meta->{min},
                 max => $meta->{max},
                 value => $meta->{value} // 1
-            );
+                );
         } elsif ($meta->{is_foreign_key} && !$meta->{is_part}) {
             my $objs;
             if (ref $meta->{objs} eq 'ARRAY') {
@@ -1240,8 +1248,13 @@ sub widgets {
                 values => $meta->{values},
                 not_null => $meta->{not_null}
                 );
+        } elsif ($meta->{data_type} eq 'boolean') {
+            push @input, [1 => "$column: "], checkbox(
+                name => $column,
+                checked => $meta->{value} // 0
+                );
         } else {
-            # fallback data_type is text, integer, double, boolean, double[]
+            # fallback data_type is text, integer, double
             push @input, [1 => "$column: "], text_input(
                 name => $column,
                 size => ($meta->{html_size} // 10),
