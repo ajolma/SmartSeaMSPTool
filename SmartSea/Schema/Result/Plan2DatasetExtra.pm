@@ -21,9 +21,4 @@ sub name {
     return $self->plan->name . ' -> ' . $self->dataset->name;
 }
 
-sub column_values_from_context {
-    my ($self, $parent) = @_;
-    return {plan => $parent->id, dataset => $self->dataset->id};
-}
-
 1;

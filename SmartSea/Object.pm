@@ -1240,7 +1240,8 @@ sub widgets {
                 values => $meta->{values},
                 not_null => $meta->{not_null}
                 );
-        } elsif ($meta->{data_type} eq 'text' || $meta->{data_type} eq 'integer' || $meta->{data_type} eq 'double') {
+        } else {
+            # fallback data_type is text, integer, double, boolean, double[]
             push @input, [1 => "$column: "], text_input(
                 name => $column,
                 size => ($meta->{html_size} // 10),

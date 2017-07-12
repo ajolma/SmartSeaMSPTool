@@ -6,6 +6,7 @@ use Test::More;
 use lib '.';
 use Test::Helper;
 
+use SmartSea::Schema::Result::RuleClass qw(:all);
 use_ok('SmartSea::Schema');
 use_ok('SmartSea::Layer');
 
@@ -70,10 +71,10 @@ $schema->resultset('Plan')->single({id => 1})
     ->create_related('uses', {id => 1, plan => 1, 'use_class' => 2});
 
 my $rule_class_rs = $schema->resultset('RuleClass');
-$rule_class_rs->new({id => 1, name => 'inclusive'})->insert;
-$rule_class_rs->new({id => 2, name => 'exclusive'})->insert;
-$rule_class_rs->new({id => 3, name => 'multiplicative'})->insert;
-$rule_class_rs->new({id => 4, name => 'additive'})->insert;
+$rule_class_rs->new({id => EXCLUSIVE_RULE, name => 'exclusive'})->insert;
+$rule_class_rs->new({id => MULTIPLICATIVE_RULE, name => 'multiplicative'})->insert;
+$rule_class_rs->new({id => ADDITIVE_RULE, name => 'additive'})->insert;
+$rule_class_rs->new({id => INCLUSIVE_RULE, name => 'inclusive'})->insert;
 
 my $color_scale_rs = $schema->resultset('ColorScale');
 $color_scale_rs->new({id => 1, name => 'grayscale'})->insert;
@@ -131,7 +132,7 @@ sub test_additive_rules {
     my $dataset_1 = make_dataset('Byte', [[1,2,3],[4,5,6],[7,8,9]]);
     my $dataset_2 = make_dataset('Float64', [[1,2,3],[4,5,6],[7,8,9]]);
     
-    my $rule_class = $rule_class_rs->single({id=>4}); # additive
+    my $rule_class = $rule_class_rs->single({id=>ADDITIVE_RULE});
     my $layer = make_layer(
         use_class_id => 2,
         layer_class_id => 4,
@@ -170,7 +171,7 @@ sub test_multiplicative_rules {
     my $datatype = 'Int32';
     my $dataset_id = make_dataset($datatype, [[1,2,3],[150,160,180],[0,16,17]]);
     
-    my $rule_class = $rule_class_rs->single({id=>3}); # multiplicative
+    my $rule_class = $rule_class_rs->single({id=>MULTIPLICATIVE_RULE}); # multiplicative
     my $layer = make_layer(
         use_class_id => 2,
         layer_class_id => 3,
@@ -203,7 +204,7 @@ sub test_exclusive_rules {
     my $datatype = 'Int32';
     my $dataset_id = make_dataset($datatype, [[1,2,3],[150,160,180],[0,16,17]]);
  
-    my $rule_class = $rule_class_rs->single({id=>2});
+    my $rule_class = $rule_class_rs->single({id=>EXCLUSIVE_RULE});
     my $layer = make_layer(
         use_class_id => 2,
         layer_class_id => 2, 
@@ -234,7 +235,7 @@ sub test_inclusive_rules {
     my $datatype = 'Int32';
     my $dataset_id = make_dataset($datatype, [[1,2,3],[150,160,180],[0,16,17]]);
  
-    my $rule_class = $rule_class_rs->single({id=>1});
+    my $rule_class = $rule_class_rs->single({id=>INCLUSIVE_RULE});
     my $layer = make_layer(
         use_class_id => 2,
         layer_class_id => 1, 

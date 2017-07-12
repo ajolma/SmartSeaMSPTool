@@ -20,11 +20,6 @@ sub order_by {
     return {-asc => 'id'};
 }
 
-sub column_values_from_context {
-    my ($self, $parent) = @_;
-    return {use_class => $parent->id, activity => $self->activity->id};
-}
-
 sub name {
     my $self = shift;
     return $self->use_class->name.' -> '.$self->activity->name;

@@ -113,7 +113,7 @@ test_psgi $app, sub {
             push @href, $href;
         }
         my $n = @href;
-        ok(@href == 7, "$n == 7 input elements in impact layer form");
+        ok(@href == 8, "$n == 8 input elements in impact layer form");
     }
 
     if (1) {

@@ -19,22 +19,27 @@ sub read_postgresql_dump {
         or die "Can't open < $dump: $!";
     my $line = '';
     while (<$fh>) {
-        chomp;
-        s/\s+$//;
+        #chomp;
+        #s/\s+$//;
+        next if /^\s+$/;
         next if /^--/;
         next unless $_;
         $line .= $_;
         if (/^SET search_path = (\w+)/) {
             $schema = $1;
         }
+        #say STDERR "line=$line";
         if (/;$/) {
             $line =~ s/::text//;
             if ($line =~ /^CREATE TABLE (\w+)/) {
                 my $name = $1;
-                my ($cols) = $line =~ /\((.*)?\)/;
+                #say STDERR "table = $name";
+                my ($cols) = $line =~ /\((.*)?\)/s;
+                #say STDERR "cols = $cols";
                 for my $col (split_nicely($cols)) {
+                    #say STDERR "col=$col";
                     my ($c, $r) = $col =~ /^([\w"]+)\s+(.*)$/;
-                    #say "$col => $c, $r";
+                    #say STDERR "$col => $c, $r";
                     $tables{$schema}{$name}{$c} = $r;
                 }
             }
@@ -119,7 +124,7 @@ sub split_nicely {
     my $s = shift;
     $s =~ s/^\s+//;
     $s =~ s/\s+$//;
-    my @s = split /\s*,\s*/, $s;
+    my @s = split /\s*,\n\s*/, $s;
     return @s;
 }
 

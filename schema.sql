@@ -960,7 +960,12 @@ CREATE TABLE rules (
     value_at_min double precision DEFAULT 0 NOT NULL,
     value_at_max double precision DEFAULT 1 NOT NULL,
     weight double precision DEFAULT 1 NOT NULL,
-    rule_system integer NOT NULL
+    rule_system integer NOT NULL,
+    boxcar boolean DEFAULT true NOT NULL,
+    boxcar_x0 double precision DEFAULT 0 NOT NULL,
+    boxcar_x1 double precision DEFAULT 0 NOT NULL,
+    boxcar_x2 double precision DEFAULT 0 NOT NULL,
+    boxcar_x3 double precision DEFAULT 0 NOT NULL
 );
 
 
@@ -971,6 +976,13 @@ ALTER TABLE rules OWNER TO ajolma;
 --
 
 COMMENT ON COLUMN rules.layer IS 'data for this this rule (alternative to r_dataset)';
+
+
+--
+-- Name: COLUMN rules.op; Type: COMMENT; Schema: tool; Owner: ajolma
+--
+
+COMMENT ON COLUMN rules.op IS 'comparison for *clusive rules';
 
 
 --
@@ -985,6 +997,20 @@ COMMENT ON COLUMN rules.value IS 'threshold, used together with op';
 --
 
 COMMENT ON COLUMN rules.dataset IS 'data for this this rule (alternative to r_layer)';
+
+
+--
+-- Name: COLUMN rules.cookie; Type: COMMENT; Schema: tool; Owner: ajolma
+--
+
+COMMENT ON COLUMN rules.cookie IS 'if not default, then this is a temp rule from client having the cookie';
+
+
+--
+-- Name: COLUMN rules.made; Type: COMMENT; Schema: tool; Owner: ajolma
+--
+
+COMMENT ON COLUMN rules.made IS 'if this is temp rule, when was this made';
 
 
 --
@@ -1006,6 +1032,20 @@ COMMENT ON COLUMN rules.value_at_max IS 'for additive and multiplicative rules. 
 --
 
 COMMENT ON COLUMN rules.weight IS 'for additive and multiplicative rules';
+
+
+--
+-- Name: COLUMN rules.rule_system; Type: COMMENT; Schema: tool; Owner: ajolma
+--
+
+COMMENT ON COLUMN rules.rule_system IS 'our father without whom we can''t live';
+
+
+--
+-- Name: COLUMN rules.boxcar; Type: COMMENT; Schema: tool; Owner: ajolma
+--
+
+COMMENT ON COLUMN rules.boxcar IS 'for boxcar rules, is this normal or upside down';
 
 
 --

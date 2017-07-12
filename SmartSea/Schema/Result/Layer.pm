@@ -53,13 +53,6 @@ sub relationship_hash {
     };
 }
 
-sub column_values_from_context {
-    my ($self, $parent) = @_;
-    my %retval = (use => $parent->id);
-    $retval{layer_class} = $self->layer_class->id if ref $self;
-    return \%retval;
-}
-
 sub order_by {
     return {-asc => 'id'};
 }

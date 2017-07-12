@@ -7,6 +7,7 @@ use Storable qw(dclone);
 use Scalar::Util 'blessed';
 use Carp;
 use PDL;
+use SmartSea::Schema::Result::RuleClass qw(:all);
 use SmartSea::Core qw(:all);
 use SmartSea::HTML qw(:all);
 use SmartSea::Layer;
@@ -24,16 +25,13 @@ my @columns = (
     max_value    => { data_type => 'double', has_default => 1 },
     value_at_min => { data_type => 'double', has_default => 1 },
     value_at_max => { data_type => 'double', has_default => 1 },
-    weight       => { data_type => 'double', has_default => 1 }
+    weight       => { data_type => 'double', has_default => 1 },
+    boxcar       => { data_type => 'boolean', has_default => 1 },
+    boxcar_x0    => { data_type => 'double', has_default => 1 },
+    boxcar_x1    => { data_type => 'double', has_default => 1 },
+    boxcar_x2    => { data_type => 'double', has_default => 1 },
+    boxcar_x3    => { data_type => 'double', has_default => 1 },
     );
-
-# how to compute the weighted value for x:
-# w_r = weight * (value_at_min + (x - min_value)*(value_at_max - value_at_min)/(max_value - min_value))
-# value_at_min and value_at_max are between 0 and 1
-# x, min_value and max_value are in data units
-# 
-# to combine multiple rules, multiply
-# suitability = multiply_all(w_r_1 ... w_r_n)
 
 __PACKAGE__->table('rules');
 __PACKAGE__->add_columns(@columns);
@@ -52,21 +50,30 @@ sub criteria {
 sub my_columns_info {
     my ($self, $parent) = @_;
     my %my_info;
-    my $class = '';
-    $class = $parent->rule_system->rule_class->name if $parent && $parent->rule_system;
-    for my $col ($self->columns) {
-        if ($parent) {
-            if ($class eq 'additive' or $class eq 'multiplicative') {
-                next if $col eq 'op';
-                next if $col eq 'value';
-            } else {
-                next if $col eq 'min_value';
-                next if $col eq 'max_value';
-                next if $col eq 'value_at_min';
-                next if $col eq 'value_at_max';
-                next if $col eq 'weight';
-            }
+    my $class;
+    if (ref $self) {
+        $class = $self->rule_system->rule_class->id;
+    } elsif ($parent) {
+        if ($parent->can('rule_system')) {
+            $class = $parent->rule_system->rule_class->id;
+        } elsif ($parent->can('distribution')) {
+            $class = $parent->distribution->rule_class->id;
         }
+    }
+    $class //= 0;
+    my $clusive = $class == EXCLUSIVE_RULE || $class == INCLUSIVE_RULE;
+    my $tive = $class == MULTIPLICATIVE_RULE || $class == ADDITIVE_RULE;
+    my $boxcar = $class == BOXCAR_RULE;
+    #croak "Unknown rule class." unless $clusive || $tive || $boxcar;
+    for my $col ($self->columns) {
+        next if $col eq 'op' && !$clusive;
+        next if $col eq 'value' && !$clusive;
+        next if $col eq 'min_value' && !$tive;
+        next if $col eq 'max_value' && !$tive;
+        next if $col eq 'value_at_min' && !$tive;
+        next if $col eq 'value_at_max' && !$tive;
+        next if $col eq 'weight' && (!$tive || !$boxcar);
+        next if $col =~ /^boxcar/ && !$boxcar;
         my %info = (%{$self->column_info($col)});
         if (blessed($self) && $col eq 'value') {
             my $criteria = $self->criteria;
@@ -90,13 +97,6 @@ sub my_columns_info {
         $my_info{$col} = \%info;
     }
     return \%my_info;
-}
-
-sub column_values_from_context {
-    my ($self, $parent) = @_;
-    return {rule_system => $parent->rule_system->id} if ref $parent eq 'SmartSea::Schema::Result::Layer';
-    return {rule_system => $parent->distribution->id} if ref $parent eq 'SmartSea::Schema::Result::EcosystemComponent';
-    return {};
 }
 
 sub is_ok {
@@ -135,10 +135,10 @@ sub name {
     my $criteria = $self->criteria;
     croak "Rule ".$self->id." does not have criteria!" unless $criteria;
 
-    my $class = $self->rule_system->rule_class->name;
+    my $class = $self->rule_system->rule_class->id;
 
-    if ($class eq 'exclusive' || $class eq 'inclusive') {
-        my $sign = $class eq 'exclusive' ? '-' : '+';
+    if ($class == EXCLUSIVE_RULE || $class == INCLUSIVE_RULE) {
+        my $sign = $class == EXCLUSIVE_RULE ? '-' : '+';
         my $n = $criteria->classes;
         say STDERR "Rule ".$self->id.": dataset ".$criteria->name." lacks data type!" unless defined $n;
         $n //= 1;
@@ -163,9 +163,9 @@ sub name {
     my $y_max = $self->value_at_max;
     my $w = $self->weight;
     
-    if ($class eq 'additive') {
+    if ($class == ADDITIVE_RULE) {
         return "+ $y_min - $w * ($y_max-$y_min)/($x_max-$x_min) * ($criteria - $x_min)";
-    } elsif ($class eq 'multiplicative') {
+    } elsif ($class == MULTIPLICATIVE_RULE) {
         return "* $y_min - $w * ($y_max-$y_min)/($x_max-$x_min) * ($criteria - $x_min)";
     }
 }
@@ -200,8 +200,10 @@ sub values {
 }
 
 sub apply {
-    my ($self, $method, $y, $rules, $debug) = @_;
+    my ($self, $y, $args) = @_;
 
+    my $method = $self->rule_system->rule_class->id;
+    
     # y is a piddle with values so far
     # after this method y has this rule applied
     #
@@ -226,13 +228,22 @@ sub apply {
     # k = (y_max - y_min) / (x_max - x_min)
     # c = y_min - k * x_min
     # x' = w * (k * x + c)
+    #
+    # boxcar rule adds w * f(x) to y
+    # f(x) is a relaxed boxcar function, defined as
+    # y = y0 if x < x[0] or x > x[n-1]
+    # y = (x-x[i])/(x[i+1]-x[i]) otherwise
+    # y0 is 0 or 1
+    # i = 0..n-1, n = 4
+    # the maximum y becomes thus sum of the rule weights
+    #
 
     # the operand (x)
-    my $x = $self->operand($rules);
+    my $x = $self->operand($args);
     return unless defined $x;
     
-    if ($debug) {
-        if ($debug > 1) {
+    if ($args->{debug}) {
+        if ($args->{debug} > 1) {
             print STDERR $x;
         } else {
             my @stats = stats($x); # 3 and 4 are min and max
@@ -240,12 +251,12 @@ sub apply {
         }
     }
 
-    if ($method eq 'exclusive' || $method eq 'inclusive') {
+    if ($method == EXCLUSIVE_RULE || $method == INCLUSIVE_RULE) {
 
         my $op = $self->op->name;
         my $value = $self->value;
 
-        my $value_if_true = $method eq 'inclusive' ? 1 : 0;
+        my $value_if_true = $method == INCLUSIVE_RULE ? 1 : 0;
 
         if ($op eq '<=')    { $y->where($x <= $value) .= $value_if_true; } 
         elsif ($op eq '<')  { $y->where($x <  $value) .= $value_if_true; }
@@ -253,7 +264,7 @@ sub apply {
         elsif ($op eq '>')  { $y->where($x >  $value) .= $value_if_true; }
         elsif ($op eq '==') { $y->where($x == $value) .= $value_if_true; }
 
-    } else {
+    } elsif ($method == MULTIPLICATIVE_RULE || $method == ADDITIVE_RULE) {
         
         my $x_min = $self->min_value;
         my $x_max = $self->max_value;
@@ -266,21 +277,33 @@ sub apply {
 
         # todo: limit $x to min max
 
-        if ($method =~ /^mult/) {
+        if ($method == 2) {
             
             $y *= $kw * $x + $c;
             
-        } elsif ($method =~ /^add/) {
+        } else {
             
             $y += $kw * $x + $c;
             
         }
+
+    } elsif ($method == BOXCAR_RULE) {
+
+        my $boxcar = $self->boxcar;
+        my $x0 = $self->boxcar_x0;
+        my $x1 = $self->boxcar_x1;
+        my $x2 = $self->boxcar_x2;
+        my $x3 = $self->boxcar_x3;
+
         
+        
+    } else {
+        croak "Unknown rule class: ".$self->rule_system->rule_class->name;
     }
 }
 
 sub operand {
-    my ($self, $rules) = @_;
+    my ($self, $args) = @_;
     
     if ($self->layer) {
         
@@ -291,7 +314,7 @@ sub operand {
         
     } elsif ($self->dataset) {
         
-        return $self->dataset->Piddle($rules);
+        return $self->dataset->Piddle($args);
         
     }
     

@@ -4,6 +4,7 @@ use warnings;
 use 5.010000; # say // and //=
 use Carp;
 use PDL;
+use SmartSea::Schema::Result::RuleClass qw(:all);
 use SmartSea::Core qw(:all);
 
 # a set of rules to create a layer for a use in a plan
@@ -61,8 +62,8 @@ sub new {
         $self->{layer} = $self->{schema}->resultset('Layer')->single({ id => $layer_id });
         $self->{duck} = $self->{layer};
         croak "Layer $layer_id does not exist!" unless $self->{duck};
-        my $class = $self->{layer}->rule_system->rule_class->name;
-        if ($class eq 'exclusive' or $class eq 'inclusive') {
+        my $class = $self->{layer}->rule_system->rule_class->id;
+        if ($class == EXCLUSIVE_RULE or $class == INCLUSIVE_RULE) {
             # result is 1 or nodata
             $self->{min} = 1;
             $self->{max} = 1;
@@ -187,17 +188,15 @@ sub compute {
 
     my $result = zeroes($self->{tile}->tile);
 
-    my $method = $self->{duck}->rule_system->rule_class->name;
+    my $method = $self->{duck}->rule_system->rule_class->id;
+    say STDERR "Compute layer, method => $method" if $self->{debug};
     
-    unless ($method eq 'inclusive' || $method eq 'additive') {
+    if ($method == EXCLUSIVE_RULE || $method == MULTIPLICATIVE_RULE) {
         $result += 1;
     }
-    # inclusive: start from 0 everywhere and add 1
     
-    
-    say STDERR "Compute layer, method = $method" if $self->{debug};
     for my $rule (@{$self->{rules}}) {
-        $rule->apply($method, $result, $self, $self->{debug});
+        $rule->apply($result, $self);
         if ($self->{debug} && $self->{debug} > 1) {
             my @stats = stats($result); # 3 and 4 are min and max
             my $sum = $result->nelem*$stats[0];

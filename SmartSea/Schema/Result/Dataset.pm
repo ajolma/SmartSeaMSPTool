@@ -278,10 +278,10 @@ sub tree {
 }
 
 sub Piddle {
-    my ($self, $rules) = @_;
+    my ($self, $args) = @_;
 
     my $path = $self->path;
-    my $tile = $rules->{tile};
+    my $tile = $args->{tile};
 
     if ($path =~ /^PG:/) {
         
@@ -289,13 +289,13 @@ sub Piddle {
         my $ds = Geo::GDAL::Driver('GTiff')->Create(Name => "/vsimem/r.tiff", Width => $w, Height => $h);
         my ($minx, $maxy, $maxx, $miny) = $tile->projwin;
         $ds->GeoTransform($minx, ($maxx-$minx)/$w, 0, $maxy, 0, ($miny-$maxy)/$h);        
-        $ds->SpatialReference(Geo::OSR::SpatialReference->new(EPSG=>$rules->{epsg}));
+        $ds->SpatialReference(Geo::OSR::SpatialReference->new(EPSG=>$args->{epsg}));
 
         $path =~ s/^PG://;
         $path =~ s/\./"."/;
         $path = '"'.$path.'"';
-        my $sql = "select gid,st_transform(geom,$rules->{epsg}) as geom from $path";
-        $rules->{GDALVectorDataset}->Rasterize($ds, [-burn => 1, -sql => $sql]);
+        my $sql = "select gid,st_transform(geom,$args->{epsg}) as geom from $path";
+        $args->{GDALVectorDataset}->Rasterize($ds, [-burn => 1, -sql => $sql]);
         
         return $ds->Band->Piddle;
         
@@ -304,9 +304,9 @@ sub Piddle {
         my $b;
         eval {
 
-            if ($rules->{epsg} == 3067) {
+            if ($args->{epsg} == 3067) {
             
-                $b = Geo::GDAL::Open("$rules->{data_dir}$path")
+                $b = Geo::GDAL::Open("$args->{data_dir}$path")
                     ->Translate( "/vsimem/tmp.tiff", 
                                  [ -of => 'GTiff',
                                    -r => 'nearest',
@@ -317,11 +317,11 @@ sub Piddle {
             } else {
 
                 my $e = $tile->extent;
-                $b = Geo::GDAL::Open("$rules->{data_dir}$path")
+                $b = Geo::GDAL::Open("$args->{data_dir}$path")
                     ->Warp( "/vsimem/tmp.tiff", 
                             [ -of => 'GTiff', 
                               -r => 'near' ,
-                              -t_srs => 'EPSG:'.$rules->{epsg},
+                              -t_srs => 'EPSG:'.$args->{epsg},
                               -te => @$e,
                               -ts => $tile->tile ])
                     ->Band;

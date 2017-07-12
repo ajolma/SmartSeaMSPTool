@@ -49,13 +49,6 @@ sub relationship_hash {
     };
 }
 
-sub column_values_from_context {
-    my ($self, $parent) = @_;
-    my %retval = (activity => $parent->id);
-    $retval{pressure_class} = $self->pressure_class->id if ref $self;
-    return \%retval;
-}
-
 sub name {
     my ($self) = @_;
     return ($self->activity->name//'').' -> '.($self->pressure_class->name//'');
