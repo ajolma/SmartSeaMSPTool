@@ -85,6 +85,7 @@ sub drop_down {
             push @$values, $id;
         }
         #$values //= [sort {$objs{$a} cmp $objs{$b}} keys %objs];
+        @$values = sort {$visuals->{$a} cmp $visuals->{$b}} @$values;
         unshift @$values, '' unless $arg{not_null};
     }
     my $selected = $arg{selected} // $values->[0];

@@ -111,6 +111,7 @@ sub legend {
     }
 
     $self->prepare($args);
+    
     my $color_table = $args->{color_table} // $self->color_scale->color_table($self->classes);
 
     $args->{value_to_color} = sub {
@@ -136,7 +137,6 @@ sub legend {
 
     return $self->ticked_legend($args) if $args->{ticks};
     return $self->classed_legend($args);
-    
     
 }
 
@@ -182,6 +182,7 @@ sub ticked_legend {
         my $yLine = $y;
         ++$yLine if $y < $y1;
         my $value = $self->min + ($yLine - $y1) * $k;
+        $value = sprintf("%.2f", $value);
         my $label = $value . ' ' . $args->{unit};
         $image->stringFT(@string, $yLine + $args->{font_size}/2, $label);
     }

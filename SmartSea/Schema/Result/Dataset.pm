@@ -5,6 +5,7 @@ use 5.010000;
 use base qw/DBIx::Class::Core/;
 use Storable qw(dclone);
 use Scalar::Util 'blessed';
+use SmartSea::Schema::Result::NumberType qw(:all);
 use SmartSea::Core;
 use SmartSea::HTML qw(:all);
 use PDL;
@@ -49,7 +50,7 @@ __PACKAGE__->has_many(derivatives => 'SmartSea::Schema::Result::Dataset', 'is_de
 sub classes {
     my $self = shift;
     return unless $self->data_type;
-    if ($self->data_type->id == 1) { # integer
+    if ($self->data_type->id == INTEGER_NUMBER) { # integer
         my $min = $self->min_value // 0;
         my $max = $self->max_value // 1;
         my $n = $max - $min + 1;
@@ -146,14 +147,10 @@ sub parse_gdalinfo {
         }
     }
     if (defined $parsed{type}) {
-        my %types;
-        for my $type ($args->{schema}->resultset('NumberType')->all) {
-            $types{$type->name} = $type->id;
-        }
         if ($parsed{type} =~ /Byte/ or $parsed{type} =~ /Int/) {
-            $parsed{data_type} = $types{integer};
+            $parsed{data_type} = INTEGER_NUMBER;
         } elsif ($parsed{type} =~ /Float/) {
-            $parsed{data_type} = $types{real};
+            $parsed{data_type} = REAL_NUMBER;
         }
     }
     delete $parsed{type};

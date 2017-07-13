@@ -1,6 +1,6 @@
 use Modern::Perl;
 use File::Basename;
-use Geo::GDAL;
+use Geo::GDAL qw/Open/;
 use Test::More;
 
 use lib '.';
@@ -81,7 +81,7 @@ test_a_dataset_layer(debug => 0);
 test_inclusive_rules(debug => 0);
 test_exclusive_rules(debug => 0);
 test_multiplicative_rules(debug => 0);
-#test_additive_rules(debug => 0);
+test_additive_rules(debug => 0);
 
 done_testing();
 
@@ -90,10 +90,14 @@ sub test_additive_rules {
     my $color_scale = $color_scale_rs->single({id=>1}); #grayscale, no meaning here
 
     my $dataset_1 = make_dataset($schema, $sequences, $tile, 'Byte', [[1,2,3],[4,5,6],[7,8,9]]);
-    my $dataset_2 = make_dataset($schema, $sequences, $tile, 'Float64', [[1,2,3],[4,5,6],[7,8,9]]); 
+    print "Dataset 1: ",Open(Name => $tile->data_dir.$dataset_1->id.'.tiff')->Band->Piddle if $args{debug};
+    
+    my $dataset_2 = make_dataset($schema, $sequences, $tile, 'Float64', [[1,2,3],[4,5,6],[7,8,9]]);
+    print "Dataset 2: ",Open(Name => $tile->data_dir.$dataset_1->id.'.tiff')->Band->Piddle if $args{debug};
     
     my $rule_class = $rule_class_rs->single({id=>ADDITIVE_RULE});
     my $layer = make_layer({
+        debug => $args{debug},
         schema => $schema,
         sequences => $sequences,
         tile => $tile,
@@ -104,28 +108,34 @@ sub test_additive_rules {
             id => $sequences->{style}++,
             color_scale => $color_scale, 
             min => 0, 
-            max => 12,
+            max => 3,
             classes => 4
         },
         rule_class => $rule_class,
         rules => [
             {
-                based => { dataset_id => $dataset_1->id },
-                data => { 
-                    x_min => 1, x_max => 10, y_min => 0, y_max => 1, weight => 2 
-                }
+                dataset => $dataset_1->id,
+                x_min => 1, 
+                x_max => 10, 
+                y_min => 0, 
+                y_max => 1, 
+                weight => 2
             },{
-                based => { dataset_id => $dataset_2->id },
-                data => { x_min => 1, x_max => 10, y_min => 0, y_max => 1, weight => 1 }
+                dataset => $dataset_2->id,
+                x_min => 1, 
+                x_max => 10, 
+                y_min => 0, 
+                y_max => 1, 
+                weight => 1
             }
         ]
         });
     my $result = $layer->compute($args{debug});
+    print "Result: ",$result->Band->Piddle() if $args{debug};
     
     my $output = $result->Band->ReadTile;
-    my $exp = [[255,0,0],[1,2,2],[0,0,0]];
+    my $exp = [[255,0,0],[1,1,2],[2,3,3]];
     my $ok = is_deeply($output, $exp, $rule_class->name());
-    print $result->Band->Piddle() if !$ok && $args{debug};
 
 }
 
@@ -154,8 +164,12 @@ sub test_multiplicative_rules {
         rule_class => $rule_class,
         rules => [
             {
-                based => { dataset_id => $dataset->id },
-                data => { x_min => 1, x_max => 200, y_min => 0, y_max => 1, weight => 2 }
+                dataset => $dataset->id,
+                x_min => 1, 
+                x_max => 200, 
+                y_min => 0, 
+                y_max => 1, 
+                weight => 2
             }]
         });
     my $result = $layer->compute($args{debug});
@@ -192,8 +206,9 @@ sub test_exclusive_rules {
         rule_class => $rule_class,
         rules => [
             {
-                based => { dataset_id => $dataset->id },
-                data => { reduce => 1, op_id => 1, value => 5.0, index => 1 }
+                dataset => $dataset->id,
+                op => 1, 
+                value => 5.0,
             }]
         });
     my $result = $layer->compute($args{debug});
@@ -209,15 +224,18 @@ sub test_inclusive_rules {
     
     my $datatype = 'Int32';
     my $dataset = make_dataset($schema, $sequences, $tile, $datatype, [[1,2,3],[150,160,180],[0,16,17]]);
+
+    print "Dataset: ",Open(Name => $tile->data_dir.$dataset->id.'.tiff')->Band->Piddle if $args{debug};
  
     my $rule_class = $rule_class_rs->single({id=>INCLUSIVE_RULE});
     my $layer = make_layer({
+        debug => $args{debug},
         schema => $schema,
         sequences => $sequences,
         tile => $tile,
         id => $sequences->{layer}++,
         use_class_id => 2,
-        layer_class_id => 1, 
+        layer_class_id => 1,
         style => {
             id => $sequences->{style}++,
             color_scale => $color_scale,
@@ -228,16 +246,18 @@ sub test_inclusive_rules {
         rule_class => $rule_class,
         rules => [
             {
-                based => { dataset_id => $dataset->id },
-                data => { reduce => 1, op_id => 1, value => 5.0, index => 1 }
+                dataset => $dataset->id, 
+                op => 1, 
+                value => 5.0
             }]
         });
-    my $result = $layer->compute($args{debug});
+    my $result = $layer->compute;
+
+    print "Result: ",$result->Band->Piddle() if $args{debug};
 
     my $output = $result->Band->ReadTile;
     my $exp = [[255,0,0],[1,1,1],[0,1,1]];
     my $ok = is_deeply($output, $exp, $rule_class->name()." rules with dataset of $datatype");
-    print $result->Band->Piddle() if !$ok && $args{debug};
 }
 
 sub test_a_dataset_layer {
@@ -252,10 +272,11 @@ sub test_a_dataset_layer {
                     classes => $classes, 
                     color_scale => $color_scale->id
                 };
-                
-                my $dataset = make_dataset($schema, $sequences, $tile, $datatype, [[1,2,3],[150,160,180],[0,16,17]], $style);
+
+                my $data = [[1,2,3],[150,160,180],[0,16,17]];
+                my $dataset = make_dataset($schema, $sequences, $tile, $datatype, $data, $style);
        
-                print "Dataset: ",Geo::GDAL::Open(Name => $tile->data_dir.$dataset->id.'.tiff')->Band->Piddle if $args{debug};
+                print "Dataset: ",Open(Name => $tile->data_dir.$dataset->id.'.tiff')->Band->Piddle if $args{debug};
                 
                 my $layer = make_layer(
                     {

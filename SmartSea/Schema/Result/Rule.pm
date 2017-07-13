@@ -26,7 +26,7 @@ my @columns = (
     value_at_min => { data_type => 'double', has_default => 1 },
     value_at_max => { data_type => 'double', has_default => 1 },
     weight       => { data_type => 'double', has_default => 1 },
-    boxcar       => { data_type => 'boolean', has_default => 1 },
+    boxcar       => { data_type => 'boolean', default => 1, has_default => 1 },
     boxcar_x0    => { data_type => 'double', has_default => 1 },
     boxcar_x1    => { data_type => 'double', has_default => 1 },
     boxcar_x2    => { data_type => 'double', has_default => 1 },
@@ -58,10 +58,11 @@ sub my_columns_info {
             $class = $parent->rule_class->id;
         } elsif ($parent->can('distribution')) {
             $class = $parent->distribution->rule_class->id;
+        } elsif ($parent->can('rule_system')) {
+            $class = $parent->rule_system->rule_class->id;
         }
     }
     $class //= 0;
-    #say STDERR "rule column info class = $class";
     my $clusive = $class == EXCLUSIVE_RULE || $class == INCLUSIVE_RULE;
     my $tive = $class == MULTIPLICATIVE_RULE || $class == ADDITIVE_RULE;
     my $boxcar = $class == BOXCAR_RULE;
@@ -73,7 +74,7 @@ sub my_columns_info {
         next if $col eq 'max_value' && !$tive;
         next if $col eq 'value_at_min' && !$tive;
         next if $col eq 'value_at_max' && !$tive;
-        next if $col eq 'weight' && (!$tive || !$boxcar);
+        next if $col eq 'weight' && !($tive || $boxcar);
         next if $col =~ /^boxcar/ && !$boxcar;
         my %info = (%{$self->column_info($col)});
         if (blessed($self) && $col eq 'value') {
@@ -170,10 +171,10 @@ sub name {
         }
         
     } elsif ($class == BOXCAR_RULE) {
-        return "Normal with turning points at ".
-            $self->boxcar_x0.', '.$self->boxcar_x1.', '.$self->boxcar_x2.', '.$self->boxcar_x3 if $self->boxcar;
-        return "Inverted with turning points at ".
-            $self->boxcar_x0.', '.$self->boxcar_x1.', '.$self->boxcar_x2.', '.$self->boxcar_x3;
+        my $fct = $self->boxcar_x0.', '.$self->boxcar_x1.', '.$self->boxcar_x2.', '.$self->boxcar_x3;
+        $fct .= ' weight '.$self->weight;
+        return "Normal with turning points at ".$fct if $self->boxcar;
+        return "Inverted with turning points at ".$fct;
         
     } else {
         #croak "Unknown rule class: ".$self->rule_system->rule_class->name;
@@ -182,15 +183,22 @@ sub name {
 
 sub tree {
     my $self = shift;
-    return {
-        id => $self->id, 
-        #layer => undef,
-        op => $self->op->name,
-        value => $self->value+0,
-        dataset => $self->dataset ? $self->dataset->id : undef,
-        #min_value => $self->min_value,
-        #max_value => $self->max_value
-    };
+    my $class = $self->rule_system->rule_class->id;
+    my $clusive = $class == EXCLUSIVE_RULE || $class == INCLUSIVE_RULE;
+    my $columns = $self->my_columns_info;
+    my $retval = { id => $self->id };
+    $retval->{layer} = $self->layer->id if $self->layer;
+    $retval->{dataset} = $self->dataset->id if $self->dataset;
+    $retval->{op} = $self->op->name if $clusive;
+    for my $key (keys %$columns) {
+        my $meta = $columns->{$key};
+        next if $meta->{system_column};
+        next if $meta->{is_foreign_key};
+        next if exists $retval->{$key};
+        $retval->{$key} = $self->$key;
+        $retval->{$key} += 0 if $meta->{data_type} && $meta->{data_type} eq 'double';
+    }
+    return $retval;
 }
 
 # this is needed by modify request
@@ -278,6 +286,8 @@ sub apply {
 
         # todo: limit $x to min max
 
+        #print "before rule ".$self->id,"\n",$y;
+
         if ($class == MULTIPLICATIVE_RULE) {
             
             $y *= $kw * $x + $c;
@@ -287,6 +297,8 @@ sub apply {
             $y += $kw * $x + $c;
             
         }
+
+        #print "after rule ".$self->id,"\n",$y;
 
     } elsif ($class == BOXCAR_RULE) {
 

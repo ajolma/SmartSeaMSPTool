@@ -26,6 +26,7 @@ sub call {
     $style = $parameters->{style} if $parameters->{style};
     eval {
         $layer = SmartSea::Layer->new({
+            debug => $parameters->{debug},
             schema => $self->{schema},
             cookie => DEFAULT,
             style => $style,

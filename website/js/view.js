@@ -299,7 +299,7 @@ MSPView.prototype = {
         if (layer.color_scale) style = '&style='+layer.color_scale;
         var cache_breaker = '&time='+new Date().getTime();
         this.elements.color_scale.html(
-            element('img',{src:url+'?layer='+layer.use_class_id+'_'+layer.id+style+cache_breaker},'')
+            element('img',{src:url+'?layer='+layer.getName()+style+cache_breaker},'')
         );
         if (layer.use_class_id == 0) { // Data
             this.elements.rule_header.html('Information about dataset:');
@@ -338,18 +338,14 @@ MSPView.prototype = {
             $.each(layer.rules, function(i, rule) {
                 var name = rule.getName();
                 var item;
-                if (layer.name == 'Value')
-                    item = name;
-                else {
-                    var attr = {
-                        type:'checkbox',
-                        layer: layer.id,
-                        rule:rule.id
-                    };
-                    if (rule.active) attr.checked = 'checked';
-                    item = element('a', {id:'rule', rule:rule.id}, name);
-                    if (layer.use_class_id > 1) item = element('input', attr, item);
-                }
+                var attr = {
+                    type:'checkbox',
+                    layer: layer.id,
+                    rule:rule.id
+                };
+                if (rule.active) attr.checked = 'checked';
+                item = element('a', {id:'rule', rule:rule.id}, name);
+                if (layer.use_class_id > 1) item = element('input', attr, item);
                 self.elements.rules.append(item);
                 rule.active = true;
                 self.elements.rules.append(element('br'));

@@ -54,18 +54,15 @@ MSPLayer.prototype = {
         var self = this;
         self.layer.setOpacity(opacity);
     },
-    layerName: function() {
+    getName: function() {
         var self = this;
-        var name = self.use_class_id + '_' + self.id;
+        var n = self.use_class_id + '_' + self.id;
         if (self.rules && self.rules.length > 0) {
-            var rules = '';
             $.each(self.rules, function(i, rule) {
-                if (rule.active) rules += '_'+rule.id; // add rules
+                if (rule.active) n += '_'+rule.id; // add rules
             });
-            if (rules == '') rules = '_0'; // avoid no rules = all rules
-            name += rules;
         }
-        return name;
+        return n;
     },
     newLayer: function() {
         var self = this;
@@ -75,7 +72,7 @@ MSPLayer.prototype = {
             visible: false,
             source: new ol.source.WMTS({
                 url: self.server,
-                layer: self.layerName(),
+                layer: self.getName(),
                 matrixSet: self.projection.matrixSet,
                 format: 'image/png',
                 projection: self.projection.projection,
@@ -180,10 +177,20 @@ MSPRule.prototype = {
         var dataset = self.model.getDataset(self.dataset);
         if (!dataset) return "Dataset "+self.dataset+" is missing.";
         var name = dataset.name;
-        if (dataset.classes > 1) {
-            var value = self.value;
-            if (dataset.semantics) value = dataset.semantics[value];
-            name += ' '+self.op+' '+value;
+        if (self.layer.rule_class.match(/clusive/)) {
+            if (dataset.classes > 1) {
+                var value = self.value;
+                if (dataset.semantics) value = dataset.semantics[value];
+                name += ' '+self.op+' '+value;
+            }
+        } else if (self.layer.rule_class.match(/tive/)) {
+        } else if (self.layer.rule_class == 'boxcar') {
+            if (self.boxcar)
+                name += ' _¯_ ';
+            else
+                name += ' ¯_¯ ';
+            name += self.boxcar_x0+', '+self.boxcar_x1+', '+self.boxcar_x2+', '+self.boxcar_x3;
+            name += ' weight '+self.weight;
         }
         return name;
     },

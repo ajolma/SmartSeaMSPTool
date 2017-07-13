@@ -291,37 +291,35 @@ sub make_layer {
             style => $args->{style}->{id} });
         for my $rule (@{$args->{rules}}) {
             # $args->{rule_class}->id and $rule->{data} must match...
-            add_rule($id, $rule->{based}, $rule->{data}, $args);
+            add_rule($id, $rule, $args);
         }
     }
     return SmartSea::Layer->new({
+        debug => $args->{debug},
         epsg => $args->{tile}->epsg,
         tile => $args->{tile},
         schema => $schema,
         data_dir => $args->{tile}->data_dir,
         GDALVectorDataset => undef,
         cookie => '', 
-        trail => $args->{use_class_id}.'_'.$id });
+        trail => $args->{use_class_id}.'_'.$id.'_all' });
 }
 
 sub add_rule {
-    my ($rule_system, $based, $data, $args) = @_;
+    my ($rule_system, $data, $args) = @_;
     my $schema = $args->{schema};
     my $rule = {
         id => $args->{sequences}{rule},
+        layer => $data->{layer},
+        dataset => $data->{dataset},
         min_value => 0,
         max_value => 1,
         cookie => '',
         made => undef,
         rule_system => $rule_system
     };
-    if ($based->{layer_id}) {
-        $rule->{layer} = $based->{layer_id};
-    } elsif ($based->{dataset_id}) {
-        $rule->{dataset} = $based->{dataset_id};
-    }
-    if ($data->{op_id}) {
-        $rule->{op} = $data->{op_id};
+    if ($data->{op}) {
+        $rule->{op} = $data->{op};
         $rule->{value} = $data->{value};
     } else {
         $rule->{value_at_min} = $data->{'y_min'};

@@ -731,12 +731,7 @@ sub update {
         next unless exists $self->{app}{parameters}{$col};
         $col_data->{$col} = $self->{app}{parameters}{$col};
         if (!defined($col_data->{$col}) || $col_data->{$col} eq '') { # considered default
-            if ($meta->{has_default}) {
-                delete $col_data->{$col};
-                next;
-            } else {
-                $col_data->{$col} = undef;
-            }
+            $col_data->{$col} = undef; # should set to NULL or DEFAULT (check!)
         }
         next unless $meta->{is_foreign_key};
         if (defined $col_data->{$col}) {
@@ -750,8 +745,7 @@ sub update {
                 push @errors, "$meta->{source}:$col_data->{$col} does not exist";
             }
         } else {
-            push @errors, "will not delete link to $meta->{source}";
-            #what? delete link?
+            # 
         }
     }
 
@@ -766,6 +760,9 @@ sub update {
         }
     }
     croak join(', ', @errors) if @errors;
+    
+    #fixme: move create, update or delete embedded child objects here
+    
     $self->{object}->update($col_data);
 
     # delete children:
@@ -1167,7 +1164,6 @@ sub widgets {
         next unless exists $columns->{$column};
         my $meta = $columns->{$column};
         next if $meta->{system_column};
-        next if $meta->{widget};
         say STDERR 
             "widget: $column => ",
             ($meta->{value}//'undef'),' ',
@@ -1204,12 +1200,6 @@ sub widgets {
                 cols => $meta->{cols},
                 value => $meta->{value} // ''
             );
-        } elsif ($meta->{html_input} eq 'checkbox') {
-            push @input, [1 => "$column: "], checkbox(
-                name => $column,
-                visual => $meta->{cue},
-                checked => $meta->{value}
-            );
         } elsif ($meta->{html_input} eq 'spinner') {
             push @input, [1 => "$column: "], spinner(
                 name => $column,
@@ -1228,7 +1218,7 @@ sub widgets {
                         push @$objs, $obj;
                     }
                 }
-            } elsif ($meta->{objs}) {
+            } elsif (ref $meta->{objs} eq 'HASH') {
                 $objs = [$self->{app}{schema}->resultset($meta->{source})->search($meta->{objs})];
             } else {
                 $objs = [$self->{app}{schema}->resultset($meta->{source})->all];
@@ -1251,7 +1241,7 @@ sub widgets {
         } elsif ($meta->{data_type} eq 'boolean') {
             push @input, [1 => "$column: "], checkbox(
                 name => $column,
-                checked => $meta->{value} // 0
+                checked => $meta->{value} // $meta->{default} // 0
                 );
         } else {
             # fallback data_type is text, integer, double

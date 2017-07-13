@@ -2,7 +2,17 @@ package SmartSea::Schema::Result::NumberType;
 use strict;
 use warnings;
 use 5.010000;
-use base qw/DBIx::Class::Core/;
+use base qw/DBIx::Class::Core Exporter/;
+
+# type ids are hard coded here
+# we just assume the database is the same as this
+# if creating new db, use these
+use constant INTEGER_NUMBER => 1;
+use constant REAL_NUMBER => 2;
+require Exporter;
+our @EXPORT_OK = qw(INTEGER_NUMBER REAL_NUMBER);
+our %EXPORT_TAGS = (all => \@EXPORT_OK);
+
 use SmartSea::HTML qw(:all);
 
 my @columns = (
