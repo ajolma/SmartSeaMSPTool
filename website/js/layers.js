@@ -186,9 +186,9 @@ MSPRule.prototype = {
         } else if (self.layer.rule_class.match(/tive/)) {
         } else if (self.layer.rule_class == 'boxcar') {
             if (self.boxcar)
-                name += ' _¯_ ';
+                name += ' _/¯\_ ';
             else
-                name += ' ¯_¯ ';
+                name += ' ¯\_/¯ ';
             name += self.boxcar_x0+', '+self.boxcar_x1+', '+self.boxcar_x2+', '+self.boxcar_x3;
             name += ' weight '+self.weight;
         }

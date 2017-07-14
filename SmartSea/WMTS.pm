@@ -111,7 +111,7 @@ sub process {
     # rules are those rules that the client wishes to be active
     # no rules = all rules
 
-    my $debug = $params->{debug}//0;
+    my $debug = $params->{debug} // 0;
     #$debug += $self->{debug};
     my $layer = $params->{layer} // $params->{layers};
 
@@ -125,7 +125,7 @@ sub process {
         schema => $self->{schema},
         data_dir => $self->{data_dir},
         GDALVectorDataset => $self->{GDALVectorDataset},
-        cookie => $args->{service}{request}->cookies->{SmartSea} // DEFAULT, 
+        cookie => $args->{service}{request}->cookies->{SmartSea}, 
         trail => $layer,
         style => $params->{style},
         debug => $debug });

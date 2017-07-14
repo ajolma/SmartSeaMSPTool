@@ -1,4 +1,5 @@
 package SmartSea::Plans;
+use parent qw/SmartSea::App/;
 use strict;
 use warnings;
 use 5.010000; # say // and //=
@@ -7,21 +8,8 @@ use Data::GUID;
 use SmartSea::Core qw(:all);
 use SmartSea::Layer;
 
-use parent qw/Plack::Component/;
-
-sub new {
-    my ($class, $self) = @_;
-    $self = Plack::Component->new($self);
-    return bless $self, $class;
-}
-
-sub call {
-    my ($self, $env) = @_;
-
-    my $ret = common_responses({}, $env);
-    return $ret if $ret;
-    my $request = Plack::Request->new($env);
-    $self->{cookie} = $request->cookies->{SmartSea} // DEFAULT;
+sub smart {
+    my ($self, $env, $request, $parameters) = @_;
     
     my $plans = $self->{schema}->resultset('Plan')->array_of_trees;
     
@@ -57,14 +45,10 @@ sub call {
     # if there is not one. The cookie is only for the duration the
     # browser is open.
 
-    my $header = {
-        'Access-Control-Allow-Origin' => $env->{HTTP_ORIGIN},
-        'Access-Control-Allow-Credentials' => 'true'
-    };
-    if ($self->{cookie} eq DEFAULT) {
+    unless ($self->{cookie}) {
         my $guid = Data::GUID->new;
         my $cookie = $guid->as_string;
-        $header->{'Set-Cookie'} = "SmartSea=$cookie; httponly; Path=/";
+        $self->{header}{'Set-Cookie'} = "SmartSea=$cookie; httponly; Path=/";
     } else {
 
         # Cookie already set, reset changes, i.e., delete temporary
@@ -81,7 +65,7 @@ sub call {
         say STDERR 'Error: '.$@ if $@;
 
     }
-    return json200($header, $plans);
+    return $self->json200($plans);
 
 }
 

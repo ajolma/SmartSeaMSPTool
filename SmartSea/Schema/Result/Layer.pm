@@ -5,8 +5,6 @@ use 5.010000;
 use base qw/DBIx::Class::Core/;
 use Storable qw(dclone);
 use Scalar::Util 'blessed';
-use SmartSea::Core qw(:all);
-use SmartSea::HTML qw(:all);
 
 my @columns = (
     id          => {},
@@ -69,7 +67,7 @@ sub my_unit {
 sub tree {
     my ($self) = @_;
     my @rules;
-    for my $rule (sort {$a->criteria->name cmp $b->criteria->name} $self->rules({cookie => DEFAULT})) {
+    for my $rule (sort {$a->criteria->name cmp $b->criteria->name} $self->rules({cookie => ''})) {
         push @rules, $rule->tree;
     }
     return {

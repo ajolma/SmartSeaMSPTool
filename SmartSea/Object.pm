@@ -361,8 +361,6 @@ sub values_from_parameters {
         } elsif ($column eq 'cookie') {
             if ($self->{app}{request} && $self->{app}{request} eq 'modify') {
                 $meta->{value} = $self->{app}{cookie};
-            } else {
-                $meta->{value} = DEFAULT;
             }
         } else {
             # The goal is to get values from parameters and report errors
@@ -517,6 +515,7 @@ sub update_or_create {
     my $self = shift;
     my @errors;
     if ($self->{object}) {
+        say STDERR "do up";
         @errors = $self->update;
     } else {
         @errors = $self->create;
@@ -686,6 +685,8 @@ sub create {
 
 sub update {
     my $self = shift;
+
+    confess "Update was requested for a non-existing $self->{source} object." unless $self->{object};
 
     say STDERR "update ",$self->str if $self->{app}{debug};
     

@@ -1,4 +1,5 @@
 package SmartSea::Legend;
+use parent qw/SmartSea::App/;
 use strict;
 use warnings;
 use 5.010000; # say // and //=
@@ -6,20 +7,8 @@ use Carp;
 use SmartSea::Core qw(:all);
 use SmartSea::Layer;
 
-use parent qw/Plack::Component/;
-
-sub new {
-    my ($class, $self) = @_;
-    $self = Plack::Component->new($self);
-    return bless $self, $class;
-}
-
-sub call {
-    my ($self, $env) = @_;
-    my $ret = common_responses({}, $env);
-    return $ret if $ret;
-    my $request = Plack::Request->new($env);
-    my $parameters = $request->parameters;
+sub smart {
+    my ($self, $env, $request, $parameters) = @_;
     
     my $layer;
     my $style;
@@ -28,7 +17,6 @@ sub call {
         $layer = SmartSea::Layer->new({
             debug => $parameters->{debug},
             schema => $self->{schema},
-            cookie => DEFAULT,
             style => $style,
             trail => $parameters->{layer}});
     };

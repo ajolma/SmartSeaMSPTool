@@ -11,11 +11,11 @@ use base 'DBIx::Class::ResultSet';
 # by default return the default rule
 sub my_find {
     my ($self, $id, $cookie) = @_;
-    $cookie //= DEFAULT;
+    $cookie //= '';
     my $retval;
     for my $rule ($self->search({ id => $id })) {
         return $rule if $rule->cookie eq $cookie;
-        $retval = $rule if $rule->cookie eq DEFAULT;
+        $retval = $rule if $rule->cookie eq '';
     }
     return $retval;
 }

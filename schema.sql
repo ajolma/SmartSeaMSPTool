@@ -955,7 +955,7 @@ CREATE TABLE rules (
     dataset integer,
     min_value double precision DEFAULT 0 NOT NULL,
     max_value double precision DEFAULT 1 NOT NULL,
-    cookie text DEFAULT 'default'::text NOT NULL,
+    cookie text DEFAULT ''::text NOT NULL,
     made timestamp with time zone,
     value_at_min double precision DEFAULT 0 NOT NULL,
     value_at_max double precision DEFAULT 1 NOT NULL,
@@ -1003,7 +1003,7 @@ COMMENT ON COLUMN rules.dataset IS 'data for this this rule (alternative to r_la
 -- Name: COLUMN rules.cookie; Type: COMMENT; Schema: tool; Owner: ajolma
 --
 
-COMMENT ON COLUMN rules.cookie IS 'if not default, then this is a temp rule from client having the cookie';
+COMMENT ON COLUMN rules.cookie IS 'if not empty, then this is a temp rule from client having the cookie';
 
 
 --

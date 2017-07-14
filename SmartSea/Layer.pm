@@ -28,6 +28,8 @@ use SmartSea::Core qw(:all);
 # may need trail, schema, tile, epsg, data_dir, style set in self (config) when called
 sub new {
     my ($class, $self) = @_;
+    $self->{debug} //= 0;
+    
     my ($type, $id, @rules) = split /_/, $self->{trail} // '';
     #return bless $self, $class unless $id;
 
@@ -61,13 +63,13 @@ sub new {
         $self->{max} = 1;
         $self->{data_type} = INTEGER_NUMBER;
         #$self->{labels} = jotain;
-        $self->{rules} = [];
+        %{$self->{rules}} = map {$_ => 1} @rules;
         
     } else {
         $self->{duck} = $self->{schema}->resultset('Layer')->single({ id => $id });
         croak "Layer $id does not exist!" unless $self->{duck};
         $self->{labels} = $self->{duck}->layer_class->semantics_hash;
-        $self->{rules} = [];
+        %{$self->{rules}} = map {$_ => 1} @rules;
         
     }
 
@@ -96,36 +98,10 @@ sub new {
             croak "Unknown rule class: $class.";
         }
 
-        # no rules is no rules
-        if (@rules) {
-            # there may be the default rule and a modified rule denoted with a cookie
-            # prefer the one with our cookie
-            if ($rules[0] eq 'all') {
-                my $cookie = $self->{cookie} // DEFAULT;
-                my %rules;
-                for my $rule ($system->rules) {
-                    if ($rule->cookie eq $cookie) {
-                        $rules{$rule->id} = $rule; # may overwrite
-                    } elsif ($rule->cookie eq DEFAULT) {
-                        $rules{$rule->id} = $rule;
-                    }
-                }
-                @{$self->{rules}} = values %rules;
-            } else {
-                for my $id (@rules) {
-                    last unless $id; # id = 0 is a bail out
-                    my $rule = $self->{schema}->resultset('Rule')->my_find($id, $self->{cookie});
-            
-                    # we could test that this rule belongs to the duck but we believe the client
-                    push @{$self->{rules}}, $rule if $rule;            
-                }
-            }
-        }     
-
-        if ($class == BOXCAR_RULE && @{$self->{rules}}) {
+        if ($class == BOXCAR_RULE) {
             my $sum_of_pos_weights = 0;
             my $sum_of_neg_weights = 0;
-            for my $rule (@{$self->{rules}}) {
+            for my $rule ($system->active_rules($self)) {
                 if ($rule->weight > 0) {
                     $sum_of_pos_weights += $rule->weight;
                 } else {
@@ -145,7 +121,6 @@ sub new {
         my $color_scale = $self->{schema}->resultset('ColorScale')->find({name => $self->{style}});
         $self->{duck}->style->color_scale($color_scale->id) if $color_scale;
     }
-    #$self->{debug} = 2;
 
     return bless $self, $class;
 }
@@ -166,27 +141,20 @@ sub compute {
     my $y;
 
     if ($self->{rules}) {
-        my $method = $self->{duck}->rule_system->rule_class->id;
+        my $system = $self->{duck}->rule_system;
+        my $method = $system->rule_class->id;
         say STDERR "Compute layer, method => $method" if $self->{debug};
         
         $y = zeroes($self->{tile}->tile);
         $y += 1 if $method == EXCLUSIVE_RULE || $method == MULTIPLICATIVE_RULE;
     
-        for my $rule (@{$self->{rules}}) {
-            $rule->apply($y, $self);
-            
-            if ($self->{debug} && $self->{debug} > 1) {
-                my @stats = stats($y); # 3 and 4 are min and max
-                my $sum = $y->nelem*$stats[0];
-                say STDERR $rule->name,": min=$stats[3], max=$stats[4], sum=$sum";
-            }
-        }
+        $system->compute($y, $self);
 
     } else {
         # we know duck is dataset
         $y = $self->{duck}->Piddle($self);
         
-        if ($self->{debug} && $self->{debug} > 1) {
+        if ($self->{debug} > 1) {
             my @stats = stats($y); # 3 and 4 are min and max
             say STDERR "Dataset ",$self->{duck}->name," min=$stats[3], max=$stats[4]";
         }
@@ -226,8 +194,8 @@ sub compute {
             $y = $y->clip(0, $style->classes - 1);
         }
     }
-    
-    if ($self->{debug} && $self->{debug} > 1) {
+
+    if ($self->{debug} > 1) {
         my @stats = stats($y); # 3 and 4 are min and max
         say STDERR "Result min=$stats[3], max=$stats[4]";
     }

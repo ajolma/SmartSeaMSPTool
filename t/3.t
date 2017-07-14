@@ -73,6 +73,7 @@ test_psgi $app, sub {
             my $res = $cb->(POST "/$class:$id/$relationship?request=create&$param&accept=json");
             my $rel_obj = decode_json $res->content;
             $object = read_object($cb, $class, $id);
+            my $object2 = read_object($cb, $rel_obj->{class}, $rel_obj->{id}{value});
 
             $res = $cb->(POST "/$class:$id/$relationship:$rel_obj->{id}{value}?request=update&$param&accept=json");
             $object = read_object($cb, $class, $id);

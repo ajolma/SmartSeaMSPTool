@@ -1,4 +1,5 @@
 package SmartSea::Explain;
+use parent qw/SmartSea::App/;
 use strict;
 use warnings;
 use 5.010000; # say // and //=
@@ -9,24 +10,18 @@ use Geo::GDAL;
 use PDL;
 use SmartSea::Core qw(:all);
 
-use parent qw/Plack::Component/;
-
 binmode STDERR, ":utf8";
 
 sub new {
     my ($class, $self) = @_;
-    $self = Plack::Component->new($self);
+    $self = SmartSea::App->new($self);
     $self->{mask} = Geo::GDAL::Open($self->{data_dir}.'mask.tiff');
     return bless $self, $class;
 }
 
-sub call {
-    my ($self, $env) = @_;
-    my $ret = common_responses({}, $env);
-    return $ret if $ret;
+sub smart {
+    my ($self, $env, $request, $parameters) = @_;
     
-    my $request = Plack::Request->new($env);
-    my $parameters = $request->parameters;
     for my $key (sort keys %$parameters) {
         my $val = $parameters->{$key} // '';
         #say STDERR "$key => $val";
@@ -45,7 +40,7 @@ sub call {
     
     #my @rules;
     #for my $layer ($request->query_parameters->get_all('layer')) {
-    #    push @rules, SmartSea::Layer->new({schema => $self->{schema}, cookie => DEFAULT, trail => $layer});
+    #    push @rules, SmartSea::Layer->new({schema => $self->{schema}, trail => $layer});
     #}
     my $plan_id = $request->query_parameters->get('plan');
     my $use_id = $request->query_parameters->get('use');
@@ -86,9 +81,7 @@ sub call {
         
     }
 
-    return json200({ 'Access-Control-Allow-Origin' => $env->{HTTP_ORIGIN},
-                     'Access-Control-Allow-Credentials' => 'true'
-                   }, {report => $report});
+    return $self->json200({report => $report});
 
 }
 

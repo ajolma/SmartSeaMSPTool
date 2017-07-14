@@ -2,7 +2,7 @@ package SmartSea::Schema::Result::Rule;
 use strict;
 use warnings;
 use 5.010000;
-use base qw/DBIx::Class::Core/;
+use base qw/DBIx::Class::Core Exporter/;
 use Storable qw(dclone);
 use Scalar::Util 'blessed';
 use Carp;
@@ -14,7 +14,7 @@ use SmartSea::Layer;
 
 my @columns = (
     id           => {},
-    cookie       => { system_column => 1 },
+    cookie       => { system_column => 1 }, # empty or cookie
     made         => { system_column => 1 },
     rule_system  => { is_foreign_key => 1, source => 'RuleSystem', not_null => 1 },
     layer        => { is_foreign_key => 1, source => 'Layer' },

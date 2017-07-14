@@ -53,11 +53,11 @@ sub name {
     $name .= ' ['.$self->min.'..'.$self->max.']' if defined $self->min && defined $self->max;
     $name .= ' '.$self->classes.' classes' if defined $self->classes;
     my @layer = $self->layer;
-    $name .= " for ".$layer[0]->name if @layer;
+    $name .= " in ".$layer[0]->name if @layer;
     @layer = $self->ecosystem_component;
-    $name .= " for ".$layer[0]->name if @layer;
+    $name .= " in ".$layer[0]->name if @layer;
     @layer = $self->dataset;
-    $name .= " for ".$layer[0]->name if @layer;
+    $name .= " in ".$layer[0]->name if @layer;
     return $name;
 }
 

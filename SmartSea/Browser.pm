@@ -1,4 +1,5 @@
 package SmartSea::Browser;
+use parent qw/SmartSea::App/;
 use strict;
 use warnings;
 use 5.010000; # say // and //=
@@ -15,36 +16,28 @@ use SmartSea::Object;
 use Data::Dumper;
 use Data::GUID;
 
-use parent qw/Plack::Component/;
-
 binmode STDERR, ":utf8";
 
 sub new {
     my ($class, $self) = @_;
-    $self = Plack::Component->new($self);
+    $self = SmartSea::App->new($self);
     $self->{sources} = {map {source2class($_) => $_} $self->{schema}->sources};
     ($self->{main_sources}, $self->{simple_sources}, $self->{other_sources}) = $self->{schema}->simple_sources;
     $self->{js} //= 1;
     return bless $self, $class;
 }
 
-sub call {
-    my ($self, $env) = @_;
+sub smart {
+    my ($self, $env, $request, $parameters) = @_;
     if ($self->{debug} > 2) {
         for my $key (sort keys %$env) {
             say STDERR "$key => $env->{$key}";
         }
     }
-    my $ret = common_responses({}, $env);
-    return $ret if $ret;
-    my $request = Plack::Request->new($env);
-    $self->{accept} = $request->headers->header('Accept') // '';
-    $self->{json} = $self->{accept} eq 'application/json';
     $self->{user} = $env->{REMOTE_USER} // 'guest';
     $self->{user} = 'ajolma' if $self->{fake_admin};
     $self->{admin} = $self->{user} eq 'ajolma';
-    $self->{cookie} = $request->cookies->{SmartSea} // DEFAULT;
-    $self->{parameters} = $request->parameters;
+    $self->{parameters} = $parameters;
     $self->{root} //= '';
     $self->{path} = $env->{REQUEST_URI};
     $self->{path} =~ s/\?.*$//; # remove the query, it is in parameters
@@ -54,15 +47,15 @@ sub call {
     $self->{url} = 'http://'.$server.':'.$env->{SERVER_PORT};
     
     $self->{method} = $env->{REQUEST_METHOD}; # GET, PUT, POST, DELETE
-    $self->{origin} = $env->{HTTP_ORIGIN};
+    
     my $object;
     eval {
         $object = SmartSea::Object->from_app($self);
     };
     if ($@) {
         $@ =~ s/ at SmartSea.*//;
-        return json200({}, {error=>"$@"}) if $self->{json};
-        return html200({}, "<html>Error: $@</html>");
+        return $self->json200({error=>"$@"}) if $self->{json};
+        return $self->html200("<html>Error: $@</html>");
     }
     say STDERR "remote user is $self->{user}" if $self->{debug};
     say STDERR "cookie: $self->{cookie}" if $self->{debug};
@@ -73,7 +66,7 @@ sub call {
     eval {
         $response = $self->object_editor($object);
     };
-    return html200({}, SmartSea::HTML->new(html => [body => error_message($@)])->html) if $@;
+    return $self->html200(SmartSea::HTML->new(html => [body => error_message($@)])->html) if $@;
     return $response;
 }
 
@@ -92,13 +85,9 @@ sub object_editor {
             $_ = decode utf8 => $_;
         }
         $self->{parameters}->add($key, @values);
-        for my $value ($self->{parameters}->get_all($key)) {
-            if ($key eq 'debug') {
-                $self->{debug} = $value;
-            } elsif ($key eq 'accept' && $value eq 'json') {
-                $self->{json} = 1;
-            } else {
-                say STDERR "$key => $value" if $self->{debug};
+        if ($self->{debug} > 1) {
+            for my $value ($self->{parameters}->get_all($key)) {
+                say STDERR "$key => $value";
             }
         }
     }
@@ -120,10 +109,6 @@ sub object_editor {
     }
     $self->{request} = $request;
     say STDERR "request = $request" if $self->{debug};
-
-    # to make jQuery happy:
-    my $header = { 'Access-Control-Allow-Origin' => $self->{origin},
-                   'Access-Control-Allow-Credentials' => 'true' };
 
     unless ($object) {
         my @classes;
@@ -155,24 +140,24 @@ sub object_editor {
             }
             push @body, [p => [1 => "Other classes"],[ul=>\@li]];
         }
-        return json200({}, \@classes) if $self->{json};
+        return $self->json200(\@classes) if $self->{json};
         push @body, $footer;
-        return html200({}, SmartSea::HTML->new(html => [body => \@body])->html);
+        return $self->html200(SmartSea::HTML->new(html => [body => \@body])->html);
     }
 
     my @body = [p => a(link => 'All classes', url => $self->{root})];
     #push @body, [div => {class=>"se-pre-con"}, ''];
 
     if ($request eq 'read') {
-        return json200({}, $object->read) if $self->{json};
+        return $self->json200($object->read) if $self->{json};
         my $part = [ul => [li => $object->first->item([], {url => $self->{root}})]];
         push @body, $part;
         push @body, $footer;
-        return html200({}, SmartSea::HTML->new(html => [body => @body])->html);
+        return $self->html200(SmartSea::HTML->new(html => [body => @body])->html);
         
     } elsif ($request eq 'modify') {
-        return http_status($header, 403) if $self->{cookie} eq DEFAULT; # forbidden
-        return http_status($header, 400) unless $object->{object} && $object->{source} eq 'Rule'; # bad request
+        return $self->http_status(403) unless $self->{cookie}; # not for guests or cookie-afraid
+        return $self->http_status(400) unless $object->{object} && $object->{source} eq 'Rule'; # bad request
 
         my $cols = $object->{object}->values;
         $cols->{value} = $self->{parameters}{value};
@@ -184,14 +169,14 @@ sub object_editor {
             $object->insert unless $object->in_storage;
         };
         say STDERR "error: $@" if $@;
-        return http_status($header, 500) if $@;
-        return json200($header, {object => $object->tree});
+        return $self->http_status(500) if $@;
+        return $self->json200({object => $object->tree});
 
     }
 
-    return return http_status($header, 403) if $self->{user} eq 'guest';
+    return return $self->http_status(403) if $self->{user} eq 'guest';
 
-    return http_status($header, 400) unless $object;
+    return $self->http_status(400) unless $object;
 
     # TODO: all actions should be wrapped in begin; commit;
 
@@ -219,12 +204,12 @@ sub object_editor {
         my $part;
         if ($@) {
             push @body, error_message($@) if $@;
-            return json200({}, {error => $@}) if $self->{json};
+            return $self->json200({error => $@}) if $self->{json};
         } elsif (@errors) {
-            return json200({}, {error => \@errors}) if $self->{json};
+            return $self->json200({error => \@errors}) if $self->{json};
             $part = [form => {action => $self->{path}, method => 'POST'}, $object->last->form({input_is_fixed=>1})];
         } else {
-            return json200({}, $object->first->read) if $self->{json};
+            return $self->json200($object->first->read) if $self->{json};
         }
         $part = [ul => [li => $object->first->item([], {url => $self->{root}})]] unless $part;
         push @body, $part;
@@ -245,8 +230,8 @@ sub object_editor {
             };
         }
         if ($self->{json}) {
-            return json200({}, {error => "$@"}) if $@;
-            return json200({}, {result => 'ok'});
+            return $self->json200({error => "$@"}) if $@;
+            return $self->json200({result => 'ok'});
         }
         push @body, error_message($@) if $@;
         my $part = [ul => [li => $object->first->item([], {url => $self->{root}})]];
@@ -254,14 +239,19 @@ sub object_editor {
 
     } elsif ($request eq 'update' || $request eq 'save') {
         eval {
-            $object->last->update_or_create;
+            if ($request eq 'update') {
+                my @errors = $object->last->update;
+                croak join(', ', @errors) if @errors;
+            } else {
+                $object->last->update_or_create;
+            }
         };
         if ($@) {
             push @body, error_message($@);
-            return json200({}, {error=>"$@"}) if $self->{json};
+            return $self->json200({error=>"$@"}) if $self->{json};
             push @body, [form => {action => $self->{path}, method => 'POST'}, $object->last->form];
         } else {
-            return json200({}, $object->last->read) if $self->{json};
+            return $self->json200($object->last->read) if $self->{json};
             my $part = [ul => [li => $object->first->item([], {url => $self->{root}})]];
             push @body, $part;
         }
@@ -270,11 +260,11 @@ sub object_editor {
         push @body, [form => {action => $self->{path}, method => 'POST'}, $object->last->form];
         
     } else {
-        return http_status($header, 400);
+        return $self->http_status(400);
     }
 
     push @body, $footer;
-    return html200({}, SmartSea::HTML->new(html => [head(),[body => @body]])->html);
+    return $self->html200(SmartSea::HTML->new(html => [head(),[body => @body]])->html);
     
 }
 
