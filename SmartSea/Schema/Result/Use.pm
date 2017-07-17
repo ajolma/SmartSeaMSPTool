@@ -67,11 +67,11 @@ sub activities {
     return $self->use_class->activities;
 }
 
-sub tree {
+sub read {
     my ($self) = @_;
     my @layers;
     for my $layer ($self->layers(undef, {order_by => {-desc => 'id'}})) {
-        push @layers, $layer->tree;
+        push @layers, $layer->read;
     }
     return {
         id => $self->id,

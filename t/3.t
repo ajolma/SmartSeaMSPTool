@@ -163,6 +163,8 @@ sub crud {
         
     my $object = create_object($cb, $class, \%data);
     my $id = $object->{id} ? $object->{id}{value} : $object->{super}{value};
+    
+    $schema = $object; # the schema of rule depends on the type of rule class
         
     for my $key (keys %$schema) {
         next unless ref $schema->{$key};
@@ -189,6 +191,7 @@ sub crud {
     my $param = join(q{&}, map{qq{$_=$data{$_}}} keys %data);
     my $res = $cb->(POST "/$class:$id?request=update&$param&accept=json");
     $object = decode_json $res->content;
+    #print STDERR Dumper $object;
     for my $key (keys %$schema) {
         next unless ref $schema->{$key};
         next if $key eq 'related';

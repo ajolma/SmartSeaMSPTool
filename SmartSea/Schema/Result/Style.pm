@@ -10,6 +10,7 @@ use Encode qw(decode encode);
 use Imager::Color;
 use GD;
 use Geo::GDAL;
+use SmartSea::Schema::Result::NumberType qw(:all);
 use SmartSea::Core;
 use SmartSea::HTML qw(:all);
 
@@ -80,7 +81,7 @@ sub prepare {
     }
 
     unless (defined $self->classes) {
-        if ($args->{data_type} && $args->{data_type} == 1) {
+        if ($args->{data_type} && $args->{data_type} == INTEGER_NUMBER) {
             $self->classes($self->max - $self->min + 1);
         } else {
             $self->classes(101);
@@ -95,7 +96,7 @@ sub prepare {
             $args->{ranges} = 1;
         }
     }
-    $args->{ranges} = 1 if $args->{data_type} != 1;
+    $args->{ranges} = 1 if $args->{data_type} == REAL_NUMBER;
 }
 
 sub legend {
@@ -250,7 +251,7 @@ sub classed_legend {
                 }
             }
         } else {
-            $label = $value;
+            $label = $self->min + $class;# FIXME assuming continuous range!
         }
         $image->stringFT(@string, $y, (encode utf8 => $label));
         $y -= $args->{class_height};

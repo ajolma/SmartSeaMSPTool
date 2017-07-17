@@ -92,12 +92,12 @@ sub datasets {
     return \%datasets;
 }
 
-sub tree {
+sub read {
     my $self = shift;
     my @uses;
     my %data;
     for my $use ($self->uses(undef, {order_by => 'id'})) {
-        push @uses, $use->tree;
+        push @uses, $use->read;
     }
     for my $dataset ($self->extra_datasets) {
         $data{$dataset->id} = 1 if $dataset->path;

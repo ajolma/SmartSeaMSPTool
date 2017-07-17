@@ -14,8 +14,6 @@ use Data::Dumper;
 
 binmode STDERR, ":utf8";
 
-my @objects;
-
 sub from_app {
     my ($class, $app) = @_;
     
@@ -24,7 +22,7 @@ sub from_app {
     my @oids = split /\//, $path;
     shift @oids; # the first ''
 
-    @objects = ();
+    my @objects = ();
     my $object;
     for my $oid (@oids) {
         my ($tag, $id) = split /:/, $oid;
@@ -64,8 +62,7 @@ sub from_app {
         }
     }
 
-    return unless @objects;
-    return $objects[0];
+    return @objects;
 }
 
 # in args give object, or source and possibly id or search
@@ -300,18 +297,10 @@ sub relationship_hash {
 sub columns {
     my ($self, $columns) = @_;
     $columns = {} unless defined $columns;
-    my $columns_info;
-    confess unless defined $self->{result};
-    if ($self->{result}->can('my_columns_info')) {
-        my $prev = $self->{prev} ? $self->{prev}{object} : undef;
-        $columns_info = $self->{object} ? 
-            $self->{object}->my_columns_info($prev) : 
-            $self->{result}->my_columns_info($prev);
-    } else {
-        $columns_info = $self->{result}->columns_info;
-    }
-    for my $column ($self->{result}->columns) {
-        next unless exists $columns_info->{$column};
+    my $prev = $self->{prev} ? $self->{prev}{object} : undef;
+    my $row = $self->{object} ? $self->{object} : $self->{result};
+    my $columns_info = $row->columns_info(undef, $prev);
+    for my $column (keys %$columns_info) {
         my $meta = $columns_info->{$column};
         delete $meta->{value};
         if ($meta->{is_superclass} || $meta->{is_part}) {
@@ -423,8 +412,11 @@ sub jsonify {
             if ($key eq 'columns') {
                 $json->{columns} = jsonify($meta->{columns});
             } else {
-                next if $key eq 'objs';
-                next if $key =~ /^_/ || ref $meta->{$key} eq 'CODE';
+                next if 
+                    $key eq 'objs' || 
+                    $key eq 'values' ||
+                    $key =~ /^_/ || 
+                    ref $meta->{$key} eq 'CODE';
                 if (blessed $meta->{$key}) {
                     $json->{$key} = $meta->{$key}->id;
                 } else {
@@ -463,11 +455,6 @@ sub read {
         }
         $columns->{class} = $self->{class};
         return $columns;
-        if ($self->{object}->can('tree')) {
-            return $self->{object}->tree($self->{app}{parameters}) ;
-        } else {
-            return {id => $self->{object}->id};
-        }
         
     } else {
         my $columns = $self->columns;
@@ -497,30 +484,7 @@ sub read {
             }
         }
         return \@rows;
-
-        my $tree = $self->{result}->can('tree');
-        if ($self->{rs}->can('tree')) {
-            return $self->{rs}->tree($self->{app}{parameters});
-        } else {
-            
-        }
     }
-}
-
-# create, update, and delete
-# the id or ids of the target object can be in parameters
-# where the key is the class/relation to parent 
-
-sub update_or_create {
-    my $self = shift;
-    my @errors;
-    if ($self->{object}) {
-        say STDERR "do up";
-        @errors = $self->update;
-    } else {
-        @errors = $self->create;
-    }
-    croak join(', ', @errors) if @errors;
 }
 
 # attempt to create an object or a link between objects, 

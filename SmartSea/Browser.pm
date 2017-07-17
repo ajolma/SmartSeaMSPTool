@@ -48,9 +48,9 @@ sub smart {
     
     $self->{method} = $env->{REQUEST_METHOD}; # GET, PUT, POST, DELETE
     
-    my $object;
+    my @objects;
     eval {
-        $object = SmartSea::Object->from_app($self);
+        @objects = SmartSea::Object->from_app($self);
     };
     if ($@) {
         $@ =~ s/ at SmartSea.*//;
@@ -61,17 +61,17 @@ sub smart {
     say STDERR "cookie: $self->{cookie}" if $self->{debug};
     say STDERR "full path: $self->{path}" if $self->{debug};
     say STDERR "root: $self->{root}" if $self->{debug};
-    say STDERR "objects: ",$object->str_all if $object && $self->{debug};
+    say STDERR "objects: ",$objects[0]->str_all if @objects && $self->{debug};
     my $response;
     eval {
-        $response = $self->object_editor($object);
+        $response = $self->object_editor(\@objects);
     };
     return $self->html200(SmartSea::HTML->new(html => [body => error_message($@)])->html) if $@;
     return $response;
 }
 
 sub object_editor {
-    my ($self, $object) = @_;
+    my ($self, $objects) = @_;
     
     my $schemas = $self->{table_postfix} // '';
     $schemas =~ s/^_//;
@@ -99,9 +99,10 @@ sub object_editor {
         # from HTML form
         # attempt to delete and show the changed object
         # delete does not do deep
-        my $class = $object->last->{class}; # what to delete
+        my $last = $objects->[$#$objects];
+        my $class = $last->{class}; # what to delete
         $self->{parameters}->remove($class); # from a select accompanying create button
-        $object->last->id($self->{parameters}{delete} =~ /(\d+)/);
+        $last->id($self->{parameters}{delete} =~ /(\d+)/);
         delete $self->{parameters}{delete};
         $request = 'delete';
     } else {
@@ -110,7 +111,7 @@ sub object_editor {
     $self->{request} = $request;
     say STDERR "request = $request" if $self->{debug};
 
-    unless ($object) {
+    unless (@$objects) {
         my @classes;
         my @body = a(link => 'Up', url => $self->{home});
         {
@@ -148,57 +149,58 @@ sub object_editor {
     my @body = [p => a(link => 'All classes', url => $self->{root})];
     #push @body, [div => {class=>"se-pre-con"}, ''];
 
+    my $first = $objects->[0];
+    my $last = $objects->[$#$objects];
     if ($request eq 'read') {
-        return $self->json200($object->read) if $self->{json};
-        my $part = [ul => [li => $object->first->item([], {url => $self->{root}})]];
+        return $self->json200($last->read) if $self->{json};
+        my $part = [ul => [li => $first->item([], {url => $self->{root}})]];
         push @body, $part;
         push @body, $footer;
         return $self->html200(SmartSea::HTML->new(html => [body => @body])->html);
         
     } elsif ($request eq 'modify') {
         return $self->http_status(403) unless $self->{cookie}; # not for guests or cookie-afraid
-        return $self->http_status(400) unless $object->{object} && $object->{source} eq 'Rule'; # bad request
+        return $self->http_status(400) unless $last->{object} && $last->{source} eq 'Rule'; # bad request
 
-        my $cols = $object->{object}->values;
+        my $cols = $last->{object}->values;
         $cols->{value} = $self->{parameters}{value};
         $cols->{cookie} = $self->{cookie};
         my $tmp = ['current_timestamp'];
         $cols->{made} = \$tmp;
+        my $object;
         eval {
-            $object = $object->{rs}->update_or_new($cols, {key => 'primary'});
+            $object = $last->{rs}->update_or_new($cols, {key => 'primary'});
             $object->insert unless $object->in_storage;
         };
         say STDERR "error: $@" if $@;
         return $self->http_status(500) if $@;
-        return $self->json200({object => $object->tree});
+        return $self->json200({object => $object->read});
 
     }
 
     return return $self->http_status(403) if $self->{user} eq 'guest';
 
-    return $self->http_status(400) unless $object;
-
     # TODO: all actions should be wrapped in begin; commit;
 
     if ($request eq 'compute') {
         # from HTML form, do computation and go back to form with the data
-        $object->last->compute_cols();
-        push @body, [form => {action => $self->{path}, method => 'POST'}, $object->last->form];
+        $last->compute_cols();
+        push @body, [form => {action => $self->{path}, method => 'POST'}, $last->form];
         
     } elsif ($request eq 'create') {
-        my $class = $object->last->{class}; # what to create
+        my $class = $last->{class}; # what to create
         my @id = $self->{parameters}->get_all($class);
         my @errors;
         if (@id) {
             for my $id (@id) {
-                $object->last->id($id);
+                $last->id($id);
                 eval {
-                    push @errors, $object->last->create();
+                    push @errors, $last->create();
                 };
             }
         } else {
             eval {
-                push @errors, $object->last->create();
+                push @errors, $last->create();
             };
         }
         my $part;
@@ -207,26 +209,26 @@ sub object_editor {
             return $self->json200({error => $@}) if $self->{json};
         } elsif (@errors) {
             return $self->json200({error => \@errors}) if $self->{json};
-            $part = [form => {action => $self->{path}, method => 'POST'}, $object->last->form({input_is_fixed=>1})];
+            $part = [form => {action => $self->{path}, method => 'POST'}, $last->form({input_is_fixed=>1})];
         } else {
-            return $self->json200($object->first->read) if $self->{json};
+            return $self->json200($first->read) if $self->{json};
         }
-        $part = [ul => [li => $object->first->item([], {url => $self->{root}})]] unless $part;
+        $part = [ul => [li => $first->item([], {url => $self->{root}})]] unless $part;
         push @body, $part;
         
     } elsif ($request eq 'delete') {
-        my $class = $object->last->{class}; # what to delete
+        my $class = $last->{class}; # what to delete
         my @id = $self->{parameters}->get_all($class);
         if (@id) {
             for my $id (@id) {
-                $object->last->id($id);
+                $last->id($id);
                 eval {
-                    $object->last->delete();
+                    $last->delete();
                 };
             }
         } else {
             eval {
-                $object->last->delete();
+                $last->delete();
             };
         }
         if ($self->{json}) {
@@ -234,30 +236,51 @@ sub object_editor {
             return $self->json200({result => 'ok'});
         }
         push @body, error_message($@) if $@;
-        my $part = [ul => [li => $object->first->item([], {url => $self->{root}})]];
+        my $part = [ul => [li => $first->item([], {url => $self->{root}})]];
         push @body, $part;
 
-    } elsif ($request eq 'update' || $request eq 'save') {
+    } elsif ($request eq 'update') {
         eval {
-            if ($request eq 'update') {
-                my @errors = $object->last->update;
-                croak join(', ', @errors) if @errors;
+            my $what = $last;
+            my @errors;
+            if ($what->{object}) {
+                @errors = $what->update;
             } else {
-                $object->last->update_or_create;
+                @errors = $what->create;
             }
+            croak join(', ', @errors) if @errors;
         };
         if ($@) {
             push @body, error_message($@);
             return $self->json200({error=>"$@"}) if $self->{json};
-            push @body, [form => {action => $self->{path}, method => 'POST'}, $object->last->form];
+            push @body, [form => {action => $self->{path}, method => 'POST'}, $last->form];
         } else {
-            return $self->json200($object->last->read) if $self->{json};
-            my $part = [ul => [li => $object->first->item([], {url => $self->{root}})]];
+            return $self->json200($last->read) if $self->{json};
+            my $part = [ul => [li => $first->item([], {url => $self->{root}})]];
+            push @body, $part;
+        }
+
+    } elsif ($request eq 'save') { # only from HTML clients
+        eval {
+            my $what = $last;
+            my @errors;
+            if ($what->{object}) {
+                @errors = $what->update;
+            } else {
+                @errors = $what->create;
+            }
+            croak join(', ', @errors) if @errors;
+        };
+        if ($@) {
+            push @body, error_message($@);
+            push @body, [form => {action => $self->{path}, method => 'POST'}, $last->form];
+        } else {
+            my $part = [ul => [li => $first->item([], {url => $self->{root}})]];
             push @body, $part;
         }
         
     } elsif ($request eq 'edit') {
-        push @body, [form => {action => $self->{path}, method => 'POST'}, $object->last->form];
+        push @body, [form => {action => $self->{path}, method => 'POST'}, $last->form];
         
     } else {
         return $self->http_status(400);

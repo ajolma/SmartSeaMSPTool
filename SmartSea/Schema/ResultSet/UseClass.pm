@@ -6,7 +6,7 @@ use SmartSea::Core qw(:all);
 
 use base 'DBIx::Class::ResultSet';
 
-sub tree {
+sub read {
     my ($self) = @_;
     my @items;
     for my $item ($self->search(undef, {order_by => {-asc => 'name'}})) {

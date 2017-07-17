@@ -78,9 +78,9 @@ test_psgi $app, sub {
     #print STDERR Dumper $req;
     
     $res = $cb->($req);
-    #say STDERR $res->content;
-    
     $res = decode_json $res->content;
+    #print STDERR Dumper $res;
+    
     ok($res->{object}{value} == 2.5, "Update ok with cookie.");
 
     $req = POST "$host/browser/rule:1?request=modify", [ value => 3.5 ];

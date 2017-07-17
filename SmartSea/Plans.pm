@@ -11,7 +11,7 @@ use SmartSea::Layer;
 sub smart {
     my ($self, $env, $request, $parameters) = @_;
     
-    my $plans = $self->{schema}->resultset('Plan')->array_of_trees;
+    my $plans = $self->{schema}->resultset('Plan')->read;
     
     # two pseudo plans, these will be shown as uses in all real plans
     # Data and Ecosystem have reserved ids

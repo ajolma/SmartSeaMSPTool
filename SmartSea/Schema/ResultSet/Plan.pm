@@ -8,11 +8,11 @@ use base 'DBIx::Class::ResultSet';
 
 # plans -> uses -> layers
 # ids of uses and layers are class ids
-sub array_of_trees {
+sub read {
     my ($self) = @_;
     my @plans;
     for my $plan ($self->search(undef, {order_by => {-desc => 'name'}})) {
-        push @plans, $plan->tree;
+        push @plans, $plan->read;
     }
     return \@plans;
 }

@@ -247,7 +247,7 @@ sub info {
     return [pre => $info];
 }
 
-sub tree {
+sub read {
     my ($self) = @_;
     my $data_type = $self->data_type;
     my $color_scale;

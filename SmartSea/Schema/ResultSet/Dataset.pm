@@ -18,7 +18,7 @@ sub layers {
         next unless $dataset->path;
         next unless $dataset->style;
         next unless $dataset->data_type;
-        push @datasets, $dataset->tree;
+        push @datasets, $dataset->read;
     }
     return @datasets if wantarray;
     return \@datasets;

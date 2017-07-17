@@ -15,7 +15,7 @@ sub layers {
         next unless $component->style;
         my @rules;
         for my $rule (sort {$a->name cmp $b->name} $component->rules({cookie => ''})) {
-            push @rules, $rule->tree;
+            push @rules, $rule->read;
         }        
         push @layers, {
             name => $component->name,

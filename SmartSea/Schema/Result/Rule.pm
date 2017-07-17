@@ -47,9 +47,9 @@ sub criteria {
     return $self->dataset ? $self->dataset : ($self->layer ? $self->layer : undef);
 }
 
-sub my_columns_info {
-    my ($self, $parent) = @_;
-    my %my_info;
+sub columns_info {
+    my ($self, $colnames, $parent) = @_;
+    my $info = $self->SUPER::columns_info($colnames);
     my $class;
     if (ref $self) {
         $class = $self->rule_system->rule_class->id;
@@ -62,43 +62,44 @@ sub my_columns_info {
             $class = $parent->rule_system->rule_class->id;
         }
     }
-    $class //= 0;
+    return $info unless $class;
     my $clusive = $class == EXCLUSIVE_RULE || $class == INCLUSIVE_RULE;
     my $tive = $class == MULTIPLICATIVE_RULE || $class == ADDITIVE_RULE;
     my $boxcar = $class == BOXCAR_RULE;
     #croak "Unknown rule class." unless $clusive || $tive || $boxcar;
     for my $col ($self->columns) {
-        next if $col eq 'op' && !$clusive;
-        next if $col eq 'value' && !$clusive;
-        next if $col eq 'min_value' && !$tive;
-        next if $col eq 'max_value' && !$tive;
-        next if $col eq 'value_at_min' && !$tive;
-        next if $col eq 'value_at_max' && !$tive;
-        next if $col eq 'weight' && !($tive || $boxcar);
-        next if $col =~ /^boxcar/ && !$boxcar;
-        my %info = (%{$self->column_info($col)});
-        if (blessed($self) && $col eq 'value') {
-            my $criteria = $self->criteria;
-            if ($criteria) {
-                my $semantics = $criteria->semantics_hash;
-                if ($semantics) {
-                    my @objs;
-                    my @values;
-                    for my $value (keys %$semantics) {
-                        push @objs, {id => $value, name => $semantics->{$value}};
-                        push @values, $value;
+        if ($col eq 'op' || $col eq 'value') {
+            unless ($clusive) {
+                delete $info->{$col};
+            } else {
+                if (blessed($self) && $col eq 'value') {
+                    my $criteria = $self->criteria;
+                    if ($criteria) {
+                        my $semantics = $criteria->semantics_hash;
+                        if ($semantics) {
+                            my @objs;
+                            my @values;
+                            for my $value (keys %$semantics) {
+                                push @objs, {id => $value, name => $semantics->{$value}};
+                                push @values, $value;
+                            }
+                            $info->{$col}{is_foreign_key} = 1;
+                            $info->{$col}{objs} = \@objs;
+                            $info->{$col}{values} = \@values;
+                        }
                     }
-                    %info = (
-                        is_foreign_key => 1,
-                        objs => \@objs,
-                        values => \@values
-                        );
                 }
             }
+        } elsif ($col eq 'min_value' || $col eq 'max_value' || 
+                 $col eq 'value_at_min' || $col eq 'value_at_max') {
+            delete $info->{$col} unless $tive;
+        } elsif ($col eq 'weight') {
+            delete $info->{$col} unless $tive || $boxcar;
+        } elsif ($col =~ /^boxcar/) {
+            delete $info->{$col} unless $boxcar;
         }
-        $my_info{$col} = \%info;
     }
-    return \%my_info;
+    return $info;
 }
 
 sub is_ok {
@@ -181,11 +182,11 @@ sub name {
     }
 }
 
-sub tree {
+sub read {
     my $self = shift;
     my $class = $self->rule_system->rule_class->id;
     my $clusive = $class == EXCLUSIVE_RULE || $class == INCLUSIVE_RULE;
-    my $columns = $self->my_columns_info;
+    my $columns = $self->columns_info;
     my $retval = { id => $self->id };
     $retval->{layer} = $self->layer->id if $self->layer;
     $retval->{dataset} = $self->dataset->id if $self->dataset;

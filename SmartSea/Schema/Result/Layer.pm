@@ -64,11 +64,11 @@ sub my_unit {
     return '';
 }
 
-sub tree {
+sub read {
     my ($self) = @_;
     my @rules;
     for my $rule (sort {$a->criteria->name cmp $b->criteria->name} $self->rules({cookie => ''})) {
-        push @rules, $rule->tree;
+        push @rules, $rule->read;
     }
     return {
         id => $self->id,
