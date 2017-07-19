@@ -304,7 +304,12 @@ sub columns {
         my $meta = $columns_info->{$column};
         delete $meta->{value};
         if ($meta->{is_superclass} || $meta->{is_part}) {
-            my $obj = SmartSea::Object->new({source => $meta->{source}, app => $self->{app}});
+            my %args = (app => $self->{app});
+            if ($self->{object}) {
+                $args{object} = $self->{object}->$column;
+            }
+            $args{source} = $meta->{source} unless $args{object};
+            my $obj = SmartSea::Object->new(\%args);
             $meta->{columns} = {};
             $obj->columns($meta->{columns});
         }

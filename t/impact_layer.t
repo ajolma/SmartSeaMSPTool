@@ -149,9 +149,6 @@ ok($schema->resultset('Layer')->single({id => 2})->descr eq $descr, "Set supercl
           <ul>
             <li>id: 2</li> 
             <li>rule_class: rule class</li>
-            <li>network_file: (undef)</li>
-            <li>output_node: (undef)</li>
-            <li>output_state: (undef)</li>
           </ul>
         </li>
         <li><b>Style</b>
