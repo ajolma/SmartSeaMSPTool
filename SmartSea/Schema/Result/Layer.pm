@@ -5,6 +5,7 @@ use 5.010000;
 use base qw/DBIx::Class::Core/;
 use Storable qw(dclone);
 use Scalar::Util 'blessed';
+use SmartSea::Schema::Result::RuleClass qw(:all);
 
 my @columns = (
     id          => {},
@@ -70,7 +71,7 @@ sub read {
     for my $rule (sort {$a->criteria->name cmp $b->criteria->name} $self->rules({cookie => ''})) {
         push @rules, $rule->read;
     }
-    return {
+    my $layer = {
         id => $self->id,
         class_id => $self->layer_class->id,
         name => $self->layer_class->name,
@@ -80,6 +81,12 @@ sub read {
         rule_class => $self->rule_system->rule_class->name,
         rules => \@rules
     };
+    if ($self->rule_system->rule_class->id == BAYESIAN_NETWORK_RULE) {
+        for my $key (qw/network_file output_node output_state/) {
+            $layer->{$key} = $self->rule_system->$key;
+        }
+    }
+    return $layer;
 }
 
 1;

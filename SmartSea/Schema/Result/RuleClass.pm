@@ -12,8 +12,12 @@ use constant MULTIPLICATIVE_RULE => 2;
 use constant ADDITIVE_RULE => 3;
 use constant INCLUSIVE_RULE => 4;
 use constant BOXCAR_RULE => 5;
+use constant BAYESIAN_NETWORK_RULE => 6;
 require Exporter;
-our @EXPORT_OK = qw(EXCLUSIVE_RULE MULTIPLICATIVE_RULE ADDITIVE_RULE INCLUSIVE_RULE BOXCAR_RULE);
+our @EXPORT_OK = qw(EXCLUSIVE_RULE INCLUSIVE_RULE
+                    MULTIPLICATIVE_RULE ADDITIVE_RULE 
+                    BOXCAR_RULE 
+                    BAYESIAN_NETWORK_RULE);
 our %EXPORT_TAGS = (all => \@EXPORT_OK);
 
 my @columns = (

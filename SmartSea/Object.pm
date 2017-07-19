@@ -477,7 +477,7 @@ sub read {
                 push @rows, \%json;
             }
         } else {
-            for my $row ($self->{rs}->search($search)) {
+            for my $row ($self->{rs}->search($search, {order_by => 'id'})) {
                 my %json = (class => $self->{class}, id => $row->id, href => $url.$row->id.'?accept=json');
                 $json{name} = $row->name if $row->can('name');
                 push @rows, \%json;
@@ -886,10 +886,11 @@ sub item {
     # fixme: do not add edit if this made instead of a link object with nothing to edit
     push @content, [1 => ' '], a(link => 'edit this one', url => $url.'?request=edit') if $self->{edit};
 
-    my $columns = $self->columns;
+    # fixme?
+    my $columns = $self->columns; # this doesn't call columns for is_part objects with real object
     $self->values_from_self($columns) if $self->{object};
   
-    my $li = $self->simple_items($columns);
+    my $li = $self->simple_items($columns); # so here all cols (also unused) are shown
 
     if ($self->{object} && $self->{object}->can('info')) {
         my $info = $self->{object}->info($self->{app});

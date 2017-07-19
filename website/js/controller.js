@@ -440,7 +440,8 @@ MSPController.prototype = {
     addLayer: function(plan, use) {
         var self = this;
         self.editor.dialog('option', 'title', 'New layer for '+use.name);
-        self.editor.dialog('option', 'height', 400);
+        self.editor.dialog('option', 'width', 500);
+        self.editor.dialog('option', 'height', 600);
         
         var klass_list = new Widget({
             container_id:self.editor_id,
@@ -469,7 +470,14 @@ MSPController.prototype = {
             list:self.simpleObjects('rule_class'),
             pretext:'Select the rule type for the new layer: '
         });
-        
+
+        var rule_class_extra = new Widget({
+            container_id:self.editor_id,
+            id:'rule-class-extra',
+            type:'para'
+        });
+        var network, node, state;
+      
         var color_list = new Widget({
             container_id:self.editor_id,
             id:'layer-color',
@@ -484,19 +492,98 @@ MSPController.prototype = {
                         'The layer will be computed by rules that are based on datasets.'+
                         ' You can add rules after you have created the layer first.');
         html += element('p', {}, rule_class_list.content());
+        html += element('p', {}, rule_class_extra.content());
         html += element('p', {}, color_list.content());
-        self.editor.html(html)
+        self.editor.html(html);
+
+        rule_class_list.changed((function changed() {
+            var klass = rule_class_list.selected();
+            if (klass && klass.name == 'Bayesian network') {
+                
+                if (!self.networks) {
+                    $.ajax({
+                        headers: {Accept: 'application/json'},
+                        url: 'http://'+server+'/networks',
+                        success: function (result) {
+                            self.networks = result;
+                        },
+                        async: false
+                    });
+                }
+                network = new Widget({
+                    container_id:self.editor_id,
+                    id:'layer-network',
+                    type:'select',
+                    selected:self.networks[0].name,
+                    list:self.networks,
+                    pretext:'Select the Bayesian network: '
+                });
+                               
+                //output_node, node_state;
+                
+                rule_class_extra.html(network.content());
+
+                network.changed((function changed() {
+                    var net = network.selected(); // net is not null since we have set selected above
+                    // net.name
+                    node = new Widget({
+                        container_id:self.editor_id,
+                        id:'layer-node',
+                        type:'select',
+                        selected:net.nodes[0].name,
+                        list:net.nodes,
+                        pretext:'Select the node: '
+                    });
+
+                    var html = element('p', {}, network.content());
+                    html += element('p', {}, node.content());
+                    rule_class_extra.html(html);
+
+                    node.changed((function changed() {
+                        var nod = node.selected(); // nod is not null since we have set selected above
+
+                        state = new Widget({
+                            container_id:self.editor_id,
+                            id:'layer-state',
+                            type:'select',
+                            selected:nod.values[0],
+                            list:nod.values,
+                            pretext:'Select the state: '
+                        }); 
+
+                        var html = element('p', {}, network.content());
+                        html += element('p', {}, node.content());
+                        html += element('p', {}, state.content());
+                        rule_class_extra.html(html);
+                        return changed;
+                    }()));
+                    
+                    return changed;
+                }()));
+                
+            } else {
+                rule_class_extra.html('');
+            }
+            return changed;
+        }()));
+        
         self.ok = function() {
             var klass = klass_list.selected();
             var rule_class = rule_class_list.selected(); // excusive
             var color = color_list.selected();
+            var payload = {
+                layer_class:klass.id,
+                color_scale:color.id,
+                rule_class:rule_class.id
+            };
+            if (rule_class.name === "Bayesian network") {
+                payload.network_file = network.selected().id;
+                payload.output_node = node.selected().id;
+                payload.output_state = state.value();
+            }
             self.post({
                 url: self.server+'plan:'+plan.id+'/uses:'+use.id+'/layers?request=create',
-                payload: {
-                    layer_class:klass.id,
-                    color_scale:color.id,
-                    rule_class:rule_class.id
-                },
+                payload: payload,
                 atSuccess: function(data) {
                     var layer = new MSPLayer({
                         model: self.model,
@@ -613,6 +700,7 @@ MSPController.prototype = {
             id: 'threshold'
         };
         self.editor.html(html);
+        
         dataset.changed((function changed() {
             var set = dataset.selected();
             $(self.editor_id+' #descr').html(set.descr);

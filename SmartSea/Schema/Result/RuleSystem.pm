@@ -10,7 +10,10 @@ use SmartSea::HTML qw(:all);
 
 my @columns = (
     id         => {},
-    rule_class => { is_foreign_key => 1, source => 'RuleClass', not_null => 1 }
+    rule_class => { is_foreign_key => 1, source => 'RuleClass', not_null => 1 },
+    network_file => {data_type => 'text', html_size => 30},
+    output_node => {data_type => 'text', html_size => 30},
+    output_state => {data_type => 'integer', html_size => 30},
     );
 
 __PACKAGE__->table('rule_systems');
@@ -20,6 +23,22 @@ __PACKAGE__->belongs_to(rule_class => 'SmartSea::Schema::Result::RuleClass');
 __PACKAGE__->has_many(layer => 'SmartSea::Schema::Result::Layer', 'rule_system'); # 0 or 1
 __PACKAGE__->has_many(ecosystem_component => 'SmartSea::Schema::Result::EcosystemComponent', 'distribution'); # 0 or 1
 __PACKAGE__->has_many(rules => 'SmartSea::Schema::Result::Rule', 'rule_system');
+
+sub columns_info {
+    my ($self, $colnames) = @_;
+    my $info = $self->SUPER::columns_info($colnames);
+    my $class;
+    if (ref $self) {
+        $class = $self->rule_class->id;
+    }
+    return $info unless $class;
+    if ($class != BAYESIAN_NETWORK_RULE) {
+        delete $info->{network_file};
+        delete $info->{output_node};
+        delete $info->{output_state};
+    }
+    return $info;
+}
 
 sub name {
     my $self = shift;

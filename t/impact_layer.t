@@ -13,6 +13,8 @@ use Data::Dumper;
 use lib '.';
 use Test::Helper;
 
+use SmartSea::Schema::Result::RuleClass qw(:all);
+
 use_ok('SmartSea::Schema');
 use_ok('SmartSea::Object');
 use_ok('SmartSea::Browser');
@@ -50,7 +52,7 @@ $schema->resultset('LayerClass')->new({id => 1, name => 'Allocation'})->insert;
 $schema->resultset('LayerClass')->new({id => 2, name => 'Impact'})->insert;
 $schema->resultset('ColorScale')->new({id => 1, name => 'color scale'})->insert;
 $schema->resultset('Style')->new({id => 1, color_scale => 1})->insert;
-$schema->resultset('RuleClass')->new({id => 1, name => 'rule class'})->insert;
+$schema->resultset('RuleClass')->new({id => EXCLUSIVE_RULE, name => 'rule class'})->insert;
 $schema->resultset('RuleSystem')->new({id => 1, rule_class => 1})->insert;
 $schema->resultset('EcosystemComponent')->new({id => 1, name => 'component_1'})->insert;
 $schema->resultset('ImpactComputationMethod')->new({id => 1, name => 'method_1'})->insert;
@@ -147,6 +149,9 @@ ok($schema->resultset('Layer')->single({id => 2})->descr eq $descr, "Set supercl
           <ul>
             <li>id: 2</li> 
             <li>rule_class: rule class</li>
+            <li>network_file: (undef)</li>
+            <li>output_node: (undef)</li>
+            <li>output_state: (undef)</li>
           </ul>
         </li>
         <li><b>Style</b>

@@ -88,8 +88,8 @@ sub new {
             $self->{min} = 0;
             $self->{max} = 1;
             $self->{data_type} = REAL_NUMBER;
-        } elsif ($class == BOXCAR_RULE) {
-            # min and max are obtained from rules below
+        } elsif ($class == BOXCAR_RULE || $class == BAYESIAN_NETWORK_RULE) {
+            # min and max are obtained from rules below (for boxcar)
             # fixme: case of legend: rules need to be set
             $self->{min} = 0;
             $self->{max} = 1;
