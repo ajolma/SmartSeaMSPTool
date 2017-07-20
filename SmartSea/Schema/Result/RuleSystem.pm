@@ -5,9 +5,16 @@ use 5.010000;
 use base qw/DBIx::Class::Core/;
 use Storable qw(dclone);
 use Scalar::Util 'blessed';
-use Geo::GDAL::Bayes::Hugin;
 use SmartSea::Schema::Result::RuleClass qw(:all);
 use SmartSea::HTML qw(:all);
+
+our $have_hugin;
+BEGIN {
+    eval {
+        require 'Geo/GDAL/Bayes/Hugin.pm';
+    };
+    $have_hugin = !$@;
+}
 
 my @columns = (
     id         => {},
