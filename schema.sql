@@ -968,7 +968,9 @@ CREATE TABLE rules (
     boxcar_x0 double precision DEFAULT 0 NOT NULL,
     boxcar_x1 double precision DEFAULT 0 NOT NULL,
     boxcar_x2 double precision DEFAULT 0 NOT NULL,
-    boxcar_x3 double precision DEFAULT 0 NOT NULL
+    boxcar_x3 double precision DEFAULT 0 NOT NULL,
+    node_id text,
+    state_offset integer DEFAULT 0
 );
 
 
@@ -1049,6 +1051,20 @@ COMMENT ON COLUMN rules.rule_system IS 'our father without whom we can''t live';
 --
 
 COMMENT ON COLUMN rules.boxcar IS 'for boxcar rules, is this normal or upside down';
+
+
+--
+-- Name: COLUMN rules.node_id; Type: COMMENT; Schema: tool; Owner: ajolma
+--
+
+COMMENT ON COLUMN rules.node_id IS 'Bayesian network rule, node id (name)';
+
+
+--
+-- Name: COLUMN rules.state_offset; Type: COMMENT; Schema: tool; Owner: ajolma
+--
+
+COMMENT ON COLUMN rules.state_offset IS 'Value added to dataset value to get node state';
 
 
 --

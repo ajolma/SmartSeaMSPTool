@@ -54,7 +54,7 @@ my $sequences = {
 };
 
 my $dataset = make_dataset($schema, $sequences, $tile, 'Float64', [[1,2,3],[4,5,6],[7,8,9]]);
-my $x = $dataset->Piddle($args);
+my $x = $dataset->Band($args)->Piddle;
 
 my $rule_id = 1;
 my $rule = {

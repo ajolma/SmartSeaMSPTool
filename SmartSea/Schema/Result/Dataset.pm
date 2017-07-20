@@ -171,7 +171,7 @@ sub auto_fill_cols {
             say STDERR "$key = $parsed->{$key}, value = $value" if $args->{debug} > 1;
             if (defined($value) && defined($parsed->{$key})) {
                 my $comp;
-                if ($col{$key}{data_type} && $col{$key}{data_type} eq 'double') {
+                if (data_type_is_numeric($col{$key}{data_type})) {
                     $comp = $value == $parsed->{$key};
                 } elsif ($col{$key}{is_foreign_key}) {
                     $comp = $value->id == $parsed->{$key};
@@ -205,7 +205,7 @@ sub compute_cols {
                 my $value = $self->$key;
                 if (defined($value) && defined($parsed->{$key})) {
                     my $comp;
-                    if ($col{$key}{data_type} eq 'double') {
+                    if (data_type_is_numeric($col{$key}{data_type})) {
                         $comp = $value == $parsed->{$key};
                     } elsif ($col{$key}{is_foreign_key}) {
                         $comp = $value->id == $parsed->{$key};
@@ -257,6 +257,11 @@ sub read {
         data_type => $data_type ? $data_type->id : undef,
     };
     $self->style->prepare($args) if $self->style;
+    # make sure numbers are numbers for JSON
+    my $min = $self->min_value;
+    $min += 0 if defined $min;
+    my $max = $self->max_value;
+    $max += 0 if defined $max;
     my %dataset = (
         id => $self->id,
         use_class_id => 0, # reserved use class id
@@ -264,8 +269,8 @@ sub read {
         descr => $self->descr,
         provenance => $self->lineage,
         color_scale => $self->style->color_scale->name,
-        min_value => $self->min_value,
-        max_value => $self->max_value,
+        min_value => $min,
+        max_value => $max,
         classes => $self->style ? $self->style->classes : undef,
         data_type => $data_type ? $data_type->name : undef,
         semantics => $self->semantics_hash,
@@ -274,7 +279,7 @@ sub read {
     return \%dataset;
 }
 
-sub Piddle {
+sub Band {
     my ($self, $args) = @_;
 
     my $path = $self->path;
@@ -294,60 +299,28 @@ sub Piddle {
         my $sql = "select gid,st_transform(geom,$args->{epsg}) as geom from $path";
         $args->{GDALVectorDataset}->Rasterize($ds, [-burn => 1, -sql => $sql]);
         
-        return $ds->Band->Piddle;
+        return $ds->Band;
         
     } else {
-        
-        my $b;
-        eval {
+        return Geo::GDAL::Open("$args->{data_dir}$path")
+            ->Translate( "/vsimem/tmp.tiff", 
+                         [ -of => 'GTiff',
+                           -r => 'nearest',
+                           -outsize , $tile->tile,
+                           -projwin, $tile->projwin ])
+            ->Band if $args->{epsg} == 3067;
 
-            if ($args->{epsg} == 3067) {
-            
-                $b = Geo::GDAL::Open("$args->{data_dir}$path")
-                    ->Translate( "/vsimem/tmp.tiff", 
-                                 [ -of => 'GTiff',
-                                   -r => 'nearest',
-                                   -outsize , $tile->tile,
-                                   -projwin, $tile->projwin ])
-                    ->Band;
-
-            } else {
-
-                my $e = $tile->extent;
-                $b = Geo::GDAL::Open("$args->{data_dir}$path")
-                    ->Warp( "/vsimem/tmp.tiff", 
-                            [ -of => 'GTiff', 
-                              -r => 'near' ,
-                              -t_srs => 'EPSG:'.$args->{epsg},
-                              -te => @$e,
-                              -ts => $tile->tile ])
-                    ->Band;
-            }
-            
-        };
-        my $pdl;
-        if ($@) {
-            $pdl = zeroes($tile->tile);
-            $pdl = $pdl->setbadif($pdl == 0);
-        } else {
-            $pdl = $b->Piddle;
-            
-            my $bad = $b->NoDataValue();
-        
-            # this is a hack
-            if (defined $bad) {
-                if ($bad < -1000) {
-                    $pdl = $pdl->setbadif($pdl < -1000);
-                } elsif ($bad > 1000) {
-                    $pdl = $pdl->setbadif($pdl > 1000);
-                } else {
-                    $pdl = $pdl->setbadif($pdl == $bad);
-                }
-            }
-        }
-
-        return $pdl;
+        my $e = $tile->extent;
+        return Geo::GDAL::Open("$args->{data_dir}$path")
+            ->Warp( "/vsimem/tmp.tiff", 
+                    [ -of => 'GTiff', 
+                      -r => 'near' ,
+                      -t_srs => 'EPSG:'.$args->{epsg},
+                      -te => @$e,
+                      -ts => $tile->tile ])
+            ->Band;
     }
+            
 }
 
 1;

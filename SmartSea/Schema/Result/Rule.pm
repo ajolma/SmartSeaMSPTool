@@ -31,6 +31,8 @@ my @columns = (
     boxcar_x1    => { data_type => 'double', has_default => 1 },
     boxcar_x2    => { data_type => 'double', has_default => 1 },
     boxcar_x3    => { data_type => 'double', has_default => 1 },
+    node_id      => { data_type => 'text' },
+    state_offset => { data_type => 'integer', has_default => 1 },
     );
 
 __PACKAGE__->table('rules');
@@ -66,6 +68,7 @@ sub columns_info {
     my $clusive = $class == EXCLUSIVE_RULE || $class == INCLUSIVE_RULE;
     my $tive = $class == MULTIPLICATIVE_RULE || $class == ADDITIVE_RULE;
     my $boxcar = $class == BOXCAR_RULE;
+    my $bayesian = $class == BAYESIAN_NETWORK_RULE;
     #croak "Unknown rule class." unless $clusive || $tive || $boxcar;
     for my $col ($self->columns) {
         if ($col eq 'op' || $col eq 'value') {
@@ -97,6 +100,10 @@ sub columns_info {
             delete $info->{$col} unless $tive || $boxcar;
         } elsif ($col =~ /^boxcar/) {
             delete $info->{$col} unless $boxcar;
+        } elsif ($col eq 'node_id') {
+            delete $info->{$col} unless $bayesian;
+        } elsif ($col eq 'state_offset') {
+            delete $info->{$col} unless $bayesian;
         }
     }
     return $info;
@@ -165,10 +172,11 @@ sub name {
         my $y_min = $self->value_at_min;
         my $y_max = $self->value_at_max;
         my $w = $self->weight;
+        my $name = $criteria->name;
         if ($class == ADDITIVE_RULE) {
-            return "+ $y_min - $w * ($y_max-$y_min)/($x_max-$x_min) * ($criteria - $x_min)";
+            return "+ $y_min - $w * ($y_max-$y_min)/($x_max-$x_min) * ($name - $x_min)";
         } else {
-            return "* $y_min - $w * ($y_max-$y_min)/($x_max-$x_min) * ($criteria - $x_min)";
+            return "* $y_min - $w * ($y_max-$y_min)/($x_max-$x_min) * ($name - $x_min)";
         }
         
     } elsif ($class == BOXCAR_RULE) {
@@ -176,6 +184,9 @@ sub name {
         $fct .= ' weight '.$self->weight;
         return "Normal with turning points at ".$fct if $self->boxcar;
         return "Inverted with turning points at ".$fct;
+
+    } elsif ($class == BAYESIAN_NETWORK_RULE) {
+        return ($self->node_id//'').' offset='.$self->state_offset;
         
     } else {
         #croak "Unknown rule class: ".$self->rule_system->rule_class->name;
@@ -197,7 +208,7 @@ sub read {
         next if $meta->{is_foreign_key};
         next if exists $retval->{$key};
         $retval->{$key} = $self->$key;
-        $retval->{$key} += 0 if $meta->{data_type} && $meta->{data_type} eq 'double';
+        $retval->{$key} += 0 if data_type_is_numeric($meta->{data_type});
     }
     return $retval;
 }
@@ -394,7 +405,7 @@ sub operand {
         
     } elsif ($self->dataset) {
         
-        return $self->dataset->Piddle($args);
+        return $self->dataset->Band($args)->Piddle;
         
     } else {
 

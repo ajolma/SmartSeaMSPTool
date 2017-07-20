@@ -5,6 +5,7 @@ use 5.010000;
 use base qw/DBIx::Class::Core/;
 use Storable qw(dclone);
 use Scalar::Util 'blessed';
+use Geo::GDAL::Bayes::Hugin;
 use SmartSea::Schema::Result::RuleClass qw(:all);
 use SmartSea::HTML qw(:all);
 
@@ -85,13 +86,40 @@ sub active_rules {
 
 sub compute {
     my ($self, $y, $args) = @_;
-    for my $rule ($self->active_rules($args)) {
-        $rule->apply($y, $args);
-        if ($args->{debug} && $args->{debug} > 1) {
-            my @stats = stats($y); # 3 and 4 are min and max
-            my $sum = $y->nelem*$stats[0];
-            say STDERR $rule->name,": min=$stats[3], max=$stats[4], sum=$sum";
+    my $class = $self->rule_class->id;
+    if ($class != BAYESIAN_NETWORK_RULE) {
+        for my $rule ($self->active_rules($args)) {
+            $rule->apply($y, $args);
+            if ($args->{debug} && $args->{debug} > 1) {
+                my @stats = stats($y); # 3 and 4 are min and max
+                my $sum = $y->nelem*$stats[0];
+                say STDERR $rule->name,": min=$stats[3], max=$stats[4], sum=$sum";
+            }
         }
+        
+    } else {
+        my %evidence;
+        my %offsets;
+        for my $rule ($self->active_rules($args)) {
+            $evidence{$rule->node_id} = $rule->dataset->Band($args);
+            $offsets{$rule->node_id} = $rule->state_offset;
+        }
+
+        my $output = Geo::GDAL::Driver('MEM')->Create(Type => 'Float64', Width => 256, Height => 256)->Band;
+        my $setup = Geo::GDAL::Bayes::Hugin->new({
+            domain => $args->{domains}{$self->network_file},
+            evidence => \%evidence,
+            offsets => \%offsets,
+            output => {
+                band => $output,
+                name => $self->output_node,
+                state => $self->output_state,
+            }
+        });
+
+        $setup->compute();
+        $y += $output->Piddle;
+
     }
 }
 

@@ -143,7 +143,7 @@ sub compute {
     if ($self->{rules}) {
         my $system = $self->{duck}->rule_system;
         my $method = $system->rule_class->id;
-        say STDERR "Compute layer, method => $method" if $self->{debug};
+        say STDERR "compute layer, method => $method" if $self->{debug};
         
         $y = zeroes($self->{tile}->tile);
         $y += 1 if $method == EXCLUSIVE_RULE || $method == MULTIPLICATIVE_RULE;
@@ -152,8 +152,28 @@ sub compute {
 
     } else {
         # we know duck is dataset
-        $y = $self->{duck}->Piddle($self);
+        my $band;
+        eval {
+            $band = $self->{duck}->Band($self);
+        };
+        if ($@) {
+            $y = zeroes($self->{tile}->tile);
+            $y = $y->setbadif($y == 0);
+        } else {
+            $y = $band->Piddle;
         
+            # this is a hack
+            my $bad = $band->NoDataValue();
+            if (defined $bad) {
+                if ($bad < -1000) {
+                    $y = $y->setbadif($y < -1000);
+                } elsif ($bad > 1000) {
+                    $y = $y->setbadif($y > 1000);
+                } else {
+                    $y = $y->setbadif($y == $bad);
+                }
+            }
+        }
         if ($self->{debug} > 1) {
             my @stats = stats($y); # 3 and 4 are min and max
             say STDERR "Dataset ",$self->{duck}->name," min=$stats[3], max=$stats[4]";
@@ -206,31 +226,33 @@ sub compute {
     return $result
 }
 
-sub mask {
-    my $self = shift;
-    my $tile = $self->{tile};
-    my $dataset = Geo::GDAL::Open($self->{data_dir}.'mask.tiff');
-    if ($self->{epsg} == 3067) {
+sub mask { 
+    my $self = shift; 
+    my $tile = $self->{tile}; 
+    my $dataset = Geo::GDAL::Open($self->{data_dir}.'mask.tiff'); 
+    if ($self->{epsg} == 3067) { 
         $dataset = $dataset->Translate( 
             "/vsimem/tmp.tiff", 
             [ -ot => 'Byte', 
               -of => 'GTiff', 
-              -r => 'nearest' , 
+              -r => 'nearest',
               -outsize => $tile->tile,
               -projwin => $tile->projwin,
-              -a_ullr => $tile->projwin ]);
-    } else {
-        my $e = $tile->extent;
-        $dataset = $dataset->Warp( 
+              -a_ullr => $tile->projwin
+            ]); 
+    } else { 
+        my $e = $tile->extent; 
+        $dataset = $dataset->Warp(
             "/vsimem/tmp.tiff", 
-            [ -ot => 'Byte', 
-              -of => 'GTiff', 
-              -r => 'near' ,
+            [ -ot => 'Byte',
+              -of => 'GTiff',
+              -r => 'near',
               -t_srs => 'EPSG:'.$self->{epsg},
               -te => @$e,
-              -ts => $tile->tile] );
-    }
-    return $dataset;
+              -ts => $tile->tile
+            ]); 
+    } 
+    return $dataset; 
 }
 
 1;

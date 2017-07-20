@@ -260,7 +260,7 @@ sub object_editor {
             push @body, $part;
         }
 
-    } elsif ($request eq 'save') { # only from HTML clients
+    } elsif ($request eq 'save') {
         eval {
             my $what = $last;
             my @errors;
@@ -272,9 +272,11 @@ sub object_editor {
             croak join(', ', @errors) if @errors;
         };
         if ($@) {
+            return $self->json200({error=>"$@"}) if $self->{json};
             push @body, error_message($@);
             push @body, [form => {action => $self->{path}, method => 'POST'}, $last->form];
         } else {
+            return $self->json200($last->read) if $self->{json};
             my $part = [ul => [li => $first->item([], {url => $self->{root}})]];
             push @body, $part;
         }

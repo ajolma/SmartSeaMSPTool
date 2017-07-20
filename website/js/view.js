@@ -314,6 +314,8 @@ MSPView.prototype = {
                 this.elements.rule_info.html('Value is a product of rules.');
             else if (layer.rule_class == 'inclusive') 
                 this.elements.rule_info.html('Value is a sum of rules.');
+            else if (layer.rule_class == 'Bayesian network') 
+                this.elements.rule_info.html('Bayesian network.');
         }
         if (layer.visible) {
             this.elements.site.html(layer.name);

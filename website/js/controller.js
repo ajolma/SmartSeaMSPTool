@@ -198,6 +198,18 @@ MSPController.prototype = {
         }
         return self.klasses[klass];
     },
+    getNetworks: function() {
+        var self = this;
+        if (self.networks) return;
+        $.ajax({
+            headers: {Accept: 'application/json'},
+            url: 'http://'+server+'/networks',
+            success: function (result) {
+                self.networks = result;
+            },
+            async: false
+        });
+    },
     loadPlans: function() {
         var self = this;
         self.post({
@@ -500,16 +512,7 @@ MSPController.prototype = {
             var klass = rule_class_list.selected();
             if (klass && klass.name == 'Bayesian network') {
                 
-                if (!self.networks) {
-                    $.ajax({
-                        headers: {Accept: 'application/json'},
-                        url: 'http://'+server+'/networks',
-                        success: function (result) {
-                            self.networks = result;
-                        },
-                        async: false
-                    });
-                }
+                self.getNetworks();
                 network = new Widget({
                     container_id:self.editor_id,
                     id:'layer-network',
@@ -518,14 +521,10 @@ MSPController.prototype = {
                     list:self.networks,
                     pretext:'Select the Bayesian network: '
                 });
-                               
-                //output_node, node_state;
-                
-                rule_class_extra.html(network.content());
+                rule_class_extra.html(element('p', {}, network.content()));
 
                 network.changed((function changed() {
                     var net = network.selected(); // net is not null since we have set selected above
-                    // net.name
                     node = new Widget({
                         container_id:self.editor_id,
                         id:'layer-node',
@@ -534,14 +533,11 @@ MSPController.prototype = {
                         list:net.nodes,
                         pretext:'Select the node: '
                     });
-
-                    var html = element('p', {}, network.content());
-                    html += element('p', {}, node.content());
-                    rule_class_extra.html(html);
+                    rule_class_extra.html(element('p', {}, network.content()) +
+                                          element('p', {}, node.content()));
 
                     node.changed((function changed() {
                         var nod = node.selected(); // nod is not null since we have set selected above
-
                         state = new Widget({
                             container_id:self.editor_id,
                             id:'layer-state',
@@ -550,11 +546,9 @@ MSPController.prototype = {
                             list:nod.values,
                             pretext:'Select the state: '
                         }); 
-
-                        var html = element('p', {}, network.content());
-                        html += element('p', {}, node.content());
-                        html += element('p', {}, state.content());
-                        rule_class_extra.html(html);
+                        rule_class_extra.html(element('p', {}, network.content()) +
+                                              element('p', {}, node.content()) +
+                                              element('p', {}, state.content()));
                         return changed;
                     }()));
                     
@@ -569,7 +563,7 @@ MSPController.prototype = {
         
         self.ok = function() {
             var klass = klass_list.selected();
-            var rule_class = rule_class_list.selected(); // excusive
+            var rule_class = rule_class_list.selected();
             var color = color_list.selected();
             var payload = {
                 layer_class:klass.id,
@@ -670,6 +664,12 @@ MSPController.prototype = {
         var self = this;
         self.editor.dialog('option', 'title', 'Lisää sääntö tasoon '+layer.name);
         self.editor.dialog('option', 'height', 500);
+
+        if (layer.rule_class === 'Bayesian network') {
+            self.addRuleBayesian(plan, use, layer);
+            self.editor.dialog('open');
+            return;
+        }
         
         var dataset = new Widget({
             container_id:self.editor_id,
@@ -756,6 +756,134 @@ MSPController.prototype = {
             return true;
         };
         self.editor.dialog('open');
+    },
+    addRuleBayesian: function(plan, use, layer) {
+        var self = this;
+        
+        // rule is a node in a Bayesian network
+        // for now we assume it is a (hard) evidence node, i.e.,
+        // the dataset must be integer, and its value range the same as the node's
+        
+        var dataset_list = [];
+        $.each(self.model.datasets.layers, function(i, dataset) {
+            if (dataset.data_type === "integer") {
+                dataset_list.push(dataset);
+            }
+        });
+        var dataset = new Widget({
+            container_id:self.editor_id,
+            id:'rule-dataset',
+            type:'select',
+            list:dataset_list,
+            selected:dataset_list[0],
+            pretext:'Base the rule on dataset: '
+        });
+
+        self.getNetworks();
+        var network = null;
+        $.each(self.networks, function(i, network2) {
+            if (network2.id === layer.network_file) {
+                network = network2;
+                return false;
+            }
+        });
+        var nodes = [];
+        $.each(network.nodes, function(i, node) {
+            var used = node.id === layer.output_node;
+            if (!used) {
+                $.each(layer.rules, function(i, rule) {
+                    if (node.id == rule.node_id) {
+                        // already used
+                        used = true;
+                        return false;
+                    }
+                });
+            }
+            if (!used) nodes.push(node);
+        });
+        var node = new Widget({
+            container_id:self.editor_id,
+            id:'rule-node',
+            type:'select',
+            list:nodes,
+            selected:nodes[0],
+            pretext:'Link the dataset to node: '
+        });
+        var offset = new Widget({
+            container_id:self.editor_id,
+            id:'rule-offset',
+            type:'spinner',
+            value: 0,
+            min: -10,
+            max: 10,
+            pretext:'Offset (to match states): '
+        });
+        
+        var html = element('p', {}, dataset.content()) +
+            element('p', {id:'dataset-states'}, '') +
+            element('p', {id:'descr'}, '') +
+            element('p', {}, offset.content()) +
+            node.content() +
+            element('p', {id:'node-states'}, '');
+        
+        self.editor.html(html);
+        offset.prepare();
+        
+        dataset.changed((function changed() {
+            var set = dataset.selected();
+            $(self.editor_id+' #descr').html(set.descr);
+            var states = set.min_value+'..'+set.max_value+'<p>';
+            if (set.semantics) {
+                var j = 0;
+                $.each(set.semantics, function(i, value) {
+                    if (j > 0) states += ', ';
+                    states += i+': '+value;
+                    j += 1;
+                });
+            }
+            states += '</p>';
+            $(self.editor_id+' #dataset-states').html('States: '+states);
+            return changed;
+        }()));
+
+        node.changed((function changed() {
+            var n = node.selected();
+            var states = '';
+            if (n) {
+                $.each(n.values, function(i, value) {
+                    if (i > 0) states += ', ';
+                    states += i+': '+value;
+                });
+            }
+            $(self.editor_id+' #node-states').html('States: '+states);
+            return changed;
+        }()));
+
+        self.ok = function() {
+            var set = dataset.selected();
+            var off = offset.value();
+            var nd = node.selected();
+            var payload = {
+                dataset:set.id,
+                state_offset:off,
+                node_id:nd.id
+            };
+            self.post({
+                url: self.server+'plan:'+plan.id+'/uses:'+use.id+'/layers:'+layer.id+'/rules?request=save',
+                payload: payload,
+                atSuccess: function(data) {
+                    var rule = {
+                        id: data.id.value,
+                        dataset: data.dataset.value,
+                        state_offset: data.state_offset.value,
+                        node_id: data.node_id.value,
+                        active: true
+                    };
+                    self.model.addRule(rule);
+                }
+            });
+            return true;
+        };
     },
     deleteRule: function(plan, use, layer) {
         var self = this;

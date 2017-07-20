@@ -8,8 +8,14 @@ use JSON;
 
 require Exporter;
 our @ISA = qw(Exporter);
-our @EXPORT_OK = qw(warn_unknowns source2class table2source singular plural);
+our @EXPORT_OK = qw(data_type_is_numeric warn_unknowns source2class table2source singular plural);
 our %EXPORT_TAGS = (all => \@EXPORT_OK);
+
+sub data_type_is_numeric {
+    my $data_type = shift;
+    return unless defined $data_type;
+    return $data_type eq 'double' || $data_type eq 'integer';
+}
 
 sub warn_unknowns {
     my $arg = shift;

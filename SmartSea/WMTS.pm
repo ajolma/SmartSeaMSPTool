@@ -32,6 +32,19 @@ sub new {
         Name => "Pg:dbname=suomi user='ajolma' password='ajolma'", # fixme remove user here
         Type => 'Vector');
 
+    my $dir = $self->{data_dir} . 'Bayesian_networks';
+    opendir(my $dh, $dir) || croak "Can't opendir $dir: $!";
+    my @nets = grep { /\.net$/ && -f "$dir/$_" } readdir($dh);
+    closedir $dh;
+    
+    for my $net (@nets) {
+        my $name = $net;
+        $name =~ s/\.net$//;
+        my $domain = Hugin::Domain::parse_net_file("$dir/$net");
+        $domain->compile;
+        $self->{domains}{$name} = $domain;
+    }
+
     return bless $self, $class;
 }
 
@@ -128,6 +141,7 @@ sub process {
         cookie => $args->{service}{request}->cookies->{SmartSea}, 
         trail => $layer,
         style => $params->{style},
+        domains => $self->{domains},
         debug => $debug });
 
     my $result = $layer->compute();
