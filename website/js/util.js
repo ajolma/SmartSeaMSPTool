@@ -73,9 +73,11 @@ function Widget(args) {
     if (args.content) {
         content = args.content;
     } else if (args.list) {
+        // key => scalar, or key => object
+        // 
         self.list = args.list;
         $.each(self.list, function (i, item) {
-            var tag2, attr2, name, x;
+            var tag2, attr2, name, x, sel;
             if (args.includeItem) {
                 if (!args.includeItem(i, item)) {
                     return true;
@@ -91,11 +93,19 @@ function Widget(args) {
             if (self.type === 'select') {
                 tag2 = 'option';
                 if (typeof item === 'object') {
+                    // list contains objects, give the id of the selected in selected
                     attr2 = {value: item.id};
-                    if (name === self.selected) {
-                        attr2.selected = 'selected';
+                    if (self.selected) {
+                        sel = self.selected;
+                        if (typeof sel === 'object') {
+                            sel = sel.id;
+                        }
+                        if (item.id.toString() === sel.toString()) {
+                            attr2.selected = 'selected';
+                        }
                     }
                 } else {
+                    // list contains scalars, give the key of the selected in value
                     attr2 = {value: i};
                     if (parseInt(i, 10) === self.value) {
                         attr2.selected = 'selected';
@@ -107,6 +117,7 @@ function Widget(args) {
                 name = element('a', {id: 'item', item: item.id}, name);
                 attr2 = {type: 'checkbox', item: item.id};
                 if (self.selected && self.selected[item.id]) {
+                    // selected is a hash keyed with ids
                     attr2.checked = "checked";
                 }
                 x = element('br');

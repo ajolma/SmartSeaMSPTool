@@ -356,29 +356,28 @@ MSPView.prototype = {
         this.elements.site.html('');
     },
     fillRulesPanel: function () {
-        var self = this,
-            layer = self.model.layer;
+        var self = this;
         self.elements.rules.empty();
-        if (!layer) {
+        if (!self.model.layer) {
             return;
         }
-        if (layer.descr) {
-            self.elements.rules.append(layer.descr);
-        } else if (layer.rules) {
+        if (self.model.layer.descr) {
+            self.elements.rules.append(self.model.layer.descr);
+        } else if (self.model.layer.rules) {
             /*jslint unparam: true*/
-            $.each(layer.rules, function (i, rule) {
+            $.each(self.model.layer.rules, function (i, rule) {
                 var name = rule.getName(),
                     item,
                     attr = {
                         type: 'checkbox',
-                        layer:  layer.id,
+                        layer:  self.model.layer.id,
                         rule: rule.id
                     };
                 if (rule.active) {
                     attr.checked = 'checked';
                 }
                 item = element('a', {id: 'rule', rule: rule.id}, name);
-                if (layer.use_class_id > 1) {
+                if (self.model.layer.use_class_id > 1) {
                     item = element('input', attr, item);
                 }
                 self.elements.rules.append(item);

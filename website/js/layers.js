@@ -166,7 +166,7 @@ MSPLayer.prototype = {
             retval = null;
         /*jslint unparam: true*/
         $.each(self.rules, function (i, rule) {
-            if (rule.id === id) {
+            if (rule.id.toString() === id.toString()) {
                 retval = rule;
                 return false;
             }
