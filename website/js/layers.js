@@ -26,46 +26,62 @@ USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 DAMAGE.
 */
 
+"use strict";
+/*jslint browser: true*/
+/*global $, jQuery, alert, ol, Event, MSPRule*/
+
 function MSPLayer(args) {
-    var self = this;
-    for (var key in args){
-        self[key] = args[key];
+    var self = this,
+        key,
+        rules = [];
+    for (key in args) {
+        if (args.hasOwnProperty(key)) {
+            self[key] = args[key];
+        }
     }
-    var rules = [];
     if (self.rules) {
-        $.each(self.rules, function(i, rule) {
+        /*jslint unparam: true*/
+        $.each(self.rules, function (i, rule) {
             rule.model = self.model;
             rule.layer = self;
             rule.active = true;
             rule = new MSPRule(rule);
             rules.push(rule);
         });
+        /*jslint unparam: false*/
     }
     self.rules = rules;
-    if (self.layer) self.map.removeLayer(self.layer);
+    if (self.layer) {
+        self.map.removeLayer(self.layer);
+    }
 }
 
 MSPLayer.prototype = {
-    getOpacity: function() {
+    getOpacity: function () {
         var self = this;
         return self.layer.getOpacity();
     },
-    setOpacity: function(opacity) {
+    setOpacity: function (opacity) {
         var self = this;
         self.layer.setOpacity(opacity);
     },
-    getName: function() {
-        var self = this;
-        var n = self.use_class_id + '_' + self.id;
+    getName: function () {
+        var self = this,
+            n = self.use_class_id + '_' + self.id;
         if (self.rules && self.rules.length > 0) {
-            $.each(self.rules, function(i, rule) {
-                if (rule.active) n += '_'+rule.id; // add rules
+            /*jslint unparam: true*/
+            $.each(self.rules, function (i, rule) {
+                if (rule.active) {
+                    n += '_' + rule.id; // add rules
+                }
             });
+            /*jslint unparam: false*/
         }
         return n;
     },
-    newLayer: function() {
-        var self = this;
+    newLayer: function () {
+        var self = this,
+            visible;
         self.layer = new ol.layer.Tile({
             opacity: 0.6,
             extent: self.projection.extent,
@@ -85,32 +101,38 @@ MSPLayer.prototype = {
             })
         });
         self.layer.set('msp_id', self.id);
-        self.layer.on('change:visible', function () {this.visible = !this.visible}, self);
-        var visible = self.visible;
+        self.layer.on('change:visible', function () {
+            this.visible = !this.visible;
+        }, self);
+        visible = self.visible;
         self.layer.setVisible(visible); // restore visibility
         self.visible = visible;
     },
-    addToMap: function(boot) {
+    addToMap: function () {
         var self = this;
-        if (self.layer) self.map.removeLayer(self.layer);
+        if (self.layer) {
+            self.map.removeLayer(self.layer);
+        }
         self.newLayer();
         self.map.addLayer(self.layer);
     },
-    removeFromMap: function() {
+    removeFromMap: function () {
         var self = this;
-        if (self.layer) self.map.removeLayer(self.layer);
+        if (self.layer) {
+            self.map.removeLayer(self.layer);
+        }
     },
-    setVisible: function(visible) {
+    setVisible: function (visible) {
         var self = this;
         self.layer.setVisible(visible);
     },
-    refresh: function() {
-        var self = this;
-        var ind;
-        var coll = self.map.getLayers();
-        coll.forEach(function (elem, i, arr) {
+    refresh: function () {
+        var self = this,
+            ind,
+            coll = self.map.getLayers();
+        coll.forEach(function (elem, i) {
             var id = elem.get('msp_id');
-            if (id == self.id) {
+            if (id === self.id) {
                 ind = i;
             }
         });
@@ -118,7 +140,7 @@ MSPLayer.prototype = {
         coll.setAt(ind, self.layer);
         self.map.render();
     },
-    addRule: function(rule) {
+    addRule: function (rule) {
         var self = this;
         rule.model = self.model;
         rule.layer = self;
@@ -126,96 +148,116 @@ MSPLayer.prototype = {
         self.rules.push(rule);
         self.refresh();
     },
-    deleteRules: function(rules) {
-        var self = this;
-        var rules2 = [];
-        $.each(self.rules, function(i, rule) {
+    deleteRules: function (rules) {
+        var self = this,
+            rules2 = [];
+        /*jslint unparam: true*/
+        $.each(self.rules, function (i, rule) {
             if (!rules[rule.id]) {
                 rules2.push(rule);
             }
         });
+        /*jslint unparam: false*/
         self.rules = rules2;
         self.refresh();
     },
-    selectRule: function(id) {
-        var self = this;
-        var retval = null;
-        $.each(self.rules, function(i, rule) {
-            if (rule.id == id) {
+    selectRule: function (id) {
+        var self = this,
+            retval = null;
+        /*jslint unparam: true*/
+        $.each(self.rules, function (i, rule) {
+            if (rule.id === id) {
                 retval = rule;
                 return false;
             }
         });
+        /*jslint unparam: false*/
         return retval;
     },
-    setRuleActive: function(id, active) {
+    setRuleActive: function (id, active) {
         var self = this;
-        $.each(self.rules, function(i, rule) {
-            if (rule.id == id) {
+        /*jslint unparam: true*/
+        $.each(self.rules, function (i, rule) {
+            if (rule.id === id) {
                 rule.active = active;
                 return false;
             }
         });
+        /*jslint unparam: false*/
         self.refresh();
     }
 };
 
 function MSPRule(args) {
-    var self = this;
-    for (var key in args){
-        self[key] = args[key];
+    var self = this,
+        key;
+    for (key in args) {
+        if (args.hasOwnProperty(key)) {
+            self[key] = args[key];
+        }
     }
 }
 
 MSPRule.prototype = {
-    getCriteria: function() {
+    getCriteria: function () {
         var self = this;
         return self.model.getDataset(self.dataset);
     },
-    getName: function() {
-        var self = this;
-        var dataset = self.model.getDataset(self.dataset);
-        if (!dataset) return "Dataset "+self.dataset+" is missing.";
-        var name = dataset.name;
+    getName: function () {
+        var self = this,
+            dataset = self.model.getDataset(self.dataset),
+            name,
+            value;
+        if (!dataset) {
+            return "Dataset " + self.dataset + " is missing.";
+        }
+        name = dataset.name;
         if (self.layer.rule_class.match(/clusive/)) {
             if (dataset.classes > 1) {
-                var value = self.value;
-                if (dataset.semantics) value = dataset.semantics[value];
-                name += ' '+self.op+' '+value;
+                value = self.value;
+                if (dataset.semantics) {
+                    value = dataset.semantics[value];
+                }
+                name += ' ' + self.op + ' ' + value;
             }
-        } else if (self.layer.rule_class.match(/tive/)) {
-        } else if (self.layer.rule_class == 'boxcar') {
-            if (self.boxcar)
-                name += ' _/¯\_ ';
-            else
-                name += ' ¯\_/¯ ';
-            name += self.boxcar_x0+', '+self.boxcar_x1+', '+self.boxcar_x2+', '+self.boxcar_x3;
-            name += ' weight '+self.weight;
+        /*} else if (self.layer.rule_class.match(/tive/)) {*/
+        } else if (self.layer.rule_class === 'boxcar') {
+            if (self.boxcar) {
+                name += ' _/¯\\_ ';
+            } else {
+                name += ' ¯\\_/¯ ';
+            }
+            name += self.boxcar_x0 + ', ' + self.boxcar_x1 + ', ' + self.boxcar_x2 + ', ' + self.boxcar_x3;
+            name += ' weight ' + self.weight;
         }
         return name;
     },
-    getMinMax: function() {
-        var self = this;
-        var dataset = self.model.getDataset(self.dataset);
-        if (!dataset) return {
-            min:null,
-            max:null,
-            classes:null,
-            data_type:null,
-            semantics:null
-        };
+    getMinMax: function () {
+        var self = this,
+            dataset = self.model.getDataset(self.dataset);
+        if (!dataset) {
+            return {
+                min: null,
+                max: null,
+                classes: null,
+                data_type: null,
+                semantics: null
+            };
+        }
         return {
-            min:dataset.min_value,
-            max:dataset.max_value,
-            classes:dataset.classes,
-            data_type:dataset.data_type,
-            semantics:dataset.semantics
+            min: dataset.min_value,
+            max: dataset.max_value,
+            classes: dataset.classes,
+            data_type: dataset.data_type,
+            semantics: dataset.semantics
         };
     },
-    description: function() {
-        var self = this;
-        var dataset = self.model.getDataset(self.dataset);
-        if (!dataset) return "Dataset "+self.dataset+" is missing. Its database entry is probably incomplete.";
+    description: function () {
+        var self = this,
+            dataset = self.model.getDataset(self.dataset);
+        if (!dataset) {
+            return "Dataset " + self.dataset + " is missing. Its database entry is probably incomplete.";
+        }
         return dataset.description;
     }
 };

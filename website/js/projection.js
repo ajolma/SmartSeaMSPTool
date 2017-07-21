@@ -11,7 +11,7 @@ this list of conditions and the following disclaimer.
 Neither the name of the Finnish Environment Institute (SYKE) nor the
 names of its contributors may be used to endorse or promote products
 derived from this software without specific prior written permission.
- 
+
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -26,16 +26,24 @@ USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 DAMAGE.
 */
 
+"use strict";
+/*jslint browser: true*/
+/*global $, jQuery, alert, ol*/
+
 function projection(options) {
-    var p = ol.proj.get('EPSG:'+options.epsg);
-    var extent;
-    if (options.epsg == 3067) {
+    var p = ol.proj.get('EPSG:' + options.epsg),
+        extent,
+        proj,
+        size,
+        z_n,
+        z;
+    if (options.epsg === 3067) {
         extent = [-548576, 6291456, 1548576, 8388608];
         p.setExtent(extent);
     } else {
         extent = p.getExtent();
     }
-    var proj = {
+    proj = {
         projection: p,
         matrixSet: options.matrixSet,
         view: new ol.View({
@@ -45,11 +53,11 @@ function projection(options) {
         }),
         extent: extent
     };
-    var size = ol.extent.getWidth(extent) / 256;
-    var z_n = 16;
-    proj.resolutions = new Array(z_n);
-    proj.matrixIds = new Array(z_n);
-    for (var z = 0; z < z_n; ++z) {
+    size = ol.extent.getWidth(extent) / 256;
+    z_n = 16;
+    proj.resolutions = [];
+    proj.matrixIds = [];
+    for (z = 0; z < z_n; z += 1) {
         proj.resolutions[z] = size / Math.pow(2, z);
         proj.matrixIds[z] = z;
     }

@@ -26,15 +26,21 @@ USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 DAMAGE.
 */
 
+"use strict";
+/*jslint browser: true*/
+/*global $, jQuery, alert, ol, Event*/
+
 // after https://alexatnet.com/articles/model-view-controller-mvc-javascript
 
 function MSP(args) {
     var self = this;
+    self.server = args.server;
+    self.user = args.user;
     self.proj = args.proj;
     self.map = args.map;
     self.firstPlan = args.firstPlan;
     self.auth = args.auth;
-    
+
     self.site = null; // layer showing selected location or area
     self.plans = null;
     // pseudo uses
@@ -61,9 +67,11 @@ function MSP(args) {
 }
 
 MSP.prototype = {
-    setPlans: function(plans, ecosystem, datasets) {
+    setPlans: function (plans, ecosystem, datasets) {
         var self = this;
-        if (self.plan) self.firstPlan = self.plan.id;
+        if (self.plan) {
+            self.firstPlan = self.plan.id;
+        }
         self.removeLayers();
         self.removeSite();
         self.plans = plans;
@@ -73,212 +81,258 @@ MSP.prototype = {
         self.changePlan(self.firstPlan);
         self.initSite();
     },
-    getPlan: function(id) {
-        var self = this;
-        for (var i = 0; i < self.plans.length; ++i) {
-            if (self.plans[i].id == id) return this.plans[i];
+    getPlan: function (id) {
+        var self = this,
+            i;
+        for (i = 0; i < self.plans.length; i += 1) {
+            if (self.plans[i].id === id) {
+                return this.plans[i];
+            }
         }
     },
-    planNameOk: function(name) {
-        var self = this;
-        var ok = true;
-        for (var i = 0; i < self.plans.length; ++i) {
-            if (self.plans[i].name == name) {
+    planNameOk: function (name) {
+        var self = this,
+            ok = true,
+            i;
+        for (i = 0; i < self.plans.length; i += 1) {
+            if (self.plans[i].name === name) {
                 ok = false;
                 break;
             }
         }
         return ok;
     },
-    addPlan: function(plan) {
+    addPlan: function (plan) {
         var self = this;
-        if (!plan.uses) plan.uses = [];
-        if (!plan.data) plan.data = {};
+        if (!plan.uses) {
+            plan.uses = [];
+        }
+        if (!plan.data) {
+            plan.data = {};
+        }
         self.plans.unshift(plan);
         self.changePlan(plan.id);
         self.newPlans.notify();
         self.initSite();
     },
-    editPlan: function(plan) {
-        var self = this;
-        var plan = self.getPlan(plan.id);
-        if (plan) {
-            plan.owner = plan.owner;
-            plan.name = plan.name;
+    editPlan: function (plan) {
+        var self = this,
+            plan2 = self.getPlan(plan.id);
+        if (plan2) {
+            plan2.owner = plan.owner;
+            plan2.name = plan.name;
         }
-        self.changePlan(plan.id);
+        self.changePlan(plan2.id);
         self.newPlans.notify();
         self.initSite();
     },
-    setPlanData: function(data) {
+    setPlanData: function (data) {
         var self = this;
         self.plan.data = [];
-        $.each(data, function(i, dataset) {
+        /*jslint unparam: true*/
+        $.each(data, function (i, dataset) {
             self.plan.data[dataset.id] = 1;
         });
-        // todo: add datasets to Data plan?
+        /*jslint unparam: false*/
+        // add datasets to Data plan?
         self.changePlan(self.plan.id);
     },
-    deletePlan: function(id) {
-        var self = this;
+    deletePlan: function (id) {
+        var self = this,
+            plans = [],
+            i;
         self.removeLayers();
         self.removeSite();
-        var plans = [];
-        for (var i = 0; i < self.plans.length; ++i) {
-            if (self.plans[i].id != id) {
+        for (i = 0; i < self.plans.length; i += 1) {
+            if (self.plans[i].id !== id) {
                 plans.push(self.plans[i]);
             }
         }
-        if (id == self.firstPlan) self.firstPlan = plans[0].id;
+        if (id === self.firstPlan) {
+            self.firstPlan = plans[0].id;
+        }
         self.plans = plans;
         self.newPlans.notify();
         self.changePlan(self.firstPlan);
         self.initSite();
     },
-    datasetsInRules: function() {
-        var self = this;
-        var datasets = {};
-        $.each(self.plan.uses, function(i, use) {
+    datasetsInRules: function () {
+        var self = this,
+            datasets = {};
+        /*jslint unparam: true*/
+        $.each(self.plan.uses, function (i, use) {
             if (use.id > 1) {
-                $.each(use.layers, function(i, layer) {
-                    $.each(layer.rules, function(i, rule) {
+                $.each(use.layers, function (i, layer) {
+                    $.each(layer.rules, function (i, rule) {
                         var d = self.getDataset(rule.dataset);
-                        if (d) datasets[rule.dataset] = d;
+                        if (d) {
+                            datasets[rule.dataset] = d;
+                        }
                     });
                 });
             }
         });
+        /*jslint unparam: false*/
         return datasets;
     },
-    changePlan: function(id) {
-        var self = this;
+    changePlan: function (id) {
+        var self = this,
+            newUses = [],
+            datasets = { // pseudo use
+                id: self.datasets.id,
+                class_id: self.datasets.class_id,
+                owner: self.datasets.owner,
+                name: self.datasets.name
+            },
+            layers,
+            by_name = function (a, b) {
+                if (a.name < b.name) {
+                    return -1;
+                }
+                if (a.name > b.name) {
+                    return 1;
+                }
+                return 0;
+            },
+            array = [],
+            uses;
+
+        /*jslint unparam: true*/
         // remove extra uses
         if (self.plan) {
-            var newUses = [];
-            $.each(self.plan.uses, function(i, use) {
-                if (use.id > 1) newUses.push(use);
+            $.each(self.plan.uses, function (i, use) {
+                if (use.id > 1) {
+                    newUses.push(use);
+                }
             });
             this.plan.uses = newUses;
         }
         self.plan = null;
         self.layer = null;
-        $.each(self.plans, function(i, plan) {
-            if (id == plan.id) {
+        $.each(self.plans, function (i, plan) {
+            if (id === plan.id) {
                 self.plan = plan;
                 return false;
             }
         });
         if (!self.plan) {
-            if (self.plans.length > 0)
+            if (self.plans.length > 0) {
                 self.plan = self.plans[0];
-            else
-                self.plan = {id:2, name:'No plan', data:[], uses:[]};
+            } else {
+                self.plan = {
+                    id: 2,
+                    name: 'No plan',
+                    data: [],
+                    uses: []
+                };
+            }
         }
-        // pseudo use
-        var datasets = {
-            id:self.datasets.id,
-            class_id:self.datasets.class_id,
-            owner:self.datasets.owner,
-            name:self.datasets.name
-        };
+
         // add to datasets those that have dataset_id in any rule
-        var layers = self.datasetsInRules();
+        layers = self.datasetsInRules();
         // add to datasets those that have dataset_id in data
-        $.each(self.plan.data, function(key, id) {
-            $.each(self.datasets.layers, function(i, layer) {
-                if (layer.id == key) {
+        $.each(self.plan.data, function (key, id) {
+            $.each(self.datasets.layers, function (i, layer) {
+                if (layer.id === key) {
                     layers[key] = layer;
                     return false;
                 }
             });
         });
-        var by_name = function (a, b) {
-            if (a.name < b.name) return -1;
-            if (a.name > b.name) return 1;
-            return 0;
-        };
-        var array = []
-        $.each(layers, function(i, layer) {
+        $.each(layers, function (i, layer) {
             array.push(layer);
         });
+        /*jslint unparam: false*/
         datasets.layers = array.sort(by_name);
-        var uses = self.plan.uses.sort(by_name);
+        uses = self.plan.uses.sort(by_name);
         self.plan.uses = uses;
 
         // add datasets and ecosystem as an extra use
         self.plan.uses.push(self.ecosystem);
         self.plan.uses.push(datasets);
         self.createLayers();
-        if (self.plan) self.planChanged.notify({ plan: self.plan });
+        if (self.plan) {
+            self.planChanged.notify({ plan: self.plan });
+        }
     },
-    setUseOrder: function(order) {
-        var self = this;
-        var newUses = [];
-        $.each(order, function(i, id) {
-            $.each(self.plan.uses, function(j, use) {
-                if (use.id == id) {
+    setUseOrder: function (order) {
+        var self = this,
+            newUses = [];
+        /*jslint unparam: true*/
+        $.each(order, function (i, id) {
+            $.each(self.plan.uses, function (j, use) {
+                if (use.id === id) {
                     newUses.push(use);
                     return false;
                 }
             });
         });
+        /*jslint unparam: false*/
         self.plan.uses = newUses;
         self.createLayers();
     },
-    addUse: function(use) {
+    addUse: function (use) {
         var self = this;
         self.plan.uses.unshift(use);
         self.createLayers();
     },
-    hasUse: function(class_id) {
-        var self = this;
-        var retval = false;
-        $.each(self.plan.uses, function(i, use) {
-            if (use.class_id == class_id) {
+    hasUse: function (class_id) {
+        var self = this,
+            retval = false;
+        /*jslint unparam: true*/
+        $.each(self.plan.uses, function (i, use) {
+            if (use.class_id === class_id) {
                 retval = true;
                 return false;
             }
         });
+        /*jslint unparam: false*/
         return retval;
     },
-    deleteUse: function(id) {
-        var self = this;
-        var uses = [];
-        $.each(self.plan.uses, function(i, use) {
-            if (use.id != id) {
+    deleteUse: function (id) {
+        var self = this,
+            uses = [];
+        /*jslint unparam: true*/
+        $.each(self.plan.uses, function (i, use) {
+            if (use.id !== id) {
                 uses.push(use);
             }
         });
+        /*jslint unparam: false*/
         self.plan.uses = uses;
         self.createLayers();
     },
-    createLayers: function() {
+    createLayers: function () {
         var self = this;
         self.removeSite();
         // reverse order to show in correct order, slice to not to mutate
-        $.each(self.plan.uses.slice().reverse(), function(i, use) {
-            $.each(use.layers.slice().reverse(), function(j, layer) {
-                if (layer)
+        /*jslint unparam: true*/
+        $.each(self.plan.uses.slice().reverse(), function (i, use) {
+            $.each(use.layers.slice().reverse(), function (j, layer) {
+                if (layer) {
                     layer.addToMap();
-                else
-                    console.log("Layer undefined in use "+use.id+" "+j);
+                } else {
+                    console.log("Layer undefined in use " + use.id + " " + j);
+                }
             });
         });
+        /*jslint unparam: false*/
         self.newLayerList.notify();
         self.addSite();
     },
-    addLayer: function(use, layer) {
+    addLayer: function (use, layer) {
         var self = this;
         use.layers.unshift(layer);
         self.createLayers();
     },
-    deleteLayer: function(use_id, layer_id) {
+    deleteLayer: function (use_id, layer_id) {
         var self = this;
-        $.each(self.plan.uses, function(i, use) {
-            if (use.id = use_id) {
+        /*jslint unparam: true*/
+        $.each(self.plan.uses, function (i, use) {
+            if (use.id === use_id) {
                 var layers = [];
-                $.each(use.layers, function(j, layer) {
-                    if (layer.id == layer_id) {
+                $.each(use.layers, function (j, layer) {
+                    if (layer.id === layer_id) {
                         layer.removeFromMap();
                     } else {
                         layers.push(layer);
@@ -288,25 +342,31 @@ MSP.prototype = {
                 return false;
             }
         });
+        /*jslint unparam: false*/
         self.createLayers();
     },
-    removeLayers: function() {
+    removeLayers: function () {
         var self = this;
-        if (!self.plan) return;
-        $.each(self.plan.uses, function(i, use) {
-            $.each(use.layers, function(j, layer) {
+        if (!self.plan) {
+            return;
+        }
+        /*jslint unparam: true*/
+        $.each(self.plan.uses, function (i, use) {
+            $.each(use.layers, function (j, layer) {
                 layer.removeFromMap();
             });
         });
+        /*jslint unparam: false*/
         self.newLayerList.notify();
     },
-    getLayer: function(id) {
-        var self = this;
-        var retval = null;
-        $.each(self.plan.uses, function(i, use) {
-            if (use.id == id.use) {
-                $.each(use.layers, function(i, layer) {
-                    if (layer.id == id.layer) {
+    getLayer: function (id) {
+        var self = this,
+            retval = null;
+        /*jslint unparam: true*/
+        $.each(self.plan.uses, function (i, use) {
+            if (use.id === id.use) {
+                $.each(use.layers, function (i, layer) {
+                    if (layer.id === id.layer) {
                         retval = layer;
                         return false;
                     }
@@ -314,92 +374,102 @@ MSP.prototype = {
                 return false;
             }
         });
+        /*jslint unparam: false*/
         return retval;
     },
-    selectLayer: function(id) {
-        var self = this;
+    selectLayer: function (id) {
+        var self = this,
+            layer = self.getLayer(id);
         self.layer = null;
-        var layer = self.getLayer(id);
         if (layer) {
             self.layer = layer;
             self.layerSelected.notify();
         }
     },
-    unselectLayer: function() {
-        var self = this;
-        var layer = null;
-        var unselect = 0;
+    unselectLayer: function () {
+        var self = this,
+            layer = null,
+            unselect = 0;
         if (self.layer) {
             layer = self.layer;
             unselect = 1;
         }
         self.layer = null;
-        if (unselect) self.layerUnselected.notify(layer);
+        if (unselect) {
+            self.layerUnselected.notify(layer);
+        }
         return layer;
     },
-    getDataset: function(id) {
-        var self = this;
-        var dataset;
-        $.each(self.datasets.layers, function(i, layer) {
-            if (layer.id == id) {
+    getDataset: function (id) {
+        var self = this,
+            dataset;
+        /*jslint unparam: true*/
+        $.each(self.datasets.layers, function (i, layer) {
+            if (layer.id === id) {
                 dataset = layer;
                 return false;
             }
         });
+        /*jslint unparam: false*/
         return dataset;
     },
-    addRule: function(rule) {
+    addRule: function (rule) {
         var self = this;
         self.layer.addRule(rule);
-        // todo: add rule.dataset to use 'Data'
+        // add rule.dataset to use 'Data'?
         self.rulesChanged.notify();
     },
-    deleteRules: function(rules) {
+    deleteRules: function (rules) {
         var self = this;
         self.layer.deleteRules(rules);
-        // todo: remove rule.dataset(s) from use 'Data'
+        // remove rule.dataset(s) from use 'Data'?
         self.rulesChanged.notify();
     },
-    selectRule: function(id) {
+    selectRule: function (id) {
         var self = this;
         self.rule = self.layer.selectRule(id);
         return self.rule;
     },
-    selectedRule: function() {
+    selectedRule: function () {
         var self = this;
         return self.rule;
     },
-    editRule: function(rule) {
+    editRule: function (rule) {
         var self = this;
         self.rule.value = rule.value;
         self.layer.refresh();
         self.ruleEdited.notify();
     },
-    initSite: function() {
-        var self = this;
-        var source = new ol.source.Vector({});
-        source.on('addfeature', function(evt){
-            var feature = evt.feature;
-            var geom = feature.getGeometry();
-            var type = geom.getType();
-            var query = 'plan='+self.plan.id;
-            if (self.layer && self.layer.visible)
-                query += '&use='+self.layer.use_class_id+'&layer='+self.layer.id;
-            if (type == 'Polygon') {
-                var format  = new ol.format.WKT();
-                query += '&wkt='+format.writeGeometry(geom);
-            } else if (type == 'Point') {
-                var coordinates = geom.getCoordinates();
-                query += '&easting='+coordinates[0]+'&northing='+coordinates[1];
+    initSite: function () {
+        var self = this,
+            source = new ol.source.Vector({});
+        source.on('addfeature', function (evt) {
+            var feature = evt.feature,
+                geom = feature.getGeometry(),
+                type = geom.getType(),
+                query = 'plan=' + self.plan.id,
+                format,
+                coordinates;
+            if (self.layer && self.layer.visible) {
+                query += '&use=' + self.layer.use_class_id + '&layer=' + self.layer.id;
             }
-            query += '&srs='+self.proj.projection.getCode();
+            if (type === 'Polygon') {
+                format = new ol.format.WKT();
+                query += '&wkt=' + format.writeGeometry(geom);
+            } else if (type === 'Point') {
+                coordinates = geom.getCoordinates();
+                query += '&easting=' + coordinates[0] + '&northing=' + coordinates[1];
+            }
+            query += '&srs=' + self.proj.projection.getCode();
             $.ajax({
-                url: 'http://'+server+'/explain?'+query
-            }).done(function(data) {
+                url: 'http://' + self.server + '/explain?' + query
+            }).done(function (data) {
                 self.siteInformationReceived.notify(data);
             });
         });
-        if (self.site) self.map.removeLayer(self.site);
+        if (self.site) {
+            self.map.removeLayer(self.site);
+        }
         self.site = new ol.layer.Vector({
             source: source,
             style: new ol.style.Style({
@@ -421,33 +491,43 @@ MSP.prototype = {
         self.map.addLayer(self.site);
         self.siteInitialized.notify({source: source});
     },
-    removeSite: function() {
-        if (this.site) this.map.removeLayer(this.site);
+    removeSite: function () {
+        if (this.site) {
+            this.map.removeLayer(this.site);
+        }
     },
-    addSite: function() {
-        if (this.site) this.map.addLayer(this.site);
+    addSite: function () {
+        if (this.site) {
+            this.map.addLayer(this.site);
+        }
     },
-    removeInteraction: function(draw) {
-        if (draw.key) this.map.unByKey(draw.key);
-        if (draw.draw) this.map.removeInteraction(draw.draw);
+    removeInteraction: function (draw) {
+        if (draw.key) {
+            this.map.unByKey(draw.key);
+        }
+        if (draw.draw) {
+            this.map.removeInteraction(draw.draw);
+        }
     },
-    addInteraction: function(draw) {
-        if (draw.draw) this.map.addInteraction(draw.draw);
+    addInteraction: function (draw) {
+        if (draw.draw) {
+            this.map.addInteraction(draw.draw);
+        }
         if (draw.source) {
-            return this.map.on('click', function(evt) {
-                var coordinates = evt.coordinate;
-                var f = new ol.Feature({
-                    geometry: new ol.geom.Point(coordinates)
-                });
-                var iconStyle = new ol.style.Style({
-                    image: new ol.style.Icon({
-                        anchor: [16, 32],
-                        anchorXUnits: 'pixels',
-                        anchorYUnits: 'pixels',
-                        opacity: 1,
-                        src: 'img/Map-Marker-Marker-Outside-Pink-icon.png'
-                    })
-                });
+            return this.map.on('click', function (evt) {
+                var coordinates = evt.coordinate,
+                    f = new ol.Feature({
+                        geometry: new ol.geom.Point(coordinates)
+                    }),
+                    iconStyle = new ol.style.Style({
+                        image: new ol.style.Icon({
+                            anchor: [16, 32],
+                            anchorXUnits: 'pixels',
+                            anchorYUnits: 'pixels',
+                            opacity: 1,
+                            src: 'img/Map-Marker-Marker-Outside-Pink-icon.png'
+                        })
+                    });
                 f.setStyle(iconStyle);
                 draw.source.clear();
                 draw.source.addFeature(f);

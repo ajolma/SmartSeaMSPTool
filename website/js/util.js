@@ -26,226 +26,232 @@ USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 DAMAGE.
 */
 
+"use strict";
+/*jslint browser: true*/
+/*global $, jQuery, alert*/
+
 function element(tag, attrs, text) {
-    var a = '';
-    for (var key in attrs) {
+    var a = '', key;
+    for (key in attrs) {
         if (attrs.hasOwnProperty(key)) {
             a += ' ' + key + '="' + attrs[key] + '"';
         }
     }
-    if (text)
-        return '<'+tag+a+'>'+text+'</'+tag+'>';
-    else
-        return '<'+tag+a+'/>';
-}
-
-function containsObject(obj, list) {
-    var i;
-    for (i = 0; i < list.length; i++) {
-        if (list[i] === obj) {
-            return true;
-        }
+    if (text) {
+        return '<' + tag + a + '>' + text + '</' + tag + '>';
     }
-    return false;
-}
-
-function cmp_date(a,b) {
-    for (var i=0; i<3; i++) {
-        if (a[i] < b[i]) return -1;
-        if (a[i] > b[i]) return 1;
-    }
-    return 0;
+    return '<' + tag + a + '/>';
 }
 
 function Widget(args) {
-    var self = this;
+    var self = this,
+        tag,
+        attr = {id: args.id},
+        content = '';
     self.type = args.type;
     self.container_id = args.container_id;
     self.id = args.id;
-    self.selector = self.container_id+' #'+self.id;
-    self._selected = args.selected;
-    self._value = args.value;
+    self.selector = self.container_id + ' #' + args.id;
+    self.selected = args.selected;
+    self.value = args.value;
     self.min = args.min;
     self.max = args.max;
-    if (args.pretext)
-        self.pretext = args.pretext;
-    else
-        self.pretext = '';
-    var tag;
-    var attr = {id:self.id};
-    if (self.type == 'checkbox' || self.type == 'text') {
+    self.pretext = args.pretext || '';
+    if (self.type === 'checkbox' || self.type === 'text') {
         tag = 'input';
-        attr.type = self.type
-    } else if (self.type == 'select') {
+        attr.type = self.type;
+    } else if (self.type === 'select') {
         tag = 'select';
-    } else if (self.type == 'checkbox-list') {
+    } else if (self.type === 'checkbox-list') {
         attr.style = 'overflow-y:scroll; max-height:350px; background-color:#c7ecfe;';
         tag = 'div';
-    } else if (self.type == 'para') {
+    } else if (self.type === 'para') {
         tag = 'p';
-    } else if (self.type == 'spinner') {
+    } else if (self.type === 'spinner') {
         tag = 'input';
     }
-    var content = '';
     if (args.content) {
         content = args.content;
     } else if (args.list) {
         self.list = args.list;
-        $.each(self.list, function(i, item) {
-            var tag, attr, name, x;
-            if (args.get_item) {
-                item = args.get_item(i, item);
-                if (!item) return true;
+        $.each(self.list, function (i, item) {
+            var tag2, attr2, name, x;
+            if (args.includeItem) {
+                if (!args.includeItem(i, item)) {
+                    return true;
+                }
             }
-            if (args.get_item_name) {
-                name = args.get_item_name(item);
+            if (args.nameForItem) {
+                name = args.nameForItem(item);
             } else if (typeof item === 'object') {
                 name = item.name;
             } else {
                 name = item;
             }
-            if (self.type == 'select') {
-                tag = 'option';
+            if (self.type === 'select') {
+                tag2 = 'option';
                 if (typeof item === 'object') {
-                    attr = {value:item.id};
-                    if (name === self._selected) attr.selected = 'selected';
+                    attr2 = {value: item.id};
+                    if (name === self.selected) {
+                        attr2.selected = 'selected';
+                    }
                 } else {
-                    attr = {value:i};
-                    if (i == self._value) attr.selected = 'selected'; // '==' because i is string and _value is number
+                    attr2 = {value: i};
+                    if (parseInt(i, 10) === self.value) {
+                        attr2.selected = 'selected';
+                    }
                 }
                 x = '';
-            } else if (self.type == 'checkbox-list') {
-                tag = 'input';
-                name = element('a', {id:'item', item:item.id}, name);
-                attr = {type:'checkbox', item:item.id};
-                if (self._selected[item.id]) attr.checked="checked"; 
+            } else if (self.type === 'checkbox-list') {
+                tag2 = 'input';
+                name = element('a', {id: 'item', item: item.id}, name);
+                attr2 = {type: 'checkbox', item: item.id};
+                if (self.selected && self.selected[item.id]) {
+                    attr2.checked = "checked";
+                }
                 x = element('br');
             }
-            content += element(tag, attr, name) + x;
+            content += element(tag2, attr2, name) + x;
         });
     }
-    if (self.type == 'slider') {
+    if (self.type === 'slider') {
         self.element = element('p', {}, element('div', attr));
-        self.element += element('input', {id:'slider-value', type:'text'}, '');
-        self.value_selector = self.container_id+' #'+'slider-value';
+        self.element += element('input', {id: 'slider-value', type: 'text'}, '');
+        self.value_selector = self.container_id + ' #' + 'slider-value';
     } else {
         self.element = element(tag, attr, content);
     }
 }
 
 Widget.prototype = {
-    prepare: function() {
-        var self = this;
-        if (self.type == 'spinner') {
+    prepare: function () {
+        var self = this,
+            slider;
+        if (self.type === 'spinner') {
             $(self.selector)
                 .spinner({
                     min: self.min,
                     max: self.max
                 })
-                .spinner('value', self._value);
-        } else if (self.type == 'slider') {
-            var slider = $(self.selector).slider({
+                .spinner('value', self.value);
+        } else if (self.type === 'slider') {
+            slider = $(self.selector).slider({
                 min: parseFloat(self.min),
                 max: parseFloat(self.max),
-                step: 0.1, // todo fix this
-                value: parseFloat(self._value),
-                change: function (event, ui) {
-                    self._value = slider.slider('value');
-                    $(self.value_selector).val(self._value);
+                step: 0.1,
+                value: parseFloat(self.value),
+                change: function () {
+                    self.value = slider.slider('value');
+                    $(self.value_selector).val(self.value);
                 },
-                slide: function (event, ui) {
-                    self._value = slider.slider('value');
-                    $(self.value_selector).val(self._value);
+                slide: function () {
+                    self.value = slider.slider('value');
+                    $(self.value_selector).val(self.value);
                 }
             });
-            $(self.value_selector).val(self._value);
-            $(self.value_selector).change(function() {
-                self._value = $(self.value_selector).val();
-                slider.slider('value', self._value);
+            $(self.value_selector).val(self.value);
+            $(self.value_selector).change(function () {
+                self.value = $(self.value_selector).val();
+                slider.slider('value', self.value);
             });
         }
     },
-    content: function() {
+    content: function () {
         var self = this;
-        return self.pretext+self.element;
+        return self.pretext + self.element;
     },
-    checked: function() {
+    checked: function () {
         var self = this;
         return $(self.selector).prop('checked');
     },
-    fromList: function(id) {
-        var self = this;
-        if (!id) return null;
-        var retval = null;
-        $.each(self.list, function(i, item) {
-            if (item.id == id) {
+    fromList: function (id) {
+        var self = this,
+            retval = null;
+        if (!id) {
+            return retval;
+        }
+        /*jslint unparam: true*/
+        $.each(self.list, function (ignore, item) {
+            if (item.id.toString() === id.toString()) {
                 retval = item;
                 return false;
             }
         });
+        /*jslint unparam: false*/
         return retval;
     },
-    value: function() {
-        var self = this;
-        var value = $(self.selector).val();
-        if (self.type === 'spinner')
+    getValue: function () {
+        var self = this,
+            value = $(self.selector).val();
+        if (self.type === 'spinner') {
             return $(self.selector).spinner('value');
-        else if (self.type === 'slider')
-            return self._value; //$(self.selector).slider('value'); is not the same for some reason
-        else
-            return value;
-    },
-    selected: function() {
-        var self = this;
-        return self.fromList(self.value());
-    },
-    selected_ids: function() {
-        var self = this;
-        if (self.type === 'checkbox-list') {
-            var ids = {};
-            $.each($(self.container_id+' :checkbox'), function(i, item) {
-                if (item.checked) ids[item.getAttribute('item')]= 1;
-            });
-            return ids;
         }
+        if (self.type === 'slider') {
+            return self.value; //$(self.selector).slider('value'); is not the same for some reason
+        }
+        return value;
     },
-    changed: function(fct) {
+    getSelected: function () {
+        var self = this;
+        return self.fromList(self.getValue());
+    },
+    getSelectedIds: function () {
+        var self = this,
+            ids = {};
+        if (self.type === 'checkbox-list') {
+            /*jslint unparam: true*/
+            $.each($(self.container_id + ' :checkbox'), function (i, item) {
+                if (item.checked) {
+                    ids[item.getAttribute('item')] = 1;
+                }
+            });
+            /*jslint unparam: false*/
+        }
+        return ids;
+    },
+    changed: function (fct) {
         var self = this;
         $(self.selector).change(fct);
     },
-    html: function(html) {
+    html: function (html) {
         var self = this;
         $(self.selector).html(html);
     },
 };
 
 function makeMenu(args) {
-    var menu = $(args.menu);
-    var options = '';
-    $.each(args.options, function(i, item) {
+    var menu = $(args.menu),
+        options = '';
+    /*jslint unparam: true*/
+    $.each(args.options, function (i, item) {
         if (Array.isArray(item)) {
-            var first = item.shift();
-            var sub = '';
-            $.each(item, function(i2, item2) {
-                sub += element('li', {}, element('div', {tag:item2.cmd}, item2.label));
+            var first = item.shift(),
+                sub = '';
+            $.each(item, function (i, item2) {
+                sub += element('li', {}, element('div', {tag: item2.cmd}, item2.label));
             });
-            sub = element('div', {}, first.label)+element('ul', {}, sub);
+            sub = element('div', {}, first.label) + element('ul', {}, sub);
             options += element('li', {}, sub);
         } else {
-            options += element('li', {}, element('div', {tag:item.cmd}, item.label));
+            options += element('li', {}, element('div', {tag: item.cmd}, item.label));
         }
     });
+    /*jslint unparam: false*/
     menu.html(options);
+    /*jslint unparam: true*/
     menu.menu({
-        select:function( event, ui ) {
+        select: function (event, ui) {
             var cmd = ui.item.children().attr('tag');
             menu.hide();
             args.select(cmd);
         }
     });
+    /*jslint unparam: false*/
     menu.menu("refresh");
-    args.element.contextmenu(function(e) {
-        if (args.prelude) args.prelude();
+    args.element.contextmenu(function (e) {
+        if (args.prelude) {
+            args.prelude();
+        }
         menu.css('position', 'absolute');
         menu.css('top', e.pageY);
         menu.css('left', e.pageX);
@@ -261,11 +267,12 @@ function Event(sender) {
 }
 
 Event.prototype = {
-    attach : function(listener) {
+    attach : function (listener) {
         this.listeners.push(listener);
     },
-    notify : function(args) {
-        for (var i = 0; i < this.listeners.length; ++i) {
+    notify : function (args) {
+        var i;
+        for (i = 0; i < this.listeners.length; i += 1) {
             this.listeners[i](this.sender, args);
         }
     }

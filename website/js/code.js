@@ -11,7 +11,7 @@ this list of conditions and the following disclaimer.
 Neither the name of the Finnish Environment Institute (SYKE) nor the
 names of its contributors may be used to endorse or promote products
 derived from this software without specific prior written permission.
- 
+
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -26,7 +26,18 @@ USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 DAMAGE.
 */
 
-(function() {
+"use strict";
+/*jslint browser: true*/
+/*global $, jQuery, alert, ol, getConfig, projection, MSP, MSPView, MSPController*/
+
+(function () {
+    var config = getConfig(),
+        proj = projection(config),
+        bg = /bg=(\w+)/.exec(window.location.href),
+        map,
+        model,
+        view,
+        controller;
     $('body').addClass('stop-scrolling');
     $(".menu").hide();
     $(document).click(function (e) {
@@ -34,35 +45,35 @@ DAMAGE.
             $(".menu").hide();
         }
     });
-    var x = /bg=(\w+)/.exec(window.location.href);
-    if (x && x[1]) {
-        config.bg = x[1];
-        if (config.bg == "osm") {
+    if (bg && bg[1]) {
+        config.bg = bg[1];
+        if (config.bg === "osm") {
             config.epsg = 3857;
             config.matrixSet = 'EPSG:3857';
             config.center = [2671763, 8960514];
             config.zoom = 6;
         }
     }
-    var proj = projection(config);
-    var map = new ol.Map({
+    map = new ol.Map({
         layers: [],
         target: 'map',
         controls: ol.control.defaults({
-            attributionOptions:{
+            attributionOptions: {
                 collapsible: false
             }
         }),
         view: proj.view
     });
     map.addControl(new ol.control.ScaleLine());
-    var model = new MSP({
+    model = new MSP({
+        server: config.server,
+        user: config.user,
         proj: proj,
         map: map,
         firstPlan: 14,
         auth: config.auth
     });
-    var view = new MSPView(model, {
+    view = new MSPView(model, {
         map: $("#map"),
         user: $("#user"),
         plan: $("#plan"),
@@ -80,9 +91,9 @@ DAMAGE.
         uses: "#useslist",
         rules: "#rules"
     });
-    var controller = new MSPController(model, view);
-    
-    if (config.bg == 'osm') {
+    controller = new MSPController(model, view);
+
+    if (config.bg === 'osm') {
         map.addLayer(new ol.layer.Tile({
             source: new ol.source.OSM()
         }));
@@ -113,18 +124,9 @@ DAMAGE.
         return reload;
     }()));
 
-    $(window).resize(function(){view.windowResize()});
-    view.windowResize();
-    return;
-
-    // from http://jsfiddle.net/kCduV/10/
-    $('.right').resizable({
-        handles       : 'e,w', 
-        resize        : function (event,ui){
-            ui.position.left = ui.originalPosition.left;
-            ui.size.width    = ( ui.size.width
-                                 - ui.originalSize.width )*2
-        }
+    $(window).resize(function () {
+        view.windowResize();
     });
+    view.windowResize();
 
 }());

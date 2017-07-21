@@ -99,9 +99,18 @@
     <script src="http://openlayers.org/en/v3.11.1/build/ol.js"></script>
 
     <script type="text/javascript">
-      var server = 'localhost:5000/SmartSea';
-      var user = 'guest';
-      var config = {auth:false, bg: 'mml', epsg: 3067, matrixSet: 'ETRS-TM35FIN', center: [346735, 6943420], zoom: 3};
+    function getConfig() {
+        return {
+            server: 'localhost:5000/SmartSea',
+            user: 'guest',
+            auth: false,
+            bg: 'mml',
+            epsg: 3067,
+            matrixSet: 'ETRS-TM35FIN',
+            center: [346735, 6943420],
+            zoom: 3
+        };
+    }
     </script>
     <script src="/js/util.js" type="text/javascript"></script>
     <script src="/js/projection.js" type="text/javascript"></script>
