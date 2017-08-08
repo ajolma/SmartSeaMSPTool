@@ -6,7 +6,7 @@ use base qw/DBIx::Class::Core/;
 use Storable qw(dclone);
 use Scalar::Util 'blessed';
 use SmartSea::Schema::Result::NumberType qw(:all);
-use SmartSea::Core;
+use SmartSea::Core qw(:all);
 use SmartSea::HTML qw(:all);
 use PDL;
 

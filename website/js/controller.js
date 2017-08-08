@@ -460,7 +460,7 @@ MSPController.prototype = {
         html = element('p', {}, datasets.content());
         self.editor.html(html);
         self.ok = function () {
-            var selected = datasets.selected_ids(),
+            var selected = datasets.getSelectedIds(),
                 update = '';
             /*jslint unparam: true*/
             $.each(selected, function (id, i) {
@@ -1039,7 +1039,7 @@ MSPController.prototype = {
         self.editor.html(html);
 
         self.ok = function () {
-            var selected = rules.selected_ids(),
+            var selected = rules.getSelectedIds(),
                 deletes = '';
             /*jslint unparam: true*/
             $.each(selected, function (id, i) {

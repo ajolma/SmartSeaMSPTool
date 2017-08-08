@@ -99,7 +99,7 @@ function MSPView(model, elements, id) {
     self.ruleSelected = new Event(self);
 
     self.elements.plans.change(function () {
-        self.model.changePlan(self.elements.plans.val());
+        self.model.changePlan(parseInt(self.elements.plans.val(), 10));
     });
 }
 

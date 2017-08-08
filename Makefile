@@ -24,6 +24,9 @@ plugin.xml:
 test:
 	prove -I.
 
+test-js:
+	node node_modules/jslint/bin/jslint.js website/js/*.js 
+
 #plugin-test:
 #	rm -rf $HOME/.qgis2/python/plugins/smartsea/
 #	pwd = `pwd`

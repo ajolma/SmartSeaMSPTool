@@ -82,6 +82,7 @@ MSP.prototype = {
         self.initSite();
     },
     getPlan: function (id) {
+        console.assert(typeof id === "number", {message: "id is not number"});
         var self = this,
             i;
         for (i = 0; i < self.plans.length; i += 1) {
@@ -128,7 +129,7 @@ MSP.prototype = {
     },
     setPlanData: function (data) {
         var self = this;
-        self.plan.data = [];
+        self.plan.data = {};
         /*jslint unparam: true*/
         $.each(data, function (i, dataset) {
             self.plan.data[dataset.id] = 1;
@@ -138,6 +139,7 @@ MSP.prototype = {
         self.changePlan(self.plan.id);
     },
     deletePlan: function (id) {
+        console.assert(typeof id === "number", {message: "id is not number"});
         var self = this,
             plans = [],
             i;
@@ -176,6 +178,7 @@ MSP.prototype = {
         return datasets;
     },
     changePlan: function (id) {
+        console.assert(typeof id === "number", {message: "id is not number"});
         var self = this,
             newUses = [],
             datasets = { // pseudo use
@@ -233,7 +236,7 @@ MSP.prototype = {
         // add to datasets those that have dataset_id in data
         $.each(self.plan.data, function (key, id) {
             $.each(self.datasets.layers, function (i, layer) {
-                if (layer.id === key) {
+                if (layer.id === parseInt(key, 10)) { // key is always string
                     layers[key] = layer;
                     return false;
                 }
