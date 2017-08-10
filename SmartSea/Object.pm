@@ -98,7 +98,7 @@ sub new {
                 }
             }
             $self->{object} = $self->{rs}->single($args->{search});
-            $self->{id} = $self->{object}->id;    
+            $self->{id} = $self->{object}->id if $self->{object};
         } elsif (defined $args->{id}) {
             id($self, $args->{id});
         }
@@ -657,6 +657,30 @@ sub update {
 
     confess "Update was requested for a non-existing $self->{source} object." unless $self->{object};
 
+    # is it actually a link that needs to be updated?
+    if ($self->{prev}) {
+        my $relationship = $self->{relation};
+        if ($relationship) {
+            if ($relationship->{link_source}) {
+
+                # we need the object which links parent to self
+                my $args = {
+                    source => $relationship->{link_source}, 
+                    search => {
+                        $relationship->{ref_to_parent} => $self->{prev}{id},
+                        $relationship->{ref_to_related} => $self->{id}},
+                    app => $self->{app}
+                };
+                $self = SmartSea::Object->new($args);
+                croak "There is no relationship between ",$self->{prev}->str," and ",$self->str,"."
+                    unless $self->{object};
+
+            }
+        } else {
+            croak "There is no relationship between ",$self->{prev}->str," and ",$self->str,".";
+        }
+    }
+
     say STDERR "update ",$self->str if $self->{app}{debug};
     
     my $columns = $self->columns;
@@ -894,6 +918,8 @@ sub item {
     # fixme?
     my $columns = $self->columns; # this doesn't call columns for is_part objects with real object
     $self->values_from_self($columns) if $self->{object};
+
+    # FIXME: show link properties if appropriate
   
     my $li = $self->simple_items($columns); # so here all cols (also unused) are shown
 
@@ -1044,8 +1070,16 @@ sub form {
         if ($self->{object} && $relationship->{link_source}) {
             my $related_id = $self->{id};
             # fixme: object? if link has editable data?
-            $self = SmartSea::Object->new({source => $relationship->{link_source}, app => $self->{app}});
+            $self = SmartSea::Object->new({
+                source => $relationship->{link_source},
+                search => {
+                    $relationship->{ref_to_parent} => $parent_id,
+                    $relationship->{ref_to_related} => $related_id,
+                },
+                app => $self->{app}});
+            say STDERR "form for $self->{source} ".($self->{object}//'undef') if $self->{app}{debug};
             $columns = $self->columns;
+            $self->values_from_self($columns) if $self->{object};
             set_to_columns($columns, $relationship->{ref_to_related}, fixed => $related_id);
         }
         set_to_columns($columns, $relationship->{ref_to_parent}, fixed => $parent_id);

@@ -615,6 +615,10 @@ MSPController.prototype = {
 
                     node.changed((function changed() {
                         var nod = node.getSelected(); // nod is not null since we have set selected above
+                        var desc = '';
+                        if (nod.attributes) {
+                            desc = nod.attributes.HR_Desc;
+                        }
                         state = new Widget({
                             container_id: self.editor_id,
                             id: 'layer-state',
@@ -625,6 +629,7 @@ MSPController.prototype = {
                         });
                         rule_class_extra.html(element('p', {}, network.content()) +
                                               element('p', {}, node.content()) +
+                                              element('p', {}, 'Description: ' + desc) +
                                               element('p', {}, state.content()));
                         return changed;
                     }()));
@@ -957,7 +962,8 @@ MSPController.prototype = {
 
         node.changed((function changed() {
             var n = node.getSelected(),
-                states = '';
+                states = '',
+                desc = '';
             if (n) {
                 $.each(n.values, function (i, value) {
                     if (i > 0) {
@@ -965,8 +971,11 @@ MSPController.prototype = {
                     }
                     states += i + ': ' + value;
                 });
+                if (n.attributes) {
+                    desc = n.attributes.HR_Desc;
+                }
             }
-            $(self.editor_id + ' #node-states').html('States: ' + states);
+            $(self.editor_id + ' #node-states').html('Description: ' + desc + '<br/>' + 'States: ' + states);
             return changed;
         }()));
 

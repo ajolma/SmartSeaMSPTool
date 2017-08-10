@@ -10,6 +10,31 @@ sub smart {
     my ($self, $env, $request, $parameters) = @_;
 
     my $dir = $self->{data_dir} . 'Bayesian_networks';
+
+    if ($parameters->{name} && $parameters->{accept} eq 'jpeg') {
+
+        my $file = $dir . '/' . $parameters->{name} . '.jpg';
+        
+        my $content_type = 'image/jpeg';
+
+        open my $fh, "<:raw", $file
+            or return $self->http_status(403);
+
+        my @stat = stat $file;
+
+        Plack::Util::set_io_path($fh, Cwd::realpath($file));
+
+        return [
+            200,
+            [
+             'Content-Type'   => $content_type,
+             'Content-Length' => $stat[7],
+             'Last-Modified'  => HTTP::Date::time2str( $stat[9] )
+            ],
+            $fh,
+            ];
+    }
+    
     opendir(my $dh, $dir) || croak "Can't opendir $dir: $!";
     my @nets = grep { /\.net$/ && -f "$dir/$_" } readdir($dh);
     closedir $dh;
@@ -28,6 +53,7 @@ sub smart {
                 push @values, $value;
             }
             $node2->{values} = \@values;
+            $node2->{attributes} = {$node->get_attributes};
             push @nodes, $node2;
         }
         $network->{nodes} = \@nodes;

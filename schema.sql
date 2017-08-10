@@ -1180,6 +1180,41 @@ ALTER SEQUENCE use2activity_id_seq OWNED BY use_class2activity.id;
 
 
 --
+-- Name: use2zoning; Type: TABLE; Schema: tool; Owner: ajolma
+--
+
+CREATE TABLE use2zoning (
+    id integer NOT NULL,
+    use integer NOT NULL,
+    zoning integer NOT NULL,
+    weight double precision DEFAULT 1 NOT NULL
+);
+
+
+ALTER TABLE use2zoning OWNER TO ajolma;
+
+--
+-- Name: use2zoning_id_seq; Type: SEQUENCE; Schema: tool; Owner: ajolma
+--
+
+CREATE SEQUENCE use2zoning_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE use2zoning_id_seq OWNER TO ajolma;
+
+--
+-- Name: use2zoning_id_seq; Type: SEQUENCE OWNED BY; Schema: tool; Owner: ajolma
+--
+
+ALTER SEQUENCE use2zoning_id_seq OWNED BY use2zoning.id;
+
+
+--
 -- Name: use_classes; Type: TABLE; Schema: tool; Owner: ajolma
 --
 
@@ -1210,6 +1245,47 @@ ALTER TABLE uses_id_seq OWNER TO ajolma;
 --
 
 ALTER SEQUENCE uses_id_seq OWNED BY use_classes.id;
+
+
+--
+-- Name: zonings; Type: TABLE; Schema: tool; Owner: ajolma
+--
+
+CREATE TABLE zonings (
+    id integer NOT NULL,
+    plan integer NOT NULL,
+    name text NOT NULL
+);
+
+
+ALTER TABLE zonings OWNER TO ajolma;
+
+--
+-- Name: TABLE zonings; Type: COMMENT; Schema: tool; Owner: ajolma
+--
+
+COMMENT ON TABLE zonings IS 'Preferences for uses in a plan';
+
+
+--
+-- Name: zonings_id_seq; Type: SEQUENCE; Schema: tool; Owner: ajolma
+--
+
+CREATE SEQUENCE zonings_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE zonings_id_seq OWNER TO ajolma;
+
+--
+-- Name: zonings_id_seq; Type: SEQUENCE OWNED BY; Schema: tool; Owner: ajolma
+--
+
+ALTER SEQUENCE zonings_id_seq OWNED BY zonings.id;
 
 
 SET search_path = data, pg_catalog;
@@ -1381,6 +1457,13 @@ ALTER TABLE ONLY styles ALTER COLUMN id SET DEFAULT nextval('styles_id_seq1'::re
 -- Name: id; Type: DEFAULT; Schema: tool; Owner: ajolma
 --
 
+ALTER TABLE ONLY use2zoning ALTER COLUMN id SET DEFAULT nextval('use2zoning_id_seq'::regclass);
+
+
+--
+-- Name: id; Type: DEFAULT; Schema: tool; Owner: ajolma
+--
+
 ALTER TABLE ONLY use_class2activity ALTER COLUMN id SET DEFAULT nextval('use2activity_id_seq'::regclass);
 
 
@@ -1396,6 +1479,13 @@ ALTER TABLE ONLY use_classes ALTER COLUMN id SET DEFAULT nextval('uses_id_seq'::
 --
 
 ALTER TABLE ONLY uses ALTER COLUMN id SET DEFAULT nextval('plan2use_id_seq'::regclass);
+
+
+--
+-- Name: id; Type: DEFAULT; Schema: tool; Owner: ajolma
+--
+
+ALTER TABLE ONLY zonings ALTER COLUMN id SET DEFAULT nextval('zonings_id_seq'::regclass);
 
 
 SET search_path = data, pg_catalog;
@@ -1763,6 +1853,22 @@ ALTER TABLE ONLY use_class2activity
 
 
 --
+-- Name: use2zoning_pkey; Type: CONSTRAINT; Schema: tool; Owner: ajolma
+--
+
+ALTER TABLE ONLY use2zoning
+    ADD CONSTRAINT use2zoning_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: use2zoning_use_zoning_key; Type: CONSTRAINT; Schema: tool; Owner: ajolma
+--
+
+ALTER TABLE ONLY use2zoning
+    ADD CONSTRAINT use2zoning_use_zoning_key UNIQUE (use, zoning);
+
+
+--
 -- Name: use_class2activity_use_class_activity_key; Type: CONSTRAINT; Schema: tool; Owner: ajolma
 --
 
@@ -1792,6 +1898,14 @@ ALTER TABLE ONLY uses
 
 ALTER TABLE ONLY use_classes
     ADD CONSTRAINT uses_title_key UNIQUE (name);
+
+
+--
+-- Name: zonings_pkey; Type: CONSTRAINT; Schema: tool; Owner: ajolma
+--
+
+ALTER TABLE ONLY zonings
+    ADD CONSTRAINT zonings_pkey PRIMARY KEY (id);
 
 
 SET search_path = data, pg_catalog;
@@ -2079,6 +2193,22 @@ ALTER TABLE ONLY layers
 
 
 --
+-- Name: use2zoning_use_fkey; Type: FK CONSTRAINT; Schema: tool; Owner: ajolma
+--
+
+ALTER TABLE ONLY use2zoning
+    ADD CONSTRAINT use2zoning_use_fkey FOREIGN KEY (use) REFERENCES uses(id);
+
+
+--
+-- Name: use2zoning_zoning_fkey; Type: FK CONSTRAINT; Schema: tool; Owner: ajolma
+--
+
+ALTER TABLE ONLY use2zoning
+    ADD CONSTRAINT use2zoning_zoning_fkey FOREIGN KEY (zoning) REFERENCES zonings(id);
+
+
+--
 -- Name: use_class2activity_use_class_fkey; Type: FK CONSTRAINT; Schema: tool; Owner: ajolma
 --
 
@@ -2092,6 +2222,14 @@ ALTER TABLE ONLY use_class2activity
 
 ALTER TABLE ONLY uses
     ADD CONSTRAINT uses_use_class_fkey FOREIGN KEY (use_class) REFERENCES use_classes(id);
+
+
+--
+-- Name: zonings_plan_fkey; Type: FK CONSTRAINT; Schema: tool; Owner: ajolma
+--
+
+ALTER TABLE ONLY zonings
+    ADD CONSTRAINT zonings_plan_fkey FOREIGN KEY (plan) REFERENCES plans(id);
 
 
 --
@@ -2661,6 +2799,26 @@ GRANT ALL ON SEQUENCE use2activity_id_seq TO smartsea;
 
 
 --
+-- Name: use2zoning; Type: ACL; Schema: tool; Owner: ajolma
+--
+
+REVOKE ALL ON TABLE use2zoning FROM PUBLIC;
+REVOKE ALL ON TABLE use2zoning FROM ajolma;
+GRANT ALL ON TABLE use2zoning TO ajolma;
+GRANT ALL ON TABLE use2zoning TO smartsea;
+
+
+--
+-- Name: use2zoning_id_seq; Type: ACL; Schema: tool; Owner: ajolma
+--
+
+REVOKE ALL ON SEQUENCE use2zoning_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE use2zoning_id_seq FROM ajolma;
+GRANT ALL ON SEQUENCE use2zoning_id_seq TO ajolma;
+GRANT ALL ON SEQUENCE use2zoning_id_seq TO smartsea;
+
+
+--
 -- Name: use_classes; Type: ACL; Schema: tool; Owner: ajolma
 --
 
@@ -2678,6 +2836,26 @@ REVOKE ALL ON SEQUENCE uses_id_seq FROM PUBLIC;
 REVOKE ALL ON SEQUENCE uses_id_seq FROM ajolma;
 GRANT ALL ON SEQUENCE uses_id_seq TO ajolma;
 GRANT ALL ON SEQUENCE uses_id_seq TO smartsea;
+
+
+--
+-- Name: zonings; Type: ACL; Schema: tool; Owner: ajolma
+--
+
+REVOKE ALL ON TABLE zonings FROM PUBLIC;
+REVOKE ALL ON TABLE zonings FROM ajolma;
+GRANT ALL ON TABLE zonings TO ajolma;
+GRANT ALL ON TABLE zonings TO smartsea;
+
+
+--
+-- Name: zonings_id_seq; Type: ACL; Schema: tool; Owner: ajolma
+--
+
+REVOKE ALL ON SEQUENCE zonings_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE zonings_id_seq FROM ajolma;
+GRANT ALL ON SEQUENCE zonings_id_seq TO ajolma;
+GRANT ALL ON SEQUENCE zonings_id_seq TO smartsea;
 
 
 --

@@ -311,7 +311,7 @@ MSPView.prototype = {
     selectLayer: function () {
         var self = this,
             layer = self.model.layer,
-            url = 'http://' + self.model.server + '/legend',
+            url = 'http://' + self.model.server,
             style = '',
             cache_breaker = '&time=' + new Date().getTime();
 
@@ -324,7 +324,7 @@ MSPView.prototype = {
             style = '&style=' + layer.color_scale;
         }
         self.elements.color_scale.html(
-            element('img', {src: url + '?layer=' + layer.getName() + style + cache_breaker}, '')
+            element('img', {src: url + '/legend?layer=' + layer.getName() + style + cache_breaker}, '')
         );
         if (layer.use_class_id === 0) { // Data
             self.elements.rule_header.html('Information about dataset:');
@@ -340,7 +340,11 @@ MSPView.prototype = {
             } else if (layer.rule_class === 'inclusive') {
                 self.elements.rule_info.html('Value is a sum of rules.');
             } else if (layer.rule_class === 'Bayesian network') {
-                self.elements.rule_info.html('Bayesian network.');
+                //self.elements.rule_info.html('Bayesian network.');
+                
+                self.elements.rule_info.html(
+                    element('img', {src: url + '/networks?name=' + layer.network_file + '&accept=jpeg', width:220}, '')
+                );
             }
         }
         if (layer.visible) {

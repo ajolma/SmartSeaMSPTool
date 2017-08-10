@@ -22,6 +22,8 @@ __PACKAGE__->many_to_many(use_classes => 'uses', 'use_class');
 __PACKAGE__->has_many(extras => 'SmartSea::Schema::Result::Plan2DatasetExtra', 'plan');
 __PACKAGE__->many_to_many(extra_datasets => 'extras', 'dataset');
 
+__PACKAGE__->has_many(zonings => 'SmartSea::Schema::Result::Zoning', 'plan');
+
 sub relationship_hash {
     return {
         uses => {
@@ -63,6 +65,11 @@ sub relationship_hash {
                 }
                 return drop_down(name => 'dataset', objs => \@objs);
             }
+        },
+        zonings => {
+            name => 'Zonings',
+            source => 'Zoning',
+            ref_to_parent => 'plan',
         }
     };
 }

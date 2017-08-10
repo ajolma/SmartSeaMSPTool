@@ -49,7 +49,7 @@ sub call {
     $self->{json} = $self->{accept} eq 'application/json';
     $self->{json} = 1 if $parameters->{accept} && $parameters->{accept} eq 'json';
 
-    $self->{debug} = $parameters->{debug} // 0;
+    $self->{debug} = $parameters->{debug} if defined $parameters->{debug};
     
     return $self->smart($env, $request, $parameters);
 }
