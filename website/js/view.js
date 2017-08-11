@@ -50,7 +50,7 @@ function MSPView(model, elements, id) {
             for (i = 0; i < ul.length; i += 1) {
                 n = ul[i].id;
                 n = n.replace(/use/, '');
-                newOrder.push(n);
+                newOrder.push(parseInt(n, 10));
             }
             self.model.setUseOrder(newOrder);
         }
@@ -319,7 +319,7 @@ MSPView.prototype = {
         if (!layer) {
             return;
         }
-        $('#layer' + layer.id).css('background-color', 'yellow');
+        $('#use' + layer.use_id + ' #layer' + layer.id).css('background-color', 'yellow');
         if (layer.color_scale) {
             style = '&style=' + layer.color_scale;
         }
@@ -352,7 +352,7 @@ MSPView.prototype = {
         }
     },
     unselectLayer: function (layer) {
-        $('#layer' + layer.id).css('background-color', 'white');
+        $('#use' + layer.use_id + ' #layer' + layer.id).css('background-color', 'white');
         this.elements.rule_header.html('');
         this.elements.rule_info.html('');
         this.elements.color_scale.html('');

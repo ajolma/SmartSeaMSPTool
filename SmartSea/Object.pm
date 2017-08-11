@@ -54,10 +54,13 @@ sub from_app {
     if (@objects > 1) {
         my $prev;
         for my $obj (@objects) {
-            $obj->{prev} = $prev;
-            $prev->{next} = $obj if $prev;
-            weaken($obj->{prev});
-            weaken($prev->{next});
+            if ($prev) {
+                croak "Error: parent object does not exist." unless $prev->{object};
+                $obj->{prev} = $prev;
+                $prev->{next} = $obj;
+                weaken($obj->{prev});
+                weaken($prev->{next});
+            }
             $prev = $obj;
         }
     }
@@ -199,6 +202,29 @@ sub next {
 sub prev {
     my $self = shift;
     return $self->{prev};
+}
+
+sub link {
+    my $self = shift;
+    return unless $self->{object};
+    my $prev = $self->{prev};
+    if ($prev) {
+        my $relationship = $self->{relation};
+        if ($relationship and $relationship->{link_source}) {
+            my $args = {
+                source => $relationship->{link_source}, 
+                search => {
+                    $relationship->{ref_to_parent} => $prev->{object}->get_column($relationship->{key}),
+                    $relationship->{ref_to_related} => $self->{id}},
+                app => $self->{app}
+            };
+            my $link = SmartSea::Object->new($args);
+            croak "There is no relationship between ",$prev->str," and ",$self->str,"."
+                unless $link->{object};
+            return $link;
+        }
+    }
+    return undef;
 }
 
 sub str {
@@ -657,29 +683,9 @@ sub update {
 
     confess "Update was requested for a non-existing $self->{source} object." unless $self->{object};
 
-    # is it actually a link that needs to be updated?
-    if ($self->{prev}) {
-        my $relationship = $self->{relation};
-        if ($relationship) {
-            if ($relationship->{link_source}) {
-
-                # we need the object which links parent to self
-                my $args = {
-                    source => $relationship->{link_source}, 
-                    search => {
-                        $relationship->{ref_to_parent} => $self->{prev}{id},
-                        $relationship->{ref_to_related} => $self->{id}},
-                    app => $self->{app}
-                };
-                $self = SmartSea::Object->new($args);
-                croak "There is no relationship between ",$self->{prev}->str," and ",$self->str,"."
-                    unless $self->{object};
-
-            }
-        } else {
-            croak "There is no relationship between ",$self->{prev}->str," and ",$self->str,".";
-        }
-    }
+    # is it actually a link object that needs to be updated?
+    my $link = $self->link;
+    $self = $link if $link;
 
     say STDERR "update ",$self->str if $self->{app}{debug};
     
@@ -777,38 +783,24 @@ sub delete {
     my $self = shift;
 
     # is it actually a link that needs to be deleted?
+    my $link = $self->link;
+    if ($link) {
+        say STDERR "delete link object" if $self->{app}{debug};
+        $link->{object}->delete;
+        return;
+    }
     if ($self->{prev}) {
         say STDERR "remove link ",$self->{prev}->str," -> ",$self->str if $self->{app}{debug};
         my $relationship = $self->{relation};
         if ($relationship) {
             if ($self->{prev}{source} eq $self->{source}) {
-
                 say STDERR "update self" if $self->{app}{debug};
                 $self->{object}->update({$relationship->{ref_to_parent} => undef});
                 return;
-                
-            } elsif ($relationship->{link_source}) {
-
-                # we need the object which links parent to self
-                say STDERR "delete link object" if $self->{app}{debug};
-                my $args = {
-                    source => $relationship->{link_source}, 
-                    search => {
-                        $relationship->{ref_to_parent} => $self->{prev}{id},
-                        $relationship->{ref_to_related} => $self->{id}},
-                    app => $self->{app}
-                };
-                my $link = SmartSea::Object->new($args);
-                croak "There is no relationship between ",$self->{prev}->str," and ",$self->str,"."
-                    unless $link->{object};
-                $link->{object}->delete;
-                return;
-                
             }
         } else {
             croak "There is no relationship between ",$self->{prev}->str," and ",$self->str,".";
         }
-        
     }
 
     say STDERR "delete ",$self->str if $self->{app}{debug};
@@ -874,7 +866,7 @@ sub simple_items {
             my $part = ref $value ? 
                 SmartSea::Object->new({object => $value, app => $self->{app}}) :
                 SmartSea::Object->new({source => $meta->{source}, app => $self->{app}});
-            my $li = $part->simple_items($meta->{columns});
+            my $li = [$part->simple_items($meta->{columns})];
             push @li, [li => [[b => [1 => $meta->{source}]], [ul => $li]]];
         } else {
             $value //= '(undef)';
@@ -889,7 +881,7 @@ sub simple_items {
             push @li, [li => "$column: ",encode_entities_numeric($value)];
         }
     }
-    return \@li;
+    return @li;
 }
 
 # return object as an item for HTML lists
@@ -919,18 +911,25 @@ sub item {
     my $columns = $self->columns; # this doesn't call columns for is_part objects with real object
     $self->values_from_self($columns) if $self->{object};
 
-    # FIXME: show link properties if appropriate
+    my @li;
+
+    my $link = $self->link;
+    if ($link) {
+        my $columns = $link->columns; # this doesn't call columns for is_part objects with real object
+        $link->values_from_self($columns);
+        push @li, [li => [[b => [1 => 'Link']], [ul => [$link->simple_items($columns)]]]];
+    }
   
-    my $li = $self->simple_items($columns); # so here all cols (also unused) are shown
+    push @li, $self->simple_items($columns); # so here all cols (also unused) are shown
 
     if ($self->{object} && $self->{object}->can('info')) {
         my $info = $self->{object}->info($self->{app});
-        push @$li, [li => $info] if $info;
+        push @li, [li => $info] if $info;
     }
     
-    push @$li, $self->related_items({url => $url}) if $self->{object};
+    push @li, $self->related_items({url => $url}) if $self->{object};
     
-    return [[b => @content], [ul => $li]];
+    return [[b => @content], [ul => \@li]];
 }
 
 # return item_class or items from objects of related class,
@@ -1063,27 +1062,21 @@ sub form {
     my @widgets;
     
     # if the form is in the context of a parent
-    if ($self->{prev} && $self->{prev}{object}) {
+    if ($self->{prev}) {
         my $relationship = $self->{relation};
         my $parent_id = $self->{prev}{object}->get_column($relationship->{key});
-        # edit the link object?
-        if ($self->{object} && $relationship->{link_source}) {
+        my $link = $self->link;
+        if ($link) {
+            say STDERR "form for $link->{source}" if $self->{app}{debug};
             my $related_id = $self->{id};
-            # fixme: object? if link has editable data?
-            $self = SmartSea::Object->new({
-                source => $relationship->{link_source},
-                search => {
-                    $relationship->{ref_to_parent} => $parent_id,
-                    $relationship->{ref_to_related} => $related_id,
-                },
-                app => $self->{app}});
-            say STDERR "form for $self->{source} ".($self->{object}//'undef') if $self->{app}{debug};
+            $self = $link;
             $columns = $self->columns;
             $self->values_from_self($columns) if $self->{object};
             set_to_columns($columns, $relationship->{ref_to_related}, fixed => $related_id);
+        } else {
+            set_to_columns($columns, $relationship->{ref_to_parent}, fixed => $parent_id);
+            set_to_columns($columns, $relationship->{set_to_null}, fixed => undef) if $relationship->{set_to_null};
         }
-        set_to_columns($columns, $relationship->{ref_to_parent}, fixed => $parent_id);
-        set_to_columns($columns, $relationship->{set_to_null}, fixed => undef) if $relationship->{set_to_null};
     }
 
     # if the object has external sources for column values

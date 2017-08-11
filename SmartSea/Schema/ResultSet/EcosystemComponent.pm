@@ -19,7 +19,8 @@ sub layers {
         }        
         push @layers, {
             name => $component->name,
-            id => $component->id, 
+            id => $component->id,
+            use_id => 1, # reserved use id
             use_class_id => 1, # reserved use class id
             rules => \@rules};
     }

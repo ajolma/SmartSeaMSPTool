@@ -264,6 +264,7 @@ sub read {
     $max += 0 if defined $max;
     my %dataset = (
         id => $self->id,
+        use_id => 0, # reserved use id
         use_class_id => 0, # reserved use class id
         name => $self->name,
         descr => $self->descr,

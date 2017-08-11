@@ -263,6 +263,7 @@ MSP.prototype = {
             newUses = [];
         /*jslint unparam: true*/
         $.each(order, function (i, id) {
+            console.assert(typeof id === "number", {message: "id is not number in order"});
             $.each(self.plan.uses, function (j, use) {
                 if (use.id === id) {
                     newUses.push(use);
@@ -280,6 +281,7 @@ MSP.prototype = {
         self.createLayers();
     },
     hasUse: function (class_id) {
+        console.assert(typeof class_id === "number", {message: "class id is not number"});
         var self = this,
             retval = false;
         /*jslint unparam: true*/
@@ -293,6 +295,7 @@ MSP.prototype = {
         return retval;
     },
     deleteUse: function (id) {
+        console.assert(typeof id === "number", {message: "id is not number"});
         var self = this,
             uses = [];
         /*jslint unparam: true*/
@@ -329,6 +332,8 @@ MSP.prototype = {
         self.createLayers();
     },
     deleteLayer: function (use_id, layer_id) {
+        console.assert(typeof use_id === "number", {message: "use id is not number"});
+        console.assert(typeof layer_id === "number", {message: "layer id is not number"});
         var self = this;
         /*jslint unparam: true*/
         $.each(self.plan.uses, function (i, use) {
@@ -404,6 +409,7 @@ MSP.prototype = {
         return layer;
     },
     getDataset: function (id) {
+        console.assert(typeof id === "number", {message: "id is not number"});
         var self = this,
             dataset;
         /*jslint unparam: true*/

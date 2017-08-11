@@ -75,6 +75,7 @@ sub read {
         id => $self->id,
         class_id => $self->layer_class->id,
         name => $self->layer_class->name,
+        use_id => $self->use->id,
         use_class_id => $self->use->use_class->id,
         owner => $self->owner,
         color_scale => $self->style->color_scale->name,
