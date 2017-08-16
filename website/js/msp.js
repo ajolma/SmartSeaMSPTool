@@ -74,12 +74,12 @@ MSP.prototype = {
         }
         self.removeLayers();
         self.removeSite();
+        self.initSite();
         self.plans = plans;
         self.ecosystem = ecosystem;
         self.datasets = datasets;
         self.newPlans.notify();
         self.changePlan(self.firstPlan);
-        self.initSite();
     },
     getPlan: function (id) {
         console.assert(typeof id === "number", {message: "id is not number"});
@@ -501,29 +501,33 @@ MSP.prototype = {
         self.siteInitialized.notify({source: source});
     },
     removeSite: function () {
-        if (this.site) {
-            this.map.removeLayer(this.site);
+        var self = this;
+        if (self.site) {
+            self.map.removeLayer(self.site);
         }
     },
     addSite: function () {
-        if (this.site) {
-            this.map.addLayer(this.site);
+        var self = this;
+        if (self.site) {
+            self.map.addLayer(self.site);
         }
     },
     removeInteraction: function (draw) {
+        var self = this;
         if (draw.key) {
-            this.map.unByKey(draw.key);
+            self.map.unByKey(draw.key);
         }
         if (draw.draw) {
-            this.map.removeInteraction(draw.draw);
+            self.map.removeInteraction(draw.draw);
         }
     },
     addInteraction: function (draw) {
+        var self = this;
         if (draw.draw) {
-            this.map.addInteraction(draw.draw);
+            self.map.addInteraction(draw.draw);
         }
         if (draw.source) {
-            return this.map.on('click', function (evt) {
+            return self.map.on('click', function (evt) {
                 var coordinates = evt.coordinate,
                     f = new ol.Feature({
                         geometry: new ol.geom.Point(coordinates)
@@ -534,7 +538,7 @@ MSP.prototype = {
                             anchorXUnits: 'pixels',
                             anchorYUnits: 'pixels',
                             opacity: 1,
-                            src: 'img/Map-Marker-Marker-Outside-Pink-icon.png'
+                            src: '../img/Map-Marker-Marker-Outside-Pink-icon.png'
                         })
                     });
                 f.setStyle(iconStyle);
