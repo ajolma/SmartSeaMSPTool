@@ -775,11 +775,50 @@ MSPController.prototype = {
         };
         self.editor.dialog('open');
     },
+    datasetValueWidget: function(dataset, rule, elem, pre) {
+        var self = this,
+            args = {
+                container_id: self.editor_id,
+                id: 'threshold'
+            },
+            attr,
+            widget = null;
+        if (!dataset) {
+            elem.html('');
+        } else if (dataset.classes === 1) {
+            $(self.editor_id + ' #descr').html(dataset.descr);
+            elem.html('Binary rule');
+        } else {
+            $(self.editor_id + ' #descr').html(dataset.descr);
+            if (dataset.semantics) {
+                args.type = 'select';
+                args.list = dataset.semantics;
+            } else if (dataset.data_type === 'integer') {
+                args.type = 'spinner';
+            } else if (dataset.data_type === 'real') {
+                args.type = 'slider';
+            }
+            if (rule) {
+                attr = rule.getMinMax();
+                args.min = attr.min;
+                args.max = attr.max;
+                args.value = rule.value;
+            } else {
+                args.min = dataset.min_value;
+                args.max = dataset.max_value;
+                args.value = dataset.min_value;
+            }
+            widget = new Widget(args);
+            elem.html(pre + widget.content());
+            widget.prepare();
+        }
+        return widget;
+    },
     editRule: function (plan, use, layer, rule) {
         var self = this,
             owner = layer.owner === self.model.user,
             dataset,
-            settings,
+            value,
             html = '',
             op,
             threshold,
@@ -787,26 +826,49 @@ MSPController.prototype = {
 
         self.editor.dialog('option', 'title', 'Sääntö tasossa ' + layer.name);
         self.editor.dialog('option', 'height', 500);
+        
         if (rule) {
             self.setEditorApplyClose();
         } else {
             self.setEditorOkCancel();
         }
 
-        if (layer.rule_class === 'Bayesian network') {
-            self.editBayesianRule(plan, use, layer, rule);
+        if (rule) {
+            $.each(self.model.datasets.layers, function (i, set) {
+                if (set.id === rule.dataset) {
+                    dataset = set;
+                    return false;
+                }
+            });
+        } else {
+            dataset = new Widget({
+                container_id: self.editor_id,
+                id: 'rule-dataset',
+                type: 'select',
+                list: self.model.datasets.layers,
+                pretext: 'Rule is based on the dataset: '
+            });
+        }
+        if (layer.rule_class === 'boxcar') {
+            self.editBoxcarRule(plan, use, layer, rule, dataset);
+            self.editor.dialog('open');
+            return;
+        } else if (layer.rule_class === 'Bayesian network') {
+            self.editBayesianRule(plan, use, layer, rule, dataset);
             self.editor.dialog('open');
             return;
         }
 
-        dataset = new Widget({
+        // the rule can be binary, if dataset has only one class
+        // otherwise the rule needs operator and threshold
+        op = new Widget({
             container_id: self.editor_id,
-            id: 'rule-dataset',
+            id: 'rule-op',
             type: 'select',
-            list: self.model.datasets.layers,
-            pretext: 'Rule is based on the dataset: '
+            list: self.klasses['op'],
+            pretext: 'Define the operator and the threshold:<br/>'
         });
-        settings = new Widget({
+        value = new Widget({
             container_id: self.editor_id,
             id: 'rule-defs',
             type: 'para'
@@ -820,60 +882,23 @@ MSPController.prototype = {
             if (!owner) {
                 html += element('p', {}, 'Et ole tämän tason omistaja. Muutokset ovat tilapäisiä.');
             }
+            html += element('p', {}, 'Rule is based on ' + dataset.name);
+        } else {
+            html += element('p', {}, dataset.content());
         }
-        html +=
-            element('p', {}, dataset.content()) +
-            element('p', {id: 'descr'}, '') +
-            settings.content();
+        html += element('p', {id: 'descr'}, '');
+        html += value.content();
 
-        // the rule can be binary, if dataset has only one class
-        // otherwise the rule needs operator and threshold
-        op = new Widget({
-            container_id: self.editor_id,
-            id: 'rule-op',
-            type: 'select',
-            list: self.klasses['op'],
-            pretext: 'Define the operator and the threshold:<br/>'
-        });
         self.editor.html(html);
 
-        dataset.changed((function changed() {
-            var set = dataset.getSelected(),
-                args = {
-                    container_id: self.editor_id,
-                    id: 'threshold'
-                },
-                attr;
-            $(self.editor_id + ' #descr').html(set.descr);
-            if (!set) {
-                settings.html('');
-            } else if (set.classes === 1) {
-                settings.html('Binary rule');
-            } else {
-                if (set.semantics) {
-                    args.type = 'select';
-                    args.list = set.semantics;
-                } else if (set.data_type === 'integer') {
-                    args.type = 'spinner';
-                } else if (set.data_type === 'real') {
-                    args.type = 'slider';
-                }
-                if (rule) {
-                    attr = rule.getMinMax();
-                    args.min = attr.min;
-                    args.max = attr.max;
-                    args.value = rule.value;
-                } else {
-                    args.min = set.min_value;
-                    args.max = set.max_value;
-                    args.value = set.min_value;
-                }
-                threshold = new Widget(args);
-                settings.html(op.content() + '&nbsp;' + threshold.content());
-                threshold.prepare();
-            }
-            return changed;
-        }()));
+        if (rule) {
+            threshold = self.datasetValueWidget(dataset, rule, value, op.content() + '&nbsp;');
+        } else {
+            dataset.changed((function changed() {
+                threshold = self.datasetValueWidget(dataset.getSelected(), rule, value, op.content() + '&nbsp;');
+                return changed;
+            }()));
+        }
 
         self.ok = function () { // save
             var set = dataset.getSelected(),
@@ -914,7 +939,133 @@ MSPController.prototype = {
         };
         self.editor.dialog('open');
     },
-    editBayesianRule: function (plan, use, layer, rule) {
+    editBoxcarRule: function (plan, use, layer, rule, dataset) {
+        // boxcar rule converts data value into range [0..weight] or [weight..0] if weight is negative
+        // the rule consists of four values (x0, x1, x2, x3) and a boolean form parameter in addition to weight
+        // the data value is first mapped to a value (y) between 0 and 1
+        // if data value (x) is <= x0, y = 0, (1 if form is false)
+        // if data value (x) is between x0 and x1, y increases linearly from 0 to 1, (1 to 0 if form is false)
+        // if data value (x) is between x1 and x2, y = 1, (0 if form is false)
+        // if data value (x) is between x2 and x3, y decreases linearly from 1 to 0, (0 to 1 if form is false)
+        // if data value (x) is >= x3, y = 0, (1 if form is false)
+        // final rule value is then y*weight
+        var self = this,
+            html = '',
+            x0 = new Widget({
+                container_id: self.editor_id,
+                id: 'x0',
+                type: 'para'
+            }),
+            x1 = new Widget({
+                container_id: self.editor_id,
+                id: 'x1',
+                type: 'para'
+            }),
+            x2 = new Widget({
+                container_id: self.editor_id,
+                id: 'x2',
+                type: 'para'
+            }),
+            x3 = new Widget({
+                container_id: self.editor_id,
+                id: 'x3',
+                type: 'para'
+            }),
+            x0Widget,
+            x1Widget,
+            x2Widget,
+            x3Widget;
+
+        if (rule) {
+            html += element('p', {}, 'Rule is based on ' + dataset.name);
+        } else {
+            html += element('p', {}, dataset.content());
+        }
+
+        html += x0.content();
+        html += x1.content();
+        html += x2.content();
+        html += x3.content();
+        self.editor.html(html);
+
+        if (rule) {
+            x0Widget = self.datasetValueWidget(dataset, rule, x0, '');
+            x1Widget = self.datasetValueWidget(dataset, rule, x1, '');
+            x2Widget = self.datasetValueWidget(dataset, rule, x2, '');
+            x3Widget = self.datasetValueWidget(dataset, rule, x3, '');
+        } else {
+            dataset.changed((function changed() {
+                x0Widget = self.datasetValueWidget(dataset.getSelected(), rule, x0, '');
+                x1Widget = self.datasetValueWidget(dataset.getSelected(), rule, x1, '');
+                x2Widget = self.datasetValueWidget(dataset.getSelected(), rule, x2, '');
+                x3Widget = self.datasetValueWidget(dataset.getSelected(), rule, x3, '');
+                return changed;
+            }()));
+        }
+        
+        if (rule) {
+            self.ok = function () {
+                var payload = {
+                    dataset: dataset.getSelected().id,
+                    boxcar: 1,
+                    boxcar_x0: 1,
+                    boxcar_x1: 1,
+                    boxcar_x2: 1,
+                    boxcar_x3: 1,
+                    weight: 1,
+                };
+                self.post({
+                    url: self.server + '/rule:' + rule.id + '?request=save',
+                    payload: payload,
+                    atSuccess: function (data) {
+                        self.model.editRule({
+                            id: data.id.value,
+                            dataset: data.dataset.value,
+                            boxcar: data,
+                            boxcar_x0: data,
+                            boxcar_x1: data,
+                            boxcar_x2: data,
+                            boxcar_x3: data,
+                            weight: data,
+                            active: true
+                        });
+                    }
+                });
+                return true;
+            };
+        } else {
+            self.ok = function () {
+                var payload = {
+                    dataset: dataset.getSelected().id,
+                    boxcar: 1,
+                    boxcar_x0: 1,
+                    boxcar_x1: 1,
+                    boxcar_x2: 1,
+                    boxcar_x3: 1,
+                    weight: 1,
+                };
+                self.post({
+                    url: self.server + 'plan:' + plan.id + '/uses:' + use.id + '/layers:' + layer.id + '/rules?request=save',
+                    payload: payload,
+                    atSuccess: function (data) {
+                        self.model.addRule({
+                            id: data.id.value,
+                            dataset: data.dataset.value,
+                            boxcar: data,
+                            boxcar_x0: data,
+                            boxcar_x1: data,
+                            boxcar_x2: data,
+                            boxcar_x3: data,
+                            weight: data,
+                            active: true
+                        });
+                    }
+                });
+                return true;
+            };
+        }
+    },
+    editBayesianRule: function (plan, use, layer, rule, dataset) {
         var self = this,
             dataset_list = [],
             dataset,
@@ -928,21 +1079,23 @@ MSPController.prototype = {
         // for now we assume it is a (hard) evidence node, i.e.,
         // the dataset must be integer, and its value range the same as the node's
 
-        /*jslint unparam: true*/
-        $.each(self.model.datasets.layers, function (i, dataset) {
-            if (dataset.data_type === "integer") {
-                dataset_list.push(dataset);
-            }
-        });
-        /*jslint unparam: false*/
-        dataset = new Widget({
-            container_id: self.editor_id,
-            id: 'rule-dataset',
-            type: 'select',
-            list: dataset_list,
-            selected: rule ? rule.dataset : dataset_list[0],
-            pretext: 'Base the rule on dataset: '
-        });
+        if (!rule) {
+            /*jslint unparam: true*/
+            $.each(self.model.datasets.layers, function (i, dataset) {
+                if (dataset.data_type === "integer") {
+                    dataset_list.push(dataset);
+                }
+            });
+            /*jslint unparam: false*/
+            dataset = new Widget({
+                container_id: self.editor_id,
+                id: 'rule-dataset',
+                type: 'select',
+                list: dataset_list,
+                selected: dataset_list[0],
+                pretext: 'Base the rule on dataset: '
+            });
+        }
 
         self.getNetworks();
         /*jslint unparam: true*/

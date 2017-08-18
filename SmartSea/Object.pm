@@ -406,11 +406,15 @@ sub values_from_parameters {
                 }
             }
             next unless $meta->{is_foreign_key};
-            my $related = SmartSea::Object->new({source => $meta->{source}, id => $meta->{$key}, app => $self->{app}});
-            if (defined $related->{object}) {
-                $meta->{$key} = $related->{object};
+            if ($meta->{source}) {
+                my $related = SmartSea::Object->new({source => $meta->{source}, id => $meta->{$key}, app => $self->{app}});
+                if (defined $related->{object}) {
+                    $meta->{$key} = $related->{object};
+                } else {
+                    push @errors, "$meta->{source}:$meta->{$key} does not exist" if $required;
+                }
             } else {
-                push @errors, "$meta->{source}:$meta->{$key} does not exist" if $required;
+                push @errors, "$self->{source}, column $column source meta data missing!";
             }
         }
     }
