@@ -53,8 +53,8 @@ sub smart {
         @objects = SmartSea::Object->from_app($self);
     };
     if ($@) {
-        $@ =~ s/ at SmartSea.*//;
-        return $self->json200({error=>"$@"}) if $self->{json};
+        $@ =~ s/\s+at .*//;
+        return $self->http_status($@) if $self->{json};
         return $self->html200("<html>Error: $@</html>");
     }
     say STDERR "remote user is $self->{user}" if $self->{debug};

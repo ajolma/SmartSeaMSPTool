@@ -157,104 +157,124 @@ MSPView.prototype = {
                 }
             });
         }
+        $('#plan-owner').html('Owner: ' + self.model.plan.owner);
         self.elements.rules.empty();
         self.fillRulesPanel();
     },
     usesItem: function (use) {
         // an openable use item for a list
         var self = this,
-            use_item = element('button', {class: 'use', type: 'button'}, '&rtrif;') + '&nbsp;'  +  use.name,
+            auth = self.model.auth && use.owner === self.model.user && (use.id === 0 || use.id > 1),
+            klass = auth ? 'context-menu' : 'tree-item',
+            use_text = element('div', {class: klass}, use.name),
+            button = use.layers.length > 0 ?
+            element('button', {class: 'use', type: 'button'}, '&rtrif;') + '&nbsp;' : '',
+            use_item = button  +  use_text,
             layers = '';
-        use_item = element('label', {title: use.name}, use_item);
-        if (self.model.auth && use.owner === self.model.user) {
+        use_item = element('label', {title: 'Owner: ' + use.owner}, use_item);
+        if (auth) {
             use_item += element('ul', {class: 'menu', id: "menu", style: 'display:none'}, '');
         }
         /*jslint unparam: true*/
         $.each(use.layers, function (j, layer) {
             var attr = {type: 'checkbox', class: 'visible' + layer.id},
                 id = 'layer' + layer.id,
-                name = layer.name,
-                lt = element('div', {id: id, style: 'display:inline;'}, name);
-            if (self.model.auth && layer.owner === self.model.user) {
-                lt += element('ul', {class: 'menu', id: "menu" + layer.id, style: 'display:none'}, '');
+                auth = self.model.auth && layer.owner === self.model.user,
+                klass = auth ? 'context-menu' : 'tree-item',
+                item = element('div', {id: id, class: klass}, layer.name);
+            if (auth) {
+                item += element('ul', {class: 'menu', id: "menu" + layer.id, style: 'display:none'}, '');
             }
-            layers += element('input', attr, lt + '<br/>');
+            layers += element('input', attr, item + '<br/>');
             attr = {class: 'opacity' + layer.id, type: 'range', min: '0', max: '1', step: '0.01'};
             layers += element('div', {class: 'opacity' + layer.id}, element('input', attr, '<br/>'));
         });
         /*jslint unparam: false*/
         layers = element('div', {class: 'use'}, layers);
-        return {element: element('li', {id: 'use' + use.id}, use_item + layers)};
+        return {auth: auth, element: element('li', {id: 'use' + use.id}, use_item + layers)};
     },
-    buildLayers: function () {
-        // an openable list of use items
+    buildLayerTree: function () {
         var self = this;
-        self.elements.layers.html('');
-        // all uses with controls: on/off, select/unselect, transparency
-        // end to beginning to maintain overlay order
         /*jslint unparam: true*/
         $.each(self.model.plan.uses, function (i, use) {
             var selector = self.id.uses + " #use" + use.id,
                 item = self.usesItem(use),
                 options = [];
             self.elements.layers.append(item.element);
-            if (self.model.auth && use.owner === self.model.user) {
-                if (use.id === 0) {
+
+            if (!self.model.auth) {
+                return true;
+            }
+            
+            // attach menus
+
+            if (item.auth) {
+                if (use.id === 0) { // data
                     options.push({cmd: 'edit', label: 'Edit...'});
-                }
-                if (use.id > 1) {
+                } else { // use
                     options.push({cmd: 'edit', label: 'Edit...'});
                     options.push({cmd: 'delete', label: 'Delete...'});
                     options.push({cmd: 'add_layer', label: 'Add layer...'});
                 }
-                makeMenu({
-                    element: $(selector + " label"),
-                    menu: $(selector + " #menu"),
-                    options: options,
-                    select: function (cmd) {
-                        self.useCommand.notify({cmd: cmd, use: use});
-                    }
-                });
-                $.each(use.layers, function (j, layer) {
-                    var options2 = [];
-                    options2.push({cmd: 'edit', label: 'Edit...'});
-                    if (use.id > 2) {
-                        options2.push({cmd: 'delete', label: 'Delete...'});
-                        options2.push([{label: 'Rule'},
-                                      {cmd: 'add_rule', label: 'Add...'},
-                                      {cmd: 'delete_rule', label: 'Delete...'}]);
-                    }
-                    makeMenu({
-                        element: $(selector + " #layer" + layer.id),
-                        menu: $(selector + " #menu" + layer.id),
-                        options: options2,
-                        prelude: function () {
-                            self.model.unselectLayer();
-                            self.model.selectLayer({use: use.id, layer: layer.id});
-                        },
-                        select: function (cmd) {
-                            self.layerCommand.notify({cmd: cmd, use: use, layer: layer});
-                        }
-                    });
-                });
+            } else {
+                if (use.id > 1) { // not data or ecosystem component
+                    options.push({cmd: 'add_layer', label: 'Add layer...'});
+                }
             }
+            makeMenu({
+                element: $(selector + " label"),
+                menu: $(selector + " #menu"),
+                options: options,
+                select: function (cmd) {
+                    self.useCommand.notify({cmd: cmd, use: use});
+                }
+            });
+
             $.each(use.layers, function (j, layer) {
-                $("#use" + use.id + " #layer" + layer.id).click(function () {
-                    var layer2 = self.model.unselectLayer();
-                    if (!layer2 || !(layer2.id === layer.id && layer2.use_class_id === layer.use_class_id)) {
+                var auth = self.model.auth && layer.owner === self.model.user;
+                if (!auth) {
+                    return true;
+                }
+                var options2 = [];
+                options2.push({cmd: 'edit', label: 'Edit...'});
+                if (use.id > 2) {
+                    options2.push({cmd: 'delete', label: 'Delete...'});
+                    options2.push([{label: 'Rule'},
+                                   {cmd: 'add_rule', label: 'Add...'},
+                                   {cmd: 'delete_rule', label: 'Delete...'}]);
+                }
+                makeMenu({
+                    element: $(selector + " #layer" + layer.id),
+                    menu: $(selector + " #menu" + layer.id),
+                    options: options2,
+                    prelude: function () {
+                        self.model.unselectLayer();
                         self.model.selectLayer({use: use.id, layer: layer.id});
+                    },
+                    select: function (cmd) {
+                        self.layerCommand.notify({cmd: cmd, use: use, layer: layer});
                     }
                 });
             });
         });
+    },
+    buildLayers: function () {
+        // an openable list of use items
+        var self = this;
+        self.elements.layers.html('');
+        self.buildLayerTree();
         self.selectLayer(); // restore selected layer
+        
+        // attach controllers:
         $.each(self.model.plan.uses, function (i, use) {
             var selector = self.id.uses + " #use" + use.id,
                 useButton = $(selector + ' button.use');
+            
             // edit use
             $(selector + ' button.edit').click(function () {
                 self.editUse.notify(use);
             });
+            
             // open and close a use item
             useButton.on('click', null, {use: use}, function (event) {
                 $(self.id.uses + " #use" + event.data.use.id + ' div.use').toggle();
@@ -269,8 +289,16 @@ MSPView.prototype = {
                 }
             });
             $(selector + ' div.use').hide();
+            
             // show/hide layer and set its transparency
             $.each(use.layers, function (j, layer) {
+                // select and unselect a layer
+                $("#use" + use.id + " #layer" + layer.id).click(function () {
+                    var layer2 = self.model.unselectLayer();
+                    if (!layer2 || !(layer2.id === layer.id && layer2.use_class_id === layer.use_class_id)) {
+                        self.model.selectLayer({use: use.id, layer: layer.id});
+                    }
+                });
                 // show/hide layer
                 var cb = $(selector + ' input.visible' + layer.id),
                     slider = $(selector + ' input.opacity' + layer.id);
@@ -297,14 +325,16 @@ MSPView.prototype = {
                 });
                 slider.val(String(layer.getOpacity()));
             });
+
+            // restore openness of use
             if (use.hasOwnProperty('open') && use.open) {
-                // restore openness of use
                 use.open = true;
                 useButton.trigger('click');  // triggers useButton.on('click'... above
             } else {
                 use.open = false;
             }
         });
+        
         /*jslint unparam: false*/
         self.cleanUp();
     },
@@ -327,10 +357,13 @@ MSPView.prototype = {
             element('img', {src: url + '/legend?layer=' + layer.getName() + style + cache_breaker}, '')
         );
         if (layer.use_class_id === 0) { // Data
-            self.elements.rule_header.html('Information about dataset:');
+            self.elements.rule_header.html('This is a dataset.');
+            self.elements.rule_info.html(layer.provenance);
+        } else if (layer.use_class_id === 1) { // Ecosystem
+            self.elements.rule_header.html('This is an ecosystem component.');
             self.elements.rule_info.html(layer.provenance);
         } else {
-            self.elements.rule_header.html('Rules for layer:');
+            self.elements.rule_header.html('This is a layer made by rules and defined by ' + layer.owner + '.');
             if (layer.rule_class === 'exclusive') {
                 self.elements.rule_info.html('Default is YES, rules subtract.');
             } else if (layer.rule_class === 'inclusive') {

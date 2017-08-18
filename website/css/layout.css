@@ -150,3 +150,21 @@ input.opacity {
     font-family: "Times New Roman", Times, serif;
     font-size: 1em;
 }
+
+/* 
+tree-item and context-menu should be the same, 
+except tree-item is for non-auth and context-menu is for auth
+*/
+
+.tree-item {
+    display: inline;
+}
+
+.context-menu {
+    display: inline;
+}
+
+.context-menu:hover {
+    border-style: dotted;
+    display: inline;
+}

@@ -18,10 +18,13 @@ sub layers {
             push @rules, $rule->read;
         }        
         push @layers, {
-            name => $component->name,
             id => $component->id,
+            name => $component->name,
             use_id => 1, # reserved use id
             use_class_id => 1, # reserved use class id
+            owner => 'system',
+            color_scale => $component->style->color_scale->name,
+            rule_class => $component->distribution->rule_class->name,
             rules => \@rules};
     }
     return @layers if wantarray;

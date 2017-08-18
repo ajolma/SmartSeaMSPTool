@@ -29,16 +29,16 @@ sub from_app {
         my %args = (id => $id, app => $app);
         unless ($object) {
             # first in path, tag is table name
-            croak "The first thing in the path must be a class name." unless $tag;
+            croak 400 unless $tag;
             $args{class} = $tag;
             $args{source} = $app->{sources}{$tag};
-            croak "No such class: '$args{class}'." unless $args{source};
+            croak 404 unless $args{source};
             $args{name} = $args{source};
             
         } else {
             # object is parent, tag is relationship name
             $args{relation} = $object->relationship_hash->{$tag};
-            croak "No such relation: '$object->{class}.$tag'." unless $args{relation};
+            croak 404 unless $args{relation};
             $args{relation}{key} = 'id' unless $args{relation}{key};
             $args{relation}{related} = $tag;
             $args{source} = $args{relation}{source};
@@ -55,7 +55,7 @@ sub from_app {
         my $prev;
         for my $obj (@objects) {
             if ($prev) {
-                croak "Error: parent object does not exist." unless $prev->{object};
+                croak 400 unless $prev->{object};
                 $obj->{prev} = $prev;
                 $prev->{next} = $obj;
                 weaken($obj->{prev});

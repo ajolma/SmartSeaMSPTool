@@ -97,6 +97,10 @@ sub http_status {
             [%header,
              'Content-Length' => 9], 
             ['Forbidden']] if $status == 403;
+    return [404, 
+            [%header,
+             'Content-Length' => 9], 
+            ['Not Found']] if $status == 404;
     return [500, 
             [%header,
              'Content-Length' => 21], 

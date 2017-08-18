@@ -275,7 +275,7 @@ sub read {
         classes => $self->style ? $self->style->classes : undef,
         data_type => $data_type ? $data_type->name : undef,
         semantics => $self->semantics_hash,
-        owner => 'ajolma'
+        owner => 'system'
         );
     return \%dataset;
 }

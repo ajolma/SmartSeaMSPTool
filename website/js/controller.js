@@ -41,67 +41,7 @@ function MSPController(model, view) {
     self.editor_id = '#editor';
     self.editor = $(self.editor_id);
     self.klasses = {};
-
-    self.use_classes = null;
-    self.layer_classes = null;
-
-    /*jslint unparam: true*/
-    self.view.planCommand.attach(function (sender, args) {
-        if (args.cmd === 'add') {
-            self.addPlan();
-        } else if (args.cmd === 'edit') {
-            self.editPlan(self.model.plan);
-        } else if (args.cmd === 'delete') {
-            self.deletePlan(self.model.plan);
-        } else if (args.cmd === 'add_use') {
-            self.addUse(self.model.plan);
-        }
-    });
-
-    self.view.useCommand.attach(function (sender, args) {
-        if (args.cmd === 'edit') {
-            if (args.use.id === 0) { // "Data"
-                self.editDatasetList(self.model.plan);
-            } else {
-                self.editUse(args.use);
-            }
-        } else if (args.cmd === 'delete') {
-            self.deleteUse(self.model.plan, args.use);
-        } else if (args.cmd === 'add_layer') {
-            self.editLayer(self.model.plan, args.use);
-        }
-    });
-
-    self.view.layerCommand.attach(function (sender, args) {
-        if (args.cmd === 'edit') {
-            self.editLayer(self.model.plan, args.use, args.layer);
-        } else if (args.cmd === 'delete') {
-            self.deleteLayer(args.use, args.layer);
-        } else if (args.cmd === 'add_rule') {
-            self.editRule(self.model.plan, args.use, args.layer);
-        } else if (args.cmd === 'delete_rule') {
-            self.deleteRule(self.model.plan, args.use, args.layer);
-        }
-    });
-
-    self.view.ruleSelected.attach(function (sender, args) {
-        var rule = self.model.selectRule(args.id);
-        self.editRule(self.model.plan, null, self.model.layer, rule);
-    });
-
-    self.model.newPlans.attach(function (sender, args) {
-        self.editor.dialog('close');
-    });
-
-    self.model.error.attach(function (sender, args) {
-        self.error(args.msg);
-    });
-
-    self.view.error.attach(function (sender, args) {
-        self.error(args.msg);
-    });
-    /*jslint unparam: false*/
-
+  
     self.msg.dialog({
         autoOpen: false,
         height: 400,
@@ -133,6 +73,102 @@ function MSPController(model, view) {
 }
 
 MSPController.prototype = {
+    getKlasses: function () {
+        var self = this,
+            classes = {
+                use_class: '',
+                layer_class: '',
+                rule_class: '',
+                activity: '',
+                color_scale: '',
+                op: '',
+            },
+            calls = [],
+            msg = '';
+        $.each(classes, function (klass, value) {
+            calls.push(
+                $.ajax({
+                    headers: {
+                        Accept: 'application/json'
+                    },
+                    url: self.server + klass,
+                    success: function (result) {
+                        if (result.isOk === false) {
+                            msg += result.message + "\n";
+                        } else if (result.error) {
+                            msg += result.error + "\n";
+                        } else {
+                            self.klasses[klass] = result;
+                        }
+                    },
+                    fail: function (xhr, textStatus) {
+                        msg += xhr.responseText || textStatus;
+                    }
+                })
+            );
+        });    
+        $.when.apply($, calls).then(function() {
+            
+            /*jslint unparam: true*/
+            self.view.planCommand.attach(function (sender, args) {
+                if (args.cmd === 'add') {
+                    self.addPlan();
+                } else if (args.cmd === 'edit') {
+                    self.editPlan(self.model.plan);
+                } else if (args.cmd === 'delete') {
+                    self.deletePlan(self.model.plan);
+                } else if (args.cmd === 'add_use') {
+                    self.addUse(self.model.plan);
+                }
+            });
+            
+            self.view.useCommand.attach(function (sender, args) {
+                if (args.cmd === 'edit') {
+                    if (args.use.id === 0) { // "Data"
+                        self.editDatasetList(self.model.plan);
+                    } else {
+                        self.editUse(args.use);
+                    }
+                } else if (args.cmd === 'delete') {
+                    self.deleteUse(self.model.plan, args.use);
+                } else if (args.cmd === 'add_layer') {
+                    self.editLayer(self.model.plan, args.use);
+                }
+            });
+            
+            self.view.layerCommand.attach(function (sender, args) {
+                if (args.cmd === 'edit') {
+                    self.editLayer(self.model.plan, args.use, args.layer);
+                } else if (args.cmd === 'delete') {
+                    self.deleteLayer(args.use, args.layer);
+                } else if (args.cmd === 'add_rule') {
+                    self.editRule(self.model.plan, args.use, args.layer);
+                } else if (args.cmd === 'delete_rule') {
+                    self.deleteRule(self.model.plan, args.use, args.layer);
+                }
+            });
+            
+            self.view.ruleSelected.attach(function (sender, args) {
+                var rule = self.model.selectRule(args.id);
+                self.editRule(self.model.plan, null, self.model.layer, rule);
+            });
+            
+            self.model.newPlans.attach(function (sender, args) {
+                self.editor.dialog('close');
+            });
+            
+            self.model.error.attach(function (sender, args) {
+                self.error(args.msg);
+            });
+            
+            self.view.error.attach(function (sender, args) {
+                self.error(args.msg);
+            });
+            /*jslint unparam: false*/
+        }, function(a) {
+            self.error('Calling SmartSea MSP server failed: ' + a.statusText)
+        });
+    },
     setEditorOkCancel: function () {
         var self = this;
         self.editor.dialog('option', 'buttons', {
@@ -184,31 +220,27 @@ MSPController.prototype = {
             self.error('Calling SmartSea MSP server failed. The error message is: ' + msg);
         });
     },
-    simpleObjects: function (klass, query) {
-        var self = this;
-        if (!query) {
-            query = '';
-        }
-        if (!self.klasses[klass]) {
-            $.ajax({
-                headers: {
-                    Accept: 'application/json'
-                },
-                url: self.server + klass + query,
-                success: function (result) {
-                    if (result.isOk === false) {
-                        self.error(result.message);
-                    }
-                    self.klasses[klass] = result;
-                },
-                fail: function (xhr, textStatus) {
-                    var msg = xhr.responseText || textStatus;
-                    self.error('Calling SmartSea MSP server failed. The error message is: ' + msg);
-                },
-                async: false
-            });
-        }
-        return self.klasses[klass];
+    getData: function (query, atSuccess) {
+        var self = this,
+            msg = 'Calling SmartSea MSP server failed: ';
+        $.ajax({
+            headers: {
+                Accept: 'application/json'
+            },
+            url: self.server + query,
+            success: function (result) {
+                if (result.isOk === false) {
+                    self.error(msg + result.message);
+                } else if (result.error) {
+                    self.error(msg + result.error);
+                } else {
+                    atSuccess(result);
+                }
+            },
+            fail: function (xhr, textStatus) {
+                self.error(msg + xhr.responseText || textStatus);
+            }
+        });
     },
     getNetworks: function () {
         var self = this;
@@ -260,6 +292,7 @@ MSPController.prototype = {
                 });
                 /*jslint unparam: false*/
                 self.model.setPlans(plans, ecosystem, datasets);
+                self.getKlasses();
             }
         });
     },
@@ -355,7 +388,6 @@ MSPController.prototype = {
     addUse: function (plan) {
         var self = this,
             id = 'use-id',
-            classes = self.simpleObjects('use_class'),
             list = '',
             html;
         self.editor.dialog('option', 'title', 'New use');
@@ -363,7 +395,7 @@ MSPController.prototype = {
         self.setEditorOkCancel();
 
         /*jslint unparam: true*/
-        $.each(classes, function (i, klass) {
+        $.each(self.klasses['use_class'], function (i, klass) {
             if (!self.model.hasUse(klass.id)) {
                 list += element('option', {value: klass.id}, klass.name);
             }
@@ -400,34 +432,36 @@ MSPController.prototype = {
         self.editor.dialog('open');
     },
     editUse: function (use) {
-        var self = this,
-            activities = {},
-            html;
-        self.editor.dialog('option', 'title', use.name);
-        self.editor.dialog('option', 'height', 400);
-        self.setEditorOkCancel();
-
-        /*jslint unparam: true*/
-        $.each(self.simpleObjects('use_class', ':' + use.class_id + '/activities'), function (i, item) {
-            activities[item.id] = item;
-        });
-        /*jslint unparam: false*/
-        activities = new Widget({
-            container_id: self.editor_id,
-            id: 'activities_list',
-            type: 'checkbox-list',
-            list: self.simpleObjects('activity'),
-            selected: activities,
-            pretext: ''
-        });
-        html = element('p', {}, 'This is now for your information only.')
-            + element('p', {}, activities.content());
-
-        self.editor.html(html);
-        self.ok = function () {
-            return true;
-        };
-        self.editor.dialog('open');
+        var self = this;
+        self.getData('use_class:' + use.class_id + '/activities', function (activities) {
+            var html;
+            
+            self.editor.dialog('option', 'title', use.name);
+            self.editor.dialog('option', 'height', 400);
+            self.setEditorOkCancel();
+            
+            /*jslint unparam: true*/
+            $.each(activities, function (i, item) {
+                activities[item.id] = item;
+            });
+            /*jslint unparam: false*/
+            activities = new Widget({
+                container_id: self.editor_id,
+                id: 'activities_list',
+                type: 'checkbox-list',
+                list: self.klasses['activity'],
+                selected: activities,
+                pretext: ''
+            });
+            html = element('p', {}, "Activities in this use. Sorry, not editable.")
+                + element('p', {}, activities.content());
+            
+            self.editor.html(html);
+            self.ok = function () {
+                return true;
+            };
+            self.editor.dialog('open');
+        })
     },
     editDatasetList: function (plan) {
         var self = this,
@@ -500,6 +534,7 @@ MSPController.prototype = {
         self.editor.dialog('open');
     },
     editLayer: function (plan, use, layer) {
+        // add new if no layer
         var self = this,
             class_list,
             rule_class_list,
@@ -516,49 +551,11 @@ MSPController.prototype = {
         self.setEditorOkCancel();
 
         /*jslint unparam: true*/
-        class_list = self.simpleObjects('layer_class');
-        if (!class_list) {
-            return;
-        }
-        class_list = new Widget({
-            container_id: self.editor_id,
-            id: 'layer-class',
-            type: 'select',
-            list: class_list,
-            selected: (layer ? layer.class_id : null),
-            includeItem: function (i, item) {
-                if (layer && layer.class_id === item.id) {
-                    return true;
-                }
-                if (item.id === 5) {
-                    return false; // Impact layer
-                }
-                var retval = true;
-                $.each(use.layers, function (j, layer2) {
-                    if (layer2.class_id === item.id) { // used already
-                        retval = false;
-                        return false;
-                    }
-                });
-                return retval;
-            },
-            pretext: 'The layer class: '
-        });
+        class_list = self.klasses['layer_class'];
         /*jslint unparam: false*/
 
-        rule_class_list = self.simpleObjects('rule_class');
-        if (!rule_class_list) {
-            return;
-        }
-        rule_class_list = new Widget({
-            container_id: self.editor_id,
-            id: 'layer-rule-class',
-            type: 'select',
-            list: rule_class_list,
-            selected: (layer ? layer.rule_class : null),
-            pretext: 'Select the rule type for the new layer: '
-        });
-
+        rule_class_list = self.klasses['rule_class'];
+        
         rule_class_extra = new Widget({
             container_id: self.editor_id,
             id: 'rule-class-extra',
@@ -569,137 +566,195 @@ MSPController.prototype = {
             container_id: self.editor_id,
             id: 'layer-color',
             type: 'select',
-            list: self.simpleObjects('color_scale'),
+            list: self.klasses['color_scale'],
             selected: (layer ? layer.color_scale : null),
             pretext: 'Layer color scheme: '
         });
 
         html = '';
+        if (layer) {
+            html += element('p', {}, 'This layer attempts to depict ' + class_list[layer.class_id].name + '.');
+        } else {
+            class_list = new Widget({
+                container_id: self.editor_id,
+                id: 'layer-class',
+                type: 'select',
+                list: class_list,
+                selected: (layer ? layer.class_id : null),
+                includeItem: function (i, item) {
+                    if (layer && layer.class_id === item.id) {
+                        return true;
+                    }
+                    if (item.id === 5) {
+                        return false; // Impact layer
+                    }
+                    var retval = true;
+                    $.each(use.layers, function (j, layer2) {
+                        if (layer2.class_id === item.id) { // used already
+                            retval = false;
+                            return false;
+                        }
+                    });
+                    return retval;
+                },
+                pretext: 'The layer class: '
+            });
+            html += element('p', {}, class_list.content());
+        }
+        html += element('p', {}, 'This layer is computed by rules.');
+        if (layer) {
+            html += element('p', {}, 'Rule system is ' + layer.rule_class + '.');
+        } else {
+            rule_class_list = new Widget({
+                container_id: self.editor_id,
+                id: 'layer-rule-class',
+                type: 'select',
+                list: rule_class_list,
+                selected: (layer ? layer.rule_class : null),
+                pretext: 'Select the rule system for the new layer: '
+            });
+            html += element('p', {}, rule_class_list.content());
+            html += element('p', {}, rule_class_extra.content());
+        }
         if (use.id === 0) {
             html += element('p', {}, 'The color setting is temporary for datasets.');
         }
-        html += element('p', {}, class_list.content());
-        html += element('p', {}, 'This layer is computed by rules.');
-        html += element('p', {}, rule_class_list.content());
-        html += element('p', {}, rule_class_extra.content());
         html += element('p', {}, color_list.content());
         self.editor.html(html);
 
-        rule_class_list.changed((function changed() {
-            var klass = rule_class_list.getSelected();
-            if (klass && klass.name === 'Bayesian network') {
-
-                self.getNetworks();
-                network = new Widget({
-                    container_id: self.editor_id,
-                    id: 'layer-network',
-                    type: 'select',
-                    list: self.networks,
-                    selected: self.networks[0],
-                    pretext: 'Select the Bayesian network: '
-                });
-                rule_class_extra.html(element('p', {}, network.content()));
-
-                network.changed((function changed() {
-                    var net = network.getSelected(); // net is not null since we have set selected above
-                    node = new Widget({
+        if (!layer) {
+            rule_class_list.changed((function changed() {
+                var klass = rule_class_list.getSelected();
+                if (klass && klass.name === 'Bayesian network') {
+                    
+                    self.getNetworks();
+                    network = new Widget({
                         container_id: self.editor_id,
-                        id: 'layer-node',
+                        id: 'layer-network',
                         type: 'select',
-                        list: net.nodes,
-                        selected: net.nodes[0],
-                        pretext: 'Select the node to use for this layer: '
+                        list: self.networks,
+                        selected: self.networks[0],
+                        pretext: 'Select the Bayesian network: '
                     });
-                    rule_class_extra.html(element('p', {}, network.content()) +
-                                          element('p', {}, node.content()));
-
-                    node.changed((function changed() {
-                        var nod = node.getSelected(); // nod is not null since we have set selected above
-                        var desc = '';
-                        if (nod.attributes) {
-                            desc = nod.attributes.HR_Desc;
-                        }
-                        state = new Widget({
+                    rule_class_extra.html(element('p', {}, network.content()));
+                    
+                    network.changed((function changed() {
+                        var net = network.getSelected(); // net is not null since we have set selected above
+                        node = new Widget({
                             container_id: self.editor_id,
-                            id: 'layer-state',
+                            id: 'layer-node',
                             type: 'select',
-                            list: nod.values,
-                            selected: nod.values[0],
-                            pretext: 'Select the state for the layer value: '
+                            list: net.nodes,
+                            selected: net.nodes[0],
+                            pretext: 'Select the node to use for this layer: '
                         });
                         rule_class_extra.html(element('p', {}, network.content()) +
-                                              element('p', {}, node.content()) +
-                                              element('p', {}, 'Description: ' + desc) +
-                                              element('p', {}, state.content()));
+                                              element('p', {}, node.content()));
+                        
+                        node.changed((function changed() {
+                            var nod = node.getSelected(); // nod is not null since we have set selected above
+                            var desc = '';
+                            if (nod.attributes) {
+                                desc = nod.attributes.HR_Desc;
+                            }
+                            state = new Widget({
+                                container_id: self.editor_id,
+                                id: 'layer-state',
+                                type: 'select',
+                                list: nod.values,
+                                selected: nod.values[0],
+                                pretext: 'Select the state for the layer value: '
+                            });
+                            rule_class_extra.html(element('p', {}, network.content()) +
+                                                  element('p', {}, node.content()) +
+                                                  element('p', {}, 'Description: ' + desc) +
+                                                  element('p', {}, state.content()));
+                            return changed;
+                        }()));
+                        
                         return changed;
                     }()));
-
-                    return changed;
-                }()));
-
-            } else {
-                rule_class_extra.html('');
-            }
-            return changed;
-        }()));
-
-        self.ok = function () {
-            var klass = class_list.getSelected(),
-                rule_class = rule_class_list.getSelected(),
-                color = color_list.getSelected(),
-                payload = {
-                    layer_class: klass.id,
-                    color_scale: color.id,
-                    rule_class: rule_class.id
-                },
-                url;
-            if (rule_class.name === "Bayesian network") {
-                payload.network_file = network.getSelected().id;
-                payload.output_node = node.getSelected().id;
-                payload.output_state = state.getValue();
-            }
-            if (use.id === 0) {
-                // layer is dataset
-                layer.color_scale = color.name;
-                layer.refresh();
-                self.model.selectLayer({use: use.id, layer: layer.id});
-            } else {
-                url = self.server + 'plan:' + plan.id + '/uses:' + use.id + '/';
-                if (layer) {
-                    url += 'layers:' + layer.id + '?request=update';
+                    
                 } else {
-                    url += 'layers?request=create';
+                    rule_class_extra.html('');
                 }
+                return changed;
+            }()));
+        }
+
+        if (layer) {
+            // edit
+            self.ok = function () {
+                var color = color_list.getSelected(),
+                    payload = {
+                        color_scale: color.id
+                    },
+                    url;
+                if (rule_class.name === "Bayesian network") {
+                    payload.network_file = network.getSelected().id;
+                    payload.output_node = node.getSelected().id;
+                    payload.output_state = state.getValue();
+                }
+                if (use.id === 0) {
+                    // layer is dataset
+                    layer.color_scale = color.name;
+                    layer.refresh();
+                    self.model.selectLayer({use: use.id, layer: layer.id});
+                } else {
+                    url = self.server + 'plan:' + plan.id + '/uses:' + use.id + '/layers:' + layer.id + '?request=update';
+                    self.post({
+                        url: url,
+                        payload: payload,
+                        atSuccess: function (data) {
+                            layer.refresh();
+                            self.model.selectLayer({use: use.id, layer: layer.id});
+                        }
+                    });
+                }
+                return true;
+            };
+        } else {
+            // new
+            self.ok = function () {
+                var klass = class_list.getSelected(),
+                    rule_class = rule_class_list.getSelected(),
+                    color = color_list.getSelected(),
+                    payload = {
+                        layer_class: klass.id,
+                        color_scale: color.id,
+                        rule_class: rule_class.id
+                    },
+                    url;
+                if (rule_class.name === "Bayesian network") {
+                    payload.network_file = network.getSelected().id;
+                    payload.output_node = node.getSelected().id;
+                    payload.output_state = state.getValue();
+                }
+                url = self.server + 'plan:' + plan.id + '/uses:' + use.id + '/' + 'layers?request=create';
                 self.post({
                     url: url,
                     payload: payload,
                     atSuccess: function (data) {
-                        var layer2 = null;
-                        if (layer) {
-                            layer.refresh();
-                            self.model.selectLayer({use: use.id, layer: layer.id});
-                        } else {
-                            layer2 = new MSPLayer({
-                                model: self.model,
-                                server: 'http://' + self.model.server + '/WMTS',
-                                map: self.model.map,
-                                projection: self.model.proj,
-                                id: data.id.value,
-                                class_id: data.layer_class.value,
-                                owner: data.owner.value,
-                                rules: [],
-                                use_class_id: use.class_id,
-                                color_scale: color.name,
-                                name: klass.name,
-                                rule_class: rule_class.name
-                            });
-                            self.model.addLayer(use, layer2);
-                        }
+                        layer = new MSPLayer({
+                            model: self.model,
+                            server: 'http://' + self.model.server + '/WMTS',
+                            map: self.model.map,
+                            projection: self.model.proj,
+                            id: data.id.value,
+                            class_id: data.layer_class.value,
+                            owner: data.owner.value,
+                            rules: [],
+                            use_class_id: use.class_id,
+                            color_scale: color.name,
+                            name: klass.name,
+                            rule_class: rule_class.name
+                        });
+                        self.model.addLayer(use, layer);
                     }
                 });
-            }
-            return true;
-        };
+                return true;
+            };
+        }
         self.editor.dialog('open');
     },
     deleteLayer: function (use, layer) {
@@ -777,7 +832,7 @@ MSPController.prototype = {
             container_id: self.editor_id,
             id: 'rule-op',
             type: 'select',
-            list: self.simpleObjects('op'),
+            list: self.klasses['op'],
             pretext: 'Define the operator and the threshold:<br/>'
         });
         self.editor.html(html);

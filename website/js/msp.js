@@ -112,8 +112,8 @@ MSP.prototype = {
             plan.data = {};
         }
         self.plans.unshift(plan);
-        self.changePlan(plan.id);
         self.newPlans.notify();
+        self.changePlan(plan.id);
         self.initSite();
     },
     editPlan: function (plan) {
@@ -123,8 +123,8 @@ MSP.prototype = {
             plan2.owner = plan.owner;
             plan2.name = plan.name;
         }
-        self.changePlan(plan2.id);
         self.newPlans.notify();
+        self.changePlan(plan2.id);
         self.initSite();
     },
     setPlanData: function (data) {

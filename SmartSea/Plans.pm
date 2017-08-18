@@ -22,7 +22,7 @@ sub smart {
         id => 0,
         uses => [{
             name => 'Data',
-            owner => 'ajolma',
+            owner => 'system',
             id => 0,
             plan => 0,
             class_id => 0,
@@ -34,7 +34,7 @@ sub smart {
         id => 1,
         uses => [{
             name => 'Ecosystem',
-            owner => 'ajolma',
+            owner => 'system',
             id => 1,
             plan => 1,
             class_id => 1,
