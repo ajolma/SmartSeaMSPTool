@@ -454,7 +454,7 @@ MSPController.prototype = {
                 pretext: ''
             });
             html = element('p', {}, "Activities in this use. Sorry, not editable.")
-                + element('p', {}, activities.content());
+                + element('p', {}, activities.html());
             
             self.editor.html(html);
             self.ok = function () {
@@ -491,7 +491,7 @@ MSPController.prototype = {
             pretext: 'Select the extra datasets for this plan: '
         });
 
-        html = element('p', {}, datasets.content());
+        html = element('p', {}, datasets.html());
         self.editor.html(html);
         self.ok = function () {
             var selected = datasets.getSelectedIds(),
@@ -599,7 +599,7 @@ MSPController.prototype = {
                 },
                 pretext: 'The layer class: '
             });
-            html += element('p', {}, class_list.content());
+            html += element('p', {}, class_list.html());
         }
         html += element('p', {}, 'This layer is computed by rules.');
         if (layer) {
@@ -613,13 +613,13 @@ MSPController.prototype = {
                 selected: (layer ? layer.rule_class : null),
                 pretext: 'Select the rule system for the new layer: '
             });
-            html += element('p', {}, rule_class_list.content());
-            html += element('p', {}, rule_class_extra.content());
+            html += element('p', {}, rule_class_list.html());
+            html += element('p', {}, rule_class_extra.html());
         }
         if (use.id === 0) {
             html += element('p', {}, 'The color setting is temporary for datasets.');
         }
-        html += element('p', {}, color_list.content());
+        html += element('p', {}, color_list.html());
         self.editor.html(html);
 
         if (!layer) {
@@ -636,7 +636,7 @@ MSPController.prototype = {
                         selected: self.networks[0],
                         pretext: 'Select the Bayesian network: '
                     });
-                    rule_class_extra.html(element('p', {}, network.content()));
+                    rule_class_extra.html(element('p', {}, network.html()));
                     
                     network.changed((function changed() {
                         var net = network.getSelected(); // net is not null since we have set selected above
@@ -648,8 +648,8 @@ MSPController.prototype = {
                             selected: net.nodes[0],
                             pretext: 'Select the node to use for this layer: '
                         });
-                        rule_class_extra.html(element('p', {}, network.content()) +
-                                              element('p', {}, node.content()));
+                        rule_class_extra.html(element('p', {}, network.html()) +
+                                              element('p', {}, node.html()));
                         
                         node.changed((function changed() {
                             var nod = node.getSelected(); // nod is not null since we have set selected above
@@ -665,10 +665,10 @@ MSPController.prototype = {
                                 selected: nod.values[0],
                                 pretext: 'Select the state for the layer value: '
                             });
-                            rule_class_extra.html(element('p', {}, network.content()) +
-                                                  element('p', {}, node.content()) +
+                            rule_class_extra.html(element('p', {}, network.html()) +
+                                                  element('p', {}, node.html()) +
                                                   element('p', {}, 'Description: ' + desc) +
-                                                  element('p', {}, state.content()));
+                                                  element('p', {}, state.html()));
                             return changed;
                         }()));
                         
@@ -775,11 +775,11 @@ MSPController.prototype = {
         };
         self.editor.dialog('open');
     },
-    datasetValueWidget: function(dataset, rule, elem, pre) {
+    datasetValueWidget: function(id, dataset, rule, elem, pre, newValue) {
         var self = this,
             args = {
                 container_id: self.editor_id,
-                id: 'threshold'
+                id: id
             },
             attr,
             widget = null;
@@ -797,6 +797,8 @@ MSPController.prototype = {
                 args.type = 'spinner';
             } else if (dataset.data_type === 'real') {
                 args.type = 'slider';
+                args.slider_value_id = id + '-value';
+                args.newValue = newValue;
             }
             if (rule) {
                 attr = rule.getMinMax();
@@ -809,7 +811,7 @@ MSPController.prototype = {
                 args.value = dataset.min_value;
             }
             widget = new Widget(args);
-            elem.html(pre + widget.content());
+            elem.html(pre + widget.html());
             widget.prepare();
         }
         return widget;
@@ -884,18 +886,18 @@ MSPController.prototype = {
             }
             html += element('p', {}, 'Rule is based on ' + dataset.name);
         } else {
-            html += element('p', {}, dataset.content());
+            html += element('p', {}, dataset.html());
         }
         html += element('p', {id: 'descr'}, '');
-        html += value.content();
+        html += value.html();
 
         self.editor.html(html);
 
         if (rule) {
-            threshold = self.datasetValueWidget(dataset, rule, value, op.content() + '&nbsp;');
+            threshold = self.datasetValueWidget('thrs', dataset, rule, value, op.html() + '&nbsp;');
         } else {
             dataset.changed((function changed() {
-                threshold = self.datasetValueWidget(dataset.getSelected(), rule, value, op.content() + '&nbsp;');
+                threshold = self.datasetValueWidget('thrs', dataset.getSelected(), rule, value, op.html() + '&nbsp;');
                 return changed;
             }()));
         }
@@ -951,54 +953,96 @@ MSPController.prototype = {
         // final rule value is then y*weight
         var self = this,
             html = '',
+            form = new Widget({
+                container_id: self.editor_id,
+                id: 'form',
+                type: 'checkbox',
+                label: 'Turn the function upside down (¯¯\\__/¯¯)'
+            }),
             x0 = new Widget({
                 container_id: self.editor_id,
-                id: 'x0',
+                id: 'x0p',
                 type: 'para'
             }),
             x1 = new Widget({
                 container_id: self.editor_id,
-                id: 'x1',
+                id: 'x1p',
                 type: 'para'
             }),
             x2 = new Widget({
                 container_id: self.editor_id,
-                id: 'x2',
+                id: 'x2p',
                 type: 'para'
             }),
             x3 = new Widget({
                 container_id: self.editor_id,
-                id: 'x3',
+                id: 'x3p',
                 type: 'para'
+            }),
+            weight = new Widget({
+                container_id: self.editor_id,
+                id: 'weight',
+                type: 'text',
+                pretext: 'Weight: '
             }),
             x0Widget,
             x1Widget,
             x2Widget,
-            x3Widget;
+            x3Widget,
+            x0v,
+            x1v,
+            x2v,
+            x3v,
+            newValue;
 
         if (rule) {
             html += element('p', {}, 'Rule is based on ' + dataset.name);
         } else {
-            html += element('p', {}, dataset.content());
+            html += element('p', {}, dataset.html());
         }
 
-        html += x0.content();
-        html += x1.content();
-        html += x2.content();
-        html += x3.content();
+        html += element('p', {id: 'descr'}, '');
+        html += form.html();
+        html += x0.html();
+        html += x1.html();
+        html += x2.html();
+        html += x3.html();
+        html += weight.html();
         self.editor.html(html);
 
+        newValue = function(value) {
+            console.log(this.id + ' ' + value);
+            x0v = x0Widget.getValue();
+            x1v = x1Widget.getValue();
+            x2v = x1Widget.getValue();
+            x3v = x1Widget.getValue();
+            if (this.id === 'x0') {
+                if (x1v < value) {
+                    x1Widget.setValue(value);
+                }
+                if (x2v < value) {
+                    x2Widget.setValue(value);
+                }
+                if (x3v < value) {
+                    x3Widget.setValue(value);
+                }
+            } else if (this.id === 'x1') {
+            } else if (this.id === 'x2') {
+            } else if (this.id === 'x3') {
+            }
+        };
+
         if (rule) {
-            x0Widget = self.datasetValueWidget(dataset, rule, x0, '');
-            x1Widget = self.datasetValueWidget(dataset, rule, x1, '');
-            x2Widget = self.datasetValueWidget(dataset, rule, x2, '');
-            x3Widget = self.datasetValueWidget(dataset, rule, x3, '');
+            x0Widget = self.datasetValueWidget('x0', dataset, rule, x0, '', newValue);
+            x1Widget = self.datasetValueWidget('x1', dataset, rule, x1, '', newValue);
+            x2Widget = self.datasetValueWidget('x2', dataset, rule, x2, '', newValue);
+            x3Widget = self.datasetValueWidget('x3', dataset, rule, x3, '', newValue);
         } else {
             dataset.changed((function changed() {
-                x0Widget = self.datasetValueWidget(dataset.getSelected(), rule, x0, '');
-                x1Widget = self.datasetValueWidget(dataset.getSelected(), rule, x1, '');
-                x2Widget = self.datasetValueWidget(dataset.getSelected(), rule, x2, '');
-                x3Widget = self.datasetValueWidget(dataset.getSelected(), rule, x3, '');
+                x0Widget = self.datasetValueWidget('x0', dataset.getSelected(), rule, x0, '', newValue);
+                x1Widget = self.datasetValueWidget('x1', dataset.getSelected(), rule, x1, '', newValue);
+                x2Widget = self.datasetValueWidget('x2', dataset.getSelected(), rule, x2, '', newValue);
+                x3Widget = self.datasetValueWidget('x3', dataset.getSelected(), rule, x3, '', newValue);
                 return changed;
             }()));
         }
@@ -1073,7 +1117,7 @@ MSPController.prototype = {
             nodes = [],
             node,
             offset,
-            html;
+            html = '';
 
         // rule is a node in a Bayesian network
         // for now we assume it is a (hard) evidence node, i.e.,
@@ -1139,34 +1183,42 @@ MSPController.prototype = {
             pretext: 'Offset (to match states): '
         });
 
-        html = element('p', {}, dataset.content()) +
-            element('p', {id: 'dataset-states'}, '') +
+        if (rule) {
+            html += element('p', {}, 'Rule is based on ' + dataset.name);
+        } else {
+            html += element('p', {}, dataset.html());
+        }
+
+        html = element('p', {id: 'dataset-states'}, '') +
             element('p', {id: 'descr'}, '') +
-            element('p', {}, offset.content()) +
-            node.content() +
+            element('p', {}, offset.html()) +
+            node.html() +
             element('p', {id: 'node-states'}, '');
 
         self.editor.html(html);
         offset.prepare();
 
-        dataset.changed((function changed() {
-            var set = dataset.getSelected(),
-                states = set.min_value + '..' + set.max_value + '<p>',
-                j = 0;
-            $(self.editor_id + ' #descr').html(set.descr);
-            if (set.semantics) {
-                $.each(set.semantics, function (i, value) {
-                    if (j > 0) {
-                        states += ', ';
-                    }
-                    states += i + ': ' + value;
-                    j += 1;
-                });
-            }
-            states += '</p>';
-            $(self.editor_id + ' #dataset-states').html('States: ' + states);
-            return changed;
-        }()));
+        if (rule) {
+        } else {
+            dataset.changed((function changed() {
+                var set = dataset.getSelected(),
+                    states = set.min_value + '..' + set.max_value + '<p>',
+                    j = 0;
+                $(self.editor_id + ' #descr').html(set.descr);
+                if (set.semantics) {
+                    $.each(set.semantics, function (i, value) {
+                        if (j > 0) {
+                            states += ', ';
+                        }
+                        states += i + ': ' + value;
+                        j += 1;
+                    });
+                }
+                states += '</p>';
+                $(self.editor_id + ' #dataset-states').html('States: ' + states);
+                return changed;
+            }()));
+        }
 
         node.changed((function changed() {
             var n = node.getSelected(),
@@ -1251,7 +1303,7 @@ MSPController.prototype = {
             }
         });
 
-        html = element('p', {}, 'Select rules to delete:') + rules.content();
+        html = element('p', {}, 'Select rules to delete:') + rules.html();
 
         self.editor.html(html);
 

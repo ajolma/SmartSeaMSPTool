@@ -38,16 +38,22 @@ function element(tag, attrs, text) {
         }
     }
     if (text) {
-        return '<' + tag + a + '>' + text + '</' + tag + '>';
+        if (text === 'Ø') { // empty element
+            return '<' + tag + a + '>';
+        } else {
+            return '<' + tag + a + '>' + text + '</' + tag + '>';
+        }
     }
     return '<' + tag + a + '/>';
 }
 
 function Widget(args) {
     var self = this,
-        tag,
+        pretext = args.pretext || '',
         attr = {id: args.id},
-        content = '';
+        tag,
+        html = '';
+    
     self.type = args.type;
     self.container_id = args.container_id;
     self.id = args.id;
@@ -56,28 +62,30 @@ function Widget(args) {
     self.value = args.value;
     self.min = args.min;
     self.max = args.max;
-    self.pretext = args.pretext || '';
+
+    self.newValue = args.newValue;
+
     if (self.type === 'checkbox' || self.type === 'text') {
         tag = 'input';
         attr.type = self.type;
     } else if (self.type === 'select') {
         tag = 'select';
     } else if (self.type === 'checkbox-list') {
-        attr.style = 'overflow-y:scroll; max-height:350px; background-color:#c7ecfe;';
         tag = 'div';
+        attr.style = 'overflow-y:scroll; max-height:350px; background-color:#c7ecfe;';
     } else if (self.type === 'para') {
         tag = 'p';
     } else if (self.type === 'spinner') {
         tag = 'input';
     }
     if (args.content) {
-        content = args.content;
+        html = args.content;
     } else if (args.list) {
         // key => scalar, or key => object
         // 
         self.list = args.list;
         $.each(self.list, function (i, item) {
-            var tag2, attr2, name, x, sel;
+            var tag, attr2, name, x, sel;
             if (args.includeItem) {
                 if (!args.includeItem(i, item)) {
                     return true;
@@ -91,7 +99,7 @@ function Widget(args) {
                 name = item;
             }
             if (self.type === 'select') {
-                tag2 = 'option';
+                tag = 'option';
                 if (typeof item === 'object') {
                     // list contains objects, give the id of the selected in selected
                     attr2 = {value: item.id};
@@ -113,7 +121,7 @@ function Widget(args) {
                 }
                 x = '';
             } else if (self.type === 'checkbox-list') {
-                tag2 = 'input';
+                tag = 'input';
                 name = element('a', {id: 'item', item: item.id}, name);
                 attr2 = {type: 'checkbox', item: item.id};
                 if (self.selected && self.selected[item.id]) {
@@ -121,17 +129,31 @@ function Widget(args) {
                     attr2.checked = "checked";
                 }
                 x = element('br');
+            } else {
+                console.assert(true, {message: "What is this list type: " + self.type});
             }
-            content += element(tag2, attr2, name) + x;
+            html += element(tag, attr2, name) + x;
         });
     }
     if (self.type === 'slider') {
-        self.element = element('p', {}, element('div', attr));
-        self.element += element('input', {id: 'slider-value', type: 'text'}, '');
-        self.value_selector = self.container_id + ' #' + 'slider-value';
+        self.min = parseFloat(self.min);
+        self.max = parseFloat(self.max);
+        self.value = parseFloat(self.value);
+        html = element('p', {}, element('div', attr));
+        if (typeof args.slider_value_id === 'undefined') {
+            args.slider_value_id = 'slider-value';
+        }
+        html += element('input', {id: args.slider_value_id, type: 'text'}, '');
+        self.value_selector = self.container_id + ' #' + args.slider_value_id;
+    } else if (tag === 'input') {
+        html = element('input', {type: self.type, id: self.id}, 'Ø');
+        if (args.label) {
+            html += element('label', {for: self.id}, args.label);
+        }
     } else {
-        self.element = element(tag, attr, content);
+        html = element(tag, attr, html);
     }
+    self.my_html = pretext + html;
 }
 
 Widget.prototype = {
@@ -147,17 +169,23 @@ Widget.prototype = {
                 .spinner('value', self.value);
         } else if (self.type === 'slider') {
             slider = $(self.selector).slider({
-                min: parseFloat(self.min),
-                max: parseFloat(self.max),
+                min: self.min,
+                max: self.max,
                 step: 0.1,
-                value: parseFloat(self.value),
+                value: self.value,
                 change: function () {
                     self.value = slider.slider('value');
                     $(self.value_selector).val(self.value);
+                    if (self.newValue) {
+                        self.newValue(self.value);
+                    }
                 },
                 slide: function () {
                     self.value = slider.slider('value');
                     $(self.value_selector).val(self.value);
+                    if (self.newValue) {
+                        self.newValue(self.value);
+                    }
                 }
             });
             $(self.value_selector).val(self.value);
@@ -167,9 +195,13 @@ Widget.prototype = {
             });
         }
     },
-    content: function () {
+    html: function (html) {
         var self = this;
-        return self.pretext + self.element;
+        if (html) {
+            $(self.selector).html(html);
+        } else {
+            return self.my_html;
+        }
     },
     checked: function () {
         var self = this;
@@ -190,6 +222,18 @@ Widget.prototype = {
         });
         /*jslint unparam: false*/
         return retval;
+    },
+    setValue: function (value) {
+        var self = this;
+        if (self.type === 'slider') {
+            self.value = parseFloat(value);
+            if (self.value < self.min) {
+                self.value = self.min
+            } else if (self.value > self.max) {
+                self.value = self.max
+            }
+            $(self.selector).slider('value', self.value);
+        }
     },
     getValue: function () {
         var self = this,
@@ -223,11 +267,7 @@ Widget.prototype = {
     changed: function (fct) {
         var self = this;
         $(self.selector).change(fct);
-    },
-    html: function (html) {
-        var self = this;
-        $(self.selector).html(html);
-    },
+    }
 };
 
 function makeMenu(args) {
