@@ -957,7 +957,8 @@ MSPController.prototype = {
                 container_id: self.editor_id,
                 id: 'form',
                 type: 'checkbox',
-                label: 'Turn the function upside down (¯¯\\__/¯¯)'
+                selected: rule ? 1 - rule.boxcar : 0,
+                label: 'Turn the function upside down ¯¯\\__/¯¯'
             }),
             x0 = new Widget({
                 container_id: self.editor_id,
@@ -983,6 +984,7 @@ MSPController.prototype = {
                 container_id: self.editor_id,
                 id: 'weight',
                 type: 'text',
+                value: rule ? rule.weight : '',
                 pretext: 'Weight: '
             }),
             x0Widget,
@@ -1011,11 +1013,11 @@ MSPController.prototype = {
         self.editor.html(html);
 
         newValue = function(value) {
-            console.log(this.id + ' ' + value);
+            //console.log(this.id + ' ' + value);
             x0v = x0Widget.getValue();
             x1v = x1Widget.getValue();
-            x2v = x1Widget.getValue();
-            x3v = x1Widget.getValue();
+            x2v = x2Widget.getValue();
+            x3v = x3Widget.getValue();
             if (this.id === 'x0') {
                 if (x1v < value) {
                     x1Widget.setValue(value);
@@ -1027,8 +1029,35 @@ MSPController.prototype = {
                     x3Widget.setValue(value);
                 }
             } else if (this.id === 'x1') {
+                if (x0v > value) {
+                    x0Widget.setValue(value);
+                }
+                if (x2v < value) {
+                    x2Widget.setValue(value);
+                }
+                if (x3v < value) {
+                    x3Widget.setValue(value);
+                }
             } else if (this.id === 'x2') {
+                if (x0v > value) {
+                    x0Widget.setValue(value);
+                }
+                if (x1v > value) {
+                    x1Widget.setValue(value);
+                }
+                if (x3v < value) {
+                    x3Widget.setValue(value);
+                }
             } else if (this.id === 'x3') {
+                if (x0v > value) {
+                    x0Widget.setValue(value);
+                }
+                if (x1v > value) {
+                    x1Widget.setValue(value);
+                }
+                if (x2v > value) {
+                    x2Widget.setValue(value);
+                }
             }
         };
 
@@ -1037,6 +1066,10 @@ MSPController.prototype = {
             x1Widget = self.datasetValueWidget('x1', dataset, rule, x1, '', newValue);
             x2Widget = self.datasetValueWidget('x2', dataset, rule, x2, '', newValue);
             x3Widget = self.datasetValueWidget('x3', dataset, rule, x3, '', newValue);
+            x0Widget.setValue(rule.boxcar_x0);
+            x1Widget.setValue(rule.boxcar_x1);
+            x2Widget.setValue(rule.boxcar_x2);
+            x3Widget.setValue(rule.boxcar_x3);
         } else {
             dataset.changed((function changed() {
                 x0Widget = self.datasetValueWidget('x0', dataset.getSelected(), rule, x0, '', newValue);

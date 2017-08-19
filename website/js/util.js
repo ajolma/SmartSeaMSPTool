@@ -146,7 +146,12 @@ function Widget(args) {
         html += element('input', {id: args.slider_value_id, type: 'text'}, '');
         self.value_selector = self.container_id + ' #' + args.slider_value_id;
     } else if (tag === 'input') {
-        html = element('input', {type: self.type, id: self.id}, 'Ø');
+        if (self.type === 'checkbox' && self.selected) {
+            attr.checked = "checked";
+        } else if (self.type === 'text' && self.value) {
+            attr.value = self.value;
+        }
+        html = element(tag, attr, 'Ø');
         if (args.label) {
             html += element('label', {for: self.id}, args.label);
         }
