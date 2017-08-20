@@ -165,7 +165,13 @@ Widget.prototype = {
     prepare: function () {
         var self = this,
             slider;
-        if (self.type === 'spinner') {
+        if (self.type === 'select') {
+            if (self.newValue) {
+                $(self.selector).change(function () {
+                    self.newValue(self.getValue());
+                });
+            }
+        } else if (self.type === 'spinner') {
             $(self.selector)
                 .spinner({
                     min: self.min,
@@ -230,7 +236,9 @@ Widget.prototype = {
     },
     setValue: function (value) {
         var self = this;
-        if (self.type === 'slider') {
+        if (self.type === 'select') {
+            $(self.selector).val(value);
+        } else if (self.type === 'slider') {
             self.value = parseFloat(value);
             if (self.value < self.min) {
                 self.value = self.min
