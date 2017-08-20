@@ -156,7 +156,11 @@ function Widget(args) {
             html += element('label', {for: self.id}, args.label);
         }
     } else {
-        html = element(tag, attr, html);
+        if (tag === 'select' && html === '') {
+            // empty list
+        } else {
+            html = element(tag, attr, html);
+        }
     }
     self.my_html = pretext + html;
 }
@@ -208,7 +212,7 @@ Widget.prototype = {
     },
     html: function (html) {
         var self = this;
-        if (html) {
+        if (typeof html !== 'undefined') {
             $(self.selector).html(html);
         } else {
             return self.my_html;
