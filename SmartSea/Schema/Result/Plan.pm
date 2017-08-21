@@ -47,6 +47,7 @@ sub relationship_hash {
         extra_datasets => {
             name => 'Extra dataset',
             source => 'Dataset',
+            link_objects => 'extras',
             link_source => 'Plan2DatasetExtra',
             ref_to_parent => 'plan',
             ref_to_related => 'dataset',

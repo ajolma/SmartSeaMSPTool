@@ -166,7 +166,7 @@ MSPView.prototype = {
         var self = this,
             auth = self.model.auth &&
             ((use.owner === self.model.user && (use.id === 0 || use.id > 1)) ||
-             (self.model.plan.user === self.model.user && use.id === 0)),
+             (self.model.plan.owner === self.model.user && use.id === 0)),
             klass = auth ? 'context-menu' : 'tree-item',
             use_text = element('div', {class: klass}, use.name),
             button = use.layers.length > 0 ?

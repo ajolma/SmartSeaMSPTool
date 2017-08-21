@@ -68,6 +68,22 @@ sub from_app {
     return @objects;
 }
 
+sub subclass_object {
+    my ($object, $schema) = @_;
+    if ($object && $object->can('subclass')) {
+        my $subclass = $object->subclass;
+        if ($subclass) {
+            my $object2 = $schema->resultset($subclass)->single({super => $object->id});
+            if ($object2) {
+                return subclass_object($object2, $schema);
+            } else {
+                say STDERR "missing subclass object for $object:".$object->id;
+            }
+        }
+    }
+    return $object;
+}
+
 # in args give object, or source and possibly id or search
 # polymorphic: returns the subclass object if this is one
 sub new {
@@ -75,39 +91,69 @@ sub new {
     confess "no app for object" unless $args->{app};
     my $self = {
         name => $args->{name}, # visual name
-        class => $args->{class}, # class name for clients, table name in singular
         relation => $args->{relation}, # hash of relation to parent
         stop_edit => $args->{stop_edit}, # user is not allowed to change this or this' children
         app => $args->{app}
     };
     if (defined $args->{object}) {
+        #$self->{object} = subclass_object($args->{object}, $self->{app}{schema});
         $self->{object} = $args->{object};
         $self->{result} = ref $self->{object}; # result_source
         ($self->{source}) = $self->{result} =~ /(\w+)$/; # the last part of the Perl class
-        $self->{class} //= source2class($self->{source});
-        $self->{name} //= $self->{source};
         $self->{rs} = $self->{app}{schema}->resultset($self->{source});
         $self->{id} = $self->{object}->id;
-    } elsif ($args->{source}) {
-        $self->{source} = $args->{source};
-        $self->{class} //= source2class($self->{source});
-        $self->{name} //= $self->{source};
-        $self->{result} = 'SmartSea::Schema::Result::'.$self->{source};
-        $self->{rs} = $self->{app}{schema}->resultset($self->{source});
+        
+    } elsif ($args->{source}) {    
+        my $result = 'SmartSea::Schema::Result::'.$args->{source};     
+        my $rs = $self->{app}{schema}->resultset($args->{source});
+
+        # existence of $self->{object} is significant
+        # read returns schema if exists but not defined
         if ($args->{search}) { # needed for getting a link object in some cases
             if ($self->{app}{debug}) {
                 for my $key (sort keys %{$args->{search}}) {
                     say STDERR "search term $key => $args->{search}{$key}";
                 }
             }
-            $self->{object} = $self->{rs}->single($args->{search});
-            $self->{id} = $self->{object}->id if $self->{object};
+            $self->{object} = $rs->single($args->{search});
+            
         } elsif (defined $args->{id}) {
-            id($self, $args->{id});
+
+            # todo: this assumes first pk is id (maybe not named 'id' but anyway)
+            my @pk = $result->primary_columns;
+            if (@pk == 1) {
+                @pk = ($args->{id});
+            } elsif (@pk == 2) {
+                # special case for rules, which have pk = id,cookie
+                # 'find' of ResultSet for Rule is also replaced by 'my_find' to return default by default
+                @pk = ($args->{id}, $self->{app}{cookie});
+            } else {
+                die "$self->{result}: more than two primary keys!";
+            }
+            $self->{object} = $rs->can('my_find') ? $rs->my_find(@pk) : $rs->find(@pk);
+
         }
+        
+        if ($self->{object}) {
+            $self->{object} = subclass_object($self->{object}, $self->{app}{schema});
+            $self->{id} = $self->{object}->id;
+            $self->{result} = ref $self->{object}; # result_source
+            ($self->{source}) = $self->{result} =~ /(\w+)$/; # the last part of the Perl class
+            $self->{rs} = $self->{app}{schema}->resultset($self->{source});
+        } else {
+            $self->{source} = $args->{source};
+            $self->{result} = $result;
+            $self->{rs} = $rs;
+        }
+        
     } else {
         confess "SmartSea::Object->new requires either object or source";
+        
     }
+
+    $self->{name} //= $self->{source};
+    $self->{class} = source2class($self->{source});
+    
     if (defined $args->{edit}) {
         $self->{edit} = $args->{edit};
     } elsif ($self->{app}{admin}) {
@@ -124,58 +170,6 @@ sub new {
         $self->{edit} = 0;
     }
     bless $self, $class;
-}
-
-sub id {
-    my ($self, $id) = @_;
-    if ($id) {
-        #my %pk;
-        #for my $pkey ($self->{rs}->result_source->primary_columns) {
-        #    if ($pkey eq 'id') {
-        #        $pk{id} = $id;
-        #    } else {
-        #        $pk{$pkey} = $self->{$pkey};
-        #    }
-        #    croak "pk $pkey not defined for a $self->{source}" unless defined $pk{$pkey};
-        #}
-        #$self->{object} = $self->{rs}->single(\%pk);
-        
-        # todo: this assumes first pk is id (maybe not named 'id' but anyway)
-        my @pk = $self->{result}->primary_columns;
-        if (@pk == 1) {
-            @pk = ($id);
-        } elsif (@pk == 2) {
-            # special case for rules, which have pk = id,cookie
-            # 'find' of ResultSet for Rule is also replaced by 'my_find' to return default by default
-            @pk = ($id, $self->{app}{cookie});
-        } else {
-            die "$self->{result}: more than two primary keys!";
-        }
-        $self->{object} = $self->{rs}->can('my_find') ? 
-            $self->{rs}->my_find(@pk) : $self->{rs}->find(@pk);
-        
-        # is this in fact a subclass object?
-        if ($self->{object} && $self->{object}->can('subclass')) {
-            my $source = $self->{object}->subclass;
-            if ($source) {
-                my $object = $self->{app}{schema}->resultset($source)->single({super => $id});
-                if ($object) {
-                    # ok
-                    $self->{source} = $source;
-                    $self->{name} = $source;
-                    $self->{result} = 'SmartSea::Schema::Result::'.$self->{source};
-                    $self->{rs} = $self->{app}{schema}->resultset($source);
-                    $self->{object} = $object;
-                } else {
-                    say STDERR "Error in db, missing subclass object for $self->{source}:$id";
-                }
-            }
-        }
-        $self->{id} = $self->{object}->id if $self->{object};
-    } else {
-        $self->{object} = undef;
-    }
-    return $self->{id};
 }
 
 sub first {
@@ -810,8 +804,32 @@ sub delete {
     say STDERR "delete ",$self->str if $self->{app}{debug};
     
     croak "A request to delete unexisting ".$self->{source}." object." unless $self->{object};
-    
+
+    # delete non-independent objects linked to this
+    my $relships = $self->relationship_hash;
+    for my $related (keys %$relships) {
+        my $relationship = $relships->{$related};
+        next if $relationship->{no_edit};
+        next if $relationship->{stop_edit};
+        for my $row ($self->{object}->$related) {
+            my $obj = SmartSea::Object->new({object => $row, app => $self->{app}});
+            $obj->delete;
+        }
+    }
+
+    # delete links from this object to independent objects
+    for my $related (keys %$relships) {
+        my $relationship = $relships->{$related};
+        next unless $relationship->{stop_edit};
+        my $link_objects = $relationship->{link_objects};
+        next unless $link_objects;
+        for my $row ($self->{object}->$link_objects) {
+            $row->delete;
+        }
+    }
+
     my $columns = $self->columns;
+    
     my %delete;
     for my $col (keys %$columns) {
         my $meta = $columns->{$col};

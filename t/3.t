@@ -221,6 +221,7 @@ sub unique {
 sub get_schema {
     my ($cb, $class) = @_;
     $class = source2class($class);
+    #say STDERR $class;
     my $res = $cb->(GET "/$class:0?accept=json");
     #say STDERR $res->content;
     return decode_json $res->content;

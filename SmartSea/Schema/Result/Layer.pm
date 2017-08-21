@@ -31,11 +31,12 @@ __PACKAGE__->has_many(rules => 'SmartSea::Schema::Result::Rule', {'foreign.rule_
 sub subclass {
     my ($self, $columns) = @_;
     if (ref $self) {
-        my $class = $self->layer_class->name // '';
-        return 'ImpactLayer' if $class eq 'Impact';
+        my $class = $self->layer_class->name;
+        return 'ImpactLayer' if $class && $class eq 'Impact';
     } elsif ($columns) {
         return 'ImpactLayer' if $columns->{layer_class}->{fixed}->name eq 'Impact';
     }
+    return undef;
 }
 
 sub relationship_hash {

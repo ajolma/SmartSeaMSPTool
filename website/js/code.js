@@ -59,6 +59,18 @@ function makeConfig(config) {
             })
         });
         config.bg.push({
+            title: 'MML taustakartta',
+            layer: new ol.layer.Tile({
+                extent: config.proj.extent,
+                source: new ol.source.XYZ({
+                    attributions: [new ol.Attribution({
+                        html: 'Sisältää Maanmittauslaitoksen aineistoa <a href="http://www.maanmittauslaitos.fi/avoindata_lisenssi_versio1_20120501">(lisenssi)</a>'
+                    })],
+                    url: 'http://tile1.kartat.kapsi.fi/1.0.0/taustakartta/{z}/{x}/{y}.png'
+                })
+            })
+        });
+        config.bg.push({
             title: "OSM",
             layer: new ol.layer.Tile({
                 source: new ol.source.OSM()
