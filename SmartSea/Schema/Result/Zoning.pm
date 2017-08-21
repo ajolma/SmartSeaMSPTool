@@ -28,12 +28,12 @@ sub relationship_hash {
             stop_edit => 1,
             class_widget => sub {
                 my ($self, $children) = @_;
-                my $has = $self->{object}->uses($self);
+                my $has = $self->{row}->uses($self);
                 for my $obj (@$children) {
                     $has->{$obj->id} = 1;
                 }
                 my @objs;
-                for my $obj ($self->{object}->plan->uses) {
+                for my $obj ($self->{row}->plan->uses) {
                     next if $has->{$obj->id};
                     push @objs, $obj;
                 }

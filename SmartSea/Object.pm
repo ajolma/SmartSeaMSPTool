@@ -55,7 +55,7 @@ sub from_app {
         my $prev;
         for my $obj (@objects) {
             if ($prev) {
-                croak 400 unless $prev->{object};
+                croak 400 unless $prev->{row};
                 $obj->{prev} = $prev;
                 $prev->{next} = $obj;
                 weaken($obj->{prev});
@@ -95,19 +95,19 @@ sub new {
         stop_edit => $args->{stop_edit}, # user is not allowed to change this or this' children
         app => $args->{app}
     };
-    if (defined $args->{object}) {
-        #$self->{object} = subclass_object($args->{object}, $self->{app}{schema});
-        $self->{object} = $args->{object};
-        $self->{result} = ref $self->{object}; # result_source
+    if (defined $args->{row}) {
+        #$self->{row} = subclass_object($args->{row}, $self->{app}{schema});
+        $self->{row} = $args->{row};
+        $self->{result} = ref $self->{row}; # result_source
         ($self->{source}) = $self->{result} =~ /(\w+)$/; # the last part of the Perl class
         $self->{rs} = $self->{app}{schema}->resultset($self->{source});
-        $self->{id} = $self->{object}->id;
+        $self->{id} = $self->{row}->id;
         
     } elsif ($args->{source}) {    
         my $result = 'SmartSea::Schema::Result::'.$args->{source};     
         my $rs = $self->{app}{schema}->resultset($args->{source});
 
-        # existence of $self->{object} is significant
+        # existence of $self->{row} is significant
         # read returns schema if exists but not defined
         if ($args->{search}) { # needed for getting a link object in some cases
             if ($self->{app}{debug}) {
@@ -115,7 +115,7 @@ sub new {
                     say STDERR "search term $key => $args->{search}{$key}";
                 }
             }
-            $self->{object} = $rs->single($args->{search});
+            $self->{row} = $rs->single($args->{search});
             
         } elsif (defined $args->{id}) {
 
@@ -130,14 +130,14 @@ sub new {
             } else {
                 die "$self->{result}: more than two primary keys!";
             }
-            $self->{object} = $rs->can('my_find') ? $rs->my_find(@pk) : $rs->find(@pk);
+            $self->{row} = $rs->can('my_find') ? $rs->my_find(@pk) : $rs->find(@pk);
 
         }
         
-        if ($self->{object}) {
-            $self->{object} = subclass_object($self->{object}, $self->{app}{schema});
-            $self->{id} = $self->{object}->id;
-            $self->{result} = ref $self->{object}; # result_source
+        if ($self->{row}) {
+            $self->{row} = subclass_object($self->{row}, $self->{app}{schema});
+            $self->{id} = $self->{row}->id;
+            $self->{result} = ref $self->{row}; # result_source
             ($self->{source}) = $self->{result} =~ /(\w+)$/; # the last part of the Perl class
             $self->{rs} = $self->{app}{schema}->resultset($self->{source});
         } else {
@@ -147,7 +147,7 @@ sub new {
         }
         
     } else {
-        confess "SmartSea::Object->new requires either object or source";
+        confess "SmartSea::Object->new requires either row or source";
         
     }
 
@@ -160,8 +160,8 @@ sub new {
         $self->{edit} = 1;
     } elsif ($self->{app}{user} ne 'guest') {
         if ($self->{result}->can('owner')) {
-            if ($self->{object}) {
-                $self->{edit} = $self->{app}{user} eq $self->{object}->owner;
+            if ($self->{row}) {
+                $self->{edit} = $self->{app}{user} eq $self->{row}->owner;
             } else {
                 $self->{edit} = 1;
             }
@@ -200,7 +200,7 @@ sub prev {
 
 sub link {
     my $self = shift;
-    return unless $self->{object};
+    return unless $self->{row};
     my $prev = $self->{prev};
     if ($prev) {
         my $relationship = $self->{relation};
@@ -208,13 +208,13 @@ sub link {
             my $args = {
                 source => $relationship->{link_source}, 
                 search => {
-                    $relationship->{ref_to_parent} => $prev->{object}->get_column($relationship->{key}),
+                    $relationship->{ref_to_parent} => $prev->{row}->get_column($relationship->{key}),
                     $relationship->{ref_to_related} => $self->{id}},
                 app => $self->{app}
             };
             my $link = SmartSea::Object->new($args);
             croak "There is no relationship between ",$prev->str," and ",$self->str,"."
-                unless $link->{object};
+                unless $link->{row};
             return $link;
         }
     }
@@ -223,7 +223,7 @@ sub link {
 
 sub str {
     my $self = shift;
-    return $self->{source} unless $self->{object};
+    return $self->{source} unless $self->{row};
     return "$self->{source}:$self->{id}";
 }
 
@@ -255,13 +255,13 @@ sub superclass {
 
 sub super {
     my $self = shift;
-    #return unless $self->{object};
+    #return unless $self->{row};
     return unless $self->{result}->has_column('super');
     my $info = $self->{result}->column_info('super');
-    my $super = $self->{object} ? $self->{object}->super : undef;
+    my $super = $self->{row} ? $self->{row}->super : undef;
     #return unless $super;
     return SmartSea::Object->new({
-        object => $super,
+        row => $super,
         #name => $self->{name},
         source => $info->{source},
         relation => $self->{relation},
@@ -272,12 +272,12 @@ sub super {
 sub subclass {
     my ($self, $columns) = @_;
     my $can = $self->{result}->can('subclass');
-    if ($self->{object}) {
-        return $self->{object}->subclass if $can;
+    if ($self->{row}) {
+        return $self->{row}->subclass if $can;
     } elsif ($columns) {
         return $self->{result}->subclass($columns) if $can;
     } else {
-        croak "Must have result object or column data to call subclass." unless $self->{object};
+        croak "Must have result object or column data to call subclass." unless $self->{row};
     }
 }
 
@@ -317,18 +317,18 @@ sub relationship_hash {
 sub columns {
     my ($self, $columns) = @_;
     $columns = {} unless defined $columns;
-    my $prev = $self->{prev} ? $self->{prev}{object} : undef;
-    my $row = $self->{object} ? $self->{object} : $self->{result};
+    my $prev = $self->{prev} ? $self->{prev}{row} : undef;
+    my $row = $self->{row} ? $self->{row} : $self->{result};
     my $columns_info = $row->columns_info(undef, $prev);
     for my $column (keys %$columns_info) {
         my $meta = $columns_info->{$column};
         delete $meta->{value};
         if ($meta->{is_superclass} || $meta->{is_part}) {
             my %args = (app => $self->{app});
-            if ($self->{object}) {
-                $args{object} = $self->{object}->$column;
+            if ($self->{row}) {
+                $args{row} = $self->{row}->$column;
             }
-            $args{source} = $meta->{source} unless $args{object};
+            $args{source} = $meta->{source} unless $args{row};
             my $obj = SmartSea::Object->new(\%args);
             $meta->{columns} = {};
             $obj->columns($meta->{columns});
@@ -402,8 +402,8 @@ sub values_from_parameters {
             next unless $meta->{is_foreign_key};
             if ($meta->{source}) {
                 my $related = SmartSea::Object->new({source => $meta->{source}, id => $meta->{$key}, app => $self->{app}});
-                if (defined $related->{object}) {
-                    $meta->{$key} = $related->{object};
+                if (defined $related->{row}) {
+                    $meta->{$key} = $related->{row};
                 } else {
                     push @errors, "$meta->{source}:$meta->{$key} does not exist" if $required;
                 }
@@ -417,13 +417,13 @@ sub values_from_parameters {
 
 sub values_from_self {
     my ($self, $columns) = @_;
-    confess "no obj" unless $self->{object};
+    confess "no obj" unless $self->{row};
     for my $column (keys %$columns) {
         my $meta = $columns->{$column};
-        $meta->{value} = $self->{object}->$column;
+        $meta->{value} = $self->{row}->$column;
         if ($meta->{columns}) {
             if ($meta->{value}) {
-                my $part = SmartSea::Object->new({object => $meta->{value}, app => $self->{app}});
+                my $part = SmartSea::Object->new({row => $meta->{value}, app => $self->{app}});
                 $part->values_from_self($meta->{columns});
             }
         }
@@ -461,15 +461,15 @@ sub read {
     my ($self) = @_;
 
     my $url = $self->{app}{url}.$self->{app}{root}.'/'.$self->{class};
-    $url .= ':'.$self->{id} if $self->{object};
+    $url .= ':'.$self->{id} if $self->{row};
     while (my $next = $self->next) {
         $self = $next;
         $url .= '/'.$self->{relation}{related};
-        $url .= ':'.$self->{id} if $self->{object};
+        $url .= ':'.$self->{id} if $self->{row};
     }
-    if (exists $self->{object}) {
+    if (exists $self->{row}) {
         my $columns = $self->columns;
-        $self->values_from_self($columns) if $self->{object};
+        $self->values_from_self($columns) if $self->{row};
         $columns = jsonify($columns);
         $url .= '/';
         if ($self->{result}->can('relationship_hash')) {
@@ -497,9 +497,9 @@ sub read {
         }
 
         $url .= ':';
-        if ($self->{prev} && $self->{prev}{object}) {
+        if ($self->{prev} && $self->{prev}{row}) {
             my $method = $self->{relation}{related};
-            for my $row ($self->{prev}{object}->$method($search)) {
+            for my $row ($self->{prev}{row}->$method($search)) {
                 #next unless $row->ecosystem_component->name =~ /Vege/;
                 my %json = (class => $self->{class}, id => $row->id, href => $url.$row->id.'?accept=json');
                 $json{name} = $row->name if $row->can('name');
@@ -522,16 +522,16 @@ sub read {
 sub create {
     my ($self, $columns) = @_;
 
-    if ($self->{prev} && $self->{prev}{object} && !$columns) {
+    if ($self->{prev} && $self->{prev}{row} && !$columns) {
         my $relationship = $self->{relation};
         confess "no key" unless $relationship->{key};
-        my $parent_id = $self->{prev}{object}->get_column($relationship->{key});
+        my $parent_id = $self->{prev}{row}->get_column($relationship->{key});
         
         if ($relationship->{stop_edit} && !$self->{id}) {
             # update link(s)
             # delete old
             my $method = $relationship->{related};
-            my @links = $self->{prev}{object}->$method;
+            my @links = $self->{prev}{row}->$method;
             if ($relationship->{link_source}) {
                 for my $child (@links) {
                     my $args = {
@@ -542,7 +542,7 @@ sub create {
                         app => $self->{app}
                     };
                     my $link = SmartSea::Object->new($args);
-                    $link->{object}->delete if $link && $link->{object};
+                    $link->{row}->delete if $link && $link->{row};
                 }
             } else {
                 for my $child (@links) {
@@ -576,7 +576,7 @@ sub create {
         }
 
         say STDERR "create ",$self->{prev}->str," -> ",$self->str if $self->{app}{debug};
-        if ($self->{object}) { # create a link
+        if ($self->{row}) { # create a link
             
             if ($relationship->{link_source}) { # create a link object
                 my $link = SmartSea::Object->new({source => $relationship->{link_source}, app => $self->{app}});
@@ -588,7 +588,7 @@ sub create {
                 $link->create($columns);
 
             } else {
-                $self->{object}->update({$relationship->{ref_to_parent} => $parent_id});
+                $self->{row}->update({$relationship->{ref_to_parent} => $parent_id});
             }
             return;
 
@@ -638,8 +638,8 @@ sub create {
         croak $error if $error;
     }
 
-    $self->{object} = $self->{rs}->create(\%values);
-    $self->{id} = $self->{object}->id;
+    $self->{row} = $self->{rs}->create(\%values);
+    $self->{id} = $self->{row}->id;
     $self->{id} = $self->{id}->id if ref $self->{id};
     say STDERR "created $self->{source}, id is ",$self->{id} if $self->{app}{debug};
 
@@ -663,7 +663,7 @@ sub create {
                 $value{$column} = ref $meta->{value} ? $meta->{value}->id : $meta->{value};
             }
         }   
-        $object->{object} = $object->{rs}->create(\%value);
+        $object->{row} = $object->{rs}->create(\%value);
         # replace self with object
         if ($self->{prev}) {
             $object->{prev} = $self->{prev};
@@ -679,7 +679,7 @@ sub create {
 sub update {
     my $self = shift;
 
-    confess "Update was requested for a non-existing $self->{source} object." unless $self->{object};
+    confess "Update was requested for a non-existing $self->{source} object." unless $self->{row};
 
     # is it actually a link object that needs to be updated?
     my $link = $self->link;
@@ -696,23 +696,23 @@ sub update {
         my $meta = $columns->{$col};
         next unless $meta->{is_part};
         if ($meta->{not_null}) {
-            my $child = $self->{object}->$col;
-            $child = SmartSea::Object->new({object => $child, app => $self->{app}});
+            my $child = $self->{row}->$col;
+            $child = SmartSea::Object->new({row => $child, app => $self->{app}});
             $child->update;
         } elsif ($self->{app}{parameters}{$col.'_is'}) {
             # TODO: child parameters should be prefixed with child name
-            my $child = $self->{object}->$col;
+            my $child = $self->{row}->$col;
             unless ($child) {
                 $child = SmartSea::Object->new({source => $meta->{source}, app => $self->{app}});
                 $child->create;
-                $col_data->{$col} = $child->{object}->id;
+                $col_data->{$col} = $child->{row}->id;
             } else {
-                $child = SmartSea::Object->new({object => $child, app => $self->{app}});
+                $child = SmartSea::Object->new({row => $child, app => $self->{app}});
                 $child->update;
             }
         } else {
             $col_data->{$col} = undef;
-            if (my $child = $self->{object}->$col) {
+            if (my $child = $self->{row}->$col) {
                 $delete{$col} = $child; # todo: make child SmartSea::Object
             }
         }
@@ -739,7 +739,7 @@ sub update {
                     id => $col_data->{$col}, 
                     app => $self->{app}
                 });
-            unless (defined $related->{object}) {
+            unless (defined $related->{row}) {
                 push @errors, "$meta->{source}:$col_data->{$col} does not exist";
             }
         } else {
@@ -747,8 +747,8 @@ sub update {
         }
     }
 
-    if ($self->{object}->can('is_ok')) {
-        my $error = $self->{object}->is_ok($col_data);
+    if ($self->{row}->can('is_ok')) {
+        my $error = $self->{row}->is_ok($col_data);
         push @errors, $error if $error;
     }
 
@@ -761,7 +761,7 @@ sub update {
     
     #fixme: move create, update or delete embedded child objects here
     
-    $self->{object}->update($col_data);
+    $self->{row}->update($col_data);
 
     # delete children:
     for my $class_of_child (keys %delete) {
@@ -784,7 +784,7 @@ sub delete {
     my $link = $self->link;
     if ($link) {
         say STDERR "delete link object" if $self->{app}{debug};
-        $link->{object}->delete;
+        $link->{row}->delete;
         return;
     }
     if ($self->{prev}) {
@@ -793,7 +793,7 @@ sub delete {
         if ($relationship) {
             if ($self->{prev}{source} eq $self->{source}) {
                 say STDERR "update self" if $self->{app}{debug};
-                $self->{object}->update({$relationship->{ref_to_parent} => undef});
+                $self->{row}->update({$relationship->{ref_to_parent} => undef});
                 return;
             }
         } else {
@@ -803,7 +803,7 @@ sub delete {
 
     say STDERR "delete ",$self->str if $self->{app}{debug};
     
-    croak "A request to delete unexisting ".$self->{source}." object." unless $self->{object};
+    croak "A request to delete unexisting ".$self->{source}." object." unless $self->{row};
 
     # delete non-independent objects linked to this
     my $relships = $self->relationship_hash;
@@ -811,8 +811,8 @@ sub delete {
         my $relationship = $relships->{$related};
         next if $relationship->{no_edit};
         next if $relationship->{stop_edit};
-        for my $row ($self->{object}->$related) {
-            my $obj = SmartSea::Object->new({object => $row, app => $self->{app}});
+        for my $row ($self->{row}->$related) {
+            my $obj = SmartSea::Object->new({row => $row, app => $self->{app}});
             $obj->delete;
         }
     }
@@ -823,7 +823,7 @@ sub delete {
         next unless $relationship->{stop_edit};
         my $link_objects = $relationship->{link_objects};
         next unless $link_objects;
-        for my $row ($self->{object}->$link_objects) {
+        for my $row ($self->{row}->$link_objects) {
             $row->delete;
         }
     }
@@ -834,12 +834,12 @@ sub delete {
     for my $col (keys %$columns) {
         my $meta = $columns->{$col};
         if ($meta->{is_foreign_key} && $meta->{is_part}) {
-            my $child = $self->{object}->$col;
+            my $child = $self->{row}->$col;
             next unless $child;
             $delete{$meta->{source}} = $child->id;
         }
     }
-    $self->{object}->delete;
+    $self->{row}->delete;
 
     # delete children:
     for my $source (keys %delete) {
@@ -853,7 +853,7 @@ sub delete {
         $super->delete;
     }
     
-    delete $self->{object};
+    delete $self->{row};
 }
 
 sub all {
@@ -886,7 +886,7 @@ sub simple_items {
         my $value = exists $meta->{value} ? $meta->{value} : introspection($meta);
         if ($meta->{columns}) {
             my $part = ref $value ? 
-                SmartSea::Object->new({object => $value, app => $self->{app}}) :
+                SmartSea::Object->new({row => $value, app => $self->{app}}) :
                 SmartSea::Object->new({source => $meta->{source}, app => $self->{app}});
             my $li = [$part->simple_items($meta->{columns})];
             push @li, [li => [[b => [1 => $meta->{source}]], [ul => $li]]];
@@ -915,7 +915,7 @@ sub item {
     
     say STDERR "item for ",$self->str,", edit: $self->{edit}, url: $opt->{url}" if $self->{app}{debug};
 
-    return $self->item_class($self->all, $opt) unless exists $self->{object};
+    return $self->item_class($self->all, $opt) unless exists $self->{row};
 
     my $tag = $self->{relation} ? $self->{relation}{related} : ($self->superclass // $self->{class});
     my $url = $opt->{url}.'/'.$tag;
@@ -925,13 +925,13 @@ sub item {
     $name = $self->{relation}{name} if $self->{relation} && $self->{relation}{name};
     my @content = a(link => "Show all ".plural($name), url => $url);
 
-    $url .= ':'.$self->{id} if $self->{object};
+    $url .= ':'.$self->{id} if $self->{row};
     # fixme: do not add edit if this made instead of a link object with nothing to edit
     push @content, [1 => ' '], a(link => 'edit this one', url => $url.'?request=edit') if $self->{edit};
 
     # fixme?
     my $columns = $self->columns; # this doesn't call columns for is_part objects with real object
-    $self->values_from_self($columns) if $self->{object};
+    $self->values_from_self($columns) if $self->{row};
 
     my @li;
 
@@ -944,12 +944,12 @@ sub item {
   
     push @li, $self->simple_items($columns); # so here all cols (also unused) are shown
 
-    if ($self->{object} && $self->{object}->can('info')) {
-        my $info = $self->{object}->info($self->{app});
+    if ($self->{row} && $self->{row}->can('info')) {
+        my $info = $self->{row}->info($self->{app});
         push @li, [li => $info] if $info;
     }
     
-    push @li, $self->related_items({url => $url}) if $self->{object};
+    push @li, $self->related_items({url => $url}) if $self->{row};
     
     return [[b => @content], [ul => \@li]];
 }
@@ -970,7 +970,7 @@ sub related_items {
         my $relation = $relationships->{$key};
         $relation->{related} = $key;
         my $edit = defined $self->{edit} && $self->{edit} == 0 ? 0 : 1;
-        my $objs = [$self->{object}->$key];
+        my $objs = [$self->{row}->$key];
         next if @$objs == 0 && !$self->{edit};
         next if @$objs == 1 && !$objs->[0];
         my $obj_is_open = 0;
@@ -1037,7 +1037,7 @@ sub item_class {
         if ($self->{source} eq 'Dataset') {
             my %opt = (url => $url.':'.$obj->id, stop_edit => 1);
             my $p = SmartSea::Object->new({
-                object => $obj,
+                row => $obj,
                 edit => 0, 
                 app => $self->{app} });
             my @p = $p->related_items(\%opt);
@@ -1079,21 +1079,21 @@ sub form {
     # TODO: child columns are now in parameters and may mix with parameters for self
 
     my $columns = $self->columns;
-    $self->values_from_self($columns) if $self->{object};
+    $self->values_from_self($columns) if $self->{row};
     
     my @widgets;
     
     # if the form is in the context of a parent
     if ($self->{prev}) {
         my $relationship = $self->{relation};
-        my $parent_id = $self->{prev}{object}->get_column($relationship->{key});
+        my $parent_id = $self->{prev}{row}->get_column($relationship->{key});
         my $link = $self->link;
         if ($link) {
             say STDERR "form for $link->{source}" if $self->{app}{debug};
             my $related_id = $self->{id};
             $self = $link;
             $columns = $self->columns;
-            $self->values_from_self($columns) if $self->{object};
+            $self->values_from_self($columns) if $self->{row};
             set_to_columns($columns, $relationship->{ref_to_related}, fixed => $related_id);
         } else {
             set_to_columns($columns, $relationship->{ref_to_parent}, fixed => $parent_id);
@@ -1103,7 +1103,7 @@ sub form {
 
     # if the object has external sources for column values
     # example: dataset, if path is given, that can be examined
-    $self->{object}->auto_fill_cols($self->{app}) if $self->{object} && $self->{object}->can('auto_fill_cols');
+    $self->{row}->auto_fill_cols($self->{app}) if $self->{row} && $self->{row}->can('auto_fill_cols');
 
     # obtain default values for widgets
     $self->values_from_parameters($columns, $args->{input_is_fixed});
@@ -1118,27 +1118,27 @@ sub form {
         $columns = $self->columns;
     }
 
-    #my $title = $self->{object} ? 'Editing ' : 'Creating ';
-    #$title .= $self->{object} ? $self->{object}->name : $self->{source};
+    #my $title = $self->{row} ? 'Editing ' : 'Creating ';
+    #$title .= $self->{row} ? $self->{row}->name : $self->{source};
     #unshift @widgets, [p => $title];
 
     # simple data from parent/upstream objects
     my %from_upstream; 
     my $obj = $self->first;
     while (my $next = $obj->next) {
-        last unless $obj->{object};
+        last unless $obj->{row};
         for my $key (keys %$columns) {
             next if $key eq 'id';
-            next unless $obj->{object}->result_source->has_column($key);
+            next unless $obj->{row}->result_source->has_column($key);
             say STDERR "getting $key from upstream" if $self->{app}{debug} > 2;
-            set_to_columns($columns, $key, from_up => $obj->{object}->$key);
+            set_to_columns($columns, $key, from_up => $obj->{row}->$key);
         }
         $obj = $next;
     }
 
     my @unsaved;
-    if ($self->{object}) {
-        my %dirty = $self->{object}->get_dirty_columns;
+    if ($self->{row}) {
+        my %dirty = $self->{row}->get_dirty_columns;
         @unsaved = sort keys %dirty;
     } else {
         @unsaved = ('all');
@@ -1167,8 +1167,8 @@ sub form {
 sub compute_cols {
     my ($self) = @_;
     return unless $self->{result}->can('compute_cols');
-    if ($self->{object}) {
-        $self->{object}->compute_cols($self->{app});
+    if ($self->{row}) {
+        $self->{row}->compute_cols($self->{app});
     } else {
         $self->{result}->compute_cols($self->{app});
     }
@@ -1298,8 +1298,8 @@ END_CODE
             } else {
                 push @form, hidden($column.'_is', 1);
             }
-            my $part = SmartSea::Object->new({source => $meta->{source}, object => $meta->{value}, app => $self->{app}});
-            say STDERR "part ",($part->{object}//'undef') if $self->{app}{debug};
+            my $part = SmartSea::Object->new({source => $meta->{source}, row => $meta->{value}, app => $self->{app}});
+            say STDERR "part ",($part->{row}//'undef') if $self->{app}{debug};
             my @style = $part->widgets($meta->{columns});
             push @form, [fieldset => {id => $column}, [[legend => $part->{source}], @style]];
         } else {

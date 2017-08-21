@@ -126,8 +126,8 @@ my $layer = SmartSea::Object->new({
         parameters => {descr => $descr}, 
         debug => 0}
     });
-ok($layer->{source} eq 'ImpactLayer' && ref($layer->{object}) eq 'SmartSea::Schema::Result::ImpactLayer', 
-   "Polymorphic new gives: $layer->{object}");
+ok($layer->{source} eq 'ImpactLayer' && ref($layer->{row}) eq 'SmartSea::Schema::Result::ImpactLayer', 
+   "Polymorphic new gives: $layer->{row}");
 
 $layer->update(undef);
 ok($schema->resultset('Layer')->single({id => 2})->descr eq $descr, "Set superclass attribute.");

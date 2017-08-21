@@ -160,9 +160,9 @@ sub object_editor {
         
     } elsif ($request eq 'modify') {
         return $self->http_status(403) unless $self->{cookie}; # not for guests or cookie-afraid
-        return $self->http_status(400) unless $last->{object} && $last->{source} eq 'Rule'; # bad request
+        return $self->http_status(400) unless $last->{row} && $last->{source} eq 'Rule'; # bad request
 
-        my $cols = $last->{object}->values;
+        my $cols = $last->{row}->values;
         $cols->{value} = $self->{parameters}{value};
         $cols->{cookie} = $self->{cookie};
         my $tmp = ['current_timestamp'];
@@ -243,7 +243,7 @@ sub object_editor {
         eval {
             my $what = $last;
             my @errors;
-            if ($what->{object}) {
+            if ($what->{row}) {
                 @errors = $what->update;
             } else {
                 @errors = $what->create;
@@ -264,7 +264,7 @@ sub object_editor {
         eval {
             my $what = $last;
             my @errors;
-            if ($what->{object}) {
+            if ($what->{row}) {
                 @errors = $what->update;
             } else {
                 @errors = $what->create;

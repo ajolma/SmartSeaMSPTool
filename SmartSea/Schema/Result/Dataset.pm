@@ -91,7 +91,7 @@ sub relationship_hash {
             parent_is_parent => 0,
             class_widget => sub {
                 my ($self, $children) = @_;
-                return hidden(is_a_part_of => $self->{object}->id);
+                return hidden(is_a_part_of => $self->{row}->id);
             }
         },
         derivatives => {
@@ -102,7 +102,7 @@ sub relationship_hash {
             parent_is_parent => 0,
             class_widget => sub {
                 my ($self, $children) = @_;
-                return hidden(is_derived_from => $self->{object}->id);
+                return hidden(is_derived_from => $self->{row}->id);
             }
         }
     };

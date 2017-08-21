@@ -55,7 +55,7 @@ sub relationship_hash {
             class_column => 'dataset',
             class_widget => sub {
                 my ($self, $children) = @_;
-                my $has = $self->{object}->datasets($self);
+                my $has = $self->{row}->datasets($self);
                 for my $obj (@$children) {
                     $has->{$obj->id} = 1;
                 }
