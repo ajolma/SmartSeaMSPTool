@@ -31,88 +31,94 @@ DAMAGE.
 /*global $, jQuery, alert, ol, getConfig, projection, MSP, MSPView, MSPController*/
 
 function makeConfig(config) {
-    var config = getConfig();
-    var bg = /bg=([\w-]+)/.exec(window.location.href);
-    if (bg && bg[1]) {
-        bg = bg[1];
+    var config = getConfig(),
+        epsg = /epsg=([\d]+)/.exec(window.location.href);
+    if (epsg && epsg[1]) {
+        epsg = parseInt(epsg[1]);
     } else {
-        // default background map
-        bg = "esri-world-ocean-base";
+        // default projection
+        epsg = 3857;
     }
-
-    if (bg === "osm" || bg === "esri-world-ocean-base") {
+    config.bg = [];
+    
+    if (epsg === 3857) {
         config.epsg = 3857;
         config.matrixSet = 'EPSG:3857';
         config.center = [2671763, 8960514];
         config.zoom = 6;
-    } else if (bg  === "osm-finland" || bg === 'mml-tausta') {
+        config.proj = projection(config);
+        config.bg.push({
+            title: "ESRI World Ocean Base",
+            layer: new ol.layer.Tile({
+                source: new ol.source.XYZ({
+                    attributions: [new ol.Attribution({
+                        html: 'Background map © Esri, DeLorme, GEBCO, NOAA NGDC, and other contributors'
+                    })],
+                    url: 'http://services.arcgisonline.com/arcgis/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}'
+                })
+            })
+        });
+        config.bg.push({
+            title: "OSM",
+            layer: new ol.layer.Tile({
+                source: new ol.source.OSM()
+            })
+        });
+    } else if (epsg === 3067) {
         config.epsg = 3067;
         config.matrixSet = 'ETRS-TM35FIN';
         config.center = [346735, 6943420];
         config.zoom = 3;
-    } else {
-        window.alert(bg + " is not a known background map!");
-    }
-    config.proj = projection(config);
-
-    if (bg === 'osm') {
-        config.bg = new ol.layer.Tile({
-            source: new ol.source.OSM()
-        });
-    } else if (bg === 'esri-world-ocean-base') {
-        config.bg = new ol.layer.Tile({
-            source: new ol.source.XYZ({
-                attributions: [new ol.Attribution({
-                    html: 'Background map © Esri, DeLorme, GEBCO, NOAA NGDC, and other contributors'
-                })],
-                url: 'http://services.arcgisonline.com/arcgis/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}'
-            })
-        });
-    } else if (bg === 'osm-finland') {
-        config.bg = new ol.layer.Tile({
-            opacity: 1,
-            extent: config.proj.extent,
-            source: new ol.source.TileWMS({
-                attributions: [new ol.Attribution({
-                    html: 'Map: Ministry of Education and Culture, Data: OpenStreetMap contributors'
-                })],
-                url: 'http://avaa.tdata.fi/geoserver/osm_finland/wms',
-                params: {'LAYERS': 'osm-finland', 'TILED': true},
-                serverType: 'geoserver',
-                matrixSet: 'ETRS-TM35FIN',
-                projection: config.proj.projection,
-                tileGrid: new ol.tilegrid.WMTS({
-                    origin: ol.extent.getTopLeft(config.proj.extent),
-                    resolutions: config.proj.resolutions,
-                    matrixIds: config.proj.matrixIds
+        config.proj = projection(config);
+        config.bg.push({
+            title: 'MML taustakartta',
+            layer: new ol.layer.Tile({
+                opacity: 1,
+                extent: config.proj.extent,
+                source: new ol.source.WMTS({
+                    attributions: [new ol.Attribution({
+                        html: 'Tiles &copy; <a href="http://www.maanmittauslaitos.fi/avoindata_lisenssi">MML</a>'
+                    })],
+                    url: 'http://avoindata.maanmittauslaitos.fi/mapcache/wmts',
+                    layer: 'taustakartta',
+                    matrixSet: 'ETRS-TM35FIN',
+                    format: 'image/png',
+                    projection: config.proj.projection,
+                    tileGrid: new ol.tilegrid.WMTS({
+                        origin: ol.extent.getTopLeft(config.proj.extent),
+                        resolutions: config.proj.resolutions,
+                        matrixIds: config.proj.matrixIds
+                    }),
+                    style: 'default'
                 })
             })
         });
-    } else if (bg === 'mml-tausta') {
-        config.bg = new ol.layer.Tile({
-            opacity: 1,
-            extent: config.proj.extent,
-            source: new ol.source.WMTS({
-                attributions: [new ol.Attribution({
-                    html: 'Tiles &copy; <a href="http://www.maanmittauslaitos.fi/avoindata_lisenssi">MML</a>'
-                })],
-                url: 'http://avoindata.maanmittauslaitos.fi/mapcache/wmts',
-                layer: 'taustakartta',
-                matrixSet: 'ETRS-TM35FIN',
-                format: 'image/png',
-                projection: config.proj.projection,
-                tileGrid: new ol.tilegrid.WMTS({
-                    origin: ol.extent.getTopLeft(config.proj.extent),
-                    resolutions: config.proj.resolutions,
-                    matrixIds: config.proj.matrixIds
-                }),
-                style: 'default'
+        config.bg.push({
+            title: 'OSM Suomi',
+            layer: new ol.layer.Tile({
+                opacity: 1,
+                extent: config.proj.extent,
+                source: new ol.source.TileWMS({
+                    attributions: [new ol.Attribution({
+                        html: 'Map: Ministry of Education and Culture, Data: OpenStreetMap contributors'
+                    })],
+                    url: 'http://avaa.tdata.fi/geoserver/osm_finland/wms',
+                    params: {'LAYERS': 'osm-finland', 'TILED': true},
+                    serverType: 'geoserver',
+                    matrixSet: 'ETRS-TM35FIN',
+                    projection: config.proj.projection,
+                    tileGrid: new ol.tilegrid.WMTS({
+                        origin: ol.extent.getTopLeft(config.proj.extent),
+                        resolutions: config.proj.resolutions,
+                        matrixIds: config.proj.matrixIds
+                    })
+                })
             })
         });
     } else {
-        window.alert(bg + " is not a known background map!");
+        window.alert("EPSG " + epsg + " is not a supported projection!");
     }
-
+    
     return config;
 }
 
@@ -157,14 +163,26 @@ function makeConfig(config) {
         controller = new MSPController(model, view);
 
     $('body').addClass('stop-scrolling');
-    $(".menu").hide();
+    $('.menu').hide();
     $(document).click(function (e) {
         if ($(".menu").has(e.target).length === 0) {
             $(".menu").hide();
         }
     });
     map.addControl(new ol.control.ScaleLine());
-    map.addLayer(config.bg);
+
+    $.each(config.bg, function(i, bg) {
+        bg.layer.setVisible(false);
+        map.addLayer(bg.layer);
+        $('#bg-map').append(element('option', {value: i}, bg.title));
+    });
+    config.base = config.bg[0].layer;
+    config.base.setVisible(true);
+    $('#bg-map').change(function () {
+        config.base.setVisible(false);
+        config.base = config.bg[parseInt($('#bg-map').val(), 10)].layer;
+        config.base.setVisible(true);
+    });
 
     $("#reload").click((function reload() {
         controller.loadPlans();
