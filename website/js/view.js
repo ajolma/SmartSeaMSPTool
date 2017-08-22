@@ -96,7 +96,7 @@ function MSPView(model, elements, id) {
     self.planCommand = new Event(self);
     self.useCommand = new Event(self);
     self.layerCommand = new Event(self);
-    self.ruleSelected = new Event(self);
+    self.ruleClicked = new Event(self);
 
     self.elements.plans.change(function () {
         self.model.changePlan(parseInt(self.elements.plans.val(), 10));
@@ -432,7 +432,7 @@ MSPView.prototype = {
             self.model.layer.setRuleActive(rule_id, active);
         });
         $(self.id.rules + ' #rule').click(function () {
-            self.ruleSelected.notify({id: $(this).attr('rule')});
+            self.ruleClicked.notify({id: $(this).attr('rule')});
         });
     },
     siteInteraction: function (source) {

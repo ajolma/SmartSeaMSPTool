@@ -342,6 +342,7 @@ sub set_to_columns {
     my ($columns, $col, $key, $value) = @_;
     for my $column (keys %$columns) {
         my $meta = $columns->{$column};
+        next if $meta->{not_used};
         if ($column eq $col) {
             $meta->{$key} = $value;
             last;
@@ -358,6 +359,7 @@ sub values_from_parameters {
     my @errors;
     for my $column (keys %$columns) {
         my $meta = $columns->{$column};
+        next if $meta->{not_used};
         my $key = $fixed ? 'fixed' : 'value';
         next if exists $meta->{value};
         if ($meta->{columns}) {
@@ -420,6 +422,7 @@ sub values_from_self {
     confess "no obj" unless $self->{row};
     for my $column (keys %$columns) {
         my $meta = $columns->{$column};
+        next if $meta->{not_used};
         $meta->{value} = $self->{row}->$column;
         if ($meta->{columns}) {
             if ($meta->{value}) {
@@ -435,6 +438,7 @@ sub jsonify {
     my %json;
     for my $column (keys %$columns) {
         my $meta = $columns->{$column};
+        next if $meta->{not_used};
         $json{$column} = {};
         my $json = $json{$column};
         for my $key (keys %$meta) {
@@ -495,6 +499,9 @@ sub read {
             next unless $columns->{$column};
             $search->{$column} = { '!=', undef } if $parameters->{$column} eq 'notnull';
         }
+        if ($self->{source} eq 'Rule') {
+            $search->{cookie} = '';
+        }
 
         $url .= ':';
         if ($self->{prev} && $self->{prev}{row}) {
@@ -507,7 +514,11 @@ sub read {
             }
         } else {
             for my $row ($self->{rs}->search($search, {order_by => 'id'})) {
-                my %json = (class => $self->{class}, id => $row->id, href => $url.$row->id.'?accept=json');
+                my %json = (
+                    class => $self->{class}, 
+                    id => $row->id, 
+                    href => $url.$row->id.'?accept=json'
+                    );
                 $json{name} = $row->name if $row->can('name');
                 push @rows, \%json;
             }
@@ -614,6 +625,7 @@ sub create {
     # note that this method is called recursively
     for my $column (keys %$columns) {
         my $meta = $columns->{$column};
+        next if $meta->{not_used};
         next unless $meta->{columns};
         next unless $meta->{is_part} || $meta->{is_superclass};
         next unless $meta->{not_null} || $meta->{has_value};
@@ -629,9 +641,14 @@ sub create {
     my %values;
     for my $column (keys %$columns) {
         my $meta = $columns->{$column};
+        next if $meta->{not_used};
         next if $column eq 'id' && $self->{app}{sequences};
         $values{$column} = $meta->{value} if exists $meta->{value};
-        say STDERR "  $column => ",($values{$column}//'undef') if $self->{app}{debug} > 1;
+        if ($self->{app}{debug} > 1) {
+            my $value = $values{$column} // 'undef';
+            $value = $value->id if ref $value;
+            say STDERR "  $column => ",$value;
+        }
     }
     if ($self->{result}->can('is_ok')) {
         my $error = $self->{result}->is_ok(\%values);
@@ -642,6 +659,9 @@ sub create {
     $self->{id} = $self->{row}->id;
     $self->{id} = $self->{id}->id if ref $self->{id};
     say STDERR "created $self->{source}, id is ",$self->{id} if $self->{app}{debug};
+
+    #with SQLite DB the cookie is set to 1 although its default is '' and it is undef in create
+    #say STDERR 'cookie is ',$self->{row}->cookie;
 
     # make subclass object, try to delete super object if this fails
     if (my $class = $self->subclass) {
@@ -868,7 +888,11 @@ sub all {
         }
     }
     my $order_by = $self->{result}->can('order_by') ? $self->{result}->order_by : {-asc => $col};
-    return [$self->{rs}->search(undef, {order_by => $order_by})->all];
+    my $search = {};
+    if ($self->{source} eq 'Rule') {
+        $search->{cookie} = '';
+    }
+    return [$self->{rs}->search($search, {order_by => $order_by})->all];
 }
 
 sub introspection {
@@ -883,6 +907,7 @@ sub simple_items {
     for my $column ($self->{result}->columns) {
         next unless exists $columns->{$column};
         my $meta = $columns->{$column};
+        next if $meta->{not_used};
         my $value = exists $meta->{value} ? $meta->{value} : introspection($meta);
         if ($meta->{columns}) {
             my $part = ref $value ? 
@@ -1183,6 +1208,7 @@ sub widgets {
         next if $column eq 'super';
         next unless exists $columns->{$column};
         my $meta = $columns->{$column};
+        next if $meta->{not_used};
         next if $meta->{system_column};
         say STDERR 
             "widget: $column => ",
@@ -1227,19 +1253,19 @@ sub widgets {
                 max => $meta->{max},
                 value => $meta->{value} // 1
                 );
-        } elsif ($meta->{is_foreign_key} && !$meta->{is_part}) {
-            my $objs;
-            if (ref $meta->{objs} eq 'ARRAY') {
-                $objs = $meta->{objs};
-            } elsif (ref $meta->{objs} eq 'CODE') {
-                $objs = [];
+        } elsif (($meta->{is_foreign_key} || ($meta->{semantics} && $meta->{semantics}{is_foreign_key})) && !$meta->{is_part}) {
+            my $objs = $meta->{semantics} ? $meta->{semantics}{objs} : $meta->{objs};
+            if (ref $objs eq 'ARRAY') {
+            } elsif (ref $objs eq 'CODE') {
+                my @objs;
                 for my $obj ($self->{app}{schema}->resultset($meta->{source})->all) {
-                    if ($meta->{objs}->($obj)) {
-                        push @$objs, $obj;
+                    if ($objs->($obj)) {
+                        push @objs, $obj;
                     }
                 }
-            } elsif (ref $meta->{objs} eq 'HASH') {
-                $objs = [$self->{app}{schema}->resultset($meta->{source})->search($meta->{objs})];
+                $objs = \@objs;
+            } elsif (ref $objs eq 'HASH') {
+                $objs = [$self->{app}{schema}->resultset($meta->{source})->search($objs)];
             } else {
                 $objs = [$self->{app}{schema}->resultset($meta->{source})->all];
             }
@@ -1251,11 +1277,12 @@ sub widgets {
                     $id = $meta->{value};
                 }
             }
+            my $values = $meta->{semantics} ? $meta->{semantics}{values} : $meta->{values};
             push @input, [1 => "$column: "], drop_down(
                 name => $column,
                 objs => $objs,
                 selected => $id,
-                values => $meta->{values},
+                values => $values,
                 not_null => $meta->{not_null}
                 );
         } elsif ($meta->{data_type} eq 'boolean') {

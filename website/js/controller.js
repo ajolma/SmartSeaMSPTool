@@ -148,8 +148,8 @@ MSPController.prototype = {
                 }
             });
             
-            self.view.ruleSelected.attach(function (sender, args) {
-                var rule = self.model.selectRule(args.id);
+            self.view.ruleClicked.attach(function (sender, args) {
+                var rule = self.model.getRule(args.id);
                 self.editRule(self.model.plan, null, self.model.layer, rule);
             });
             
@@ -261,37 +261,7 @@ MSPController.prototype = {
             url: 'http://' + self.model.server + '/plans',
             payload: {},
             atSuccess: function (data) {
-                var plans = [], ecosystem, datasets;
-                /*jslint unparam: true*/
-                $.each(data, function (i, plan) {
-                    if (!plan.uses) {
-                        plan.uses = [];
-                    }
-                    $.each(plan.uses, function (j, use) {
-                        var layers = [];
-                        $.each(use.layers, function (k, layer) {
-                            layer.model = self.model;
-                            layer.server = 'http://' + self.model.server + '/WMTS';
-                            layer.map = self.model.map;
-                            layer.projection = self.model.proj;
-                            layer.use_class_id = use.class_id;
-                            layers.push(new MSPLayer(layer));
-                        });
-                        use.layers = layers;
-                    });
-                });
-                // pseudo uses, note reserved use class id's
-                $.each(data, function (i, plan) {
-                    if (plan.id === 0) { // a pseudo plan Data
-                        datasets = plan.uses[0];
-                    } else if (plan.id === 1) { // a pseudo plan Ecosystem
-                        ecosystem = plan.uses[0];
-                    } else {
-                        plans.push(plan);
-                    }
-                });
-                /*jslint unparam: false*/
-                self.model.setPlans(plans, ecosystem, datasets);
+                self.model.setPlans(data);
                 self.getKlasses();
                 self.getNetworks();
             }
@@ -793,7 +763,8 @@ MSPController.prototype = {
                 type: 'select',
                 list: self.model.datasets.layers,
                 pretext: 'Rule is based on the dataset: '
-            });
+            }),
+            getPayload;
 
         self.editor.dialog('option', 'title', 'Sääntö tasossa ' + layer.name);
         self.editor.dialog('option', 'height', 500);
@@ -805,16 +776,50 @@ MSPController.prototype = {
         }
 
         if (layer.rule_class === 'exclusive') {
-            self.editBooleanRule(plan, use, layer, rule, dataset);
+            getPayload = self.editBooleanRule(plan, use, layer, rule, dataset);
         } else if (layer.rule_class === 'boxcar') {
             self.editor.dialog('option', 'width', 470);
             self.editor.dialog('option', 'height', 700);
-            self.editBoxcarRule(plan, use, layer, rule, dataset);
+            getPayload = self.editBoxcarRule(plan, use, layer, rule, dataset);
         } else if (layer.rule_class === 'Bayesian network') {
-            self.editBayesianRule(plan, use, layer, rule, dataset);
+            getPayload = self.editBayesianRule(plan, use, layer, rule, dataset);
         } else {
             self.error('Editing ' + layer.rule_class + ' rules not supported yet.');
         }
+
+        self.ok = function () { // save new rule
+            var path = 'plan:' + plan.id + '/uses:' + use.id + '/layers:' + layer.id;
+            self.post({
+                url: self.server + path + '/rules?request=save',
+                payload: getPayload(),
+                atSuccess: function (data) {
+                    self.model.addRule(data);
+                }
+            });
+            return true;
+        };
+        self.apply = function () { // update or modify existing rule
+            var request = owner ? 'update' : 'modify',
+                payload = getPayload(),
+                data = {};
+            $.each(payload, function (key, value) {
+                data[key] = value;
+            });
+            if (data.op) {
+                data.op = self.klasses.op.find(function (element) {
+                    return element.id === data.op;
+                }).name;
+            }
+            self.post({
+                url: self.server + 'rule:' + rule.id + '?request=' + request,
+                payload: payload,
+                atSuccess: function () {
+                    self.model.editRule(data);
+                }
+                // if (xhr.status === 403)
+                // self.error('Rule modification requires cookies. Please enable cookies and reload this app.');
+            });
+        };
         
         self.editor.dialog('open');
     },

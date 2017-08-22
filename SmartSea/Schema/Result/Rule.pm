@@ -12,6 +12,12 @@ use SmartSea::Core qw(:all);
 use SmartSea::HTML qw(:all);
 use SmartSea::Layer;
 
+# @columns go inside DBIx as columns info
+# DBIx recognizes some keys and adds some of its own
+# we also mess with the contents of the info, both on schema and on object level
+# on schema level we may add semantics, and columns keys
+# on object level we may add not_used, and value keys
+# that means the columns info is valid only for one object at a time
 my @columns = (
     id           => {},
     cookie       => { system_column => 1 }, # empty or cookie
@@ -52,6 +58,10 @@ sub criteria {
 sub columns_info {
     my ($self, $colnames, $parent) = @_;
     my $info = $self->SUPER::columns_info($colnames);
+    for my $col ($self->columns) {
+        delete $info->{$col}{not_used};
+        delete $info->{$col}{semantics};
+    }
     my $class;
     if (ref $self) {
         $class = $self->rule_system->rule_class->id;
@@ -65,45 +75,53 @@ sub columns_info {
         }
     }
     return $info unless $class;
-    my $clusive = $class == EXCLUSIVE_RULE || $class == INCLUSIVE_RULE;
-    my $tive = $class == MULTIPLICATIVE_RULE || $class == ADDITIVE_RULE;
-    my $boxcar = $class == BOXCAR_RULE;
-    my $bayesian = $class == BAYESIAN_NETWORK_RULE;
-    #croak "Unknown rule class." unless $clusive || $tive || $boxcar;
+    my ($clusive, $tive, $boxcar, $bayesian);
+    if ($class == EXCLUSIVE_RULE || $class == INCLUSIVE_RULE) {
+        $clusive = 1;
+    } elsif ($class == MULTIPLICATIVE_RULE || $class == ADDITIVE_RULE) {
+        $tive = 1;
+    } elsif ($class == BOXCAR_RULE) {
+        $boxcar = 1;
+    } elsif ($class == BAYESIAN_NETWORK_RULE) {
+        $bayesian = 1;
+    } else {
+        #can't confess before tests are fixed to not use unknown rule classes
+        #confess "Unknown rule class: $class";
+    }
     for my $col ($self->columns) {
-        if ($col eq 'op' || $col eq 'value') {
+        if ($col eq 'op') {
+            $info->{$col}{not_used} = 1 unless $clusive;
+        } elsif ($col eq 'value') {
             unless ($clusive) {
-                delete $info->{$col};
-            } else {
-                if (blessed($self) && $col eq 'value') {
-                    my $criteria = $self->criteria;
-                    if ($criteria) {
-                        my $semantics = $criteria->semantics_hash;
-                        if ($semantics) {
-                            my @objs;
-                            my @values;
-                            for my $value (keys %$semantics) {
-                                push @objs, {id => $value, name => $semantics->{$value}};
-                                push @values, $value;
-                            }
-                            $info->{$col}{is_foreign_key} = 1;
-                            $info->{$col}{objs} = \@objs;
-                            $info->{$col}{values} = \@values;
+                $info->{$col}{not_used} = 1;
+            } elsif (blessed($self)) {
+                my $criteria = $self->criteria;
+                if ($criteria) {
+                    my $semantics = $criteria->semantics_hash;
+                    if ($semantics) {
+                        my @objs;
+                        my @values;
+                        for my $value (keys %$semantics) {
+                            push @objs, {id => $value, name => $semantics->{$value}};
+                            push @values, $value;
                         }
+                        $info->{$col}{semantics}{is_foreign_key} = 1;
+                        $info->{$col}{semantics}{objs} = \@objs;
+                        $info->{$col}{semantics}{values} = \@values;
                     }
                 }
             }
         } elsif ($col eq 'min_value' || $col eq 'max_value' || 
                  $col eq 'value_at_min' || $col eq 'value_at_max') {
-            delete $info->{$col} unless $tive;
+            $info->{$col}{not_used} = 1 unless $tive;
         } elsif ($col eq 'weight') {
-            delete $info->{$col} unless $tive || $boxcar;
+            $info->{$col}{not_used} = 1 unless $tive || $boxcar;
         } elsif ($col =~ /^boxcar/) {
-            delete $info->{$col} unless $boxcar;
+            $info->{$col}{not_used} = 1 unless $boxcar;
         } elsif ($col eq 'node_id') {
-            delete $info->{$col} unless $bayesian;
+            $info->{$col}{not_used} = 1 unless $bayesian;
         } elsif ($col eq 'state_offset') {
-            delete $info->{$col} unless $bayesian;
+            $info->{$col}{not_used} = 1 unless $bayesian;
         }
     }
     return $info;
@@ -204,6 +222,7 @@ sub read {
     $retval->{op} = $self->op->name if $clusive;
     for my $key (keys %$columns) {
         my $meta = $columns->{$key};
+        next if $meta->{not_used};
         next if $meta->{system_column};
         next if $meta->{is_foreign_key};
         next if exists $retval->{$key};

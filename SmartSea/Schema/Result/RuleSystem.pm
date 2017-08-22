@@ -33,17 +33,20 @@ __PACKAGE__->has_many(ecosystem_component => 'SmartSea::Schema::Result::Ecosyste
 __PACKAGE__->has_many(rules => 'SmartSea::Schema::Result::Rule', 'rule_system');
 
 sub columns_info {
-    my ($self, $colnames) = @_;
+    my ($self, $colnames, $parent) = @_;
     my $info = $self->SUPER::columns_info($colnames);
+    for my $col ($self->columns) {
+        delete $info->{$col}{not_used};
+    }
     my $class;
     if (ref $self) {
         $class = $self->rule_class->id;
     }
     return $info unless $class;
     if ($class != BAYESIAN_NETWORK_RULE) {
-        delete $info->{network_file};
-        delete $info->{output_node};
-        delete $info->{output_state};
+        $info->{network_file}{not_used} = 1;
+        $info->{output_node}{not_used} = 1;
+        $info->{output_state}{not_used} = 1;
     }
     return $info;
 }

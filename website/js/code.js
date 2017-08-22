@@ -151,7 +151,7 @@ function makeConfig(config) {
             user: config.user,
             proj: config.proj,
             map: map,
-            firstPlan: 14,
+            firstPlan: 30,
             auth: config.auth
         }),
         view = new MSPView(model, {

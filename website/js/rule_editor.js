@@ -89,43 +89,18 @@ MSPController.prototype.editBooleanRule = function (plan, use, layer, rule, data
             return changed;
         }()));
     }
-    
-    self.ok = function () { // save new rule
-        var set = dataset.getSelected(),
-            operator = op.getSelected(),
-            value = (set.classes === 1 ? 0 : threshold.getValue()),
-            payload = {dataset: set.id};
-        if (operator) {
-            payload.op = operator.id;
-            payload.value = value;
+
+    return function () {
+        var retval = {};
+        if (!rule) {
+            dataset = dataset.getSelected();
+            retval.dataset = dataset.id;
         }
-        self.post({
-            url: self.server + 'plan:' + plan.id + '/uses:' + use.id + '/layers:' + layer.id + '/rules?request=save',
-            payload: payload,
-            atSuccess: function (data) {
-                self.model.addRule({
-                    id: data.id.value,
-                    dataset: data.dataset.value,
-                    op: (operator ? operator.name : null),
-                    value: data.value.value,
-                    active: true
-                });
-            }
-        });
-        return true;
-    };
-    self.apply = function () { // modify
-        var value = threshold.getValue(),
-            request = owner ? 'update' : 'modify';
-        self.post({
-            url: self.server + 'rule:' + rule.id + '?request=' + request,
-            payload: { value: value },
-            atSuccess: function () {
-                self.model.editRule({value: value});
-            }
-            // if (xhr.status === 403)
-            // self.error('Rule modification requires cookies. Please enable cookies and reload this app.');
-        });
+        if (dataset.classes > 1) {
+            retval.op = op.getSelected().id;
+            retval.value = threshold.getValue();
+        }
+        return retval;
     };
 };
 
@@ -267,49 +242,22 @@ MSPController.prototype.editBoxcarRule = function (plan, use, layer, rule, datas
             return changed;
         }()));
     }
+
+    return function () {
+        var retval = {};
+        if (!rule) {
+            dataset = dataset.getSelected();
+            retval.dataset = dataset.id;
+        }
+        retval.boxcar = form.getValue();
+        retval.boxcar_x0 = x0Widget.getValue();
+        retval.boxcar_x1 = x1Widget.getValue();
+        retval.boxcar_x2 = x2Widget.getValue();
+        retval.boxcar_x3 = x3Widget.getValue();
+        retval.weight = weight.getValue();
+        return retval;
+    };
     
-    self.ok = function () { // save new rule
-        var payload = {
-            dataset: dataset.getSelected().id,
-            boxcar: 1,
-            boxcar_x0: 1,
-            boxcar_x1: 1,
-            boxcar_x2: 1,
-            boxcar_x3: 1,
-            weight: 1,
-        };
-        self.post({
-            url: self.server + 'plan:' + plan.id + '/uses:' + use.id + '/layers:' + layer.id + '/rules?request=save',
-            payload: payload,
-            atSuccess: function (data) {
-                self.model.addRule({
-                    id: data.id.value,
-                    dataset: data.dataset.value,
-                    boxcar: data,
-                    boxcar_x0: data,
-                    boxcar_x1: data,
-                    boxcar_x2: data,
-                    boxcar_x3: data,
-                    weight: data,
-                    active: true
-                });
-            }
-        });
-        return true;
-    };
-    self.apply = function () { // modify existing rule
-        var value = threshold.getValue(),
-            request = owner ? 'update' : 'modify';
-        self.post({
-            url: self.server + 'rule:' + rule.id + '?request=' + request,
-            payload: { value: value },
-            atSuccess: function () {
-                self.model.editRule({value: value});
-            }
-            // if (xhr.status === 403)
-            // self.error('Rule modification requires cookies. Please enable cookies and reload this app.');
-        });
-    };
 };
 
 MSPController.prototype.editBayesianRule = function (plan, use, layer, rule, dataset) {
@@ -442,48 +390,14 @@ MSPController.prototype.editBayesianRule = function (plan, use, layer, rule, dat
         return changed;
     }()));
 
-    self.ok = function () { // save new rule
-        var set = dataset.getSelected(),
-            off = offset.getValue(),
-            nd = node.getSelected(),
-            payload = {
-                dataset: set.id,
-                state_offset: off,
-                node_id: nd.id
-            };
-        self.post({
-            url: self.server + 'plan:' + plan.id + '/uses:' + use.id + '/layers:' + layer.id + '/rules?request=save',
-            payload: payload,
-            atSuccess: function (data) {
-                self.model.addRule({
-                    id: data.id.value,
-                    dataset: data.dataset.value,
-                    state_offset: data.state_offset.value,
-                    node_id: data.node_id.value,
-                    active: true
-                });
-            }
-        });
-        return true;
-    };
-    self.apply = function () { // modify
-        var request = owner ? 'update' : 'modify',
-            set = dataset.getSelected(),
-            off = offset.getValue(),
-            nd = node.getSelected(),
-            payload = {
-                dataset: set.id,
-                state_offset: off,
-                node_id: nd.id
-            };
-        self.post({
-            url: self.server + 'rule:' + rule.id + '?request=' + request,
-            payload: payload,
-            atSuccess: function () {
-                self.model.editRule({value: value});
-            }
-            // if (xhr.status === 403)
-            // self.error('Rule modification requires cookies. Please enable cookies and reload this app.');
-        });
+    return function () {
+        var retval = {};
+        if (!rule) {
+            dataset = dataset.getSelected();
+            retval.dataset = dataset.id;
+        }
+        retval.state_offset = offset.getValue();
+        retval.node_id = node.getSelected().id;
+        return retval;
     };
 };

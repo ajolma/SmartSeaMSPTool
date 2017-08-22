@@ -67,17 +67,65 @@ function MSP(args) {
 }
 
 MSP.prototype = {
-    setPlans: function (plans, ecosystem, datasets) {
-        var self = this;
+    setPlans: function (data) {
+        var self = this,
+            plan;
         if (self.plan) {
             self.firstPlan = self.plan.id;
         }
         self.removeLayers();
         self.removeSite();
         self.initSite();
-        self.plans = plans;
-        self.ecosystem = ecosystem;
-        self.datasets = datasets;
+
+        // parse pseudo uses, note reserved use class id's
+        
+        self.datasets = {layers: []};
+        plan = data.find(function (plan) {
+            return plan.id === 0;
+        });
+        if (plan && plan.uses) {
+            var layers = [];
+            $.each(plan.uses[0].layers, function (i, layer) {
+                layer.MSP = self;
+                layers.push(new MSPLayer(layer));
+            });
+            self.datasets = plan.uses[0];
+            self.datasets.layers = layers;
+        }
+
+        self.ecosystem = {layers: []};
+        plan = data.find(function (plan) {
+            return plan.id === 1;
+        });
+        if (plan && plan.uses) {
+            var layers = [];
+            $.each(plan.uses[0].layers, function (i, layer) {
+                layer.MSP = self;
+                layers.push(new MSPLayer(layer));
+            });
+            self.ecosystem = plan.uses[0];
+            self.ecosystem.layers = layers;
+        }
+
+        self.plans = [];
+        $.each(data, function (i, plan) {
+            if (plan.id < 2) {
+                return true;
+            }
+            if (!plan.uses) {
+                plan.uses = [];
+            }
+            $.each(plan.uses, function (j, use) {
+                var layers = [];
+                $.each(use.layers, function (k, layer) {
+                    layer.MSP = self;
+                    layers.push(new MSPLayer(layer));
+                });
+                use.layers = layers;
+            });
+            self.plans.push(plan);
+        });
+
         self.newPlans.notify();
         self.changePlan(self.firstPlan);
     },
@@ -166,10 +214,7 @@ MSP.prototype = {
             if (use.id > 1) {
                 $.each(use.layers, function (i, layer) {
                     $.each(layer.rules, function (i, rule) {
-                        var d = self.getDataset(rule.dataset);
-                        if (d) {
-                            datasets[rule.dataset] = d;
-                        }
+                        datasets[rule.dataset.id] = rule.dataset;
                     });
                 });
             }
@@ -410,44 +455,31 @@ MSP.prototype = {
     },
     getDataset: function (id) {
         console.assert(typeof id === "number", {message: "id is not number"});
-        var self = this,
-            dataset;
-        /*jslint unparam: true*/
-        $.each(self.datasets.layers, function (i, layer) {
-            if (layer.id === id) {
-                dataset = layer;
-                return false;
-            }
-        });
-        /*jslint unparam: false*/
-        return dataset;
-    },
-    addRule: function (rule) {
         var self = this;
-        self.layer.addRule(rule);
+        return self.datasets.layers.find(function (layer) {
+            return layer.id === id;
+        });
+    },
+    addRule: function (data) {
+        var self = this;
+        self.layer.addRule(data);
         // add rule.dataset to use 'Data'?
         self.rulesChanged.notify();
+    },
+    getRule: function (id) {
+        var self = this;
+        return self.layer.getRule(id);
+    },
+    editRule: function (rule) {
+        var self = this;
+        self.rule.edit(rule);
+        self.ruleEdited.notify();
     },
     deleteRules: function (rules) {
         var self = this;
         self.layer.deleteRules(rules);
         // remove rule.dataset(s) from use 'Data'?
         self.rulesChanged.notify();
-    },
-    selectRule: function (id) {
-        var self = this;
-        self.rule = self.layer.selectRule(id);
-        return self.rule;
-    },
-    selectedRule: function () {
-        var self = this;
-        return self.rule;
-    },
-    editRule: function (rule) {
-        var self = this;
-        self.rule.value = rule.value;
-        self.layer.refresh();
-        self.ruleEdited.notify();
     },
     initSite: function () {
         var self = this,
