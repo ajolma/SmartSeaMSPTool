@@ -101,15 +101,22 @@ function Widget(args) {
             if (self.type === 'select') {
                 tag = 'option';
                 if (typeof item === 'object') {
-                    // list contains objects, give the id of the selected in selected
+                    // list contains objects,
+                    // give the object, its id, or its name in selected
                     attr2 = {value: item.id};
                     if (self.selected) {
-                        sel = self.selected;
-                        if (typeof sel === 'object') {
-                            sel = sel.id;
-                        }
-                        if (item.id.toString() === sel.toString()) {
-                            attr2.selected = 'selected';
+                        if (typeof self.selected === 'object') {
+                            if (self.selected.id === item.id) {
+                                attr2.selected = 'selected';
+                            }
+                        } else if (typeof self.selected === 'string') {
+                            if (self.selected === item.name) {
+                                attr2.selected = 'selected';
+                            }
+                        } else {
+                            if (self.selected === item.id) {
+                                attr2.selected = 'selected';
+                            }
                         }
                     }
                 } else {

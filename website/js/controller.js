@@ -149,7 +149,7 @@ MSPController.prototype = {
             });
             
             self.view.ruleClicked.attach(function (sender, args) {
-                var rule = self.model.getRule(args.id);
+                var rule = self.model.getRule(parseInt(args.id, 10));
                 self.editRule(self.model.plan, null, self.model.layer, rule);
             });
             
@@ -683,18 +683,24 @@ MSPController.prototype = {
                 payload: payload,
                 atSuccess: function (data) {
                     layer = new MSPLayer({
-                        model: self.model,
-                        server: 'http://' + self.model.server + '/WMTS',
-                        map: self.model.map,
-                        projection: self.model.proj,
                         id: data.id.value,
-                        class_id: data.layer_class.value,
-                        owner: data.owner.value,
-                        rules: [],
-                        use_class_id: use.class_id,
-                        color_scale: color.name,
+                        use_id: data.use.value,
                         name: klass.name,
-                        rule_class: rule_class.name
+                        owner: data.owner.value,
+                        MSP: self.model,
+                        use_class_id: use.class_id,
+                        
+                        // can't create new datasets
+                        
+                        class_id: data.layer_class.value,
+                        rule_class: rule_class.name,
+                        
+                        network_file: data.rule_system.columns.network_file.value,
+                        output_node: data.rule_system.columns.output_node.value,
+                        output_state: data.rule_system.columns.output_state.value,
+                        
+                        rules: []
+                        
                     });
                     self.model.addLayer(use, layer);
                 }
@@ -755,8 +761,7 @@ MSPController.prototype = {
     editRule: function (plan, use, layer, rule) {
         var self = this,
             owner = layer.owner === self.model.user,
-            dataset = rule ?
-            self.model.getDataset(rule.dataset) :
+            dataset = rule ? rule.dataset :
             new Widget({
                 container_id: self.editor_id,
                 id: 'rule-dataset',
@@ -785,6 +790,7 @@ MSPController.prototype = {
             getPayload = self.editBayesianRule(plan, use, layer, rule, dataset);
         } else {
             self.error('Editing ' + layer.rule_class + ' rules not supported yet.');
+            return;
         }
 
         self.ok = function () { // save new rule
@@ -793,7 +799,22 @@ MSPController.prototype = {
                 url: self.server + path + '/rules?request=save',
                 payload: getPayload(),
                 atSuccess: function (data) {
-                    self.model.addRule(data);
+                    self.model.addRule(new MSPRule({
+                        id: data.id.value,
+                        rule_class: layer.rule_class,
+                        dataset: data.dataset.value,
+                        active: true,
+                        op: data.op ? data.op.value : null,
+                        value: data.value ? data.value.value : null,
+                        boxcar: data.boxcar ? data.boxcar.value : null,
+                        boxcar_x0: data.boxcar_x0 ? data.boxcar_x0.value : null,
+                        boxcar_x1: data.boxcar_x1 ? data.boxcar_x1.value : null,
+                        boxcar_x2: data.boxcar_x2 ? data.boxcar_x2.value : null,
+                        boxcar_x3: data.boxcar_x3 ? data.boxcar_x3.value : null,
+                        weight: data.weight ? data.weight.value : null,
+                        state_offset: data.state_offset ? data.state_offset.value : null,
+                        node_id: data.node_id ? data.node_id.value : null,
+                    }));
                 }
             });
             return true;
@@ -814,7 +835,8 @@ MSPController.prototype = {
                 url: self.server + 'rule:' + rule.id + '?request=' + request,
                 payload: payload,
                 atSuccess: function () {
-                    self.model.editRule(data);
+                    rule.edit(data);
+                    self.model.ruleEdited.notify();
                 }
                 // if (xhr.status === 403)
                 // self.error('Rule modification requires cookies. Please enable cookies and reload this app.');

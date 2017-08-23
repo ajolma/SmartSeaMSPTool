@@ -34,28 +34,66 @@ function MSPLayer(args) {
     var self = this;
 
     self.id = args.id;
+    self.use_id = args.use_id;
     self.name = args.name;
-    self.class_id = args.class_id;
-    self.owner = args.owner,
-    self.color_scale = args.color_scale,
-    self.use_class_id = args.use_class_id,
-    self.rule_class = args.rule_class,
-    self.model = args.MSP,
-    self.server = 'http://' + args.MSP.server + '/WMTS',
-    self.map = args.MSP.map,
-    self.projection = args.MSP.proj
-    self.rules = [];
+    self.owner = args.owner;
+    
+    // mapping
+    self.model = args.MSP;
+    self.server = 'http://' + args.MSP.server + '/WMTS';
+    self.map = args.MSP.map;
+    self.projection = args.MSP.proj;
 
-    if (args.rules) {
-        /*jslint unparam: true*/
-        $.each(args.rules, function (i, rule) {
-            rule.rule_class = self.rule_class;
-            rule.dataset = self.model.getDataset(parseInt(rule.dataset, 10));
-            rule.active = true;
-            self.rules.push(new MSPRule(rule));
-        });
-        /*jslint unparam: false*/
+    // the subclass id
+    // 0 = dataset
+    // 1 = ecosystem component (computed)
+    // 2 = other computed
+    self.use_class_id = args.use_class_id;
+
+    if (self.use_class_id === 0) {
+    
+        // subclass dataset
+        self.min_value = args.min_value;
+        self.max_value = args.max_value;
+        self.data_type = args.data_type; // integer or real
+        self.semantics = args.semantics;
+        self.descr = args.descr;
+        self.provenance = args.provenance;
+
+        self.binary =
+            self.data_type === 'integer' &&
+            self.min_value === 0 &&
+            self.max_value === 1;
+
+    } else {
+
+        // subclass computed layer
+        self.class_id = args.class_id;
+        self.rule_class = args.rule_class;
+
+        if (self.rule_class === 'Bayesian network') {
+            self.network_file = args.network_file;
+            self.output_node = args.output_node;
+            self.output_state = args.output_state;
+        }
+        
+        self.rules = [];
+
+        if (args.rules) {
+            /*jslint unparam: true*/
+            $.each(args.rules, function (i, rule) {
+                rule.rule_class = self.rule_class;
+                rule.dataset = self.model.getDataset(parseInt(rule.dataset, 10));
+                rule.active = true;
+                self.rules.push(new MSPRule(rule));
+            });
+            /*jslint unparam: false*/
+        }
+        
     }
+        
+    // visualization but not used
+    self.color_scale = args.color_scale;
 
     if (self.layer) {
         self.map.removeLayer(self.layer);
@@ -148,9 +186,6 @@ MSPLayer.prototype = {
     },
     addRule: function (rule) {
         var self = this;
-        rule.rule_class = self.rule_class;
-        rule.dataset = self.model.getDataset(rule.dataset);
-        rule.active = true;
         self.rules.push(rule);
         self.refresh();
     },
@@ -190,6 +225,7 @@ MSPLayer.prototype = {
 
 function MSPRule(args) {
     var self = this;
+    self.id = args.id;
     self.rule_class = args.rule_class;
     self.dataset = args.dataset;
     self.active = args.active;
@@ -201,7 +237,9 @@ MSPRule.prototype = {
         var self = this;
         if (self.rule_class.match(/clusive/)) {
             self.op = rule.op;
-            self.value = rule.value;
+            if (!self.dataset.binary) {
+                self.value = rule.value;
+            }
         } else if (self.rule_class === 'boxcar') {
             self.boxcar = rule.boxcar;
             self.boxcar_x0 = rule.boxcar_x0;
@@ -224,7 +262,9 @@ MSPRule.prototype = {
             value;
         name = self.dataset.name;
         if (self.rule_class.match(/clusive/)) {
-            if (self.dataset.classes > 1) {
+            if (self.dataset.binary) {
+                name = self.op + ' ' + name;
+            } else {
                 value = self.value;
                 if (self.dataset.semantics) {
                     value = self.dataset.semantics[value];

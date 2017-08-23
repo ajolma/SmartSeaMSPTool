@@ -432,7 +432,7 @@ MSPView.prototype = {
             self.model.layer.setRuleActive(rule_id, active);
         });
         $(self.id.rules + ' #rule').click(function () {
-            self.ruleClicked.notify({id: $(this).attr('rule')});
+            self.ruleClicked.notify({id: parseInt($(this).attr('rule'), 10)});
         });
     },
     siteInteraction: function (source) {

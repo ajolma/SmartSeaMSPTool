@@ -70,6 +70,8 @@ sub read {
     my ($self) = @_;
     my @rules;
     for my $rule (sort {$a->criteria->name cmp $b->criteria->name} $self->rules({cookie => ''})) {
+        # add only usable rules
+        next unless $rule->dataset->usable_in_rule;
         push @rules, $rule->read;
     }
     my $layer = {

@@ -15,9 +15,7 @@ sub layers {
     my ($self) = @_;
     my @datasets;
     for my $dataset ($self->search(undef, {order_by => {-asc => 'name'}})->all) {
-        next unless $dataset->path;
-        next unless $dataset->style;
-        next unless $dataset->data_type;
+        next unless $dataset->usable_in_rule;
         push @datasets, $dataset->read;
     }
     return @datasets if wantarray;

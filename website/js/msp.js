@@ -49,7 +49,6 @@ function MSP(args) {
     // selected things, i.e., where the users focus is
     self.plan = null;
     self.layer = null;
-    self.rule = null;
 
     // events
 
@@ -460,20 +459,15 @@ MSP.prototype = {
             return layer.id === id;
         });
     },
-    addRule: function (data) {
+    addRule: function (rule) {
         var self = this;
-        self.layer.addRule(data);
+        self.layer.addRule(rule);
         // add rule.dataset to use 'Data'?
         self.rulesChanged.notify();
     },
     getRule: function (id) {
         var self = this;
         return self.layer.getRule(id);
-    },
-    editRule: function (rule) {
-        var self = this;
-        self.rule.edit(rule);
-        self.ruleEdited.notify();
     },
     deleteRules: function (rules) {
         var self = this;

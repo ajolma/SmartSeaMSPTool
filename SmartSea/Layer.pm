@@ -37,6 +37,7 @@ sub new {
     $id //= 0;
     # 'duck' since the different types are conceptually subclasses
     if ($type == 0) {
+        # dataset is really not viewable unless its min, max and data type have been set
         $self->{duck} = $self->{schema}->resultset('Dataset')->single({ id => $id });
         croak "Dataset $id does not exist.\n" unless $self->{duck};
         # min, max, and data type really should have been set
@@ -122,6 +123,12 @@ sub new {
         $self->{duck}->style->color_scale($color_scale->id) if $color_scale;
     }
 
+    # fixme: at this point we must have a style
+    # if it is not then we should assign a temporary one
+    unless ($self->{duck}->style) {
+        $self->{duck}->style->create({id => 0, color_scale => 1});
+    }
+
     return bless $self, $class;
 }
 
@@ -151,7 +158,7 @@ sub compute {
         $system->compute($y, $self);
 
     } else {
-        # we know duck is dataset
+        # we know duck is a dataset
         my $band;
         eval {
             $band = $self->{duck}->Band($self);

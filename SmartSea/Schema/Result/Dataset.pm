@@ -116,6 +116,11 @@ sub lineage {
     return $lineage;
 }
 
+sub usable_in_rule {
+    my $self = shift;
+    return $self->data_type && defined $self->min_value && defined $self->max_value;
+}
+
 sub my_unit {
     my $self = shift;
     return $self->unit if defined $self->unit;
@@ -269,7 +274,7 @@ sub read {
         name => $self->name,
         descr => $self->descr,
         provenance => $self->lineage,
-        color_scale => $self->style->color_scale->name,
+        color_scale => $self->style ? $self->style->color_scale->name : 'grayscale',
         min_value => $min,
         max_value => $max,
         classes => $self->style ? $self->style->classes : undef,

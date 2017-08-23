@@ -98,11 +98,11 @@ sub object_editor {
     } elsif ($self->{parameters}{delete}) {
         # from HTML form
         # attempt to delete and show the changed object
-        # delete does not do deep
         my $last = $objects->[$#$objects];
         my $class = $last->{class}; # what to delete
         $self->{parameters}->remove($class); # from a select accompanying create button
-        $last->id($self->{parameters}{delete} =~ /(\d+)/);
+        my ($id) = $self->{parameters}{delete} =~ /(\d+)/;
+        $last = SmartSea::Object->new({source => $last->{source}, id => $id, app => $last->{app}});
         delete $self->{parameters}{delete};
         $request = 'delete';
     } else {
@@ -193,9 +193,9 @@ sub object_editor {
         my @errors;
         if (@id) {
             for my $id (@id) {
-                $last->id($id);
+                my $o = SmartSea::Object->new({source => $last->{source}, id => $id, app => $last->{app}});
                 eval {
-                    push @errors, $last->create();
+                    push @errors, $o->create();
                 };
             }
         } else {
@@ -221,9 +221,9 @@ sub object_editor {
         my @id = $self->{parameters}->get_all($class);
         if (@id) {
             for my $id (@id) {
-                $last->id($id);
+                my $o = SmartSea::Object->new({source => $last->{source}, id => $id, app => $last->{app}});
                 eval {
-                    $last->delete();
+                    $o->delete();
                 };
             }
         } else {
