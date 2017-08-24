@@ -297,7 +297,7 @@ MSPView.prototype = {
                 // select and unselect a layer
                 $("#use" + use.id + " #layer" + layer.id).click(function () {
                     var layer2 = self.model.unselectLayer();
-                    if (!layer2 || !(layer2.id === layer.id && layer2.use_class_id === layer.use_class_id)) {
+                    if (!layer2 || !(layer2.id === layer.id && layer2.use.class_id === layer.use_class_id)) {
                         self.model.selectLayer({use: use.id, layer: layer.id});
                     }
                 });
@@ -351,17 +351,17 @@ MSPView.prototype = {
         if (!layer) {
             return;
         }
-        $('#use' + layer.use_id + ' #layer' + layer.id).css('background-color', 'yellow');
+        $('#use' + layer.use.id + ' #layer' + layer.id).css('background-color', 'yellow');
         if (layer.color_scale) {
             style = '&style=' + layer.color_scale;
         }
         self.elements.color_scale.html(
             element('img', {src: url + '/legend?layer=' + layer.getName() + style + cache_breaker}, '')
         );
-        if (layer.use_class_id === 0) { // Data
+        if (layer.use.class_id === 0) { // Data
             self.elements.rule_header.html('This is a dataset.');
             self.elements.rule_info.html(layer.provenance);
-        } else if (layer.use_class_id === 1) { // Ecosystem
+        } else if (layer.use.class_id === 1) { // Ecosystem
             self.elements.rule_header.html('This is an ecosystem component.');
             self.elements.rule_info.html(layer.provenance);
         } else {
@@ -387,7 +387,7 @@ MSPView.prototype = {
         }
     },
     unselectLayer: function (layer) {
-        $('#use' + layer.use_id + ' #layer' + layer.id).css('background-color', 'white');
+        $('#use' + layer.use.id + ' #layer' + layer.id).css('background-color', 'white');
         this.elements.rule_header.html('');
         this.elements.rule_info.html('');
         this.elements.color_scale.html('');
@@ -416,7 +416,7 @@ MSPView.prototype = {
                     attr.checked = 'checked';
                 }
                 item = element('a', {id: 'rule', rule: rule.id}, name);
-                if (self.model.layer.use_class_id > 1) {
+                if (self.model.layer.use.class_id > 1) {
                     item = element('input', attr, item);
                 }
                 self.elements.rules.append(item);

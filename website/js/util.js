@@ -109,14 +109,8 @@ function Widget(args) {
                             if (self.selected.id === item.id) {
                                 attr2.selected = 'selected';
                             }
-                        } else if (typeof self.selected === 'string') {
-                            if (self.selected === item.name) {
-                                attr2.selected = 'selected';
-                            }
-                        } else {
-                            if (self.selected === item.id) {
-                                attr2.selected = 'selected';
-                            }
+                        } else if (self.selected === item.id || self.selected === item.name) {
+                            attr2.selected = 'selected';
                         }
                     }
                 } else {

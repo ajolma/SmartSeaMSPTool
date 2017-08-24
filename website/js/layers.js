@@ -34,7 +34,6 @@ function MSPLayer(args) {
     var self = this;
 
     self.id = args.id;
-    self.use_id = args.use_id;
     self.name = args.name;
     self.owner = args.owner;
     
@@ -44,45 +43,23 @@ function MSPLayer(args) {
     self.map = args.MSP.map;
     self.projection = args.MSP.proj;
 
-    // the subclass id
+    self.use = args.use;
+    
+    // the use class id
     // 0 = dataset
     // 1 = ecosystem component (computed)
     // 2 = other computed
-    self.use_class_id = args.use_class_id;
 
-    if (self.use_class_id === 0) {
-    
-        // subclass dataset
-        self.min_value = args.min_value;
-        self.max_value = args.max_value;
-        self.data_type = args.data_type; // integer or real
-        self.semantics = args.semantics;
-        self.descr = args.descr;
-        self.provenance = args.provenance;
+    self.edit(args);
 
-        self.binary =
-            self.data_type === 'integer' &&
-            (self.min_value === 0 || self.min_value === 1) &&
-            self.max_value === 1;
+    if (self.use.class_id > 0) {
 
-    } else {
-
-        // subclass computed layer
-        self.class_id = args.class_id;
-        self.rule_class = args.rule_class;
-
-        if (self.rule_class === 'Bayesian network') {
-            self.network_file = args.network_file;
-            self.output_node = args.output_node;
-            self.output_state = args.output_state;
-        }
-        
         self.rules = [];
 
         if (args.rules) {
             /*jslint unparam: true*/
             $.each(args.rules, function (i, rule) {
-                rule.rule_class = self.rule_class;
+                rule.layer = self;
                 rule.dataset = self.model.getDataset(parseInt(rule.dataset, 10));
                 rule.active = true;
                 self.rules.push(new MSPRule(rule));
@@ -91,9 +68,6 @@ function MSPLayer(args) {
         }
         
     }
-        
-    // visualization but not used
-    self.color_scale = args.color_scale;
 
     if (self.layer) {
         self.map.removeLayer(self.layer);
@@ -101,6 +75,41 @@ function MSPLayer(args) {
 }
 
 MSPLayer.prototype = {
+    edit: function(args) {
+        var self = this;
+        if (self.use.class_id === 0) {
+    
+            // subclass dataset
+            self.min_value = args.min_value;
+            self.max_value = args.max_value;
+            self.data_type = args.data_type; // integer or real
+            self.semantics = args.semantics;
+            self.descr = args.descr;
+            self.provenance = args.provenance;
+            
+            self.binary =
+                self.data_type === 'integer' &&
+                (self.min_value === 0 || self.min_value === 1) &&
+                self.max_value === 1;
+            
+        } else {
+            
+            // subclass computed layer
+            self.class_id = args.class_id;
+            self.rule_class = args.rule_class;
+            
+            if (self.rule_class === 'Bayesian network') {
+                self.network_file = args.network_file;
+                self.output_node = args.output_node;
+                self.output_state = args.output_state;
+            }
+        
+        }
+        
+        // visualization but not used
+        self.color_scale = args.color_scale;
+        self.refresh();
+    },
     getOpacity: function () {
         var self = this;
         return self.layer.getOpacity();
@@ -111,7 +120,7 @@ MSPLayer.prototype = {
     },
     getName: function () {
         var self = this,
-            n = self.use_class_id + '_' + self.id;
+            n = self.use.class_id + '_' + self.id;
         if (self.rules && self.rules.length > 0) {
             /*jslint unparam: true*/
             $.each(self.rules, function (i, rule) {
@@ -226,7 +235,7 @@ MSPLayer.prototype = {
 function MSPRule(args) {
     var self = this;
     self.id = args.id;
-    self.rule_class = args.rule_class;
+    self.layer = args.layer;
     self.dataset = args.dataset;
     self.active = args.active;
     self.edit(args);
@@ -235,19 +244,19 @@ function MSPRule(args) {
 MSPRule.prototype = {
     edit: function(rule) {
         var self = this;
-        if (self.rule_class.match(/clusive/)) {
+        if (self.layer.rule_class.match(/clusive/)) {
             self.op = rule.op;
             if (!self.dataset.binary) {
                 self.value = rule.value;
             }
-        } else if (self.rule_class === 'boxcar') {
+        } else if (self.layer.rule_class === 'boxcar') {
             self.boxcar = rule.boxcar;
             self.boxcar_x0 = rule.boxcar_x0;
             self.boxcar_x1 = rule.boxcar_x1;
             self.boxcar_x2 = rule.boxcar_x2;
             self.boxcar_x3 = rule.boxcar_x3;
             self.weight = rule.weight;
-        } else if (self.rule_class === 'bayes') {
+        } else if (self.layer.rule_class === 'bayes') {
             self.state_offset = rule.state_offset;
             self.node_id = rule.node_id;
         }
@@ -261,7 +270,7 @@ MSPRule.prototype = {
             name,
             value;
         name = self.dataset.name;
-        if (self.rule_class.match(/clusive/)) {
+        if (self.layer.rule_class.match(/clusive/)) {
             if (self.dataset.binary) {
                 name = self.op + ' ' + name;
             } else {
@@ -271,8 +280,8 @@ MSPRule.prototype = {
                 }
                 name += ' ' + self.op + ' ' + value;
             }
-        /*} else if (self.rule_class.match(/tive/)) {*/
-        } else if (self.rule_class === 'boxcar') {
+        /*} else if (self.layer.rule_class.match(/tive/)) {*/
+        } else if (self.layer.rule_class === 'boxcar') {
             if (self.boxcar) {
                 name += ' _/¯\\_ ';
             } else {

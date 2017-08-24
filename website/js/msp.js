@@ -86,6 +86,7 @@ MSP.prototype = {
             var layers = [];
             $.each(plan.uses[0].layers, function (i, layer) {
                 layer.MSP = self;
+                layer.use = plan.uses[0];
                 layers.push(new MSPLayer(layer));
             });
             self.datasets = plan.uses[0];
@@ -100,6 +101,7 @@ MSP.prototype = {
             var layers = [];
             $.each(plan.uses[0].layers, function (i, layer) {
                 layer.MSP = self;
+                layer.use = plan.uses[0];
                 layers.push(new MSPLayer(layer));
             });
             self.ecosystem = plan.uses[0];
@@ -118,6 +120,7 @@ MSP.prototype = {
                 var layers = [];
                 $.each(use.layers, function (k, layer) {
                     layer.MSP = self;
+                    layer.use = use;
                     layers.push(new MSPLayer(layer));
                 });
                 use.layers = layers;
@@ -370,30 +373,28 @@ MSP.prototype = {
         self.newLayerList.notify();
         self.addSite();
     },
-    addLayer: function (use, layer) {
+    addLayer: function (layer) {
         var self = this;
-        use.layers.unshift(layer);
+        layer.use.layers.unshift(layer);
         self.createLayers();
     },
     deleteLayer: function (use_id, layer_id) {
         console.assert(typeof use_id === "number", {message: "use id is not number"});
         console.assert(typeof layer_id === "number", {message: "layer id is not number"});
-        var self = this;
+        var self = this,
+            use = self.plan.uses.find(function (u) {
+                return u.id === use_id;
+            }),
+            layers = [];
         /*jslint unparam: true*/
-        $.each(self.plan.uses, function (i, use) {
-            if (use.id === use_id) {
-                var layers = [];
-                $.each(use.layers, function (j, layer) {
-                    if (layer.id === layer_id) {
-                        layer.removeFromMap();
-                    } else {
-                        layers.push(layer);
-                    }
-                });
-                use.layers = layers;
-                return false;
+        $.each(use.layers, function (j, layer) {
+            if (layer.id === layer_id) {
+                layer.removeFromMap();
+            } else {
+                layers.push(layer);
             }
         });
+        use.layers = layers;
         /*jslint unparam: false*/
         self.createLayers();
     },
@@ -486,7 +487,7 @@ MSP.prototype = {
                 format,
                 coordinates;
             if (self.layer && self.layer.visible) {
-                query += '&use=' + self.layer.use_class_id + '&layer=' + self.layer.id;
+                query += '&use=' + self.layer.use.class_id + '&layer=' + self.layer.id;
             }
             if (type === 'Polygon') {
                 format = new ol.format.WKT();

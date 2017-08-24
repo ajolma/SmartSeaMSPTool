@@ -538,8 +538,7 @@ MSPController.prototype = {
                         return element.id === klass.id;
                     });
                 },
-                pretext: available_layer_classes.length ?
-                    'The layer class: ' : 'No more slots for layers in this use.'
+                pretext: available_layer_classes.length ? 'The layer class: ' : ''
             }),
             
             klass = layer ?
@@ -563,6 +562,16 @@ MSPController.prototype = {
                 id: 'rule-class-extra',
                 type: 'para'
             }),
+            rule_class_extra2 = new Widget({
+                container_id: self.editor_id,
+                id: 'rule-class-extra2',
+                type: 'para'
+            }),
+            rule_class_extra3 = new Widget({
+                container_id: self.editor_id,
+                id: 'rule-class-extra3',
+                type: 'para'
+            }),
             color_list = new Widget({
                 container_id: self.editor_id,
                 id: 'layer-color',
@@ -574,6 +583,37 @@ MSPController.prototype = {
             network,
             node,
             state,
+            select_network_node = function (network, selected, extra) {
+                node = new Widget({
+                    container_id: self.editor_id,
+                    id: 'layer-node',
+                    type: 'select',
+                    list: network.nodes,
+                    selected: selected,
+                    pretext: 'Select the node whose value to use for this layer: '
+                });
+                rule_class_extra2.html(element('p', {}, extra) +
+                                       element('p', {}, node.html()));
+                
+                node.changed((function changed() {
+                    var node2 = node.getSelected(); // node2 is not null since we have set selected above
+                    var desc = '';
+                    if (node2.attributes) {
+                        desc = node2.attributes.HR_Desc;
+                    }
+                    state = new Widget({
+                        container_id: self.editor_id,
+                        id: 'layer-state',
+                        type: 'select',
+                        list: node2.values,
+                        selected: node2.values[0],
+                        pretext: 'Select the state for the layer value: '
+                    });
+                    rule_class_extra3.html(element('p', {}, 'Description: ' + desc) +
+                                           element('p', {}, state.html()));
+                    return changed;
+                }()));
+            },
             
             html = layer ?
             
@@ -581,8 +621,12 @@ MSPController.prototype = {
             element('p', {}, 'Rule system is ' + layer.rule_class + '.') :
             
             element('p', {}, class_list.html()) +
-            element('p', {}, rule_class_list.html()) +
-            element('p', {}, rule_class_extra.html());
+            element('p', {}, rule_class_list.html());
+
+        if (!layer && available_layer_classes.length == 0) {
+            self.error('No more slots for layers in this use.');
+            return;
+        }
 
         self.editor.dialog('option', 'title', 'Layer for ' + use.name);
         self.editor.dialog('option', 'width', 500);
@@ -594,13 +638,24 @@ MSPController.prototype = {
         }
         
         html = element('p', {}, 'This layer is computed by rules.') + html;
+        html += element('p', {}, rule_class_extra.html());
+        html += element('p', {}, rule_class_extra2.html());
+        html += element('p', {}, rule_class_extra3.html());
         if (use.id === 0) {
             html += element('p', {}, 'The color setting is temporary for datasets.');
         }
         html += element('p', {}, color_list.html());
         self.editor.html(html);
 
-        if (!layer) {
+        if (layer) {
+            if (layer.rule_class === 'Bayesian network') {
+                select_network_node(
+                    self.networks.find(function (net) {return net.id === layer.network_file}),
+                    layer.output_node,
+                    'The layer is based on Bayesian network <b>' + layer.network_file + '</b>'
+                );
+            }
+        } else {
             rule_class_list.changed((function changed() {
                 var klass = rule_class_list.getSelected();
                 if (klass && klass.name === 'Bayesian network') {
@@ -616,39 +671,9 @@ MSPController.prototype = {
                     rule_class_extra.html(element('p', {}, network.html()));
                     
                     network.changed((function changed() {
-                        var net = network.getSelected(); // net is not null since we have set selected above
-                        node = new Widget({
-                            container_id: self.editor_id,
-                            id: 'layer-node',
-                            type: 'select',
-                            list: net.nodes,
-                            selected: net.nodes[0],
-                            pretext: 'Select the node to use for this layer: '
-                        });
-                        rule_class_extra.html(element('p', {}, network.html()) +
-                                              element('p', {}, node.html()));
-                        
-                        node.changed((function changed() {
-                            var nod = node.getSelected(); // nod is not null since we have set selected above
-                            var desc = '';
-                            if (nod.attributes) {
-                                desc = nod.attributes.HR_Desc;
-                            }
-                            state = new Widget({
-                                container_id: self.editor_id,
-                                id: 'layer-state',
-                                type: 'select',
-                                list: nod.values,
-                                selected: nod.values[0],
-                                pretext: 'Select the state for the layer value: '
-                            });
-                            rule_class_extra.html(element('p', {}, network.html()) +
-                                                  element('p', {}, node.html()) +
-                                                  element('p', {}, 'Description: ' + desc) +
-                                                  element('p', {}, state.html()));
-                            return changed;
-                        }()));
-                        
+                        // net is not null since we have set selected above
+                        var net = network.getSelected();
+                        select_network_node(net, net.nodes[0], '');
                         return changed;
                     }()));
                     
@@ -682,13 +707,13 @@ MSPController.prototype = {
                 url: url,
                 payload: payload,
                 atSuccess: function (data) {
-                    layer = new MSPLayer({
+                    self.model.addLayer(new MSPLayer({
                         id: data.id.value,
-                        use_id: data.use.value,
                         name: klass.name,
                         owner: data.owner.value,
+                        
                         MSP: self.model,
-                        use_class_id: use.class_id,
+                        use: use,
                         
                         // can't create new datasets
                         
@@ -699,10 +724,11 @@ MSPController.prototype = {
                         output_node: data.rule_system.columns.output_node.value,
                         output_state: data.rule_system.columns.output_state.value,
                         
-                        rules: []
+                        rules: [],
+
+                        color_scale: color.name
                         
-                    });
-                    self.model.addLayer(use, layer);
+                    }));
                 }
             });
             return true;
@@ -714,8 +740,7 @@ MSPController.prototype = {
                     color_scale: color.id
                 },
                 url;
-            if (rule_class.name === "Bayesian network") {
-                payload.network_file = network.getSelected().id;
+            if (layer.rule_class === "Bayesian network") {
                 payload.output_node = node.getSelected().id;
                 payload.output_state = state.getValue();
             }
@@ -730,6 +755,21 @@ MSPController.prototype = {
                     url: url,
                     payload: payload,
                     atSuccess: function (data) {
+                        var args = {
+                            // can't edit datasets
+
+                            // not editable
+                            class_id: layer.class_id,
+                            rule_class: layer.rule_class,
+
+                            // editable
+                            network_file: data.rule_system.columns.network_file.value,
+                            output_node: data.rule_system.columns.output_node.value,
+                            output_state: data.rule_system.columns.output_state.value,
+
+                            color_scale: color.name
+                        };
+                        layer.edit(args);
                         layer.refresh();
                         self.model.selectLayer({use: use.id, layer: layer.id});
                     }
@@ -801,10 +841,12 @@ MSPController.prototype = {
                 atSuccess: function (data) {
                     self.model.addRule(new MSPRule({
                         id: data.id.value,
-                        rule_class: layer.rule_class,
-                        dataset: data.dataset.value,
+                        layer: layer,
+                        dataset: self.model.getDataset(data.dataset.value),
                         active: true,
-                        op: data.op ? data.op.value : null,
+                        op: data.op ? self.klasses.op.find(function (element) {
+                            return element.id === data.op;
+                        }).name : null,
                         value: data.value ? data.value.value : null,
                         boxcar: data.boxcar ? data.boxcar.value : null,
                         boxcar_x0: data.boxcar_x0 ? data.boxcar_x0.value : null,

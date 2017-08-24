@@ -206,7 +206,7 @@ MSPController.prototype.editBoxcarRule = function (plan, use, layer, rule, datas
     self.editor.html(html);
     
     newValue = function(value) {
-        console.log(this.id + ' ' + value);
+        //console.log(this.id + ' ' + value);
         x0v = x0Widget.getValue();
         x1v = x1Widget.getValue();
         x2v = x2Widget.getValue();
