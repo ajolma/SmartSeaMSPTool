@@ -820,7 +820,7 @@ MSPController.prototype = {
             self.setEditorOkCancel();
         }
 
-        if (layer.rule_class === 'exclusive') {
+        if (layer.rule_class === mspEnum.EXCLUSIVE) {
             getPayload = self.editBooleanRule(plan, use, layer, rule, dataset);
         } else if (layer.rule_class === mspEnum.BOXCAR) {
             self.editor.dialog('option', 'width', 470);
