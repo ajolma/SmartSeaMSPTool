@@ -366,15 +366,15 @@ MSPView.prototype = {
             self.elements.rule_info.html(layer.provenance);
         } else {
             self.elements.rule_header.html('This is a layer made by rules and defined by ' + layer.owner + '.');
-            if (layer.rule_class === 'exclusive') {
+            if (layer.rule_class === mspEnum.EXCLUSIVE) {
                 self.elements.rule_info.html('Default is YES, rules subtract.');
-            } else if (layer.rule_class === 'inclusive') {
+            } else if (layer.rule_class === mspEnum.INCLUSIVE) {
                 self.elements.rule_info.html('Default is NO, rules add.');
-            } else if (layer.rule_class === 'multiplicative') {
+            } else if (layer.rule_class === mspEnum.MULTIPLICATIVE) {
                 self.elements.rule_info.html('Value is a product of rules.');
-            } else if (layer.rule_class === 'inclusive') {
+            } else if (layer.rule_class === mspEnum.ADDITIVE) {
                 self.elements.rule_info.html('Value is a sum of rules.');
-            } else if (layer.rule_class === 'Bayesian network') {
+            } else if (layer.rule_class === mspEnum.BAYESIAN_NETWORK) {
                 //self.elements.rule_info.html('Bayesian network.');
                 
                 self.elements.rule_info.html(

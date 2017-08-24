@@ -98,7 +98,7 @@ MSPLayer.prototype = {
             self.class_id = args.class_id;
             self.rule_class = args.rule_class;
             
-            if (self.rule_class === 'Bayesian network') {
+            if (self.rule_class === mspEnum.BAYESIAN_NETWORK) {
                 self.network_file = args.network_file;
                 self.output_node = args.output_node;
                 self.output_state = args.output_state;
@@ -244,19 +244,19 @@ function MSPRule(args) {
 MSPRule.prototype = {
     edit: function(rule) {
         var self = this;
-        if (self.layer.rule_class.match(/clusive/)) {
+        if (self.layer.rule_class === mspEnum.EXCLUSIVE || self.layer.rule_class === mspEnum.INCLUSIVE) {
             self.op = rule.op;
             if (!self.dataset.binary) {
                 self.value = rule.value;
             }
-        } else if (self.layer.rule_class === 'boxcar') {
+        } else if (self.layer.rule_class === mspEnum.BOXCAR) {
             self.boxcar = rule.boxcar;
             self.boxcar_x0 = rule.boxcar_x0;
             self.boxcar_x1 = rule.boxcar_x1;
             self.boxcar_x2 = rule.boxcar_x2;
             self.boxcar_x3 = rule.boxcar_x3;
             self.weight = rule.weight;
-        } else if (self.layer.rule_class === 'bayes') {
+        } else if (self.layer.rule_class === mspEnum.BAYESIAN_NETWORK) {
             self.state_offset = rule.state_offset;
             self.node_id = rule.node_id;
         }
@@ -270,7 +270,7 @@ MSPRule.prototype = {
             name,
             value;
         name = self.dataset.name;
-        if (self.layer.rule_class.match(/clusive/)) {
+        if (self.layer.rule_class === mspEnum.EXCLUSIVE || self.layer.rule_class === mspEnum.INCLUSIVE) {
             if (self.dataset.binary) {
                 name = self.op + ' ' + name;
             } else {
@@ -280,8 +280,8 @@ MSPRule.prototype = {
                 }
                 name += ' ' + self.op + ' ' + value;
             }
-        /*} else if (self.layer.rule_class.match(/tive/)) {*/
-        } else if (self.layer.rule_class === 'boxcar') {
+        /*} else if (self.layer.rule_class === mspEnum.MULTIPLICATIVE || self.layer.rule_class === mspEnum.ADDITIVE) {*/
+        } else if (self.layer.rule_class === mspEnum.BOXCAR) {
             if (self.boxcar) {
                 name += ' _/¯\\_ ';
             } else {

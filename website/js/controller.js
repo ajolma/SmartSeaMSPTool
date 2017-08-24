@@ -648,7 +648,7 @@ MSPController.prototype = {
         self.editor.html(html);
 
         if (layer) {
-            if (layer.rule_class === 'Bayesian network') {
+            if (layer.rule_class === mspEnum.BAYESIAN_NETWORK) {
                 select_network_node(
                     self.networks.find(function (net) {return net.id === layer.network_file}),
                     layer.output_node,
@@ -658,7 +658,7 @@ MSPController.prototype = {
         } else {
             rule_class_list.changed((function changed() {
                 var klass = rule_class_list.getSelected();
-                if (klass && klass.name === 'Bayesian network') {
+                if (klass && klass.name === mspEnum.BAYESIAN_NETWORK) {
                     
                     network = new Widget({
                         container_id: self.editor_id,
@@ -697,7 +697,7 @@ MSPController.prototype = {
             if (!klass) {
                 return true;
             }
-            if (rule_class.name === "Bayesian network") {
+            if (rule_class.name === mspEnum.BAYESIAN_NETWORK) {
                 payload.network_file = network.getSelected().id;
                 payload.output_node = node.getSelected().id;
                 payload.output_state = state.getValue();
@@ -740,7 +740,7 @@ MSPController.prototype = {
                     color_scale: color.id
                 },
                 url;
-            if (layer.rule_class === "Bayesian network") {
+            if (layer.rule_class === mspEnum.BAYESIAN_NETWORK) {
                 payload.output_node = node.getSelected().id;
                 payload.output_state = state.getValue();
             }
@@ -822,11 +822,11 @@ MSPController.prototype = {
 
         if (layer.rule_class === 'exclusive') {
             getPayload = self.editBooleanRule(plan, use, layer, rule, dataset);
-        } else if (layer.rule_class === 'boxcar') {
+        } else if (layer.rule_class === mspEnum.BOXCAR) {
             self.editor.dialog('option', 'width', 470);
             self.editor.dialog('option', 'height', 700);
             getPayload = self.editBoxcarRule(plan, use, layer, rule, dataset);
-        } else if (layer.rule_class === 'Bayesian network') {
+        } else if (layer.rule_class === mspEnum.BAYESIAN_NETWORK) {
             getPayload = self.editBayesianRule(plan, use, layer, rule, dataset);
         } else {
             self.error('Editing ' + layer.rule_class + ' rules not supported yet.');

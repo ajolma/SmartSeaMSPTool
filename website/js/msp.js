@@ -30,6 +30,15 @@ DAMAGE.
 /*jslint browser: true*/
 /*global $, jQuery, alert, ol, Event*/
 
+var mspEnum = {
+    BAYESIAN_NETWORK: 'Bayesian network',
+    BOXCAR: 'boxcar',
+    EXCLUSIVE: 'exclusive',
+    INCLUSIVE: 'inclusive',
+    ADDITIVE: 'additive',
+    MULTIPLICATIVE: 'multiplicative',
+}
+
 // after https://alexatnet.com/articles/model-view-controller-mvc-javascript
 
 function MSP(args) {
