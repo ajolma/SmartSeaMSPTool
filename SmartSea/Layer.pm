@@ -126,10 +126,64 @@ sub new {
     # fixme: at this point we must have a style
     # if it is not then we should assign a temporary one
     unless ($self->{duck}->style) {
-        $self->{duck}->style->create({id => 0, color_scale => 1});
+        $self->{duck}->style(
+            SmartSea::Layer::Style->new(
+                {
+                    min => $self->{min},
+                    max => $self->{max},
+                    color_scale => 'grayscale'
+                })
+            );
     }
 
     return bless $self, $class;
+}
+
+{
+    package SmartSea::Layer::ColorScale;
+    use base qw/SmartSea::Schema::Result::ColorScale/;
+    sub new {
+        my ($class, $self) = @_;
+        $self->{id} = 0;
+        $self->{name} = 'grayscale';
+        return bless $self, $class;
+    }
+    sub name {
+        my $self = shift;
+        return $self->{name};
+    }
+}
+
+{
+    package SmartSea::Layer::Style;
+    use base qw/SmartSea::Schema::Result::Style/;
+    sub new {
+        my ($class, $self) = @_;
+        $self->{id} = 0;
+        $self->{color_scale} = SmartSea::Layer::ColorScale->new({name => $self->{color_scale}});
+        return bless $self, $class;
+    }
+    sub id {
+        my $self = shift;
+        return $self->{id};
+    }
+    sub min {
+        my $self = shift;
+        return $self->{min};
+    }
+    sub max {
+        my $self = shift;
+        return $self->{max};
+    }
+    sub color_scale {
+        my $self = shift;
+        return $self->{color_scale};
+    }
+    sub classes {
+        my ($self, $value) = @_;
+        $self->{classes} = $value if defined $value;
+        return $self->{classes};
+    }
 }
 
 sub legend {

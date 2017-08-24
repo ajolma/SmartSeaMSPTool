@@ -236,8 +236,8 @@ sub info {
         my $dsn = $self->path;
         $dsn =~ s/^PG://;
         $info = `ogrinfo -so PG:"dbname=$args->{dbname} user=$args->{db_user} password=$args->{db_passwd}" '$dsn'`;
-        $info =~ s/user=(.*?) /user=xxx/;
-        $info =~ s/password=(.*?) /password=xxx/;
+        $info =~ s/user=(.*?) /user=xxx /;
+        $info =~ s/password=(.*)/password=xxx/;
     } else {
         my $path = $args->{data_dir}.$self->path;
         my @info = `gdalinfo $path`;

@@ -2,14 +2,22 @@ package Test::Helper;
 
 use strict;
 use warnings;
+use File::Basename;
 use XML::LibXML;
 use XML::LibXML::PrettyPrint;
 
 require Exporter;
 our @ISA = qw(Exporter);
 our @EXPORT = qw(
+create_test_databases
 read_postgresql_dump create_sqlite_schemas select_all pretty_print_XML 
 make_dataset make_layer);
+
+sub create_test_databases {
+    my ($name,$path,$suffix) = fileparse($0, 'pl', 't');
+    my ($tables, $deps, $indexes) = read_postgresql_dump($path.'../schema.sql');
+    create_sqlite_schemas($tables, $deps, $indexes);
+}
 
 sub read_postgresql_dump {
     my ($dump) = @_;

@@ -133,6 +133,9 @@ sub legend {
     $args->{label_vertical_padding} //= 2;
     $args->{label_horizontal_padding} //= 5;
     $args->{max_labels} //= 30;
+    $args->{font} //= '/usr/share/fonts/truetype/arial/arial.ttf';
+    $args->{font_size} //= 12;
+    $args->{colorbar_width} //= 20;
 
     $args->{class_height} = $args->{font_size} + 2 * $args->{label_vertical_padding};
 
@@ -218,7 +221,7 @@ sub classed_legend {
 
     my @string = (
         $image->colorAllocateAlpha(0,0,0,0), 
-        $args->{font}, 
+        $args->{font},
         $args->{font_size}, 
         0, # angle
         $args->{colorbar_width} + $args->{label_horizontal_padding} # x

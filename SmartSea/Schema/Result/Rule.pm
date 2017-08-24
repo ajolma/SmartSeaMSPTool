@@ -303,6 +303,7 @@ sub apply {
         elsif ($op eq '>=') { $y->where($x >= $value) .= $value_if_true; }
         elsif ($op eq '>')  { $y->where($x >  $value) .= $value_if_true; }
         elsif ($op eq '==') { $y->where($x == $value) .= $value_if_true; }
+        elsif ($op eq 'NOT'){ $y->where($x != $value) .= $value_if_true; }
 
     } elsif ($class == MULTIPLICATIVE_RULE || $class == ADDITIVE_RULE) {
         

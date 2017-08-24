@@ -62,7 +62,7 @@ function MSPLayer(args) {
 
         self.binary =
             self.data_type === 'integer' &&
-            self.min_value === 0 &&
+            (self.min_value === 0 || self.min_value === 1) &&
             self.max_value === 1;
 
     } else {

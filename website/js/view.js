@@ -427,7 +427,7 @@ MSPView.prototype = {
         }
         $(self.id.rules + ' :checkbox').change(function () {
             // send message rule activity changed?
-            var rule_id = $(this).attr('rule'),
+            var rule_id = parseInt($(this).attr('rule'), 10),
                 active = this.checked;
             self.model.layer.setRuleActive(rule_id, active);
         });

@@ -822,7 +822,7 @@ MSPController.prototype = {
         self.apply = function () { // update or modify existing rule
             var request = owner ? 'update' : 'modify',
                 payload = getPayload(),
-                data = {};
+                data = {id: rule.id};
             $.each(payload, function (key, value) {
                 data[key] = value;
             });
@@ -835,8 +835,8 @@ MSPController.prototype = {
                 url: self.server + 'rule:' + rule.id + '?request=' + request,
                 payload: payload,
                 atSuccess: function () {
-                    rule.edit(data);
-                    self.model.ruleEdited.notify();
+                    layer.editRule(data); // edit the rule and refresh the layer (includes map render)
+                    self.model.ruleEdited.notify(); // update view
                 }
                 // if (xhr.status === 403)
                 // self.error('Rule modification requires cookies. Please enable cookies and reload this app.');
