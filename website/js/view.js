@@ -345,7 +345,8 @@ MSPView.prototype = {
             layer = self.model.layer,
             url = 'http://' + self.model.server,
             style = '',
-            cache_breaker = '&time=' + new Date().getTime();
+            cache_breaker = '&time=' + new Date().getTime(),
+            layer_info = layer ? layer.info() : null;
 
         // hilite a layer, get its legend and show info about rules
         if (!layer) {
@@ -358,30 +359,10 @@ MSPView.prototype = {
         self.elements.color_scale.html(
             element('img', {src: url + '/legend?layer=' + layer.getName() + style + cache_breaker}, '')
         );
-        if (layer.use.class_id === 0) { // Data
-            self.elements.rule_header.html('This is a dataset.');
-            self.elements.rule_info.html(layer.provenance);
-        } else if (layer.use.class_id === 1) { // Ecosystem
-            self.elements.rule_header.html('This is an ecosystem component.');
-            self.elements.rule_info.html(layer.provenance);
-        } else {
-            self.elements.rule_header.html('This is a layer made by rules and defined by ' + layer.owner + '.');
-            if (layer.rule_class === mspEnum.EXCLUSIVE) {
-                self.elements.rule_info.html('Default is YES, rules subtract.');
-            } else if (layer.rule_class === mspEnum.INCLUSIVE) {
-                self.elements.rule_info.html('Default is NO, rules add.');
-            } else if (layer.rule_class === mspEnum.MULTIPLICATIVE) {
-                self.elements.rule_info.html('Value is a product of rules.');
-            } else if (layer.rule_class === mspEnum.ADDITIVE) {
-                self.elements.rule_info.html('Value is a sum of rules.');
-            } else if (layer.rule_class === mspEnum.BAYESIAN_NETWORK) {
-                //self.elements.rule_info.html('Bayesian network.');
-                
-                self.elements.rule_info.html(
-                    element('img', {src: url + '/networks?name=' + layer.network_file + '&accept=jpeg', width:220}, '')
-                );
-            }
-        }
+        
+        self.elements.rule_header.html(layer_info.header);
+        self.elements.rule_info.html(layer_info.body);
+        
         if (layer.visible) {
             self.elements.site.html(layer.name);
         }

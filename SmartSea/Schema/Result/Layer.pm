@@ -86,7 +86,7 @@ sub read {
         rules => \@rules
     };
     if ($self->rule_system->rule_class->id == BAYESIAN_NETWORK_RULE) {
-        for my $key (qw/network_file output_node output_state/) {
+        for my $key (qw/network output_node output_state/) {
             $layer->{$key} = $self->rule_system->$key;
         }
     }

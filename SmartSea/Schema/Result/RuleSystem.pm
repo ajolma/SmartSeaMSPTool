@@ -7,6 +7,7 @@ use Storable qw(dclone);
 use Scalar::Util 'blessed';
 use SmartSea::Schema::Result::RuleClass qw(:all);
 use SmartSea::HTML qw(:all);
+use PDL;
 
 our $have_hugin;
 BEGIN {
@@ -19,7 +20,7 @@ BEGIN {
 my @columns = (
     id         => {},
     rule_class => { is_foreign_key => 1, source => 'RuleClass', not_null => 1 },
-    network_file => {data_type => 'text', html_size => 30},
+    network => {data_type => 'text', html_size => 30},
     output_node => {data_type => 'text', html_size => 30},
     output_state => {data_type => 'integer', html_size => 30},
     );
@@ -44,7 +45,7 @@ sub columns_info {
     }
     return $info unless $class;
     if ($class != BAYESIAN_NETWORK_RULE) {
-        $info->{network_file}{not_used} = 1;
+        $info->{network}{not_used} = 1;
         $info->{output_node}{not_used} = 1;
         $info->{output_state}{not_used} = 1;
     }
@@ -99,11 +100,16 @@ sub compute {
     my $class = $self->rule_class->id;
     if ($class != BAYESIAN_NETWORK_RULE) {
         for my $rule ($self->active_rules($args)) {
-            $rule->apply($y, $args);
             if ($args->{debug} && $args->{debug} > 1) {
                 my @stats = stats($y); # 3 and 4 are min and max
                 my $sum = $y->nelem*$stats[0];
-                say STDERR $rule->name,": min=$stats[3], max=$stats[4], sum=$sum";
+                say STDERR "Before ",$rule->name,": min=$stats[3], max=$stats[4], sum=$sum";
+                $rule->apply($y, $args);
+                @stats = stats($y);
+                $sum = $y->nelem*$stats[0];
+                say STDERR "After  ",$rule->name,": min=$stats[3], max=$stats[4], sum=$sum";
+            } else {
+                $rule->apply($y, $args);
             }
         }
         
@@ -117,7 +123,7 @@ sub compute {
 
         my $output = Geo::GDAL::Driver('MEM')->Create(Type => 'Float64', Width => 256, Height => 256)->Band;
         my $setup = Geo::GDAL::Bayes::Hugin->new({
-            domain => $args->{domains}{$self->network_file},
+            domain => $args->{domains}{$self->network},
             evidence => \%evidence,
             offsets => \%offsets,
             output => {

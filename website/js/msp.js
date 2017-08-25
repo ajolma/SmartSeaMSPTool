@@ -37,7 +37,11 @@ var mspEnum = {
     INCLUSIVE: 'inclusive',
     ADDITIVE: 'additive',
     MULTIPLICATIVE: 'multiplicative',
-}
+};
+
+var mspStrings = {
+    THIS_IS_A_LAYER: function(a, b) {return 'This is a layer made by ' + a + ' rules and defined by ' + b + '.'}
+};
 
 // after https://alexatnet.com/articles/model-view-controller-mvc-javascript
 
@@ -75,7 +79,7 @@ function MSP(args) {
 }
 
 MSP.prototype = {
-    setPlans: function (data) {
+    setPlans: function (data, networks) {
         var self = this,
             plan;
         if (self.plan) {
@@ -130,6 +134,19 @@ MSP.prototype = {
                 $.each(use.layers, function (k, layer) {
                     layer.MSP = self;
                     layer.use = use;
+                    if (layer.network) {
+                        layer.network = networks.find(function (network) {
+                            return network.name === layer.network
+                        });
+                        if (layer.network) {
+                            layer.output_node = layer.network.nodes.find(function (node) {
+                                return node.id === layer.output_node
+                            });
+                        } else {
+                            layer.output_node = null;
+                        }
+                        // bail out if fail here?
+                    }
                     layers.push(new MSPLayer(layer));
                 });
                 use.layers = layers;

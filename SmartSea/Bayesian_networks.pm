@@ -43,7 +43,7 @@ sub smart {
     for my $net (@nets) {
         my $name = $net;
         $name =~ s/\.net$//;
-        my $network = {name => $name, id => $name};
+        my $network = {name => $name};
         my @nodes;
         my $domain = Hugin::Domain::parse_net_file("$dir/$net");
         for my $node ($domain->get_nodes) {

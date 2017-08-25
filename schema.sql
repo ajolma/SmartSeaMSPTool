@@ -917,7 +917,7 @@ ALTER SEQUENCE rule_classes_id_seq OWNED BY rule_classes.id;
 CREATE TABLE rule_systems (
     id integer NOT NULL,
     rule_class integer NOT NULL,
-    network_file text,
+    network text,
     output_state integer,
     output_node text
 );

@@ -99,7 +99,7 @@ MSPLayer.prototype = {
             self.rule_class = args.rule_class;
             
             if (self.rule_class === mspEnum.BAYESIAN_NETWORK) {
-                self.network_file = args.network_file;
+                self.network = args.network;
                 self.output_node = args.output_node;
                 self.output_state = args.output_state;
             }
@@ -109,6 +109,41 @@ MSPLayer.prototype = {
         // visualization but not used
         self.color_scale = args.color_scale;
         self.refresh();
+    },
+    info: function () {
+        var self = this,
+            url = 'http://' + self.model.server,
+            header,
+            body = '',
+            node;
+        if (self.use.class_id === 0) { // Data
+            header = 'Dataset.';
+            body = self.provenance;
+        } else if (self.use.class_id === 1) { // Ecosystem
+            header = 'Ecosystem component.';
+        } else {
+            header = mspStrings.THIS_IS_A_LAYER(self.rule_class, self.owner);
+            if (self.rule_class === mspEnum.EXCLUSIVE) {
+                body = 'Default is YES, rules subtract.';
+            } else if (self.rule_class === mspEnum.INCLUSIVE) {
+                body = 'Default is NO, rules add.';
+            } else if (self.rule_class === mspEnum.MULTIPLICATIVE) {
+                body = 'Value is a product of rules.';
+            } else if (self.rule_class === mspEnum.ADDITIVE) {
+                body = 'Value is a sum of rules.';
+            } else if (self.rule_class === mspEnum.BOXCAR) {
+                body = 'Value is a product of rules.';
+            } else if (self.rule_class === mspEnum.BAYESIAN_NETWORK) {
+                body = element('img',
+                               {src: url + '/networks?name=' + self.network.name + '&accept=jpeg', width:220},
+                               '') +
+                    '<br/>' + 'Output is from node ' + self.output_node.name + ', state ' + self.output_state;
+            }
+        }
+        return {
+            header: header,
+            body: body
+        }
     },
     getOpacity: function () {
         var self = this;

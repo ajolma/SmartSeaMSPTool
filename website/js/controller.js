@@ -242,7 +242,7 @@ MSPController.prototype = {
             }
         });
     },
-    getNetworks: function () {
+    getNetworks: function (when_done) {
         var self = this;
         if (!self.networks) {
             $.ajax({
@@ -250,6 +250,7 @@ MSPController.prototype = {
                 url: 'http://' + self.model.server + '/networks',
                 success: function (result) {
                     self.networks = result;
+                    when_done();
                 },
                 async: false
             });
@@ -261,9 +262,10 @@ MSPController.prototype = {
             url: 'http://' + self.model.server + '/plans',
             payload: {},
             atSuccess: function (data) {
-                self.model.setPlans(data);
-                self.getKlasses();
-                self.getNetworks();
+                self.getNetworks(function () {
+                    self.model.setPlans(data, self.networks);
+                    self.getKlasses();
+                });
             }
         });
     },
@@ -621,7 +623,9 @@ MSPController.prototype = {
             element('p', {}, 'Rule system is ' + layer.rule_class + '.') :
             
             element('p', {}, class_list.html()) +
-            element('p', {}, rule_class_list.html());
+            element('p', {}, rule_class_list.html()),
+
+            value_from = function (obj) {if (obj) {return obj.value} else {return undefined}};
 
         if (!layer && available_layer_classes.length == 0) {
             self.error('No more slots for layers in this use.');
@@ -650,9 +654,9 @@ MSPController.prototype = {
         if (layer) {
             if (layer.rule_class === mspEnum.BAYESIAN_NETWORK) {
                 select_network_node(
-                    self.networks.find(function (net) {return net.id === layer.network_file}),
+                    self.networks.find(function (network) {return network.name === layer.network.name}),
                     layer.output_node,
-                    'The layer is based on Bayesian network <b>' + layer.network_file + '</b>'
+                    'The layer is based on Bayesian network <b>' + layer.network.name + '</b>'
                 );
             }
         } else {
@@ -698,7 +702,7 @@ MSPController.prototype = {
                 return true;
             }
             if (rule_class.name === mspEnum.BAYESIAN_NETWORK) {
-                payload.network_file = network.getSelected().id;
+                payload.network = network.getSelected().name;
                 payload.output_node = node.getSelected().id;
                 payload.output_state = state.getValue();
             }
@@ -707,28 +711,29 @@ MSPController.prototype = {
                 url: url,
                 payload: payload,
                 atSuccess: function (data) {
-                    self.model.addLayer(new MSPLayer({
+                    var args = {
                         id: data.id.value,
                         name: klass.name,
                         owner: data.owner.value,
                         
                         MSP: self.model,
                         use: use,
-                        
+
                         // can't create new datasets
                         
                         class_id: data.layer_class.value,
                         rule_class: rule_class.name,
-                        
-                        network_file: data.rule_system.columns.network_file.value,
-                        output_node: data.rule_system.columns.output_node.value,
-                        output_state: data.rule_system.columns.output_state.value,
-                        
+
                         rules: [],
 
                         color_scale: color.name
-                        
-                    }));
+                    }
+                    if (rule_class.name === mspEnum.BAYESIAN_NETWORK) {
+                        args.network = network.getSelected();
+                        args.output_node = node.getSelected();
+                        args.output_state = value_from(data.rule_system.columns.output_state);
+                    }
+                    self.model.addLayer(new MSPLayer(args));
                 }
             });
             return true;
@@ -762,13 +767,13 @@ MSPController.prototype = {
                             class_id: layer.class_id,
                             rule_class: layer.rule_class,
 
-                            // editable
-                            network_file: data.rule_system.columns.network_file.value,
-                            output_node: data.rule_system.columns.output_node.value,
-                            output_state: data.rule_system.columns.output_state.value,
-
                             color_scale: color.name
                         };
+                        if (layer.rule_class === mspEnum.BAYESIAN_NETWORK) {
+                            // editable
+                            args.output_node = node.getSelected();
+                            args.output_state = value_from(data.rule_system.columns.output_state);
+                        }
                         layer.edit(args);
                         layer.refresh();
                         self.model.selectLayer({use: use.id, layer: layer.id});
@@ -809,7 +814,8 @@ MSPController.prototype = {
                 list: self.model.datasets.layers,
                 pretext: 'Rule is based on the dataset: '
             }),
-            getPayload;
+            getPayload,
+            value_from = function (obj) {if (obj) {return obj.value} else {return undefined}};
 
         self.editor.dialog('option', 'title', 'Sääntö tasossa ' + layer.name);
         self.editor.dialog('option', 'height', 500);
@@ -821,6 +827,8 @@ MSPController.prototype = {
         }
 
         if (layer.rule_class === mspEnum.EXCLUSIVE) {
+            getPayload = self.editBooleanRule(plan, use, layer, rule, dataset);
+        } else if (layer.rule_class === mspEnum.INCLUSIVE) {
             getPayload = self.editBooleanRule(plan, use, layer, rule, dataset);
         } else if (layer.rule_class === mspEnum.BOXCAR) {
             self.editor.dialog('option', 'width', 470);
@@ -845,17 +853,17 @@ MSPController.prototype = {
                         dataset: self.model.getDataset(data.dataset.value),
                         active: true,
                         op: data.op ? self.klasses.op.find(function (element) {
-                            return element.id === data.op;
+                            return element.id === data.op.value;
                         }).name : null,
-                        value: data.value ? data.value.value : null,
-                        boxcar: data.boxcar ? data.boxcar.value : null,
-                        boxcar_x0: data.boxcar_x0 ? data.boxcar_x0.value : null,
-                        boxcar_x1: data.boxcar_x1 ? data.boxcar_x1.value : null,
-                        boxcar_x2: data.boxcar_x2 ? data.boxcar_x2.value : null,
-                        boxcar_x3: data.boxcar_x3 ? data.boxcar_x3.value : null,
-                        weight: data.weight ? data.weight.value : null,
-                        state_offset: data.state_offset ? data.state_offset.value : null,
-                        node_id: data.node_id ? data.node_id.value : null,
+                        value: value_from(data.value),
+                        boxcar: value_from(data.boxcar),
+                        boxcar_x0: value_from(data.boxcar_x0),
+                        boxcar_x1: value_from(data.boxcar_x1),
+                        boxcar_x2: value_from(data.boxcar_x2),
+                        boxcar_x3: value_from(data.boxcar_x3),
+                        weight: value_from(data.weight),
+                        state_offset: value_from(data.state_offset),
+                        node_id: value_from(data.node_id),
                     }));
                 }
             });

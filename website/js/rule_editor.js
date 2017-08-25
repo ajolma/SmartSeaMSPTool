@@ -59,7 +59,7 @@ MSPController.prototype.editBooleanRule = function (plan, use, layer, rule, data
                     if (dataset.binary) {
                         return item.name === '==' || item.name === 'NOT';
                     } else {
-                        return item.name !== 'NOT';
+                        return true;
                     }
                 },
                 selected: rule ? rule.op : undefined,
@@ -265,10 +265,11 @@ MSPController.prototype.editBoxcarRule = function (plan, use, layer, rule, datas
         x3Widget.setValue(rule.boxcar_x3);
     } else {
         dataset.changed((function changed() {
-            x0Widget = self.datasetValueWidget({id: 'x0', dataset: dataset.getSelected(), rule: rule, elem: x0, newValue: newValue});
-            x1Widget = self.datasetValueWidget({id: 'x1', dataset: dataset.getSelected(), rule: rule, elem: x1, newValue: newValue});
-            x2Widget = self.datasetValueWidget({id: 'x2', dataset: dataset.getSelected(), rule: rule, elem: x2, newValue: newValue});
-            x3Widget = self.datasetValueWidget({id: 'x3', dataset: dataset.getSelected(), rule: rule, elem: x3, newValue: newValue});
+            var set = dataset.getSelected();
+            x0Widget = self.datasetValueWidget({id: 'x0', dataset: set, rule: rule, elem: x0, newValue: newValue});
+            x1Widget = self.datasetValueWidget({id: 'x1', dataset: set, rule: rule, elem: x1, newValue: newValue});
+            x2Widget = self.datasetValueWidget({id: 'x2', dataset: set, rule: rule, elem: x2, newValue: newValue});
+            x3Widget = self.datasetValueWidget({id: 'x3', dataset: set, rule: rule, elem: x3, newValue: newValue});
             return changed;
         }()));
     }
@@ -338,13 +339,17 @@ MSPController.prototype.editBayesianRule = function (plan, use, layer, rule, dat
         });
     }
     
-    self.getNetworks();
     /*jslint unparam: true*/
     network = self.networks.find(function (network) {
-        return network.id === layer.network_file;
+        return network.name === layer.network.name;
     });
     $.each(network.nodes, function (i, node) {
-        var used = node.id === layer.output_node;
+        var used = node.id === layer.output_node.id;
+        if (rule && node.id === rule.node_id) {
+            // current
+            nodes.push(node);
+            return true;
+        }
         if (!used) {
             $.each(layer.rules, function (i, rule) {
                 if (node.id === rule.node_id) {
