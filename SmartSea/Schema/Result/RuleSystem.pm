@@ -9,6 +9,8 @@ use SmartSea::Schema::Result::RuleClass qw(:all);
 use SmartSea::HTML qw(:all);
 use PDL;
 
+use Data::Dumper;
+
 our $have_hugin;
 BEGIN {
     eval {
@@ -75,7 +77,7 @@ sub relationship_hash {
     };
 }
 
-# return rules where 
+# return rules where
 # cookie is $args->{cookie} if there is one with that id
 # rule->id is in hash $args->{rules} or $args->{rules}{all} is true
 sub active_rules {
@@ -112,16 +114,24 @@ sub compute {
                 $rule->apply($y, $args);
             }
         }
-        
+
     } else {
         my %evidence;
         my %offsets;
+
+        #for my $key (sort keys %$args) {
+        #    say STDERR "$key => ",($args->{$key}//'undef');
+        #}
+
         for my $rule ($self->active_rules($args)) {
+            #say STDERR $rule->node_id;
             $evidence{$rule->node_id} = $rule->dataset->Band($args);
+            #say STDERR $evidence{$rule->node_id}->Piddle;
             $offsets{$rule->node_id} = $rule->state_offset;
         }
 
-        my $output = Geo::GDAL::Driver('MEM')->Create(Type => 'Float64', Width => 256, Height => 256)->Band;
+        my ($w, $h) = $args->{tile}->size;
+        my $output = Geo::GDAL::Driver('MEM')->Create(Type => 'Float64', Width => $w, Height => $h)->Band;
         my $setup = Geo::GDAL::Bayes::Hugin->new({
             domain => $args->{domains}{$self->network},
             evidence => \%evidence,
@@ -134,9 +144,63 @@ sub compute {
         });
 
         $setup->compute();
+
+        #say STDERR $output->Piddle;
         $y += $output->Piddle;
 
     }
+}
+
+sub info_compute {
+    my ($self, $y, $args) = @_;
+    
+    my $class = $self->rule_class->id;
+
+    my %info;
+    
+    if ($class != BAYESIAN_NETWORK_RULE) {
+        
+        for my $rule ($self->active_rules($args)) {
+            my $x = $rule->operand($args);
+            $info{$rule->dataset->name} = $x->at(1,1);
+            $rule->apply($y, $args, $x);
+        }
+        $info{result} = $y->at(1,1);
+
+    } else {
+        
+        my %evidence;
+        my %offsets;
+
+        #for my $key (sort keys %$args) {
+        #    say STDERR "$key => ",($args->{$key}//'undef');
+        #}
+
+        for my $rule ($self->active_rules($args)) {
+            $evidence{$rule->node_id} = $rule->dataset->Band($args);
+            $offsets{$rule->node_id} = $rule->state_offset;
+            $info{$rule->node_id} = $evidence{$rule->node_id}->ReadTile->[1][1];
+        }
+
+        my ($w, $h) = $args->{tile}->size;
+        my $output = Geo::GDAL::Driver('MEM')->Create(Type => 'Float64', Width => $w, Height => $h)->Band;
+        my $setup = Geo::GDAL::Bayes::Hugin->new({
+            domain => $args->{domains}{$self->network},
+            evidence => \%evidence,
+            offsets => \%offsets,
+            output => {
+                band => $output,
+                name => $self->output_node,
+                state => $self->output_state,
+            }
+        });
+
+        $setup->compute();
+        $info{result} = $output->ReadTile->[1][1];
+
+    }
+
+    return \%info;
 }
 
 1;

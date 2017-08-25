@@ -5,6 +5,7 @@ use warnings;
 use 5.010000; # say // and //=
 use Carp;
 use Encode qw(decode encode);
+use Hugin;
 
 sub new {
     my ($class, $self) = @_;
@@ -105,6 +106,22 @@ sub http_status {
             [%header,
              'Content-Length' => 21], 
             ['Internal Server Error']] if $status == 500;
+}
+
+sub read_bayesian_networks {
+    my $self = shift;
+    my $dir = $self->{data_dir} . 'Bayesian_networks';
+    opendir(my $dh, $dir) || croak "Can't opendir $dir: $!";
+    my @nets = grep { /\.net$/ && -f "$dir/$_" } readdir($dh);
+    closedir $dh;
+    
+    for my $net (@nets) {
+        my $name = $net;
+        $name =~ s/\.net$//;
+        my $domain = Hugin::Domain::parse_net_file("$dir/$net");
+        $domain->compile;
+        $self->{domains}{$name} = $domain;
+    }
 }
 
 1;

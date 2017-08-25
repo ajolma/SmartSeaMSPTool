@@ -8,6 +8,7 @@ use Encode qw(decode encode);
 use Plack::App::File;
 use Geo::GDAL;
 use PDL;
+use SmartSea::Schema::Result::RuleClass qw(:all);
 use SmartSea::Core qw(:all);
 
 binmode STDERR, ":utf8";
@@ -16,42 +17,35 @@ sub new {
     my ($class, $self) = @_;
     $self = SmartSea::App->new($self);
     $self->{mask} = Geo::GDAL::Open($self->{data_dir}.'mask.tiff');
+    $self->read_bayesian_networks();
     return bless $self, $class;
 }
 
 sub smart {
     my ($self, $env, $request, $parameters) = @_;
-    
+
     for my $key (sort keys %$parameters) {
         my $val = $parameters->{$key} // '';
         #say STDERR "$key => $val";
     }
-    
+
     # default is that of data, EPSG:3067, if not it is in srs
-    my $srs = $parameters->{srs} // $parameters->{SRS};
-    ($srs) = $srs =~ /(\d+)/ if $srs;
+    if ($self->{epsg} = $parameters->{srs} // $parameters->{SRS}) {
+        ($self->{epsg}) = $self->{epsg} =~ /(\d+)/;
+    }
 
     my $ct;
-    if ($srs && $srs != 3067) {
-        my $src = Geo::OSR::SpatialReference->new(EPSG => $srs);
+    if ($self->{epsg} && $self->{epsg} != 3067) {
+        my $src = Geo::OSR::SpatialReference->new(EPSG => $self->{epsg});
         my $dst = Geo::OSR::SpatialReference->new(EPSG => 3067);
         $ct = Geo::OSR::CoordinateTransformation->new($src, $dst);
     }
+
+    $self->{use} = $request->query_parameters->get('use') // 0;
+    $self->{layer} = $request->query_parameters->get('layer') // 0;
     
-    #my @rules;
-    #for my $layer ($request->query_parameters->get_all('layer')) {
-    #    push @rules, SmartSea::Layer->new({schema => $self->{schema}, trail => $layer});
-    #}
-    my $plan_id = $request->query_parameters->get('plan');
-    my $use_id = $request->query_parameters->get('use');
-    my $layer_id = $request->query_parameters->get('layer');
-    say STDERR "plan = $plan_id, use = ",($use_id//'undef'),", layer = ",($layer_id//'undef');
-    my $dataset;
-    if (defined $use_id && $use_id == 0) {
-        $dataset = $self->{schema}->resultset('Dataset')->single({id => $layer_id});
-        say STDERR $dataset->path;
-    }
-    
+    say STDERR "use = ",($self->{use}//'undef'),", layer = ",($self->{layer}//'undef');
+
     my $report = '';
 
     if ($parameters->{wkt}) {
@@ -73,12 +67,13 @@ sub smart {
         my $point = [$parameters->{easting},$parameters->{northing}];
         $point = $ct->TransformPoint(@$point) if $ct;
         say STDERR "location = @$point" if $self->{debug};
-        $report = $self->make_point_report($point, $dataset);
+
+        $report = $self->make_point_report($point);
 
     } else {
-        
+
         $report = 'Bad request.';
-        
+
     }
 
     return $self->json200({report => $report});
@@ -86,17 +81,27 @@ sub smart {
 }
 
 sub make_point_report {
-    my ($self, $point, $dataset) = @_;
+    my ($self, $point) = @_;
 
-    for my $key (sort keys %{$self->{schema}{storage}}) {
-        #say STDERR "$key => $self->{schema}{storage}{$key}" if $self->{debug};
-    }
+    my $gt = $self->{mask}->GeoTransform;
+    my @c = $gt->Inv->Apply([$point->[0]],[$point->[1]]);
+    my $x = int($c[0]->[0]);
+    my $y = int($c[1]->[0]);
+    my $d = 0;
+    my $n = 0;
+    eval {
+        $d = $self->{mask}->Band(1)->ReadTile($x, $y, 1, 1)->[0][0];
+    };
+    return 'Outside of region' if $d == 0;
 
-    if ($dataset && $dataset->id == 110) {
+    my $dataset = $self->{schema}->resultset('Dataset')->single({id => $self->{layer}})
+        if $self->{use} == 0;
+
+    if ($dataset && $self->{layer} == 110) {
         my $table = $dataset->path;
         $table =~ s/^PG://;
         $table =~ s/\./"."/g;
-        my $sql = 
+        my $sql =
             "select * from \"$table\" ".
             "where st_within(st_geomfromtext('POINT(@$point)',3067),geom)";
         my $result = $self->{schema}{storage}{_dbh}->selectall_hashref($sql, 'gid');
@@ -112,9 +117,9 @@ sub make_point_report {
         return $html;
     }
 
-    if ($dataset && $dataset->id == 78) {
+    if ($dataset && $self->{layer} == 78) {
         my $table = decode utf8 => 'natura_hiekkasärkkä_ja_riutta_alle_20m';
-        my $sql = 
+        my $sql =
             "select naturatunn from vesiviljely.\"$table\"".
             "where st_within(st_geomfromtext('POINT(@$point)',3067),geom)";
         my $result = $self->{schema}{storage}{_dbh}->selectall_arrayref($sql);
@@ -124,33 +129,57 @@ sub make_point_report {
         }
     }
     
-    my $gt = $self->{mask}->GeoTransform;
-    my @c = $gt->Inv->Apply([$point->[0]],[$point->[1]]);
-    my $x = int($c[0]->[0]);
-    my $y = int($c[1]->[0]);
-    my $d = 0;
-    my $n = 0;
-    eval {
-        $d = $self->{mask}->Band(1)->ReadTile($x, $y, 1, 1)->[0][0];
-    };
-    my %d = (0 => 'Outside of region', 1 => 'Inside of region');
-    my $report;
-    $report .= $d{$d};
-    return $report;
+    if ($self->{use} > 0) {
+        
+        #tile_width tile_height minx maxy maxx miny pixel_width pixel_height
+        my $tile = [3, 3, $point->[0]-30, $point->[1]+30, $point->[0]+30, $point->[1]-30, 20, 20];
+        $tile = bless $tile, 'Geo::OGC::Service::WMTS::Tile';
+        my $layer = SmartSea::Layer->new({
+            epsg => $self->{epsg},
+            tile => $tile,
+            schema => $self->{schema},
+            data_dir => $self->{data_dir},
+            GDALVectorDataset => $self->{GDALVectorDataset},
+            #cookie => $args->{service}{request}->cookies->{SmartSea},
+            trail => '2_'.$self->{layer}.'_all',
+            #style => $params->{style},
+            domains => $self->{domains},
+            debug => $self->{debug}
+        });
+        
+        my $system = $layer->{duck}->rule_system;
+        
+        my $method = $system->rule_class->id;
+        my $y = zeroes($tile->size);
+        $y += 1 if $method == EXCLUSIVE_RULE || $method == MULTIPLICATIVE_RULE;
+        
+        my $info = $system->info_compute($y, $layer);
+
+        my $result = '';
+        for my $key (sort keys %$info) {
+            $result .= "$key = $info->{$key}<br/>";
+        }
+        return $result;
+        
+    } else {
+        
+        return 'Inside of region';
+        
+    }
 }
 
 sub make_polygon_report {
     my ($self, $polygon) = @_;
-    
+
     my $e = $self->{mask}->Extent;
     my @points = ([$e->[0],$e->[1]], [$e->[0],$e->[3]], [$e->[2],$e->[3]], [$e->[2],$e->[1]]);
     push @points, $points[0];
-        
+
     my $region = Geo::OGR::Geometry->new(GeometryType => 'Polygon', Points => [[@points]]);
 
     my $gt = $self->{mask}->GeoTransform;
     my ($canvas, $extent, $overview, $cell_area, @clip) = canvas($gt, $polygon, $region);
-        
+
     my $p = $canvas->Band()->Piddle();
     my $s = $self->{mask}->Band()->Piddle(@clip);
     my $A = sum($p * $s); # cells in polygon
@@ -159,7 +188,7 @@ sub make_polygon_report {
 
     $report .= 'Following are estimates.<br />' if $overview;
     $report .= "Sea area in the selection: " . int($A*$cell_area+0.5) . " km2";
-        
+
     # the idea here would be to compute average values and/or amount of allocated areas
     # in the polygon area
     if (0) {
@@ -200,11 +229,11 @@ sub canvas {
     $d_row = int($d_row);
     my $w = $r_col - $l_col;
     my $h = $d_row - $u_row;
-    
+
     my $W = $w;
     my $H = $h;
     my $d = 1;
-    
+
     # if w x h is too large then read an overview
     while ($W * $H > 1000000) {
         $d *= 2;
@@ -213,7 +242,7 @@ sub canvas {
     }
     $W = int($W);
     $H = int($H);
-    
+
     # create a canvas for drawing the geometry
     my $canvas = Geo::GDAL::Driver('MEM')->Create(Width => $W, Height => $H);
     my ($ulx, $uly) = $gt->Apply($l_col, $u_row);
@@ -229,7 +258,7 @@ sub canvas {
                               Name => 'geom',
                               Type => 'Polygon' }] )
         ->InsertFeature({geom => $g});
-    
+
     $wkt_ds->Rasterize($canvas, { l => 'wkt', burn => 1 });
 
     return ($canvas, $e, $d > 1, $cell_area, $l_col, $u_row, $w, $h, $W, $H);

@@ -139,6 +139,11 @@ sub new {
     return bless $self, $class;
 }
 
+sub id {
+    my ($self) = @_;
+    return $self->{duck}->id;
+}
+
 {
     package SmartSea::Layer::ColorScale;
     use base qw/SmartSea::Schema::Result::ColorScale/;
@@ -206,7 +211,7 @@ sub compute {
         my $method = $system->rule_class->id;
         say STDERR "compute layer, method => $method" if $self->{debug};
         
-        $y = zeroes($self->{tile}->tile);
+        $y = zeroes($self->{tile}->size);
         $y += 1 if $method == EXCLUSIVE_RULE || $method == MULTIPLICATIVE_RULE;
     
         $system->compute($y, $self);
@@ -218,7 +223,7 @@ sub compute {
             $band = $self->{duck}->Band($self);
         };
         if ($@) {
-            $y = zeroes($self->{tile}->tile);
+            $y = zeroes($self->{tile}->size);
             $y = $y->setbadif($y == 0);
         } else {
             $y = $band->Piddle;
@@ -297,7 +302,7 @@ sub mask {
             [ -ot => 'Byte', 
               -of => 'GTiff', 
               -r => 'nearest',
-              -outsize => $tile->tile,
+              -outsize => $tile->size,
               -projwin => $tile->projwin,
               -a_ullr => $tile->projwin
             ]); 
@@ -310,7 +315,7 @@ sub mask {
               -r => 'near',
               -t_srs => 'EPSG:'.$self->{epsg},
               -te => @$e,
-              -ts => $tile->tile
+              -ts => $tile->size
             ]); 
     } 
     return $dataset; 

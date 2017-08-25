@@ -249,7 +249,7 @@ sub values {
 }
 
 sub apply {
-    my ($self, $y, $args) = @_;
+    my ($self, $y, $args, $x) = @_;
 
     my $class = $self->rule_system->rule_class->id;
     
@@ -288,7 +288,7 @@ sub apply {
     #
 
     # the operand (x)
-    my $x = $self->operand($args);
+    $x //= $self->operand($args);
     return unless defined $x;
     
     if ($class == EXCLUSIVE_RULE || $class == INCLUSIVE_RULE) {

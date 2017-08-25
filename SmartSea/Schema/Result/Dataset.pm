@@ -293,7 +293,7 @@ sub Band {
 
     if ($path =~ /^PG:/) {
         
-        my ($w, $h) = $tile->tile;
+        my ($w, $h) = $tile->size;
         my $ds = Geo::GDAL::Driver('GTiff')->Create(Name => "/vsimem/r.tiff", Width => $w, Height => $h);
         my ($minx, $maxy, $maxx, $miny) = $tile->projwin;
         $ds->GeoTransform($minx, ($maxx-$minx)/$w, 0, $maxy, 0, ($miny-$maxy)/$h);        
@@ -308,22 +308,22 @@ sub Band {
         return $ds->Band;
         
     } else {
+        
         return Geo::GDAL::Open("$args->{data_dir}$path")
             ->Translate( "/vsimem/tmp.tiff", 
                          [ -of => 'GTiff',
                            -r => 'nearest',
-                           -outsize , $tile->tile,
+                           -outsize , $tile->size,
                            -projwin, $tile->projwin ])
             ->Band if $args->{epsg} == 3067;
 
-        my $e = $tile->extent;
         return Geo::GDAL::Open("$args->{data_dir}$path")
             ->Warp( "/vsimem/tmp.tiff", 
                     [ -of => 'GTiff', 
                       -r => 'near' ,
                       -t_srs => 'EPSG:'.$args->{epsg},
-                      -te => @$e,
-                      -ts => $tile->tile ])
+                      -te => @{$tile->extent},
+                      -ts => $tile->size ])
             ->Band;
     }
             
