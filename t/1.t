@@ -24,8 +24,8 @@ $schema->resultset('UseClass')->new({id => 1, name => 'use_class'})->insert;
 $schema->resultset('LayerClass')->new({id => 1, name => 'layer_class'})->insert;
 $schema->resultset('RuleClass')->new({id => 1, name => 'rule_class'})->insert;
 $schema->resultset('RuleSystem')->new({id => 1, rule_class => 1})->insert;
-$schema->resultset('ColorScale')->new({id => 1, name => 'color_scale'})->insert;
-$schema->resultset('Style')->new({id => 1, color_scale => 1})->insert;
+$schema->resultset('Palette')->new({id => 1, name => 'palette'})->insert;
+$schema->resultset('Style')->new({id => 1, palette => 1})->insert;
 
 $schema->resultset('Plan')->single({id => 1})->
     create_related('uses', {id => 1, plan => 1, 'use_class' => 1});

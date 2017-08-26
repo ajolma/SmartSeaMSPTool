@@ -11,13 +11,12 @@ sub smart {
     my ($self, $env, $request, $parameters) = @_;
     
     my $layer;
-    my $style;
-    $style = $parameters->{style} if $parameters->{style};
+    my @style;
+    # todo: set the style as palette, min, max
     eval {
         $layer = SmartSea::Layer->new({
             debug => $parameters->{debug},
             schema => $self->{schema},
-            style => $style,
             trail => $parameters->{layer}});
     };
     print STDERR "$@";

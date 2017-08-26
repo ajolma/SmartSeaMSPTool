@@ -28,29 +28,29 @@ use SmartSea::HTML qw(:all);
 
 my @columns = (
     id           => {},
-    color_scale =>  { is_foreign_key => 1, source => 'ColorScale', not_null => 1 },
-    min =>          { data_type => 'double', html_size => 20 },
-    max =>          { data_type => 'double', html_size => 20 },
-    classes =>      { data_type => 'integer', html_size => 20 }
+    palette      => { is_foreign_key => 1, source => 'Palette', not_null => 1 },
+    min          => { data_type => 'double', html_size => 20 },
+    max          => { data_type => 'double', html_size => 20 },
+    classes      => { data_type => 'integer', html_size => 20 }
     # todo: add semantics here, which in dataset case gets its value from there primarily
     );
 
 __PACKAGE__->table('styles');
 __PACKAGE__->add_columns(@columns);
 __PACKAGE__->set_primary_key('id');
-__PACKAGE__->belongs_to(color_scale => 'SmartSea::Schema::Result::ColorScale');
+__PACKAGE__->belongs_to(palette => 'SmartSea::Schema::Result::Palette');
 __PACKAGE__->has_many(layer => 'SmartSea::Schema::Result::Layer', 'style'); # 0 or 1
 __PACKAGE__->has_many(dataset => 'SmartSea::Schema::Result::Dataset', 'style'); # 0 or 1
 __PACKAGE__->has_many(ecosystem_component => 'SmartSea::Schema::Result::EcosystemComponent', 'style'); # 0 or 1
 
 sub order_by {
-    return {-asc => [qw/color_scale id/]};
+    return {-asc => [qw/palette id/]};
 }
 
 sub name {
     my $self = shift;
     my $name = '';
-    $name .= $self->color_scale->name // '' if $self->color_scale;
+    $name .= $self->palette->name // '' if $self->palette;
     $name .= ' ['.$self->min.'..'.$self->max.']' if defined $self->min && defined $self->max;
     $name .= ' '.$self->classes.' classes' if defined $self->classes;
     my @layer = $self->layer;
@@ -113,7 +113,7 @@ sub legend {
 
     $self->prepare($args);
     
-    my $color_table = $args->{color_table} // $self->color_scale->color_table($self->classes);
+    my $color_table = $args->{color_table} // $self->palette->color_table($self->classes);
 
     $args->{value_to_color} = sub {
         my $value = shift;

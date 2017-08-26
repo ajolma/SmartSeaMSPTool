@@ -236,7 +236,7 @@ sub make_dataset {
             min => undef,
             max => undef,
             classes => undef,
-            color_scale => 1
+            palette => 1
         };
         $sequences->{style}++;
     }
@@ -284,7 +284,7 @@ sub make_layer {
     if ($args->{use_class_id} > 1) {
         $schema->resultset('Style')->new({
             id => $args->{style}->{id},
-            color_scale => $args->{style}->{color_scale}->id,
+            palette => $args->{style}->{palette}->id,
             min => $args->{style}->{min},
             max => $args->{style}->{max},
             classes => $args->{style}->{classes} })->insert;

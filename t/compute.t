@@ -52,8 +52,8 @@ $rule_class_rs->new({id => MULTIPLICATIVE_RULE, name => 'multiplicative'})->inse
 $rule_class_rs->new({id => ADDITIVE_RULE, name => 'additive'})->insert;
 $rule_class_rs->new({id => INCLUSIVE_RULE, name => 'inclusive'})->insert;
 
-my $color_scale_rs = $schema->resultset('ColorScale');
-$color_scale_rs->new({id => 1, name => 'grayscale'})->insert;
+my $palette_rs = $schema->resultset('Palette');
+$palette_rs->new({id => 1, name => 'grayscale'})->insert;
 
 my $op_rs = $schema->resultset('Op');
 $op_rs->new({id => 1, name => '>='})->insert;
@@ -87,7 +87,7 @@ done_testing();
 
 sub test_additive_rules {
     my %args = @_;
-    my $color_scale = $color_scale_rs->single({id=>1}); #grayscale, no meaning here
+    my $palette = $palette_rs->single({id=>1}); #grayscale, no meaning here
 
     my $dataset_1 = make_dataset($schema, $sequences, $tile, 'Byte', [[1,2,3],[4,5,6],[7,8,9]]);
     print "Dataset 1: ",Open(Name => $tile->data_dir.$dataset_1->id.'.tiff')->Band->Piddle if $args{debug};
@@ -106,7 +106,7 @@ sub test_additive_rules {
         layer_class_id => 4,
         style => {
             id => $sequences->{style}++,
-            color_scale => $color_scale, 
+            palette => $palette,
             min => 0, 
             max => 3,
             classes => 4
@@ -141,7 +141,7 @@ sub test_additive_rules {
 
 sub test_multiplicative_rules {
     my %args = @_;
-    my $color_scale = $color_scale_rs->single({id=>1}); #grayscale, no meaning here
+    my $palette = $palette_rs->single({id=>1}); #grayscale, no meaning here
 
     my $datatype = 'Int32';
     my $dataset = make_dataset($schema, $sequences, $tile, $datatype, [[1,2,3],[150,160,180],[0,16,17]]);
@@ -156,7 +156,7 @@ sub test_multiplicative_rules {
         layer_class_id => 3,
         style => {
             id => $sequences->{style}++,
-            color_scale => $color_scale,
+            palette => $palette,
             min => 0, 
             max => 2, 
             classes => 3
@@ -183,7 +183,7 @@ sub test_multiplicative_rules {
 
 sub test_exclusive_rules {
     my %args = @_;
-    my $color_scale = $color_scale_rs->single({id=>1}); #grayscale, no meaning here
+    my $palette = $palette_rs->single({id=>1}); #grayscale, no meaning here
     
     my $datatype = 'Int32';
     my $dataset = make_dataset($schema, $sequences, $tile, $datatype, [[1,2,3],[150,160,180],[0,16,17]]);
@@ -198,7 +198,7 @@ sub test_exclusive_rules {
         layer_class_id => 2, 
         style => {
             id => $sequences->{style}++,
-            color_scale => $color_scale,
+            palette => $palette,
             min => 0, 
             max => 1, 
             classes => 2
@@ -220,7 +220,7 @@ sub test_exclusive_rules {
 
 sub test_inclusive_rules {
     my %args = @_;
-    my $color_scale = $color_scale_rs->single({id=>1}); #grayscale, no meaning here
+    my $palette = $palette_rs->single({id=>1}); #grayscale, no meaning here
     
     my $datatype = 'Int32';
     my $dataset = make_dataset($schema, $sequences, $tile, $datatype, [[1,2,3],[150,160,180],[0,16,17]]);
@@ -238,7 +238,7 @@ sub test_inclusive_rules {
         layer_class_id => 1,
         style => {
             id => $sequences->{style}++,
-            color_scale => $color_scale,
+            palette => $palette,
             min => 0, 
             max => 1, 
             classes => 2
@@ -263,14 +263,14 @@ sub test_inclusive_rules {
 sub test_a_dataset_layer {
     my %args = @_;
     for my $datatype (qw/Byte Int16 Int32 Float32 Float64/) {
-        for my $color_scale ($color_scale_rs->all) {
+        for my $palette ($palette_rs->all) {
             for my $classes (undef, 2, 10) {
                 my $style = {
                     id => $sequences->{style}++,
                     min => 0, 
                     max => 120, 
                     classes => $classes, 
-                    color_scale => $color_scale->id
+                    palette => $palette->id
                 };
 
                 my $data = [[1,2,3],[150,160,180],[0,16,17]];

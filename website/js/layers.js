@@ -44,6 +44,7 @@ function MSPLayer(args) {
     self.projection = args.MSP.proj;
 
     self.use = args.use;
+    self.style = args.style;
     
     // the use class id
     // 0 = dataset
@@ -105,9 +106,7 @@ MSPLayer.prototype = {
             }
         
         }
-        
-        // visualization but not used
-        self.color_scale = args.color_scale;
+
         self.refresh();
     },
     info: function () {
@@ -185,7 +184,8 @@ MSPLayer.prototype = {
                     resolutions: self.projection.resolutions,
                     matrixIds: self.projection.matrixIds
                 }),
-                style: self.color_scale
+                // WMTS parameter, server not yet supports this
+                // style: self.style.palette + self.scale_min + self.scale_max
             })
         });
         self.layer.set('msp_id', self.id);
@@ -332,7 +332,6 @@ MSPRule.prototype = {
         return {
             min: self.dataset.min_value,
             max: self.dataset.max_value,
-            classes: self.dataset.classes,
             data_type: self.dataset.data_type,
             semantics: self.dataset.semantics
         };

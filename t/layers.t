@@ -45,7 +45,7 @@ my $app = builder {
 };
 
 sub create_db {
-    for my $class (qw/Plan UseClass Use LayerClass ColorScale 
+    for my $class (qw/Plan UseClass Use LayerClass Palette
                       Style RuleClass RuleSystem EcosystemComponent ImpactComputationMethod 
                       Dataset Layer ImpactLayer/) {
         $schema->resultset($class)->delete_all;
@@ -55,8 +55,8 @@ sub create_db {
     $schema->resultset('Use')->new({id => 1, plan => 1, use_class => 1, owner => 'ajolma'})->insert;
     $schema->resultset('LayerClass')->new({id => 1, name => 'Allocation'})->insert;
     $schema->resultset('LayerClass')->new({id => 2, name => 'Impact'})->insert;
-    $schema->resultset('ColorScale')->new({id => 1, name => 'color scale'})->insert;
-    $schema->resultset('Style')->new({id => 1, color_scale => 1})->insert;
+    $schema->resultset('Palette')->new({id => 1, name => 'palette'})->insert;
+    $schema->resultset('Style')->new({id => 1, palette => 1})->insert;
     $schema->resultset('RuleClass')->new({id => 1, name => 'rule class'})->insert;
     $schema->resultset('RuleSystem')->new({id => 1, rule_class => 1})->insert;
     $schema->resultset('EcosystemComponent')->new({id => 1, name => 'component_1'})->insert;

@@ -1,4 +1,4 @@
-package SmartSea::Schema::ResultSet::ColorScale;
+package SmartSea::Schema::ResultSet::Palette;
 
 use strict; 
 use warnings;

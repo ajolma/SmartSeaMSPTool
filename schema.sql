@@ -340,18 +340,6 @@ CREATE TABLE beliefs (
 ALTER TABLE beliefs OWNER TO ajolma;
 
 --
--- Name: color_scales; Type: TABLE; Schema: tool; Owner: ajolma
---
-
-CREATE TABLE color_scales (
-    id integer NOT NULL,
-    name text NOT NULL
-);
-
-
-ALTER TABLE color_scales OWNER TO ajolma;
-
---
 -- Name: ecosystem_components; Type: TABLE; Schema: tool; Owner: ajolma
 --
 
@@ -684,6 +672,18 @@ ALTER TABLE ops_id_seq OWNER TO ajolma;
 
 ALTER SEQUENCE ops_id_seq OWNED BY ops.id;
 
+
+--
+-- Name: palettes; Type: TABLE; Schema: tool; Owner: ajolma
+--
+
+CREATE TABLE palettes (
+    id integer NOT NULL,
+    name text NOT NULL
+);
+
+
+ALTER TABLE palettes OWNER TO ajolma;
 
 --
 -- Name: plan2dataset_extra; Type: TABLE; Schema: tool; Owner: ajolma
@@ -1094,7 +1094,7 @@ ALTER SEQUENCE rules_id_seq OWNED BY rules.id;
 
 CREATE TABLE styles (
     id integer NOT NULL,
-    color_scale integer NOT NULL,
+    palette integer NOT NULL,
     min double precision,
     max double precision,
     classes integer
@@ -1121,7 +1121,7 @@ ALTER TABLE styles_id_seq OWNER TO ajolma;
 -- Name: styles_id_seq; Type: SEQUENCE OWNED BY; Schema: tool; Owner: ajolma
 --
 
-ALTER SEQUENCE styles_id_seq OWNED BY color_scales.id;
+ALTER SEQUENCE styles_id_seq OWNED BY palettes.id;
 
 
 --
@@ -1338,13 +1338,6 @@ ALTER TABLE ONLY activities ALTER COLUMN id SET DEFAULT nextval('activities_id_s
 -- Name: id; Type: DEFAULT; Schema: tool; Owner: ajolma
 --
 
-ALTER TABLE ONLY color_scales ALTER COLUMN id SET DEFAULT nextval('styles_id_seq'::regclass);
-
-
---
--- Name: id; Type: DEFAULT; Schema: tool; Owner: ajolma
---
-
 ALTER TABLE ONLY ecosystem_components ALTER COLUMN id SET DEFAULT nextval('ecosystem_components_id_seq'::regclass);
 
 
@@ -1388,6 +1381,13 @@ ALTER TABLE ONLY number_types ALTER COLUMN id SET DEFAULT nextval('number_type_i
 --
 
 ALTER TABLE ONLY ops ALTER COLUMN id SET DEFAULT nextval('ops_id_seq'::regclass);
+
+
+--
+-- Name: id; Type: DEFAULT; Schema: tool; Owner: ajolma
+--
+
+ALTER TABLE ONLY palettes ALTER COLUMN id SET DEFAULT nextval('styles_id_seq'::regclass);
 
 
 --
@@ -1832,7 +1832,7 @@ ALTER TABLE ONLY rules
 -- Name: styles_pkey; Type: CONSTRAINT; Schema: tool; Owner: ajolma
 --
 
-ALTER TABLE ONLY color_scales
+ALTER TABLE ONLY palettes
     ADD CONSTRAINT styles_pkey PRIMARY KEY (id);
 
 
@@ -2173,7 +2173,7 @@ ALTER TABLE ONLY rules
 --
 
 ALTER TABLE ONLY styles
-    ADD CONSTRAINT styles_color_scale_fkey FOREIGN KEY (color_scale) REFERENCES color_scales(id);
+    ADD CONSTRAINT styles_color_scale_fkey FOREIGN KEY (palette) REFERENCES palettes(id);
 
 
 --
@@ -2409,16 +2409,6 @@ GRANT ALL ON TABLE beliefs TO smartsea;
 
 
 --
--- Name: color_scales; Type: ACL; Schema: tool; Owner: ajolma
---
-
-REVOKE ALL ON TABLE color_scales FROM PUBLIC;
-REVOKE ALL ON TABLE color_scales FROM ajolma;
-GRANT ALL ON TABLE color_scales TO ajolma;
-GRANT ALL ON TABLE color_scales TO smartsea;
-
-
---
 -- Name: ecosystem_components; Type: ACL; Schema: tool; Owner: ajolma
 --
 
@@ -2586,6 +2576,16 @@ REVOKE ALL ON SEQUENCE ops_id_seq FROM PUBLIC;
 REVOKE ALL ON SEQUENCE ops_id_seq FROM ajolma;
 GRANT ALL ON SEQUENCE ops_id_seq TO ajolma;
 GRANT ALL ON SEQUENCE ops_id_seq TO smartsea;
+
+
+--
+-- Name: palettes; Type: ACL; Schema: tool; Owner: ajolma
+--
+
+REVOKE ALL ON TABLE palettes FROM PUBLIC;
+REVOKE ALL ON TABLE palettes FROM ajolma;
+GRANT ALL ON TABLE palettes TO ajolma;
+GRANT ALL ON TABLE palettes TO smartsea;
 
 
 --

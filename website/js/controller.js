@@ -75,17 +75,17 @@ function MSPController(model, view) {
 MSPController.prototype = {
     getKlasses: function () {
         var self = this,
-            classes = {
+            klasses = {
                 use_class: '',
                 layer_class: '',
                 rule_class: '',
                 activity: '',
-                color_scale: '',
+                palette: '',
                 op: '',
             },
             calls = [],
             msg = '';
-        $.each(classes, function (klass, value) {
+        $.each(klasses, function (klass, value) {
             calls.push(
                 $.ajax({
                     headers: {
@@ -254,6 +254,8 @@ MSPController.prototype = {
                 },
                 async: false
             });
+        } else {
+            when_done();
         }
     },
     loadPlans: function () {
@@ -390,7 +392,7 @@ MSPController.prototype = {
                         layers: []
                     };
                     /*jslint unparam: true*/
-                    $.each(classes, function (i, klass) {
+                    $.each(self.klasses.use_class, function (i, klass) {
                         if (klass.id === data.use_class.value) {
                             use.name = klass.name;
                             return false;
@@ -574,12 +576,12 @@ MSPController.prototype = {
                 id: 'rule-class-extra3',
                 type: 'para'
             }),
-            color_list = new Widget({
+            palette = new Widget({
                 container_id: self.editor_id,
                 id: 'layer-color',
                 type: 'select',
-                list: self.klasses['color_scale'],
-                selected: (layer ? layer.color_scale : null),
+                list: self.klasses.palette,
+                selected: (layer && layer.style ? layer.style.palette : null),
                 pretext: 'Layer color scheme: '
             }),
             network,
@@ -648,7 +650,7 @@ MSPController.prototype = {
         if (use.id === 0) {
             html += element('p', {}, 'The color setting is temporary for datasets.');
         }
-        html += element('p', {}, color_list.html());
+        html += element('p', {}, palette.html());
         self.editor.html(html);
 
         if (layer) {
@@ -691,10 +693,10 @@ MSPController.prototype = {
         self.ok = function () { // save new layer
             var klass = class_list.getSelected(),
                 rule_class = rule_class_list.getSelected(),
-                color = color_list.getSelected(),
+                color = palette.getSelected(),
                 payload = {
                     layer_class: klass ? klass.id : null,
-                    color_scale: color.id,
+                    palette: color.id,
                     rule_class: rule_class.id
                 },
                 url;
@@ -718,15 +720,16 @@ MSPController.prototype = {
                         
                         MSP: self.model,
                         use: use,
+                        style: {
+                            palette: color.name
+                        },
 
                         // can't create new datasets
                         
                         class_id: data.layer_class.value,
                         rule_class: rule_class.name,
 
-                        rules: [],
-
-                        color_scale: color.name
+                        rules: []
                     }
                     if (rule_class.name === mspEnum.BAYESIAN_NETWORK) {
                         args.network = network.getSelected();
@@ -740,9 +743,9 @@ MSPController.prototype = {
         };
 
         self.apply = function () { // modify existing layer
-            var color = color_list.getSelected(),
+            var color = palette.getSelected(),
                 payload = {
-                    color_scale: color.id
+                    palette: color.id
                 },
                 url;
             if (layer.rule_class === mspEnum.BAYESIAN_NETWORK) {
@@ -751,7 +754,9 @@ MSPController.prototype = {
             }
             if (use.id === 0) {
                 // layer is dataset
-                layer.color_scale = color.name;
+                layer.style = {
+                    palette: color.name
+                },
                 layer.refresh();
                 self.model.selectLayer({use: use.id, layer: layer.id});
             } else {
@@ -767,7 +772,9 @@ MSPController.prototype = {
                             class_id: layer.class_id,
                             rule_class: layer.rule_class,
 
-                            color_scale: color.name
+                            style: {
+                                palette: color.name
+                            }
                         };
                         if (layer.rule_class === mspEnum.BAYESIAN_NETWORK) {
                             // editable

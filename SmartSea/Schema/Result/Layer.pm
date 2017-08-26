@@ -81,7 +81,11 @@ sub read {
         use_id => $self->use->id,
         use_class_id => $self->use->use_class->id,
         owner => $self->owner,
-        color_scale => $self->style->color_scale->name,
+        style => $self->style ? {
+          palette => $self->style->palette->name,
+          min => $self->style->min,
+          max => $self->style->max,
+        } : 'grayscale',
         rule_class => $self->rule_system->rule_class->name,
         rules => \@rules
     };

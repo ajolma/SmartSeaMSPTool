@@ -50,8 +50,8 @@ $schema->resultset('UseClass')->new({id => 1, name => 'use_class'})->insert;
 $schema->resultset('Use')->new({id => 1, plan => 1, use_class => 1, owner => 'ajolma'})->insert;
 $schema->resultset('LayerClass')->new({id => 1, name => 'Allocation'})->insert;
 $schema->resultset('LayerClass')->new({id => 2, name => 'Impact'})->insert;
-$schema->resultset('ColorScale')->new({id => 1, name => 'color scale'})->insert;
-$schema->resultset('Style')->new({id => 1, color_scale => 1})->insert;
+$schema->resultset('Palette')->new({id => 1, name => 'palette'})->insert;
+$schema->resultset('Style')->new({id => 1, palette => 1})->insert;
 $schema->resultset('RuleClass')->new({id => EXCLUSIVE_RULE, name => 'rule class'})->insert;
 $schema->resultset('RuleSystem')->new({id => 1, rule_class => 1})->insert;
 $schema->resultset('EcosystemComponent')->new({id => 1, name => 'component_1'})->insert;
@@ -71,7 +71,7 @@ test_psgi $app, sub {
         use => 1, 
         layer_class => 2, 
         style_is => 1, 
-        color_scale => 1,
+        palette => 1,
         rule_class => 1,
         allocation => 1,
         computation_method => 1,
@@ -154,7 +154,7 @@ ok($schema->resultset('Layer')->single({id => 2})->descr eq $descr, "Set supercl
         <li><b>Style</b>
           <ul>
             <li>id: 2</li>
-            <li>color_scale: color scale</li>
+            <li>palette: palette</li>
             <li>min: (undef)</li>
             <li>max: (undef)</li>
             <li>classes: (undef)</li>

@@ -40,7 +40,7 @@ $client->{parameters} = {
     
     style_is => 1,
     max => 6,
-    color_scale => 7,
+    palette => 7,
     min => 8,
     classes => 9,
 
@@ -61,7 +61,7 @@ for my $source (sort $client->{schema}->sources) {
     my @err = $obj->values_from_parameters($columns);
     #print STDERR Dumper $columns if $source eq 'ImpactLayer';
     if ($source eq 'ImpactLayer') {
-        ok($columns->{super}{columns}{style}{columns}{color_scale}{value} == 7, "value in part of super");
+        ok($columns->{super}{columns}{style}{columns}{palette}{value} == 7, "value in part of super");
     }
 }
 $client->{parameters} = {};

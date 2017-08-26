@@ -121,7 +121,7 @@ MSPView.prototype = {
         self.elements.rule_header.html('');
         self.elements.rule_info.html('');
         self.elements.site.html('');
-        self.elements.color_scale.html('');
+        self.elements.legend.html('');
     },
     buildPlans: function () {
         // add plans to the plan drop down
@@ -353,10 +353,15 @@ MSPView.prototype = {
             return;
         }
         $('#use' + layer.use.id + ' #layer' + layer.id).css('background-color', 'yellow');
-        if (layer.color_scale) {
-            style = '&style=' + layer.color_scale;
+        /*
+        if (layer.style.palette) {
+            style = '&palette=' + layer.palette;
         }
-        self.elements.color_scale.html(
+        if (typeof layer.scale_min !== 'undefined') {
+            style = '&min=' + layer.scale_min;
+        }
+        */
+        self.elements.legend.html(
             element('img', {src: url + '/legend?layer=' + layer.getName() + style + cache_breaker}, '')
         );
         
@@ -371,7 +376,7 @@ MSPView.prototype = {
         $('#use' + layer.use.id + ' #layer' + layer.id).css('background-color', 'white');
         this.elements.rule_header.html('');
         this.elements.rule_info.html('');
-        this.elements.color_scale.html('');
+        this.elements.legend.html('');
         this.elements.rules.empty();
         this.elements.site.html('');
     },

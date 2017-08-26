@@ -24,7 +24,11 @@ sub layers {
             use_id => 1, # reserved use id
             use_class_id => 1, # reserved use class id
             owner => 'system',
-            color_scale => $component->style->color_scale->name,
+            style => $component->style ? {
+                palette => $component->style->palette->name,
+                min => $component->style->min,
+                max => $component->style->max,
+            } : 'grayscale',
             rule_class => $component->distribution->rule_class->name,
             rules => \@rules};
     }

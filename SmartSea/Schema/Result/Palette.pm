@@ -1,4 +1,4 @@
-package SmartSea::Schema::Result::ColorScale;
+package SmartSea::Schema::Result::Palette;
 use strict;
 use warnings;
 use 5.010000;
@@ -10,7 +10,7 @@ my @columns = (
     name => {data_type => 'text', html_size => 30, not_null => 1}
     );
 
-__PACKAGE__->table('color_scales');
+__PACKAGE__->table('palettes');
 __PACKAGE__->add_columns(@columns);
 __PACKAGE__->set_primary_key('id');
 

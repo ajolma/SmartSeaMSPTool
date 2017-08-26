@@ -255,7 +255,7 @@ sub info {
 sub read {
     my ($self) = @_;
     my $data_type = $self->data_type;
-    my $color_scale;
+    my $palette;
     my $args = {
         min => $self->min_value,
         max => $self->max_value,
@@ -274,7 +274,11 @@ sub read {
         name => $self->name,
         descr => $self->descr,
         provenance => $self->lineage,
-        color_scale => $self->style ? $self->style->color_scale->name : 'grayscale',
+        style => $self->style ? {
+          palette => $self->style->palette->name,
+          min => $self->style->min,
+          max => $self->style->max,
+        } : 'grayscale',
         min_value => $min,
         max_value => $max,
         classes => $self->style ? $self->style->classes : undef,

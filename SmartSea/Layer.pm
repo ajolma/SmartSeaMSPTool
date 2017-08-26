@@ -25,7 +25,11 @@ use SmartSea::Core qw(:all);
 #
 # Rules do not have any specific order.
 
-# may need trail, schema, tile, epsg, data_dir, style set in self (config) when called
+# attributes in self when calling:
+# configuration variables: schema, data_dir
+# what the layer is: trail
+# what to make: tile, epsg
+# how to make it: palette, min, max (not yet implemented)
 sub new {
     my ($class, $self) = @_;
     $self->{debug} //= 0;
@@ -116,25 +120,12 @@ sub new {
         say STDERR "layer rules: $class [$self->{min}..$self->{max}], $self->{data_type}" if $self->{debug};
     }
 
-    # color scale may have been set in the constructor, 
-    # let it override the one from database
-    if ($self->{duck}->style && $self->{style}) {
-        my $color_scale = $self->{schema}->resultset('ColorScale')->find({name => $self->{style}});
-        $self->{duck}->style->color_scale($color_scale->id) if $color_scale;
-    }
-
     # fixme: at this point we must have a style
     # if it is not then we should assign a temporary one
-    unless ($self->{duck}->style) {
-        $self->{duck}->style(
-            SmartSea::Layer::Style->new(
-                {
-                    min => $self->{min},
-                    max => $self->{max},
-                    color_scale => 'grayscale'
-                })
-            );
-    }
+    $self->{duck}->style(SmartSea::Layer::Style->new()) unless $self->{duck}->style;
+
+    # todo: override style here
+    # palette, min, max
 
     return bless $self, $class;
 }
@@ -145,12 +136,12 @@ sub id {
 }
 
 {
-    package SmartSea::Layer::ColorScale;
-    use base qw/SmartSea::Schema::Result::ColorScale/;
+    package SmartSea::Layer::Palette;
+    use base qw/SmartSea::Schema::Result::Palette/;
     sub new {
         my ($class, $self) = @_;
         $self->{id} = 0;
-        $self->{name} = 'grayscale';
+        $self->{name} //= 'grayscale';
         return bless $self, $class;
     }
     sub name {
@@ -165,7 +156,7 @@ sub id {
     sub new {
         my ($class, $self) = @_;
         $self->{id} = 0;
-        $self->{color_scale} = SmartSea::Layer::ColorScale->new({name => $self->{color_scale}});
+        $self->{palette} = SmartSea::Layer::Palette->new({name => $self->{palette}});
         return bless $self, $class;
     }
     sub id {
@@ -173,20 +164,23 @@ sub id {
         return $self->{id};
     }
     sub min {
-        my $self = shift;
+        my ($self, $min) = @_;
+        $self->{min} //= $min;
         return $self->{min};
     }
     sub max {
-        my $self = shift;
+        my ($self, $max) = @_;
+        $self->{max} //= $max;
         return $self->{max};
     }
-    sub color_scale {
-        my $self = shift;
-        return $self->{color_scale};
+    sub palette {
+        my ($self, $palette) = @_;
+        $self->{palette} //= $palette;
+        return $self->{palette};
     }
     sub classes {
         my ($self, $value) = @_;
-        $self->{classes} = $value if defined $value;
+        $self->{classes} //= $value;
         return $self->{classes};
     }
 }
@@ -257,7 +251,7 @@ sub compute {
     my $style = $self->{duck}->style;
 
     # combine data min and max to min and max possibly set in style
-    # and obtain number of classes for visualization using defined color scale
+    # and obtain number of classes for visualization
     # if classes == 1, all zero cells get color 0 and non-zero cells get color 1
     $style->prepare($self);
 
@@ -288,7 +282,7 @@ sub compute {
 
     $y->inplace->setbadtoval(255);
     $result->Band->Piddle(byte $y);
-    $result->Band->ColorTable($style->color_scale->color_table($style->classes));
+    $result->Band->ColorTable($style->palette->color_table($style->classes));
     return $result
 }
 
