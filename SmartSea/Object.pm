@@ -421,6 +421,7 @@ sub values_from_self {
     my ($self, $columns) = @_;
     confess "no obj" unless $self->{row};
     for my $column (keys %$columns) {
+        say STDERR "from self $column, used ",($columns->{$column}{not_used}?'no':'yes') if $self->{app}{debug} > 2;
         my $meta = $columns->{$column};
         next if $meta->{not_used};
         $meta->{value} = $self->{row}->$column;
@@ -487,6 +488,7 @@ sub read {
             }
         }
         $columns->{class} = $self->{class};
+        #print STDERR Dumper $columns;
         return $columns;
         
     } else {

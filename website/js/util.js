@@ -11,7 +11,7 @@ this list of conditions and the following disclaimer.
 Neither the name of the Finnish Environment Institute (SYKE) nor the
 names of its contributors may be used to endorse or promote products
 derived from this software without specific prior written permission.
- 
+
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -40,9 +40,8 @@ function element(tag, attrs, text) {
     if (text) {
         if (text === 'Ø') { // empty element
             return '<' + tag + a + '>';
-        } else {
-            return '<' + tag + a + '>' + text + '</' + tag + '>';
         }
+        return '<' + tag + a + '>' + text + '</' + tag + '>';
     }
     return '<' + tag + a + '/>';
 }
@@ -53,7 +52,7 @@ function Widget(args) {
         attr = {id: args.id},
         tag,
         html = '';
-    
+
     self.type = args.type;
     self.container_id = args.container_id;
     self.id = args.id;
@@ -82,10 +81,10 @@ function Widget(args) {
         html = args.content;
     } else if (args.list) {
         // key => scalar, or key => object
-        // 
+        //
         self.list = args.list;
         $.each(self.list, function (i, item) {
-            var tag, attr2, name, x, sel;
+            var tag2, attr2, name, x, sel = self.selected;
             if (args.includeItem) {
                 if (!args.includeItem(i, item)) {
                     return true;
@@ -99,17 +98,17 @@ function Widget(args) {
                 name = item;
             }
             if (self.type === 'select') {
-                tag = 'option';
+                tag2 = 'option';
                 if (typeof item === 'object') {
                     // list contains objects,
                     // give the object, its id, or its name in selected
-                    attr2 = {value: item.id};
-                    if (self.selected) {
-                        if (typeof self.selected === 'object') {
-                            if (self.selected.id === item.id) {
+                    attr2 = {value: item.id || item.name};
+                    if (sel) {
+                        if (typeof sel === 'object') {
+                            if ((item.id && (sel.id === item.id)) || (item.name && (sel.name === item.name))) {
                                 attr2.selected = 'selected';
                             }
-                        } else if (self.selected === item.id || self.selected === item.name) {
+                        } else if (sel === item.id || sel === item.name) {
                             attr2.selected = 'selected';
                         }
                     }
@@ -122,10 +121,10 @@ function Widget(args) {
                 }
                 x = '';
             } else if (self.type === 'checkbox-list') {
-                tag = 'input';
+                tag2 = 'input';
                 name = element('a', {id: 'item', item: item.id}, name);
                 attr2 = {type: 'checkbox', item: item.id};
-                if (self.selected && self.selected[item.id]) {
+                if (sel && sel[item.id]) {
                     // selected is a hash keyed with ids
                     attr2.checked = "checked";
                 }
@@ -133,7 +132,7 @@ function Widget(args) {
             } else {
                 console.assert(true, {message: "What is this list type: " + self.type});
             }
-            html += element(tag, attr2, name) + x;
+            html += element(tag2, attr2, name) + x;
         });
     }
     if (self.type === 'slider') {
@@ -141,7 +140,7 @@ function Widget(args) {
         self.max = parseFloat(self.max);
         self.value = parseFloat(self.value);
         html = element('p', {}, element('div', attr));
-        if (typeof args.slider_value_id === 'undefined') {
+        if (!args.slider_value_id) {
             args.slider_value_id = 'slider-value';
         }
         html += element('input', {id: args.slider_value_id, type: 'text'}, '');
@@ -157,9 +156,7 @@ function Widget(args) {
             html += element('label', {for: self.id}, args.label);
         }
     } else {
-        if (tag === 'select' && html === '') {
-            // empty list
-        } else {
+        if (!(tag === 'select' && html === '')) {
             html = element(tag, attr, html);
         }
     }
@@ -213,25 +210,29 @@ Widget.prototype = {
     },
     html: function (html) {
         var self = this;
-        if (typeof html !== 'undefined') {
+        if (!(html === null || html === undefined)) {
             $(self.selector).html(html);
-        } else {
-            return self.my_html;
+            self.my_html = html;
         }
+        return self.my_html;
     },
     checked: function () {
         var self = this;
         return $(self.selector).prop('checked');
     },
-    fromList: function (id) {
+    fromList: function (id_or_name) {
         var self = this,
             retval = null;
-        if (!id) {
+        if (!id_or_name) {
             return retval;
         }
         /*jslint unparam: true*/
         $.each(self.list, function (ignore, item) {
-            if (item.id.toString() === id.toString()) {
+            if (item.id && item.id.toString() === id_or_name.toString()) {
+                retval = item;
+                return false;
+            }
+            if (item.name && item.name.toString() === id_or_name.toString()) {
                 retval = item;
                 return false;
             }
@@ -246,9 +247,9 @@ Widget.prototype = {
         } else if (self.type === 'slider') {
             self.value = parseFloat(value);
             if (self.value < self.min) {
-                self.value = self.min
+                self.value = self.min;
             } else if (self.value > self.max) {
-                self.value = self.max
+                self.value = self.max;
             }
             $(self.selector).slider('value', self.value);
         }

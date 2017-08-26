@@ -161,16 +161,30 @@ MSPView.prototype = {
         self.elements.rules.empty();
         self.fillRulesPanel();
     },
+    layerItem: function (layer) {
+        var self = this,
+            attr = {type: 'checkbox', class: 'visible' + layer.id},
+            id = 'layer' + layer.id,
+            auth = self.model.isAuthorized({layer: layer}),
+            klass = auth ? 'context-menu' : 'tree-item',
+            item = element('div', {id: id, class: klass}, layer.name),
+            retval = '';
+        if (auth) {
+            item += element('ul', {class: 'menu', id: "menu" + layer.id, style: 'display:none'}, '');
+        }
+        retval = element('input', attr, item + '<br/>');
+        attr = {class: 'opacity' + layer.id, type: 'range', min: '0', max: '1', step: '0.01'};
+        retval += element('div', {class: 'opacity' + layer.id}, element('input', attr, '<br/>'));
+        return retval;
+    },
     usesItem: function (use) {
         // an openable use item for a list
         var self = this,
-            auth = self.model.auth &&
-            ((use.owner === self.model.user && (use.id === 0 || use.id > 1)) ||
-             (self.model.plan.owner === self.model.user && use.id === 0)),
+            auth = self.model.isAuthorized({use: use}),
             klass = auth ? 'context-menu' : 'tree-item',
             use_text = element('div', {class: klass}, use.name),
             button = use.layers.length > 0 ?
-            element('button', {class: 'use', type: 'button'}, '&rtrif;') + '&nbsp;' : '',
+                    element('button', {class: 'use', type: 'button'}, '&rtrif;') + '&nbsp;' : '',
             use_item = button  +  use_text,
             layers = '';
         use_item = element('label', {title: 'Owner: ' + use.owner}, use_item);
@@ -179,17 +193,7 @@ MSPView.prototype = {
         }
         /*jslint unparam: true*/
         $.each(use.layers, function (j, layer) {
-            var attr = {type: 'checkbox', class: 'visible' + layer.id},
-                id = 'layer' + layer.id,
-                auth = self.model.auth && layer.owner === self.model.user,
-                klass = auth ? 'context-menu' : 'tree-item',
-                item = element('div', {id: id, class: klass}, layer.name);
-            if (auth) {
-                item += element('ul', {class: 'menu', id: "menu" + layer.id, style: 'display:none'}, '');
-            }
-            layers += element('input', attr, item + '<br/>');
-            attr = {class: 'opacity' + layer.id, type: 'range', min: '0', max: '1', step: '0.01'};
-            layers += element('div', {class: 'opacity' + layer.id}, element('input', attr, '<br/>'));
+            layers += self.layerItem(layer);
         });
         /*jslint unparam: false*/
         layers = element('div', {class: 'use'}, layers);
@@ -207,9 +211,8 @@ MSPView.prototype = {
             if (!self.model.auth) {
                 return true;
             }
-            
-            // attach menus
 
+            // attach menus
             if (item.auth) {
                 if (use.id === 0) { // data
                     options.push({cmd: 'edit', label: 'Edit...'});
@@ -233,11 +236,11 @@ MSPView.prototype = {
             });
 
             $.each(use.layers, function (j, layer) {
-                var auth = self.model.auth && layer.owner === self.model.user;
+                var auth = self.model.isAuthorized({layer: layer}),
+                    options2 = [];
                 if (!auth) {
                     return true;
                 }
-                var options2 = [];
                 options2.push({cmd: 'edit', label: 'Edit...'});
                 if (use.id > 2) {
                     options2.push({cmd: 'delete', label: 'Delete...'});
@@ -266,17 +269,18 @@ MSPView.prototype = {
         self.elements.layers.html('');
         self.buildLayerTree();
         self.selectLayer(); // restore selected layer
-        
+
         // attach controllers:
+        /*jslint unparam: true*/
         $.each(self.model.plan.uses, function (i, use) {
             var selector = self.id.uses + " #use" + use.id,
                 useButton = $(selector + ' button.use');
-            
+
             // edit use
             $(selector + ' button.edit').click(function () {
                 self.editUse.notify(use);
             });
-            
+
             // open and close a use item
             useButton.on('click', null, {use: use}, function (event) {
                 $(self.id.uses + " #use" + event.data.use.id + ' div.use').toggle();
@@ -291,7 +295,7 @@ MSPView.prototype = {
                 }
             });
             $(selector + ' div.use').hide();
-            
+
             // show/hide layer and set its transparency
             $.each(use.layers, function (j, layer) {
                 // select and unselect a layer
@@ -336,8 +340,8 @@ MSPView.prototype = {
                 use.open = false;
             }
         });
-        
         /*jslint unparam: false*/
+
         self.cleanUp();
     },
     selectLayer: function () {
@@ -357,17 +361,17 @@ MSPView.prototype = {
         if (layer.style.palette) {
             style = '&palette=' + layer.palette;
         }
-        if (typeof layer.scale_min !== 'undefined') {
+        if (layer.scale_min !== null) {
             style = '&min=' + layer.scale_min;
         }
         */
         self.elements.legend.html(
             element('img', {src: url + '/legend?layer=' + layer.getName() + style + cache_breaker}, '')
         );
-        
+
         self.elements.rule_header.html(layer_info.header);
         self.elements.rule_info.html(layer_info.body);
-        
+
         if (layer.visible) {
             self.elements.site.html(layer.name);
         }

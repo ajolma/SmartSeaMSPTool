@@ -28,7 +28,7 @@ DAMAGE.
 
 "use strict";
 /*jslint browser: true*/
-/*global $, jQuery, alert, MSPLayer, element, Widget*/
+/*global $, jQuery, alert, element, Widget, mspEnum, MSPRule, MSPLayer*/
 
 // after https://alexatnet.com/articles/model-view-controller-mvc-javascript
 
@@ -41,7 +41,7 @@ function MSPController(model, view) {
     self.editor_id = '#editor';
     self.editor = $(self.editor_id);
     self.klasses = {};
-  
+
     self.msg.dialog({
         autoOpen: false,
         height: 400,
@@ -85,6 +85,7 @@ MSPController.prototype = {
             },
             calls = [],
             msg = '';
+        /*jslint unparam: true*/
         $.each(klasses, function (klass, value) {
             calls.push(
                 $.ajax({
@@ -106,10 +107,9 @@ MSPController.prototype = {
                     }
                 })
             );
-        });    
-        $.when.apply($, calls).then(function() {
-            
-            /*jslint unparam: true*/
+        });
+        $.when.apply($, calls).then(function () {
+
             self.view.planCommand.attach(function (sender, args) {
                 if (args.cmd === 'add') {
                     self.addPlan();
@@ -121,7 +121,7 @@ MSPController.prototype = {
                     self.addUse(self.model.plan);
                 }
             });
-            
+
             self.view.useCommand.attach(function (sender, args) {
                 if (args.cmd === 'edit') {
                     if (args.use.id === 0) { // "Data"
@@ -135,7 +135,7 @@ MSPController.prototype = {
                     self.editLayer(self.model.plan, args.use);
                 }
             });
-            
+
             self.view.layerCommand.attach(function (sender, args) {
                 if (args.cmd === 'edit') {
                     self.editLayer(self.model.plan, args.use, args.layer);
@@ -147,51 +147,48 @@ MSPController.prototype = {
                     self.deleteRule(self.model.plan, args.use, args.layer);
                 }
             });
-            
+
             self.view.ruleClicked.attach(function (sender, args) {
                 var rule = self.model.getRule(parseInt(args.id, 10));
                 self.editRule(self.model.plan, null, self.model.layer, rule);
             });
-            
+
             self.model.newPlans.attach(function (sender, args) {
                 self.editor.dialog('close');
             });
-            
+
             self.model.error.attach(function (sender, args) {
                 self.error(args.msg);
             });
-            
+
             self.view.error.attach(function (sender, args) {
                 self.error(args.msg);
             });
-            /*jslint unparam: false*/
-        }, function(a) {
-            self.error('Calling SmartSea MSP server failed: ' + a.statusText)
+        }, function (a) {
+            self.error('Calling SmartSea MSP server failed: ' + a.statusText);
         });
+        /*jslint unparam: false*/
     },
-    setEditorOkCancel: function () {
-        var self = this;
-        self.editor.dialog('option', 'buttons', {
-            Ok: function () {
-                if (self.ok()) {
+    setEditorButtons: function (ok) {
+        var self = this,
+            buttons = ok ? {
+                Ok: function () {
+                    if (self.ok()) {
+                        self.editor.dialog('close');
+                    }
+                },
+                Cancel: function () {
                     self.editor.dialog('close');
                 }
-            },
-            Cancel: function () {
-                self.editor.dialog('close');
-            }
-        });
-    },
-    setEditorApplyClose: function () {
-        var self = this;
-        self.editor.dialog('option', 'buttons', {
-            Apply: function () {
-                self.apply();
-            },
-            Close: function () {
-                self.editor.dialog('close');
-            }
-        });
+            } : {
+                Apply: function () {
+                    self.apply();
+                },
+                Close: function () {
+                    self.editor.dialog('close');
+                }
+            };
+        self.editor.dialog('option', 'buttons', buttons);
     },
     error: function (msg) {
         var self = this;
@@ -274,15 +271,15 @@ MSPController.prototype = {
     addPlan: function (args) {
         var self = this,
             name = 'plan-name',
-            html;
+            html = 'Anna nimi suunnitelmalle: ' + element('input', {type: 'text', id: name}, '');
+
         if (!args) {
             args = {};
         }
         self.editor.dialog('option', 'title', 'Uusi suunnitelma');
         self.editor.dialog('option', 'height', 400);
-        self.setEditorOkCancel();
+        self.setEditorButtons(true);
 
-        html = 'Anna nimi suunnitelmalle: ' + element('input', {type: 'text', id: name}, '');
         if (args.error) {
             html = element('p', {style: 'color:red;'}, args.error) + html;
         }
@@ -312,13 +309,12 @@ MSPController.prototype = {
     editPlan: function (plan) {
         var self = this,
             name = 'plan-name',
-            html;
+            html = element('p', {}, 'Suunnitelman nimi: ' +
+                           element('input', {type: 'text', id: name, value: plan.name}, ''));
+
         self.editor.dialog('option', 'title', 'Suunnitelma');
         self.editor.dialog('option', 'height', 400);
-        self.setEditorOkCancel();
-
-        html = element('input', {type: 'text', id: name, value: plan.name}, '');
-        html = element('p', {}, 'Suunnitelman nimi: ' + html);
+        self.setEditorButtons(true);
         self.editor.html(html);
         self.ok = function () {
             name = $(self.editor_id + ' #' + name).val();
@@ -346,7 +342,7 @@ MSPController.prototype = {
         var self = this;
         self.editor.dialog('option', 'title', 'Poista suunnitelma?');
         self.editor.dialog('option', 'height', 400);
-        self.setEditorOkCancel();
+        self.setEditorButtons(true);
 
         self.editor.html("Haluatko varmasti poistaa koko suunnitelman '" + plan.name + "'?");
         self.ok = function () {
@@ -367,10 +363,10 @@ MSPController.prototype = {
             html;
         self.editor.dialog('option', 'title', 'New use');
         self.editor.dialog('option', 'height', 400);
-        self.setEditorOkCancel();
+        self.setEditorButtons(true);
 
         /*jslint unparam: true*/
-        $.each(self.klasses['use_class'], function (i, klass) {
+        $.each(self.klasses.use_class, function (i, klass) {
             if (!self.model.hasUse(klass.id)) {
                 list += element('option', {value: klass.id}, klass.name);
             }
@@ -410,11 +406,11 @@ MSPController.prototype = {
         var self = this;
         self.getData('use_class:' + use.class_id + '/activities', function (activities) {
             var html;
-            
+
             self.editor.dialog('option', 'title', use.name);
             self.editor.dialog('option', 'height', 400);
-            self.setEditorOkCancel();
-            
+            self.setEditorButtons(true);
+
             /*jslint unparam: true*/
             $.each(activities, function (i, item) {
                 activities[item.id] = item;
@@ -424,19 +420,19 @@ MSPController.prototype = {
                 container_id: self.editor_id,
                 id: 'activities_list',
                 type: 'checkbox-list',
-                list: self.klasses['activity'],
+                list: self.klasses.activity,
                 selected: activities,
                 pretext: ''
             });
             html = element('p', {}, "Activities in this use. Sorry, not editable.")
                 + element('p', {}, activities.html());
-            
+
             self.editor.html(html);
             self.ok = function () {
                 return true;
             };
             self.editor.dialog('open');
-        })
+        });
     },
     editDatasetList: function (plan) {
         var self = this,
@@ -446,7 +442,7 @@ MSPController.prototype = {
             html;
         self.editor.dialog('option', 'title', 'Dataset list');
         self.editor.dialog('option', 'height', 400);
-        self.setEditorOkCancel();
+        self.setEditorButtons(true);
 
         // put into the list those datasets that are not in rules
         // selected are those in plan.data
@@ -494,9 +490,9 @@ MSPController.prototype = {
         var self = this;
         self.editor.dialog('option', 'title', 'Poista käyttömuoto?');
         self.editor.dialog('option', 'height', 400);
-        self.setEditorOkCancel();
+        self.setEditorButtons(true);
 
-        self.editor.html("Haluatko varmasti poistaa koko käyttömuodon '" + use.name + "' suunnitelmasta '" + plan.name + "'?");
+        self.editor.html("Haluatko varmasti poistaa käyttömuodon '" + use.name + "' suunnitelmasta '" + plan.name + "'?");
         self.ok = function () {
             self.post({
                 url: self.server + 'use:' + use.id + '?request=delete',
@@ -511,7 +507,8 @@ MSPController.prototype = {
     availableLayerClasses: function (use) {
         var self = this,
             list = [];
-        $.each(self.klasses['layer_class'], function (i, klass) {
+        /*jslint unparam: true*/
+        $.each(self.klasses.layer_class, function (i, klass) {
             if (klass.id === 5) {
                 return false; // Impact layer
             }
@@ -522,45 +519,47 @@ MSPController.prototype = {
                 list.push(klass);
             }
         });
+        /*jslint unparam: false*/
         return list;
     },
     editLayer: function (plan, use, layer) {
         // add new if no layer
+        /*jslint unparam: true*/
         var self = this,
 
             available_layer_classes = self.availableLayerClasses(use),
-            
+
             class_list = layer ?
-            null :
-            new Widget({
-                container_id: self.editor_id,
-                id: 'layer-class',
-                type: 'select',
-                list: self.klasses['layer_class'],
-                includeItem: function (i, klass) {
-                    return available_layer_classes.find(function (element) {
-                        return element.id === klass.id;
-                    });
-                },
-                pretext: available_layer_classes.length ? 'The layer class: ' : ''
-            }),
-            
+                    null :
+                    new Widget({
+                        container_id: self.editor_id,
+                        id: 'layer-class',
+                        type: 'select',
+                        list: self.klasses.layer_class,
+                        includeItem: function (i, klass) {
+                            return available_layer_classes.find(function (element) {
+                                return element.id === klass.id;
+                            });
+                        },
+                        pretext: available_layer_classes.length ? 'The layer class: ' : ''
+                    }),
+
             klass = layer ?
-            self.klasses['layer_class'].find(function (element) {
-                return element.id === layer.class_id;
-            }) :
-            null,
-            
+                    self.klasses.layer_class.find(function (element) {
+                        return element.id === layer.class_id;
+                    }) :
+                    null,
+
             rule_class_list = layer ?
-            self.klasses['rule_class'] :
-            new Widget({
-                container_id: self.editor_id,
-                id: 'layer-rule-class',
-                type: 'select',
-                list: self.klasses['rule_class'],
-                pretext: 'The rule system: '
-            }),
-            
+                    self.klasses.rule_class :
+                    new Widget({
+                        container_id: self.editor_id,
+                        id: 'layer-rule-class',
+                        type: 'select',
+                        list: self.klasses.rule_class,
+                        pretext: 'The rule system: '
+                    }),
+
             rule_class_extra = new Widget({
                 container_id: self.editor_id,
                 id: 'rule-class-extra',
@@ -598,10 +597,10 @@ MSPController.prototype = {
                 });
                 rule_class_extra2.html(element('p', {}, extra) +
                                        element('p', {}, node.html()));
-                
+
                 node.changed((function changed() {
-                    var node2 = node.getSelected(); // node2 is not null since we have set selected above
-                    var desc = '';
+                    var node2 = node.getSelected(), // node2 is not null since we have set selected above
+                        desc = '';
                     if (node2.attributes) {
                         desc = node2.attributes.HR_Desc;
                     }
@@ -618,18 +617,24 @@ MSPController.prototype = {
                     return changed;
                 }()));
             },
-            
+
             html = layer ?
-            
-            element('p', {}, 'This layer attempts to depict ' + klass.name + '.') +
-            element('p', {}, 'Rule system is ' + layer.rule_class + '.') :
-            
-            element('p', {}, class_list.html()) +
-            element('p', {}, rule_class_list.html()),
 
-            value_from = function (obj) {if (obj) {return obj.value} else {return undefined}};
+                    element('p', {}, 'This layer attempts to depict ' + klass.name + '.') +
+                    element('p', {}, 'Rule system is ' + layer.rule_class + '.') :
 
-        if (!layer && available_layer_classes.length == 0) {
+                    element('p', {}, class_list.html()) +
+                    element('p', {}, rule_class_list.html()),
+
+            value_from = function (obj) {
+                if (obj) {
+                    return obj.value;
+                }
+                return null;
+            };
+        /*jslint unparam: false*/
+
+        if (!layer && available_layer_classes.length === 0) {
             self.error('No more slots for layers in this use.');
             return;
         }
@@ -637,12 +642,8 @@ MSPController.prototype = {
         self.editor.dialog('option', 'title', 'Layer for ' + use.name);
         self.editor.dialog('option', 'width', 500);
         self.editor.dialog('option', 'height', 600);
-        if (layer) {
-            self.setEditorApplyClose();
-        } else {
-            self.setEditorOkCancel();
-        }
-        
+        self.setEditorButtons(!layer);
+
         html = element('p', {}, 'This layer is computed by rules.') + html;
         html += element('p', {}, rule_class_extra.html());
         html += element('p', {}, rule_class_extra2.html());
@@ -656,16 +657,18 @@ MSPController.prototype = {
         if (layer) {
             if (layer.rule_class === mspEnum.BAYESIAN_NETWORK) {
                 select_network_node(
-                    self.networks.find(function (network) {return network.name === layer.network.name}),
+                    self.networks.find(function (network) {
+                        return network.name === layer.network.name;
+                    }),
                     layer.output_node,
                     'The layer is based on Bayesian network <b>' + layer.network.name + '</b>'
                 );
             }
         } else {
             rule_class_list.changed((function changed() {
-                var klass = rule_class_list.getSelected();
-                if (klass && klass.name === mspEnum.BAYESIAN_NETWORK) {
-                    
+                var klass2 = rule_class_list.getSelected();
+                if (klass2 && klass2.name === mspEnum.BAYESIAN_NETWORK) {
+
                     network = new Widget({
                         container_id: self.editor_id,
                         id: 'layer-network',
@@ -675,14 +678,14 @@ MSPController.prototype = {
                         pretext: 'Select the Bayesian network: '
                     });
                     rule_class_extra.html(element('p', {}, network.html()));
-                    
+
                     network.changed((function changed() {
                         // net is not null since we have set selected above
                         var net = network.getSelected();
                         select_network_node(net, net.nodes[0], '');
                         return changed;
                     }()));
-                    
+
                 } else {
                     rule_class_extra.html('');
                 }
@@ -691,16 +694,16 @@ MSPController.prototype = {
         }
 
         self.ok = function () { // save new layer
-            var klass = class_list.getSelected(),
+            var klass2 = class_list.getSelected(),
                 rule_class = rule_class_list.getSelected(),
                 color = palette.getSelected(),
                 payload = {
-                    layer_class: klass ? klass.id : null,
+                    layer_class: klass2 ? klass2.id : null,
                     palette: color.id,
                     rule_class: rule_class.id
                 },
                 url;
-            if (!klass) {
+            if (!klass2) {
                 return true;
             }
             if (rule_class.name === mspEnum.BAYESIAN_NETWORK) {
@@ -715,9 +718,9 @@ MSPController.prototype = {
                 atSuccess: function (data) {
                     var args = {
                         id: data.id.value,
-                        name: klass.name,
+                        name: klass2.name,
                         owner: data.owner.value,
-                        
+
                         MSP: self.model,
                         use: use,
                         style: {
@@ -725,12 +728,12 @@ MSPController.prototype = {
                         },
 
                         // can't create new datasets
-                        
+
                         class_id: data.layer_class.value,
                         rule_class: rule_class.name,
 
                         rules: []
-                    }
+                    };
                     if (rule_class.name === mspEnum.BAYESIAN_NETWORK) {
                         args.network = network.getSelected();
                         args.output_node = node.getSelected();
@@ -756,7 +759,7 @@ MSPController.prototype = {
                 // layer is dataset
                 layer.style = {
                     palette: color.name
-                },
+                };
                 layer.refresh();
                 self.model.selectLayer({use: use.id, layer: layer.id});
             } else {
@@ -765,19 +768,13 @@ MSPController.prototype = {
                     url: url,
                     payload: payload,
                     atSuccess: function (data) {
+                        // only editable data to args
                         var args = {
-                            // can't edit datasets
-
-                            // not editable
-                            class_id: layer.class_id,
-                            rule_class: layer.rule_class,
-
                             style: {
                                 palette: color.name
                             }
                         };
                         if (layer.rule_class === mspEnum.BAYESIAN_NETWORK) {
-                            // editable
                             args.output_node = node.getSelected();
                             args.output_state = value_from(data.rule_system.columns.output_state);
                         }
@@ -796,7 +793,7 @@ MSPController.prototype = {
         var self = this;
         self.editor.dialog('option', 'title', 'Poista taso?');
         self.editor.dialog('option', 'height', 400);
-        self.setEditorOkCancel();
+        self.setEditorButtons(true);
 
         self.editor.html("Haluatko varmasti poistaa tason '" + layer.name + "' käyttömuodosta '" + use.name + "'?");
         self.ok = function () {
@@ -814,24 +811,24 @@ MSPController.prototype = {
         var self = this,
             owner = layer.owner === self.model.user,
             dataset = rule ? rule.dataset :
-            new Widget({
-                container_id: self.editor_id,
-                id: 'rule-dataset',
-                type: 'select',
-                list: self.model.datasets.layers,
-                pretext: 'Rule is based on the dataset: '
-            }),
+                    new Widget({
+                        container_id: self.editor_id,
+                        id: 'rule-dataset',
+                        type: 'select',
+                        list: self.model.datasets.layers,
+                        pretext: 'Rule is based on the dataset: '
+                    }),
             getPayload,
-            value_from = function (obj) {if (obj) {return obj.value} else {return undefined}};
+            value_from = function (obj) {
+                if (obj) {
+                    return obj.value;
+                }
+                return null;
+            };
 
         self.editor.dialog('option', 'title', 'Sääntö tasossa ' + layer.name);
         self.editor.dialog('option', 'height', 500);
-        
-        if (rule) {
-            self.setEditorApplyClose();
-        } else {
-            self.setEditorOkCancel();
-        }
+        self.setEditorButtons(!rule);
 
         if (layer.rule_class === mspEnum.EXCLUSIVE) {
             getPayload = self.editBooleanRule(plan, use, layer, rule, dataset);
@@ -840,9 +837,9 @@ MSPController.prototype = {
         } else if (layer.rule_class === mspEnum.BOXCAR) {
             self.editor.dialog('option', 'width', 470);
             self.editor.dialog('option', 'height', 700);
-            getPayload = self.editBoxcarRule(plan, use, layer, rule, dataset);
+            getPayload = self.editBoxcarRule(rule, dataset);
         } else if (layer.rule_class === mspEnum.BAYESIAN_NETWORK) {
-            getPayload = self.editBayesianRule(plan, use, layer, rule, dataset);
+            getPayload = self.editBayesianRule(layer, rule, dataset);
         } else {
             self.error('Editing ' + layer.rule_class + ' rules not supported yet.');
             return;
@@ -899,29 +896,26 @@ MSPController.prototype = {
                 // self.error('Rule modification requires cookies. Please enable cookies and reload this app.');
             });
         };
-        
+
         self.editor.dialog('open');
     },
     deleteRule: function (plan, use, layer) {
         var self = this,
-            rules,
-            html;
+            rules = new Widget({
+                container_id: self.editor_id,
+                id: 'rules-to-delete',
+                type: 'checkbox-list',
+                list: layer.rules,
+                selected: null,
+                nameForItem: function (rule) {
+                    return rule.getName();
+                }
+            }),
+            html = element('p', {}, 'Select rules to delete:') + rules.html();
+
         self.editor.dialog('option', 'title', "Delete rules from layer '" + layer.name + "'");
         self.editor.dialog('option', 'height', 400);
-        self.setEditorOkCancel();
-
-        rules = new Widget({
-            container_id: self.editor_id,
-            id: 'rules-to-delete',
-            type: 'checkbox-list',
-            list: layer.rules,
-            selected: null,
-            nameForItem: function (rule) {
-                return rule.getName();
-            }
-        });
-
-        html = element('p', {}, 'Select rules to delete:') + rules.html();
+        self.setEditorButtons(true);
 
         self.editor.html(html);
 

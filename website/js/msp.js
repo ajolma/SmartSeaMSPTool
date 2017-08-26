@@ -28,7 +28,7 @@ DAMAGE.
 
 "use strict";
 /*jslint browser: true*/
-/*global $, jQuery, alert, ol, Event*/
+/*global $, jQuery, alert, ol, Event, MSPLayer*/
 
 var mspEnum = {
     BAYESIAN_NETWORK: 'Bayesian network',
@@ -40,7 +40,9 @@ var mspEnum = {
 };
 
 var mspStrings = {
-    THIS_IS_A_LAYER: function(a, b) {return 'This is a layer made by ' + a + ' rules and defined by ' + b + '.'}
+    THIS_IS_A_LAYER: function (a, b) {
+        return 'This is a layer made by ' + a + ' rules and defined by ' + b + '.';
+    }
 };
 
 // after https://alexatnet.com/articles/model-view-controller-mvc-javascript
@@ -79,6 +81,29 @@ function MSP(args) {
 }
 
 MSP.prototype = {
+    isAuthorized: function (object) {
+        var self = this,
+            user = self.user;
+        if (!self.auth) {
+            return false;
+        }
+        if (object.use) {
+            if (object.use.owner === user) {
+                if (object.use.id === 0 || object.use.id > 1) {
+                    return true;
+                }
+            }
+            if (self.plan.owner === user) {
+                if (object.use.id === 0) {
+                    return true;
+                }
+            }
+        }
+        if (object.layer) {
+            return object.layer.owner === user;
+        }
+        return false;
+    },
     setPlans: function (data, networks) {
         var self = this,
             plan;
@@ -90,20 +115,18 @@ MSP.prototype = {
         self.initSite();
 
         // parse pseudo uses, note reserved use class id's
-        
+
         self.datasets = {layers: []};
         plan = data.find(function (plan) {
             return plan.id === 0;
         });
         if (plan && plan.uses) {
-            var layers = [];
-            $.each(plan.uses[0].layers, function (i, layer) {
-                layer.MSP = self;
-                layer.use = plan.uses[0];
-                layers.push(new MSPLayer(layer));
-            });
             self.datasets = plan.uses[0];
-            self.datasets.layers = layers;
+            $.each(self.datasets.layers, function (i, layer) {
+                layer.MSP = self;
+                layer.use = self.datasets;
+                self.datasets.layers[i] = new MSPLayer(layer);
+            });
         }
 
         self.ecosystem = {layers: []};
@@ -111,17 +134,16 @@ MSP.prototype = {
             return plan.id === 1;
         });
         if (plan && plan.uses) {
-            var layers = [];
-            $.each(plan.uses[0].layers, function (i, layer) {
-                layer.MSP = self;
-                layer.use = plan.uses[0];
-                layers.push(new MSPLayer(layer));
-            });
             self.ecosystem = plan.uses[0];
-            self.ecosystem.layers = layers;
+            $.each(self.ecosystem.layers, function (i, layer) {
+                layer.MSP = self;
+                layer.use = self.ecosystem;
+                self.ecosystem.layers[i] = new MSPLayer(layer);
+            });
         }
 
         self.plans = [];
+        /*jslint unparam: true*/
         $.each(data, function (i, plan) {
             if (plan.id < 2) {
                 return true;
@@ -130,29 +152,28 @@ MSP.prototype = {
                 plan.uses = [];
             }
             $.each(plan.uses, function (j, use) {
-                var layers = [];
                 $.each(use.layers, function (k, layer) {
                     layer.MSP = self;
                     layer.use = use;
                     if (layer.network) {
                         layer.network = networks.find(function (network) {
-                            return network.name === layer.network
+                            return network.name === layer.network;
                         });
                         if (layer.network) {
                             layer.output_node = layer.network.nodes.find(function (node) {
-                                return node.id === layer.output_node
+                                return node.id === layer.output_node;
                             });
                         } else {
                             layer.output_node = null;
                         }
                         // bail out if fail here?
                     }
-                    layers.push(new MSPLayer(layer));
+                    use.layers[k] = new MSPLayer(layer);
                 });
-                use.layers = layers;
             });
             self.plans.push(plan);
         });
+        /*jslint unparam: false*/
 
         self.newPlans.notify();
         self.changePlan(self.firstPlan);

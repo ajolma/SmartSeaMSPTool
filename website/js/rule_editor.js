@@ -11,7 +11,7 @@ this list of conditions and the following disclaimer.
 Neither the name of the Finnish Environment Institute (SYKE) nor the
 names of its contributors may be used to endorse or promote products
 derived from this software without specific prior written permission.
- 
+
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -27,13 +27,14 @@ DAMAGE.
 */
 
 "use strict";
+/*global $, jQuery, alert, element, Widget, MSPController*/
 
-MSPController.prototype.datasetValueWidget = function(args) {
+MSPController.prototype.datasetValueWidget = function (args) {
     var self = this,
         attr = {
             container_id: self.editor_id,
             id: args.id,
-            pretext: args.pretext ? args.pretext : '',
+            pretext: args.pretext || '',
         },
         attr2,
         widget = null;
@@ -74,33 +75,33 @@ MSPController.prototype.datasetValueWidget = function(args) {
     return widget;
 };
 
+/*jslint unparam: true*/
 MSPController.prototype.editBooleanRule = function (plan, use, layer, rule, dataset) {
     var self = this,
         owner = layer.owner === self.model.user,
         value,
         html = '',
-        make_op = function(dataset) {
+        make_op = function (dataset) {
             return new Widget({
                 container_id: self.editor_id,
                 id: 'rule-op',
                 type: 'select',
-                list: self.klasses['op'],
+                list: self.klasses.op,
                 includeItem: function (i, item) {
                     if (dataset.binary) {
                         return item.name === '==' || item.name === 'NOT';
-                    } else {
-                        return true;
                     }
+                    return true;
                 },
-                selected: rule ? rule.op : undefined,
+                selected: rule ? rule.op : null,
                 pretext: 'Define the operator:<br/>'
-            })
+            });
         },
         op = rule ? make_op(rule.dataset) : null,
         threshold,
         pretext = 'Define the threshold:<br/>',
         regex;
-    
+
     value = new Widget({
         container_id: self.editor_id,
         id: 'rule-defs',
@@ -121,9 +122,9 @@ MSPController.prototype.editBooleanRule = function (plan, use, layer, rule, data
     }
     html += element('p', {id: 'descr'}, '');
     html += value.html();
-    
+
     self.editor.html(html);
-    
+
     if (rule) {
         threshold = self.datasetValueWidget({
             id: 'thrs',
@@ -147,7 +148,7 @@ MSPController.prototype.editBooleanRule = function (plan, use, layer, rule, data
             return changed;
         }()));
     }
-    
+
     return function () {
         var retval = {};
         if (!rule) {
@@ -163,8 +164,9 @@ MSPController.prototype.editBooleanRule = function (plan, use, layer, rule, data
         return retval;
     };
 };
+/*jslint unparam: false*/
 
-MSPController.prototype.editBoxcarRule = function (plan, use, layer, rule, dataset) {
+MSPController.prototype.editBoxcarRule = function (rule, dataset) {
     // boxcar rule converts data value into range [0..weight] or [weight..0] if weight is negative
     // the rule consists of four values (x0, x1, x2, x3) and a boolean form parameter in addition to weight
     // the data value is first mapped to a value (y) between 0 and 1
@@ -219,13 +221,13 @@ MSPController.prototype.editBoxcarRule = function (plan, use, layer, rule, datas
         x2v,
         x3v,
         newValue;
-    
+
     if (rule) {
         html += element('p', {}, 'Rule is based on ' + dataset.name);
     } else {
         html += element('p', {}, dataset.html());
     }
-    
+
     html += element('p', {id: 'descr'}, '');
     html += form.html();
     html += x0.html();
@@ -234,8 +236,8 @@ MSPController.prototype.editBoxcarRule = function (plan, use, layer, rule, datas
     html += x3.html();
     html += weight.html();
     self.editor.html(html);
-    
-    newValue = function(value) {
+
+    newValue = function (value) {
         //console.log(this.id + ' ' + value);
         x0v = x0Widget.getValue();
         x1v = x1Widget.getValue();
@@ -283,7 +285,7 @@ MSPController.prototype.editBoxcarRule = function (plan, use, layer, rule, datas
             }
         }
     };
-    
+
     if (rule) {
         x0Widget = self.datasetValueWidget({id: 'x0', dataset: dataset, rule: rule, elem: x0, newValue: newValue});
         x1Widget = self.datasetValueWidget({id: 'x1', dataset: dataset, rule: rule, elem: x1, newValue: newValue});
@@ -318,14 +320,14 @@ MSPController.prototype.editBoxcarRule = function (plan, use, layer, rule, datas
         retval.weight = weight.getValue();
         return retval;
     };
-    
+
 };
 
-MSPController.prototype.editBayesianRule = function (plan, use, layer, rule, dataset) {
+MSPController.prototype.editBayesianRule = function (layer, rule, dataset) {
     // rule is a node in a Bayesian network
     // for now we assume it is a (hard) evidence node, i.e.,
     // the dataset must be integer, and its value range the same as the node's
-    
+
     var self = this,
         dataset_list = [],
         network = null,
@@ -333,7 +335,7 @@ MSPController.prototype.editBayesianRule = function (plan, use, layer, rule, dat
         node,
         offset,
         html = '',
-        dataset_info = function(dataset) {
+        dataset_info = function (dataset) {
             var states = '',
                 j = 0;
             if (dataset.semantics) {
@@ -350,7 +352,7 @@ MSPController.prototype.editBayesianRule = function (plan, use, layer, rule, dat
                 states: 'States: ' + dataset.min_value + '..' + dataset.max_value + element('p', {}, states)
             };
         };
-    
+
     if (!rule) {
         /*jslint unparam: true*/
         $.each(self.model.datasets.layers, function (i, dataset) {
@@ -368,7 +370,7 @@ MSPController.prototype.editBayesianRule = function (plan, use, layer, rule, dat
             pretext: 'Base the rule on dataset: '
         });
     }
-    
+
     /*jslint unparam: true*/
     network = self.networks.find(function (network) {
         return network.name === layer.network.name;
@@ -411,22 +413,22 @@ MSPController.prototype.editBayesianRule = function (plan, use, layer, rule, dat
         max: 10,
         pretext: 'Offset (to match states): '
     });
-    
+
     if (rule) {
         html += element('p', {}, 'Rule is based on ' + dataset.name);
     } else {
         html += element('p', {}, dataset.html());
     }
-    
+
     html += element('p', {id: 'dataset-states'}, '') +
         element('p', {id: 'descr'}, '') +
         element('p', {}, offset.html()) +
         node.html() +
         element('p', {id: 'node-states'}, '');
-    
+
     self.editor.html(html);
     offset.prepare();
-   
+
     if (rule) {
         html = dataset_info(dataset);
         $(self.editor_id + ' #descr').html(html.descr);
@@ -439,7 +441,7 @@ MSPController.prototype.editBayesianRule = function (plan, use, layer, rule, dat
             return changed;
         }()));
     }
-    
+
     node.changed((function changed() {
         var n = node.getSelected(),
             states = '',

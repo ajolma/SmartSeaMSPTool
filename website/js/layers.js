@@ -28,7 +28,7 @@ DAMAGE.
 
 "use strict";
 /*jslint browser: true*/
-/*global $, jQuery, alert, ol, Event, MSPRule*/
+/*global $, jQuery, alert, ol, element, Event, MSPRule, mspEnum, mspStrings*/
 
 function MSPLayer(args) {
     var self = this;
@@ -36,7 +36,7 @@ function MSPLayer(args) {
     self.id = args.id;
     self.name = args.name;
     self.owner = args.owner;
-    
+
     // mapping
     self.model = args.MSP;
     self.server = 'http://' + args.MSP.server + '/WMTS';
@@ -45,7 +45,7 @@ function MSPLayer(args) {
 
     self.use = args.use;
     self.style = args.style;
-    
+
     // the use class id
     // 0 = dataset
     // 1 = ecosystem component (computed)
@@ -67,7 +67,7 @@ function MSPLayer(args) {
             });
             /*jslint unparam: false*/
         }
-        
+
     }
 
     if (self.layer) {
@@ -76,10 +76,10 @@ function MSPLayer(args) {
 }
 
 MSPLayer.prototype = {
-    edit: function(args) {
+    edit: function (args) {
         var self = this;
         if (self.use.class_id === 0) {
-    
+
             // subclass dataset
             self.min_value = args.min_value;
             self.max_value = args.max_value;
@@ -87,24 +87,31 @@ MSPLayer.prototype = {
             self.semantics = args.semantics;
             self.descr = args.descr;
             self.provenance = args.provenance;
-            
+
             self.binary =
                 self.data_type === 'integer' &&
                 (self.min_value === 0 || self.min_value === 1) &&
                 self.max_value === 1;
-            
+
         } else {
-            
+
             // subclass computed layer
-            self.class_id = args.class_id;
-            self.rule_class = args.rule_class;
-            
+            if (args.class_id) {
+                self.class_id = args.class_id;
+            }
+            if (args.rule_class) {
+                self.rule_class = args.rule_class;
+            }
+
             if (self.rule_class === mspEnum.BAYESIAN_NETWORK) {
-                self.network = args.network;
+                if (args.network) {
+                    self.network = args.network;
+                }
+                // assert self.network is not nothing?
                 self.output_node = args.output_node;
                 self.output_state = args.output_state;
             }
-        
+
         }
 
         self.refresh();
@@ -113,8 +120,7 @@ MSPLayer.prototype = {
         var self = this,
             url = 'http://' + self.model.server,
             header,
-            body = '',
-            node;
+            body = '';
         if (self.use.class_id === 0) { // Data
             header = 'Dataset.';
             body = self.provenance;
@@ -134,7 +140,7 @@ MSPLayer.prototype = {
                 body = 'Value is a product of rules.';
             } else if (self.rule_class === mspEnum.BAYESIAN_NETWORK) {
                 body = element('img',
-                               {src: url + '/networks?name=' + self.network.name + '&accept=jpeg', width:220},
+                               {src: url + '/networks?name=' + self.network.name + '&accept=jpeg', width: 220},
                                '') +
                     '<br/>' + 'Output is from node ' + self.output_node.name + ', state ' + self.output_state;
             }
@@ -142,7 +148,7 @@ MSPLayer.prototype = {
         return {
             header: header,
             body: body
-        }
+        };
     },
     getOpacity: function () {
         var self = this;
@@ -234,8 +240,7 @@ MSPLayer.prototype = {
         self.refresh();
     },
     getRule: function (id) {
-        var self = this,
-            retval = null;
+        var self = this;
         return self.rules.find(function (rule) {
             return rule.id === id;
         });
@@ -277,7 +282,7 @@ function MSPRule(args) {
 }
 
 MSPRule.prototype = {
-    edit: function(rule) {
+    edit: function (rule) {
         var self = this;
         if (self.layer.rule_class === mspEnum.EXCLUSIVE || self.layer.rule_class === mspEnum.INCLUSIVE) {
             self.op = rule.op;
@@ -324,6 +329,10 @@ MSPRule.prototype = {
             }
             name += self.boxcar_x0 + ', ' + self.boxcar_x1 + ', ' + self.boxcar_x2 + ', ' + self.boxcar_x3;
             name += ' weight ' + self.weight;
+        } else if (self.layer.rule_class === mspEnum.BAYESIAN_NETWORK) {
+            name = self.layer.network.nodes.find(function (node) {
+                return node.id === self.node_id;
+            }).name + '=' + name;
         }
         return name;
     },

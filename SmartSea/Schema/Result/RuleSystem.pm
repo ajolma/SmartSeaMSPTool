@@ -14,6 +14,7 @@ use Data::Dumper;
 our $have_hugin;
 BEGIN {
     eval {
+        require 'Hugin.pm';
         require 'Geo/GDAL/Bayes/Hugin.pm';
     };
     $have_hugin = !$@;

@@ -28,19 +28,19 @@ DAMAGE.
 
 "use strict";
 /*jslint browser: true*/
-/*global $, jQuery, alert, ol, getConfig, projection, MSP, MSPView, MSPController*/
+/*global $, jQuery, alert, ol, element, getConfig, projection, MSP, MSPView, MSPController*/
 
-function makeConfig(config) {
+function makeConfig() {
     var config = getConfig(),
         epsg = /epsg=([\d]+)/.exec(window.location.href);
     if (epsg && epsg[1]) {
-        epsg = parseInt(epsg[1]);
+        epsg = parseInt(epsg[1], 10);
     } else {
         // default projection
         epsg = 3857;
     }
     config.bg = [];
-    
+
     if (epsg === 3857) {
         config.epsg = 3857;
         config.matrixSet = 'EPSG:3857';
@@ -130,7 +130,7 @@ function makeConfig(config) {
     } else {
         window.alert("EPSG " + epsg + " is not a supported projection!");
     }
-    
+
     return config;
 }
 
@@ -183,7 +183,7 @@ function makeConfig(config) {
     });
     map.addControl(new ol.control.ScaleLine());
 
-    $.each(config.bg, function(i, bg) {
+    $.each(config.bg, function (i, bg) {
         bg.layer.setVisible(false);
         map.addLayer(bg.layer);
         $('#bg-map').append(element('option', {value: i}, bg.title));
