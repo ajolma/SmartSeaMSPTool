@@ -4,10 +4,11 @@ use strict;
 use warnings;
 use 5.010000; # say, //, and //=
 use Carp;
-use Hugin;
 
 sub smart {
     my ($self, $env, $request, $parameters) = @_;
+
+    return $self->json200([]) unless $SmartSea::Schema::Result::RuleSystem::have_hugin;
 
     my $dir = $self->{data_dir} . 'Bayesian_networks';
 

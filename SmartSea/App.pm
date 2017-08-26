@@ -5,7 +5,6 @@ use warnings;
 use 5.010000; # say // and //=
 use Carp;
 use Encode qw(decode encode);
-use Hugin;
 
 sub new {
     my ($class, $self) = @_;
@@ -110,6 +109,10 @@ sub http_status {
 
 sub read_bayesian_networks {
     my $self = shift;
+    $self->{domains} = {};
+
+    return unless $SmartSea::Schema::Result::RuleSystem::have_hugin;
+    
     my $dir = $self->{data_dir} . 'Bayesian_networks';
     opendir(my $dh, $dir) || croak "Can't opendir $dir: $!";
     my @nets = grep { /\.net$/ && -f "$dir/$_" } readdir($dh);
