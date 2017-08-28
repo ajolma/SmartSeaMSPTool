@@ -74,7 +74,7 @@ my %column_tests = (
     boxcar_x1 => {&BOXCAR_RULE => 1},
     boxcar_x2 => {&BOXCAR_RULE => 1},
     boxcar_x3 => {&BOXCAR_RULE => 1},
-    node_id => {&BAYESIAN_NETWORK_RULE => 1},
+    node => {&BAYESIAN_NETWORK_RULE => 1},
     state_offset => {&BAYESIAN_NETWORK_RULE => 1},
     );
 
