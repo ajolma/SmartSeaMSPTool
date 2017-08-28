@@ -25,7 +25,7 @@ my @columns = (
     rule_class => { is_foreign_key => 1, source => 'RuleClass', not_null => 1 },
     network => {data_type => 'text', html_size => 30},
     output_node => {data_type => 'text', html_size => 30},
-    output_state => {data_type => 'integer', html_size => 30},
+    output_state => {data_type => 'text', html_size => 30},
     );
 
 __PACKAGE__->table('rule_systems');
@@ -125,10 +125,10 @@ sub compute {
         #}
 
         for my $rule ($self->active_rules($args)) {
-            #say STDERR $rule->node_id;
-            $evidence{$rule->node_id} = $rule->dataset->Band($args);
-            #say STDERR $evidence{$rule->node_id}->Piddle;
-            $offsets{$rule->node_id} = $rule->state_offset;
+            #say STDERR $rule->node;
+            $evidence{$rule->node} = $rule->dataset->Band($args);
+            #say STDERR $evidence{$rule->node}->Piddle;
+            $offsets{$rule->node} = $rule->state_offset;
         }
 
         my ($w, $h) = $args->{tile}->size;
@@ -139,7 +139,7 @@ sub compute {
             offsets => \%offsets,
             output => {
                 band => $output,
-                name => $self->output_node,
+                node => $self->output_node,
                 state => $self->output_state,
             }
         });
@@ -178,9 +178,9 @@ sub info_compute {
         #}
 
         for my $rule ($self->active_rules($args)) {
-            $evidence{$rule->node_id} = $rule->dataset->Band($args);
-            $offsets{$rule->node_id} = $rule->state_offset;
-            $info{$rule->node_id} = $evidence{$rule->node_id}->ReadTile->[1][1];
+            $evidence{$rule->node} = $rule->dataset->Band($args);
+            $offsets{$rule->node} = $rule->state_offset;
+            $info{$rule->node} = $evidence{$rule->node_id}->ReadTile->[1][1];
         }
 
         my ($w, $h) = $args->{tile}->size;
@@ -191,7 +191,7 @@ sub info_compute {
             offsets => \%offsets,
             output => {
                 band => $output,
-                name => $self->output_node,
+                node => $self->output_node,
                 state => $self->output_state,
             }
         });

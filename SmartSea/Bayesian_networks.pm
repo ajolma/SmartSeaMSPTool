@@ -48,12 +48,12 @@ sub smart {
         my @nodes;
         my $domain = Hugin::Domain::parse_net_file("$dir/$net");
         for my $node ($domain->get_nodes) {
-            my $node2 = {id => $node->get_name, name => $node->get_label};
-            my @values;
-            for my $value ($node->get_state_labels) {
-                push @values, $value;
+            my $node2 = {name => $node->get_label};
+            my @states;
+            for my $state ($node->get_state_labels) {
+                push @states, $state;
             }
-            $node2->{values} = \@values;
+            $node2->{states} = \@states;
             $node2->{attributes} = {$node->get_attributes};
             push @nodes, $node2;
         }

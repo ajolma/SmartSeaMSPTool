@@ -918,8 +918,8 @@ CREATE TABLE rule_systems (
     id integer NOT NULL,
     rule_class integer NOT NULL,
     network text,
-    output_state integer,
-    output_node text
+    output_node text,
+    output_state text
 );
 
 
@@ -969,7 +969,7 @@ CREATE TABLE rules (
     boxcar_x1 double precision DEFAULT 0 NOT NULL,
     boxcar_x2 double precision DEFAULT 0 NOT NULL,
     boxcar_x3 double precision DEFAULT 0 NOT NULL,
-    node_id text,
+    node text,
     state_offset integer DEFAULT 0
 );
 
@@ -1054,10 +1054,10 @@ COMMENT ON COLUMN rules.boxcar IS 'for boxcar rules, is this normal or upside do
 
 
 --
--- Name: COLUMN rules.node_id; Type: COMMENT; Schema: tool; Owner: ajolma
+-- Name: COLUMN rules.node; Type: COMMENT; Schema: tool; Owner: ajolma
 --
 
-COMMENT ON COLUMN rules.node_id IS 'Bayesian network rule, node id (name)';
+COMMENT ON COLUMN rules.node IS 'Bayesian network rule, node name';
 
 
 --

@@ -37,7 +37,7 @@ my @columns = (
     boxcar_x1    => { data_type => 'double', has_default => 1 },
     boxcar_x2    => { data_type => 'double', has_default => 1 },
     boxcar_x3    => { data_type => 'double', has_default => 1 },
-    node_id      => { data_type => 'text' },
+    node         => { data_type => 'text' },
     state_offset => { data_type => 'integer', has_default => 1 },
     );
 
@@ -118,7 +118,7 @@ sub columns_info {
             $info->{$col}{not_used} = 1 unless $tive || $boxcar;
         } elsif ($col =~ /^boxcar/) {
             $info->{$col}{not_used} = 1 unless $boxcar;
-        } elsif ($col eq 'node_id') {
+        } elsif ($col eq 'node') {
             $info->{$col}{not_used} = 1 unless $bayesian;
         } elsif ($col eq 'state_offset') {
             $info->{$col}{not_used} = 1 unless $bayesian;
@@ -204,7 +204,7 @@ sub name {
         return "Inverted with turning points at ".$fct;
 
     } elsif ($class == BAYESIAN_NETWORK_RULE) {
-        return ($self->node_id//'').' offset='.$self->state_offset;
+        return ($self->node//'').' offset='.$self->state_offset;
         
     } else {
         #croak "Unknown rule class: ".$self->rule_system->rule_class->name;
