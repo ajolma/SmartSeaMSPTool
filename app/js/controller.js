@@ -708,8 +708,8 @@ MSPController.prototype = {
             }
             if (rule_class.name === mspEnum.BAYESIAN_NETWORK) {
                 payload.network = network.getSelected().name;
-                payload.output_node = node.getSelected().id;
-                payload.output_state = state.getValue();
+                payload.output_node = node.getSelected().name;
+                payload.output_state = state.getSelected();
             }
             url = self.server + 'plan:' + plan.id + '/uses:' + use.id + '/' + 'layers?request=create';
             self.post({
@@ -752,8 +752,8 @@ MSPController.prototype = {
                 },
                 url;
             if (layer.rule_class === mspEnum.BAYESIAN_NETWORK) {
-                payload.output_node = node.getSelected().id;
-                payload.output_state = state.getValue();
+                payload.output_node = node.getSelected().name;
+                payload.output_state = state.getSelected();
             }
             if (use.id === 0) {
                 // layer is dataset
@@ -867,7 +867,7 @@ MSPController.prototype = {
                         boxcar_x3: value_from(data.boxcar_x3),
                         weight: value_from(data.weight),
                         state_offset: value_from(data.state_offset),
-                        node_id: value_from(data.node_id),
+                        node: value_from(data.node),
                     }));
                 }
             });

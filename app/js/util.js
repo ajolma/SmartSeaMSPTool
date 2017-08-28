@@ -81,41 +81,34 @@ function Widget(args) {
         html = args.content;
     } else if (args.list) {
         // key => scalar, or key => object
-        //
         self.list = args.list;
-        $.each(self.list, function (i, item) {
-            var tag2, attr2, name, x, sel = self.selected;
+        $.each(self.list, function (key, item) {
+            var tag2, attr2, name, x;
             if (args.includeItem) {
-                if (!args.includeItem(i, item)) {
+                if (!args.includeItem(key, item)) {
                     return true;
                 }
             }
-            if (args.nameForItem) {
-                name = args.nameForItem(item);
-            } else if (typeof item === 'object') {
-                name = item.name;
-            } else {
-                name = item;
-            }
             if (self.type === 'select') {
                 tag2 = 'option';
+                if (args.nameForItem) {
+                    name = args.nameForItem(item);
+                } else if (typeof item === 'object') {
+                    name = item.name;
+                } else {
+                    name = item;
+                }
+                attr2 = {value: key};
                 if (typeof item === 'object') {
-                    // list contains objects,
-                    // give the object, its id, or its name in selected
-                    attr2 = {value: item.id || item.name};
-                    if (sel) {
-                        if (typeof sel === 'object') {
-                            if ((item.id && (sel.id === item.id)) || (item.name && (sel.name === item.name))) {
-                                attr2.selected = 'selected';
-                            }
-                        } else if (sel === item.id || sel === item.name) {
+                    if (typeof self.selected === 'object') {
+                        if (self.selected === item) {
                             attr2.selected = 'selected';
                         }
+                    } else if (self.selected === item.name) {
+                        attr2.selected = 'selected';
                     }
                 } else {
-                    // list contains scalars, give the key of the selected in value
-                    attr2 = {value: i};
-                    if (parseInt(i, 10) === self.value) {
+                    if (self.selected === item) {
                         attr2.selected = 'selected';
                     }
                 }
@@ -220,26 +213,6 @@ Widget.prototype = {
         var self = this;
         return $(self.selector).prop('checked');
     },
-    fromList: function (id_or_name) {
-        var self = this,
-            retval = null;
-        if (!id_or_name) {
-            return retval;
-        }
-        /*jslint unparam: true*/
-        $.each(self.list, function (ignore, item) {
-            if (item.id && item.id.toString() === id_or_name.toString()) {
-                retval = item;
-                return false;
-            }
-            if (item.name && item.name.toString() === id_or_name.toString()) {
-                retval = item;
-                return false;
-            }
-        });
-        /*jslint unparam: false*/
-        return retval;
-    },
     setValue: function (value) {
         var self = this;
         if (self.type === 'select') {
@@ -266,8 +239,9 @@ Widget.prototype = {
         return value;
     },
     getSelected: function () {
-        var self = this;
-        return self.fromList(self.getValue());
+        var self = this,
+            value = self.getValue(); // key as string
+        return self.list[value];
     },
     getSelectedIds: function () {
         var self = this,

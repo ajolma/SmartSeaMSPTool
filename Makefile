@@ -25,7 +25,8 @@ test:
 	prove -I.
 
 test-js:
-	node node_modules/jslint/bin/jslint.js website/js/*.js 
+	node node_modules/jslint/bin/jslint.js app/js/*.js
+	phantomjs phantomjs-test.js
 
 #plugin-test:
 #	rm -rf $HOME/.qgis2/python/plugins/smartsea/

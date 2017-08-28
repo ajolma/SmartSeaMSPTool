@@ -161,8 +161,8 @@ MSP.prototype = {
                         });
                         if (layer.network) {
                             layer.output_node = layer.network.nodes.find(function (node) {
-                                return node.id === layer.output_node;
-                            });
+                                return node.name === layer.output_node;
+                            }) || {name: '?'};
                         } else {
                             layer.output_node = null;
                         }

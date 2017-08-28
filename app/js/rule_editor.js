@@ -376,15 +376,15 @@ MSPController.prototype.editBayesianRule = function (layer, rule, dataset) {
         return network.name === layer.network.name;
     });
     $.each(network.nodes, function (i, node) {
-        var used = node.id === layer.output_node.id;
-        if (rule && node.id === rule.node_id) {
+        var used = node.name === layer.output_node.name;
+        if (rule && node.name === rule.node) {
             // current
             nodes.push(node);
             return true;
         }
         if (!used) {
             $.each(layer.rules, function (i, rule) {
-                if (node.id === rule.node_id) {
+                if (node.name === rule.node) {
                     // already used
                     used = true;
                     return false;
@@ -401,7 +401,7 @@ MSPController.prototype.editBayesianRule = function (layer, rule, dataset) {
         id: 'rule-node',
         type: 'select',
         list: nodes,
-        selected: rule ? rule.node_id : nodes[0],
+        selected: rule ? rule.node: nodes[0],
         pretext: 'Link the dataset to node: '
     });
     offset = new Widget({
@@ -468,7 +468,7 @@ MSPController.prototype.editBayesianRule = function (layer, rule, dataset) {
             retval.dataset = dataset.id;
         }
         retval.state_offset = offset.getValue();
-        retval.node_id = node.getSelected().id;
+        retval.node = node.getSelected().name;
         return retval;
     };
 };

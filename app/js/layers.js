@@ -140,7 +140,10 @@ MSPLayer.prototype = {
                 body = 'Value is a product of rules.';
             } else if (self.rule_class === mspEnum.BAYESIAN_NETWORK) {
                 body = element('img',
-                               {src: url + '/networks?name=' + self.network.name + '&accept=jpeg', width: 220},
+                               {
+                                   src: url + '/networks?name=' + self.network.name + '&accept=jpeg',
+                                   width: 220
+                               },
                                '') +
                     '<br/>' + 'Output is from node ' + self.output_node.name + ', state ' + self.output_state;
             }
@@ -298,7 +301,7 @@ MSPRule.prototype = {
             self.weight = rule.weight;
         } else if (self.layer.rule_class === mspEnum.BAYESIAN_NETWORK) {
             self.state_offset = rule.state_offset;
-            self.node_id = rule.node_id;
+            self.node = rule.node;
         }
     },
     getCriteria: function () {
@@ -330,9 +333,10 @@ MSPRule.prototype = {
             name += self.boxcar_x0 + ', ' + self.boxcar_x1 + ', ' + self.boxcar_x2 + ', ' + self.boxcar_x3;
             name += ' weight ' + self.weight;
         } else if (self.layer.rule_class === mspEnum.BAYESIAN_NETWORK) {
-            name = self.layer.network.nodes.find(function (node) {
-                return node.id === self.node_id;
-            }).name + '=' + name;
+            value = self.layer.network.nodes.find(function (node) {
+                return node.name === self.node;
+            });
+            name = (value ? value.name : '?') + '=' + name;
         }
         return name;
     },
