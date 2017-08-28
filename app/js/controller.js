@@ -608,8 +608,8 @@ MSPController.prototype = {
                         container_id: self.editor_id,
                         id: 'layer-state',
                         type: 'select',
-                        list: node2.values,
-                        selected: node2.values[0],
+                        list: node2.states,
+                        selected: node2.states[0],
                         pretext: 'Select the state for the layer value: '
                     });
                     rule_class_extra3.html(element('p', {}, 'Description: ' + desc) +
@@ -906,7 +906,6 @@ MSPController.prototype = {
                 id: 'rules-to-delete',
                 type: 'checkbox-list',
                 list: layer.rules,
-                selected: null,
                 nameForItem: function (rule) {
                     return rule.getName();
                 }

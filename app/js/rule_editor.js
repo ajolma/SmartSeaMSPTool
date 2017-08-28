@@ -447,11 +447,11 @@ MSPController.prototype.editBayesianRule = function (layer, rule, dataset) {
             states = '',
             desc = '';
         if (n) {
-            $.each(n.values, function (i, value) {
+            $.each(n.states, function (i, state) {
                 if (i > 0) {
                     states += ', ';
                 }
-                states += i + ': ' + value;
+                states += i + ': ' + state;
             });
             if (n.attributes) {
                 desc = n.attributes.HR_Desc;
