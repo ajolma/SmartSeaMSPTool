@@ -89,15 +89,15 @@ function Widget(args) {
                     return true;
                 }
             }
+            if (args.nameForItem) {
+                name = args.nameForItem(item);
+            } else if (typeof item === 'object') {
+                name = item.name;
+            } else {
+                name = item;
+            }
             if (self.type === 'select') {
                 tag2 = 'option';
-                if (args.nameForItem) {
-                    name = args.nameForItem(item);
-                } else if (typeof item === 'object') {
-                    name = item.name;
-                } else {
-                    name = item;
-                }
                 attr2 = {value: key};
                 if (typeof item === 'object') {
                     if (typeof self.selected === 'object') {
@@ -117,7 +117,7 @@ function Widget(args) {
                 tag2 = 'input';
                 name = element('a', {id: 'item', item: item.id}, name);
                 attr2 = {type: 'checkbox', item: item.id};
-                if (sel && sel[item.id]) {
+                if (self.selected && self.selected[item.id]) {
                     // selected is a hash keyed with ids
                     attr2.checked = "checked";
                 }
