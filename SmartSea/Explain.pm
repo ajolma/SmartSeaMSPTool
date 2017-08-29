@@ -16,8 +16,12 @@ binmode STDERR, ":utf8";
 sub new {
     my ($class, $self) = @_;
     $self = SmartSea::App->new($self);
-    $self->{mask} = Geo::GDAL::Open($self->{data_dir}.'mask.tiff') if -r $self->{data_dir}.'mask.tiff';
-    say STDERR "Warning: mask file (mask.tiff) not found" unless $self->{mask};
+    my %dir = map {$_ => 1} Geo::GDAL::ReadDir($self->{data_dir});
+    if ($dir{'mask.tiff'}) {
+        $self->{mask} = Geo::GDAL::Open($self->{data_dir}.'mask.tiff');
+    } else {
+        say STDERR "Warning: mask file (mask.tiff) not found";
+    }
     $self->read_bayesian_networks();
     return bless $self, $class;
 }

@@ -24,16 +24,14 @@ my $tile = Tile->new;
 
 # set up the mask (the layer reads it from its datasource)
 
-{
-    my ($w, $h) = $tile->size;
-    my $mask = Geo::GDAL::Driver('GTiff')->Create(
-        Name => $tile->data_dir.'mask.tiff',
-        Type => 'Byte',
-        Width => $w, 
-        Height => $h)->Band;
-    $mask->Dataset->GeoTransform($tile->geotransform);
-    $mask->WriteTile([[255,1,1],[1,1,1],[1,1,1]]);
-}
+my ($w, $h) = $tile->size;
+my $mask = Geo::GDAL::Driver('GTiff')->Create(
+    Name => $tile->data_dir.'mask.tiff',
+    Type => 'Byte',
+    Width => $w, 
+    Height => $h);
+$mask->GeoTransform($tile->geotransform);
+$mask->Band->WriteTile([[255,1,1],[1,1,1],[1,1,1]]);
 
 # set up the test database
 
@@ -97,6 +95,7 @@ sub test_additive_rules {
     
     my $rule_class = $rule_class_rs->single({id=>ADDITIVE_RULE});
     my $layer = make_layer({
+        mask => $mask,
         debug => $args{debug},
         schema => $schema,
         sequences => $sequences,
@@ -148,6 +147,7 @@ sub test_multiplicative_rules {
     
     my $rule_class = $rule_class_rs->single({id=>MULTIPLICATIVE_RULE}); # multiplicative
     my $layer = make_layer({
+        mask => $mask,
         schema => $schema,
         sequences => $sequences,
         tile => $tile,
@@ -190,6 +190,7 @@ sub test_exclusive_rules {
  
     my $rule_class = $rule_class_rs->single({id=>EXCLUSIVE_RULE});
     my $layer = make_layer({
+        mask => $mask,
         schema => $schema,
         sequences => $sequences,
         tile => $tile,
@@ -229,6 +230,7 @@ sub test_inclusive_rules {
  
     my $rule_class = $rule_class_rs->single({id=>INCLUSIVE_RULE});
     my $layer = make_layer({
+        mask => $mask,
         debug => $args{debug},
         schema => $schema,
         sequences => $sequences,
@@ -280,6 +282,7 @@ sub test_a_dataset_layer {
                 
                 my $layer = make_layer(
                     {
+                        mask => $mask,
                         schema => $schema,
                         sequences => $sequences,
                         tile => $tile,

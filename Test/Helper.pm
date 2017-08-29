@@ -303,6 +303,7 @@ sub make_layer {
         }
     }
     return SmartSea::Layer->new({
+        mask => $args->{mask},
         debug => $args->{debug},
         epsg => $args->{tile}->epsg,
         tile => $args->{tile},

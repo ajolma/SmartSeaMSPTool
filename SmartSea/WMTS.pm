@@ -28,8 +28,12 @@ sub new {
         Name => "$dsn user=$self->{db_user} password=$self->{db_passwd}",
         Type => 'Vector');
 
-    $self->{mask} = Geo::GDAL::Open($self->{data_dir}.'mask.tiff') if -r $self->{data_dir}.'mask.tiff';
-    say STDERR "Warning: mask file (mask.tiff) not found" unless $self->{mask};
+    my %dir = map {$_ => 1} Geo::GDAL::ReadDir($self->{data_dir});
+    if ($dir{'mask.tiff'}) {
+        $self->{mask} = Geo::GDAL::Open($self->{data_dir}.'mask.tiff');
+    } else {
+        say STDERR "Warning: mask file (mask.tiff) not found";
+    }
         
     SmartSea::App::read_bayesian_networks($self);
 
