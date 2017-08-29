@@ -26,18 +26,15 @@ my $schema = SmartSea::Schema->connect(
 my $tile = Tile->new;
 my ($w, $h) = $tile->size;
 
-{
-    my $mask = Geo::GDAL::Driver('GTiff')->Create
-        (
-         Name => $tile->data_dir.'mask.tiff',
-         Type => 'Byte',
-         Width => $w, 
-         Height => $h
-        )
-        ->Band;
-    $mask->Dataset->GeoTransform($tile->geotransform);
-    $mask->WriteTile([[1,1,1],[1,1,1],[1,1,1]]);
-}
+my $mask = Geo::GDAL::Driver('GTiff')->Create
+    (
+     Name => $tile->data_dir.'mask.tiff',
+     Type => 'Byte',
+     Width => $w, 
+     Height => $h
+    );
+$mask->GeoTransform($tile->geotransform);
+$mask->Band->WriteTile([[1,1,1],[1,1,1],[1,1,1]]);
 
 my $number_type_rs = $schema->resultset('NumberType');
 $number_type_rs->new({id => INTEGER_NUMBER, name => 'integer'})->insert;
@@ -73,6 +70,7 @@ my $data = [[1,0,1],[0,1,0],[1,0,1]];
 
 my $layer = SmartSea::Layer->new(
     {
+        mask => $mask,
         schema => $schema,
         tile => $tile,
         epsg => $tile->epsg,
