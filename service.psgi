@@ -29,7 +29,7 @@ while (<$fh>) {
     my ($key, $value) = /^(\w+) = (.*)$/;
     $conf{$key} = $value;
 }
-for my $key (qw/https server root src_dir db_name db_user db_passwd data_dir/) {
+for my $key (qw/https server root src_dir db_name db_user db_passwd data_dir image_dir OGC_Service_conf/) {
     die "Missing configuration variable '$key'." unless defined $conf{$key};
 }
 
@@ -103,7 +103,7 @@ for my $set (0..$N) {
                 my $plugin = SmartSea::WMTS->new(\%config);
 
                 $app = Geo::OGC::Service->new({
-                    config => $confdir.'smartsea.conf',
+                    config => $confdir.$conf{OGC_Service_conf},
                     plugin => $plugin,
                     services => {
                         WMTS => 'Geo::OGC::Service::WMTS',
@@ -213,7 +213,7 @@ for my $set (0..$N) {
             $name =~ s/_/ /g;
             $dt = [a(url => "$path/$service", link => $name)];
             my $url = "$path/auth/$service";
-            $url = 'https://' . $server . $url if $https;
+            $url = 'https://' . $conf{server} . $url if $conf{https};
             push @$dt, [0 => ' '], a(url => $url, link => 'Authenticated version')
                 if $service eq 'app' || $service eq 'browser';
         }
