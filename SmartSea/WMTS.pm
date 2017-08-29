@@ -23,14 +23,14 @@ sub new {
     my ($class, $self) = @_;
     
     my $dsn = "PG:dbname='$self->{dbname}' host='localhost' port='5432'";
+
     $self->{GDALVectorDataset} = Geo::GDAL::Open(
         Name => "$dsn user=$self->{db_user} password=$self->{db_passwd}",
         Type => 'Vector');
 
-    $self->{Suomi} = Geo::GDAL::Open(
-        Name => "Pg:dbname=suomi user='ajolma' password='ajolma'", # fixme remove user here
-        Type => 'Vector');
-
+    $self->{mask} = Geo::GDAL::Open($self->{data_dir}.'mask.tiff') if -r $self->{data_dir}.'mask.tiff';
+    say STDERR "Warning: mask file (mask.tiff) not found" unless $self->{mask};
+        
     SmartSea::App::read_bayesian_networks($self);
 
     return bless $self, $class;
@@ -121,6 +121,7 @@ sub process {
     #say STDERR "style = $params->{style}";
     
     $layer = SmartSea::Layer->new({
+        mask => $self->{mask},
         epsg => $epsg,
         tile => $args->{tile},
         schema => $self->{schema},

@@ -54,7 +54,7 @@ function makeConfig() {
                     attributions: [new ol.Attribution({
                         html: 'Background map © Esri, DeLorme, GEBCO, NOAA NGDC, and other contributors'
                     })],
-                    url: 'http://services.arcgisonline.com/arcgis/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}'
+                    url: config.protocol + '://services.arcgisonline.com/arcgis/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}'
                 })
             })
         });
@@ -66,7 +66,7 @@ function makeConfig() {
                     attributions: [new ol.Attribution({
                         html: 'Sisältää Maanmittauslaitoksen aineistoa <a href="http://www.maanmittauslaitos.fi/avoindata_lisenssi_versio1_20120501">(lisenssi)</a>'
                     })],
-                    url: 'http://tile1.kartat.kapsi.fi/1.0.0/taustakartta/{z}/{x}/{y}.png'
+                    url: config.protocol + '://tile1.kartat.kapsi.fi/1.0.0/taustakartta/{z}/{x}/{y}.png'
                 })
             })
         });
@@ -91,7 +91,7 @@ function makeConfig() {
                     attributions: [new ol.Attribution({
                         html: 'Tiles &copy; <a href="http://www.maanmittauslaitos.fi/avoindata_lisenssi">MML</a>'
                     })],
-                    url: 'http://avoindata.maanmittauslaitos.fi/mapcache/wmts',
+                    url: config.protocol + '://avoindata.maanmittauslaitos.fi/mapcache/wmts',
                     layer: 'taustakartta',
                     matrixSet: 'ETRS-TM35FIN',
                     format: 'image/png',
@@ -114,7 +114,7 @@ function makeConfig() {
                     attributions: [new ol.Attribution({
                         html: 'Map: Ministry of Education and Culture, Data: OpenStreetMap contributors'
                     })],
-                    url: 'http://avaa.tdata.fi/geoserver/osm_finland/wms',
+                    url: config.protocol + '://avaa.tdata.fi/geoserver/osm_finland/wms',
                     params: {'LAYERS': 'osm-finland', 'TILED': true},
                     serverType: 'geoserver',
                     matrixSet: 'ETRS-TM35FIN',
@@ -147,6 +147,7 @@ function makeConfig() {
             view: config.proj.view
         }),
         model = new MSP({
+            protocol: config.protocol,
             server: config.server,
             user: config.user,
             proj: config.proj,

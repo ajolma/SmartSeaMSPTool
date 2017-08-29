@@ -29,7 +29,7 @@ use SmartSea::Core qw(:all);
 # configuration variables: schema, data_dir
 # what the layer is: trail
 # what to make: tile, epsg
-# how to make it: palette, min, max (not yet implemented)
+# how to make it: mask, palette, min, max (not yet implemented)
 sub new {
     my ($class, $self) = @_;
     $self->{debug} //= 0;
@@ -287,32 +287,29 @@ sub compute {
 }
 
 sub mask { 
-    my $self = shift; 
-    my $tile = $self->{tile}; 
-    my $dataset = Geo::GDAL::Open($self->{data_dir}.'mask.tiff'); 
-    if ($self->{epsg} == 3067) { 
-        $dataset = $dataset->Translate( 
-            "/vsimem/tmp.tiff", 
-            [ -ot => 'Byte', 
-              -of => 'GTiff', 
-              -r => 'nearest',
-              -outsize => $tile->size,
-              -projwin => $tile->projwin,
-              -a_ullr => $tile->projwin
-            ]); 
-    } else { 
-        my $e = $tile->extent; 
-        $dataset = $dataset->Warp(
-            "/vsimem/tmp.tiff", 
-            [ -ot => 'Byte',
-              -of => 'GTiff',
-              -r => 'near',
-              -t_srs => 'EPSG:'.$self->{epsg},
-              -te => @$e,
-              -ts => $tile->size
-            ]); 
-    } 
-    return $dataset; 
+    my $self = shift;
+    my $tile = $self->{tile};
+    my @size = $tile->size;
+    return Geo::GDAL::Driver('MEM')->Create(Type => 'Byte', Width => $size[0], Height => $size[1]) unless $self->{mask};
+    return $self->{mask}->Translate( 
+        "/vsimem/tmp.tiff", 
+        [ -ot => 'Byte', 
+          -of => 'GTiff', 
+          -r => 'nearest',
+          -outsize => $tile->size,
+          -projwin => $tile->projwin,
+          -a_ullr => $tile->projwin
+        ]) if $self->{epsg} == 3067;
+    my $e = $tile->extent; 
+    return $self->{mask}->Warp(
+        "/vsimem/tmp.tiff", 
+        [ -ot => 'Byte',
+          -of => 'GTiff',
+          -r => 'near',
+          -t_srs => 'EPSG:'.$self->{epsg},
+          -te => @$e,
+          -ts => $tile->size
+        ]);
 }
 
 1;

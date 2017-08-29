@@ -49,6 +49,7 @@ var mspStrings = {
 
 function MSP(args) {
     var self = this;
+    self.protocol = args.protocol;
     self.server = args.server;
     self.user = args.user;
     self.proj = args.proj;
@@ -545,7 +546,7 @@ MSP.prototype = {
             }
             query += '&srs=' + self.proj.projection.getCode();
             $.ajax({
-                url: 'http://' + self.server + '/explain?' + query
+                url: self.protocol + '://' + self.server + '/explain?' + query
             }).done(function (data) {
                 self.siteInformationReceived.notify(data);
             });

@@ -347,7 +347,7 @@ MSPView.prototype = {
     selectLayer: function () {
         var self = this,
             layer = self.model.layer,
-            url = 'http://' + self.model.server,
+            url = self.model.protocol + '://' + self.model.server,
             style = '',
             cache_breaker = '&time=' + new Date().getTime(),
             layer_info = layer ? layer.info() : null;

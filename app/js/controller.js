@@ -34,7 +34,7 @@ DAMAGE.
 
 function MSPController(model, view) {
     var self = this;
-    self.server = 'http://' + model.server + '/browser/';
+    self.server = model.protocol + '://' + model.server + '/browser/';
     self.model = model;
     self.view = view;
     self.msg = $('#error');
@@ -244,7 +244,7 @@ MSPController.prototype = {
         if (!self.networks) {
             $.ajax({
                 headers: {Accept: 'application/json'},
-                url: 'http://' + self.model.server + '/networks',
+                url: self.model.protocol + '://' + self.model.server + '/networks',
                 success: function (result) {
                     self.networks = result;
                     when_done();
@@ -258,7 +258,7 @@ MSPController.prototype = {
     loadPlans: function () {
         var self = this;
         self.post({
-            url: 'http://' + self.model.server + '/plans',
+            url: self.model.protocol + '://' + self.model.server + '/plans',
             payload: {},
             atSuccess: function (data) {
                 self.getNetworks(function () {

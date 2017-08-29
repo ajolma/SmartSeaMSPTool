@@ -39,7 +39,7 @@ function MSPLayer(args) {
 
     // mapping
     self.model = args.MSP;
-    self.server = 'http://' + args.MSP.server + '/WMTS';
+    self.server = args.MSP.protocol + '://' + args.MSP.server + '/WMTS';
     self.map = args.MSP.map;
     self.projection = args.MSP.proj;
 
@@ -118,7 +118,7 @@ MSPLayer.prototype = {
     },
     info: function () {
         var self = this,
-            url = 'http://' + self.model.server,
+            url = self.model.protocol + '://' + self.model.server,
             header,
             body = '';
         if (self.use.class_id === 0) { // Data
@@ -139,13 +139,17 @@ MSPLayer.prototype = {
             } else if (self.rule_class === mspEnum.BOXCAR) {
                 body = 'Value is a product of rules.';
             } else if (self.rule_class === mspEnum.BAYESIAN_NETWORK) {
-                body = element('img',
-                               {
-                                   src: url + '/networks?name=' + self.network.name + '&accept=jpeg',
-                                   width: 220
-                               },
-                               '') +
-                    '<br/>' + 'Output is from node ' + self.output_node.name + ', state ' + self.output_state;
+                if (self.network) {
+                    body = element('img',
+                                   {
+                                       src: url + '/networks?name=' + self.network.name + '&accept=jpeg',
+                                       width: 220
+                                   },
+                                   '') +
+                        '<br/>' + 'Output is from node ' + self.output_node.name + ', state ' + self.output_state;
+                } else {
+                    body = 'Bayesian network rules are not available.';
+                }
             }
         }
         return {
@@ -333,10 +337,14 @@ MSPRule.prototype = {
             name += self.boxcar_x0 + ', ' + self.boxcar_x1 + ', ' + self.boxcar_x2 + ', ' + self.boxcar_x3;
             name += ' weight ' + self.weight;
         } else if (self.layer.rule_class === mspEnum.BAYESIAN_NETWORK) {
-            value = self.layer.network.nodes.find(function (node) {
-                return node.name === self.node;
-            });
-            name = (value ? value.name : '?') + '=' + name;
+            if (self.layer.network) {
+                value = self.layer.network.nodes.find(function (node) {
+                    return node.name === self.node;
+                });
+                name = (value ? value.name : '?') + '=' + name;
+            } else {
+                name = 'Bayesian networks are not available.';
+            }
         }
         return name;
     },
