@@ -103,7 +103,7 @@ for my $set (0..$N) {
                 my $plugin = SmartSea::WMTS->new(\%config);
 
                 $app = Geo::OGC::Service->new({
-                    config => '/var/www/etc/smartsea.conf',
+                    config => $confdir.'smartsea.conf',
                     plugin => $plugin,
                     services => {
                         WMTS => 'Geo::OGC::Service::WMTS',
@@ -142,6 +142,7 @@ for my $set (0..$N) {
                         s/\$protocol/http/ if /protocol: /;
                     }
                     if ($auth eq 'auth') {
+                        s/',/\/auth',/ if /server: /;
                         s/false/true/ if /auth: /;
                     } else {
                         s/class="context-menu"//;
@@ -211,7 +212,9 @@ for my $set (0..$N) {
             $name =~ s/^(\w)/uc($1)/e;
             $name =~ s/_/ /g;
             $dt = [a(url => "$path/$service", link => $name)];
-            push @$dt, [0 => ' '], a(url => "$path/auth/$service", link => 'Authenticated version')
+            my $url = "$path/auth/$service";
+            $url = 'https://' . $server . $url if $https;
+            push @$dt, [0 => ' '], a(url => $url, link => 'Authenticated version')
                 if $service eq 'app' || $service eq 'browser';
         }
         push @service_links, [dt => $dt];
