@@ -31,7 +31,7 @@ DAMAGE.
 /*global $, jQuery, alert, ol, element, getConfig, projection, MSP, MSPView, MSPController*/
 
 function makeConfig() {
-    var config = window.location.href.replace(/app$/, 'config'),
+    var config = window.location.href.replace(/app.*/, 'config'),
         epsg = /epsg=([\d]+)/.exec(window.location.href);
     if (epsg && epsg[1]) {
         epsg = parseInt(epsg[1], 10);
