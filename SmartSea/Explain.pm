@@ -29,6 +29,8 @@ sub new {
 sub smart {
     my ($self, $env, $request, $parameters) = @_;
 
+    Geo::GDAL->errstr; # clear the error stack
+
     for my $key (sort keys %$parameters) {
         my $val = $parameters->{$key} // '';
         #say STDERR "$key => $val";

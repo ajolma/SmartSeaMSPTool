@@ -19,6 +19,11 @@ use SmartSea::Layer;
 
 binmode STDERR, ":utf8";
 
+# discard warnings - NETCDF driver issues them often
+BEGIN {
+    $SIG{__WARN__} = sub { }
+}
+
 sub new {
     my ($class, $self) = @_;
     
@@ -96,6 +101,8 @@ sub config {
 
 sub process {
     my ($self, $args) = @_;
+
+    Geo::GDAL->errstr; # clear the error stack
 
     my $params = $args->{service}{parameters};
 

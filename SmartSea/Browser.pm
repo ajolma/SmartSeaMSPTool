@@ -29,6 +29,7 @@ sub new {
 
 sub smart {
     my ($self, $env, $request, $parameters) = @_;
+    Geo::GDAL->errstr; # clear the error stack
     if ($self->{debug} > 2) {
         for my $key (sort keys %$env) {
             say STDERR "$key => $env->{$key}";
