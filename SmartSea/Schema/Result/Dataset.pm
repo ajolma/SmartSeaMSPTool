@@ -165,21 +165,48 @@ sub parse_gdalinfo {
     return \%parsed;
 }
 
+sub gdalinfo_dataset {
+    my ($self, $args) = @_;
+    my $path = $args->{parameters}{path};
+    if (ref $self) {
+        if (defined $args->{parameters}{path}) {
+            $self->path($path);
+        } else {
+            $path = $self->path;
+        }
+    }
+    return unless $path;
+    my $driver = $args->{parameters}{driver};
+    if (ref $self) {
+        if (defined $args->{parameters}{driver}) {
+            $self->driver($driver);
+        } else {
+            $driver = $self->driver;
+        }
+    }
+    my $subset = $args->{parameters}{subset};
+    if (ref $self) {
+        if (defined $args->{parameters}{subset}) {
+            $self->subset($subset);
+        } else {
+            $subset = $self->subset;
+        }
+    }
+    my $dataset = $args->{data_dir}.$path;
+    if ($driver) {
+        $dataset = $driver.':'.$dataset;
+    }
+    if ($subset) {
+        $dataset .= ':'.$subset;
+    }
+}
+
 sub auto_fill_cols {
     my ($self, $args) = @_;
-    my $path = $self->path;
-    $path = $self->path($args->{parameters}{path}) if defined $args->{parameters}{path};
+    my $path = $self->gdalinfo_dataset($args);
     if ($path && !($path =~ /^PG:/)) {
         say STDERR "autofill from $path" if $args->{debug};
-        my $dataset = $args->{data_dir}.$path;
-        if ($self->driver) {
-            $dataset = $self->driver.':'.$dataset;
-        }
-        if ($self->subset) {
-            $dataset .= ':'.$self->subset;
-        }
-        say STDERR "info from $dataset";
-        my @info = `gdalinfo $dataset`;
+        my @info = `gdalinfo $path`;
         my $parsed = parse_gdalinfo(\@info, $args);
         my %col = @columns;
         for my $key (sort keys %$parsed) {
@@ -209,10 +236,10 @@ sub auto_fill_cols {
 
 sub compute_cols {
     my ($self, $args) = @_;
-    my $path = ref $self ? $self->path($args->{parameters}{path}) : $args->{parameters}{path};
+    my $path = $self->gdalinfo_dataset($args);
     if ($path && !($path =~ /^PG:/)) {
         say STDERR "compute cols from $path"if $args->{debug};
-        my @info = `gdalinfo -mm $args->{data_dir}$path`;
+        my @info = `gdalinfo -mm $path`;
         my $parsed = parse_gdalinfo(\@info, $args);
         my %col = @columns;
         for my $key (sort keys %$parsed) {
@@ -323,6 +350,18 @@ sub Band {
         return $ds->Band;
         
     } else {
+
+        my $path = $self->gdalinfo_dataset($args);
+
+        return Geo::GDAL::Open($path)
+            ->Warp( "/vsimem/tmp.tiff", 
+                    [ -of => 'GTiff', 
+                      -r => 'near' ,
+                      -s_srs => 'EPSG:'.$self->epsg,
+                      -t_srs => 'EPSG:'.$args->{epsg},
+                      -te => @{$tile->extent},
+                      -ts => $tile->size ])
+            ->Band if $self->epsg;
         
         return Geo::GDAL::Open("$args->{data_dir}$path")
             ->Translate( "/vsimem/tmp.tiff", 
