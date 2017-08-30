@@ -613,7 +613,7 @@ MSP.prototype = {
                             anchorXUnits: 'pixels',
                             anchorYUnits: 'pixels',
                             opacity: 1,
-                            src: '../img/Map-Marker-Marker-Outside-Pink-icon.png'
+                            src: 'img/Map-Marker-Marker-Outside-Pink-icon.png'
                         })
                     });
                 f.setStyle(iconStyle);
