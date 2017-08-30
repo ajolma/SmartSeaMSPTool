@@ -351,18 +351,20 @@ sub Band {
         
     } else {
 
-        my $path = $self->gdalinfo_dataset($args);
-
-        return Geo::GDAL::Open($path)
-            ->Warp( "/vsimem/tmp.tiff", 
-                    [ -of => 'GTiff', 
-                      -r => 'near' ,
-                      -s_srs => 'EPSG:'.$self->epsg,
-                      -t_srs => 'EPSG:'.$args->{epsg},
-                      -te => @{$tile->extent},
-                      -ts => $tile->size ])
-            ->Band if $self->epsg;
-        
+        if ($self->epsg) {
+            $path = $self->gdalinfo_dataset($args);
+            
+            return Geo::GDAL::Open($path)
+                ->Warp( "/vsimem/tmp.tiff", 
+                        [ -of => 'GTiff', 
+                          -r => 'near' ,
+                          -s_srs => 'EPSG:'.$self->epsg,
+                          -t_srs => 'EPSG:'.$args->{epsg},
+                          -te => @{$tile->extent},
+                          -ts => $tile->size ])
+                ->Band if $self->epsg;
+        }
+   
         return Geo::GDAL::Open("$args->{data_dir}$path")
             ->Translate( "/vsimem/tmp.tiff", 
                          [ -of => 'GTiff',
