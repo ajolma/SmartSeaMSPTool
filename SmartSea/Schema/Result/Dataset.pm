@@ -29,7 +29,10 @@ my @columns = (
     data_type       => { is_foreign_key => 1, source => 'NumberType' },
     semantics       => { html_input => 'textarea', rows => 10, cols => 20 },
     unit            => { is_foreign_key => 1, source => 'Unit' },
-    style           => { is_foreign_key => 1, source => 'Style', is_part => 1 }
+    style           => { is_foreign_key => 1, source => 'Style', is_part => 1 },
+    driver          => { data_type => 'text' },
+    subset          => { data_type => 'text' },
+    epsg            => { data_type => 'integer' },
     );
 
 __PACKAGE__->table('datasets');
@@ -168,7 +171,15 @@ sub auto_fill_cols {
     $path = $self->path($args->{parameters}{path}) if defined $args->{parameters}{path};
     if ($path && !($path =~ /^PG:/)) {
         say STDERR "autofill from $path" if $args->{debug};
-        my @info = `gdalinfo $args->{data_dir}$path`;
+        my $dataset = $args->{data_dir}.$path;
+        if ($self->driver) {
+            $dataset = $self->driver.':'.$dataset;
+        }
+        if ($self->subset) {
+            $dataset .= ':'.$self->subset;
+        }
+        say STDERR "info from $dataset";
+        my @info = `gdalinfo $dataset`;
         my $parsed = parse_gdalinfo(\@info, $args);
         my %col = @columns;
         for my $key (sort keys %$parsed) {
