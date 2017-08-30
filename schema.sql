@@ -100,7 +100,10 @@ CREATE TABLE datasets (
     min_value double precision,
     max_value double precision,
     data_type integer,
-    semantics text
+    semantics text,
+    driver text,
+    subset text,
+    epsg integer
 );
 
 
