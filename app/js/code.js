@@ -31,7 +31,7 @@ DAMAGE.
 /*global $, jQuery, alert, ol, element, getConfig, projection, MSP, MSPView, MSPController*/
 
 function makeConfig() {
-    var config = getConfig(),
+    var config = window.location.href.replace(/app$/, 'config'),
         epsg = /epsg=([\d]+)/.exec(window.location.href);
     if (epsg && epsg[1]) {
         epsg = parseInt(epsg[1], 10);
@@ -39,6 +39,17 @@ function makeConfig() {
         // default projection
         epsg = 3857;
     }
+    $.ajax({
+        url: config,
+        success: function (result) {
+            config = result;
+        },
+        fail: function (xhr, textStatus) {
+            msg += xhr.responseText || textStatus;
+            alert(msg);
+        },
+        async: false
+    });
     config.bg = [];
 
     if (epsg === 3857) {

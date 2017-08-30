@@ -2,6 +2,7 @@ use v5.10;
 use strict;
 use warnings;
 use Encode qw(decode encode);
+use JSON;
 use Crypt::PasswdMD5;
 use Plack::Builder;
 use Geo::OGC::Service;
@@ -60,6 +61,7 @@ my %services = (
     legend => 'Legend API. Expects layer parameter.',
     explain => 'Map query API. Expects WKT (Polygon) or Easting/Northing (Point) and layer parameters.',
     app => 'The mapping app. Authenticated version supports modeling.',
+    config => ''
 );
 
 for my $set (0..$N) {
@@ -131,35 +133,6 @@ for my $set (0..$N) {
 
                 $app = SmartSea::Browser->new(\%config)->to_app;
 
-            } elsif ($service eq 'app') {
-
-                my $index = $conf{src_dir}.'index.html';
-                my @file = `cat $index`;
-                for (@file) {
-                    if ($conf{https} && $auth eq 'auth') {
-                        s/\$protocol/https/ if /protocol: /;
-                    } else {
-                        s/\$protocol/http/ if /protocol: /;
-                    }
-                    if ($auth eq 'auth') {
-                        s/',/\/auth',/ if /server: /;
-                        s/false/true/ if /auth: /;
-                    } else {
-                        s/class="context-menu"//;
-                    }
-                    s/\$server/$conf{server}$conf{root}/ if /server: /;
-                }
-                $app = sub {
-                    my $env = shift;
-                    my $user = $env->{REMOTE_USER} // 'guest';
-                    if ($auth eq 'auth') {
-                        for (@file) {
-                            s/guest/$user/ if /user: /;
-                        }
-                    }
-                    return [ 200, ['Content-Type' => 'text/html'], \@file ];
-                };
-
             } elsif ($service eq 'pressure_table') {
 
                 $app = sub {
@@ -174,6 +147,36 @@ for my $set (0..$N) {
                         );
                     my $html = SmartSea::HTML->new(html => [body => $body])->html;
                     return [ 200, [], [encode utf8 => '<!DOCTYPE html>'.$html] ];
+                };
+
+            } elsif ($service eq 'app') {
+
+                my $index = $conf{src_dir}.'index.html';
+                my @file = `cat $index`;
+                $app = sub {
+                    my $env = shift;
+                    return [ 200, ['Content-Type' => 'text/html'], \@file ];
+                };
+
+            } elsif ($service eq 'config') {
+
+                $app = sub {
+                    my $env = shift;
+                    my $json = JSON->new;
+                    $json->utf8;
+                    my $user = $env->{REMOTE_USER} // 'guest';
+                    my $protocol = $env->{HTTP_X_REAL_PROTOCOL} // 'http';
+                    my $auth = $user eq 'guest' ? 'false' : 'true';
+                    return [ 200, 
+                             ['Content-Type' => 'application/json; charset=utf-8'], 
+                             [$json->encode(
+                                  {
+                                      protocol => $protocol,
+                                      server => $conf{server}.$conf{root},
+                                      user => $user,
+                                      auth => $auth
+                                  })] ];
+                    
                 };
 
             }
@@ -227,7 +230,9 @@ for my $set (0..$N) {
 my $default = sub {
     my $env = shift;
     my $html = SmartSea::HTML->new(html => [body => \@body])->html;
-    return [ 200, [], [encode utf8 => '<!DOCTYPE html>'.$html] ];
+    return [ 200, 
+             ['Content-Type' => 'text/html'], 
+             [encode utf8 => '<!DOCTYPE html>'.$html] ];
 };
 
 builder {
