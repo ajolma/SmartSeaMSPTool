@@ -77,7 +77,7 @@ function makeConfig() {
                     attributions: [new ol.Attribution({
                         html: 'Sisältää Maanmittauslaitoksen aineistoa <a href="http://www.maanmittauslaitos.fi/avoindata_lisenssi_versio1_20120501">(lisenssi)</a>'
                     })],
-                    url: config.protocol + '://tile1.kartat.kapsi.fi/1.0.0/taustakartta/{z}/{x}/{y}.png'
+                    url: 'http://tile1.kartat.kapsi.fi/1.0.0/taustakartta/{z}/{x}/{y}.png'
                 })
             })
         });
