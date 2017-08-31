@@ -140,12 +140,10 @@ MSPLayer.prototype = {
                 body = 'Value is a product of rules.';
             } else if (self.rule_class === mspEnum.BAYESIAN_NETWORK) {
                 if (self.network) {
-                    body = element('img',
-                                   {
-                                       src: url + '/networks?name=' + self.network.name + '&accept=jpeg',
-                                       width: 220
-                                   },
-                                   '') +
+                    body = element('img', {
+                        src: url + '/networks?name=' + self.network.name + '&accept=jpeg',
+                        width: 220
+                    }, '') +
                         '<br/>' + 'Output is from node ' + self.output_node.name + ', state ' + self.output_state;
                 } else {
                     body = 'Bayesian network rules are not available.';

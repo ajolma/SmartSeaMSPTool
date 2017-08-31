@@ -114,11 +114,13 @@ sub legend {
     $self->prepare($args);
     
     my $color_table = $args->{color_table} // $self->palette->color_table($self->classes);
+    my $range = $self->max - $self->min;
+    $range += 1 if $args->{data_type} == INTEGER_NUMBER;
 
     $args->{value_to_color} = sub {
         my $value = shift;
         return $color_table->Color(1) if $self->classes == 1;
-        my $class = int($self->classes * ($value - $self->min)/($self->max - $self->min));
+        my $class = int($self->classes * ($value - $self->min)/$range);
         $class = 0 if $class < 0;
         $class = $self->classes - 1 if $class >= $self->classes;
         return $color_table->Color($class);
@@ -198,21 +200,25 @@ sub classed_legend {
     my ($self, $args) = @_;
         
     my $height = int($args->{class_height} * $self->classes);
+    my $y_delta = $args->{class_height};
+    $y_delta *= -1 if $args->{top_to_bottom};
 
     my $image = GD::Image->new($args->{width}, $height);
     $image->filledRectangle(0,0,$args->{width}-1,$height-1,$image->colorAllocateAlpha(255,255,255,0));
 
     # color bar
 
-    my $y1 = $height - 1;
-    my $y2 = $y1 - $args->{class_height} + 1;
-    my $k = ($self->max - $self->min) / $self->classes;
+    my $y1 = $args->{top_to_bottom} ? 0 : $height - 1;
+    my $y2 = $y1 - $y_delta + 1;
+    my $range = $self->max - $self->min;
+    $range += 1 if $args->{data_type} == INTEGER_NUMBER;
+    my $k = $range / $self->classes;
     for my $class (0..$self->classes-1) {
         my $value = $self->min + $class * $k;
         my $color = $image->colorAllocateAlpha($args->{value_to_color}($value));
         $image->filledRectangle(0,$y1,$args->{colorbar_width},$y2,$color);
         $y1 = $y2 + 1;
-        $y2 -= $args->{class_height};
+        $y2 -= $y_delta;
     }
 
     # labels
@@ -222,13 +228,17 @@ sub classed_legend {
     my @string = (
         $image->colorAllocateAlpha(0,0,0,0), 
         $args->{font},
-        $args->{font_size}, 
+        $args->{font_size},
         0, # angle
         $args->{colorbar_width} + $args->{label_horizontal_padding} # x
         );
 
-    my $y = $height - 1 - $args->{label_vertical_padding};
-    $k = ($self->max - $self->min) / $self->classes;
+    my $y;
+    if ($args->{top_to_bottom}) {
+        $y = $args->{label_vertical_padding} + $args->{font_size};
+    } else {
+        $y = $height - 1 - $args->{label_vertical_padding};
+    }
     my $x = $self->min;
     for my $class (0..$self->classes-1) {
         my $value = $self->min + $class * $k;
@@ -257,7 +267,7 @@ sub classed_legend {
             $label = $self->min + $class;# FIXME assuming continuous range!
         }
         $image->stringFT(@string, $y, (encode utf8 => $label));
-        $y -= $args->{class_height};
+        $y -= $y_delta;
     }
 
     if ($args->{title}) {

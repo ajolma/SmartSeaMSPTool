@@ -83,8 +83,7 @@ MSPController.prototype = {
                 palette: '',
                 op: '',
             },
-            calls = [],
-            msg = '';
+            calls = [];
         /*jslint unparam: true*/
         $.each(klasses, function (klass, value) {
             calls.push(
@@ -94,16 +93,21 @@ MSPController.prototype = {
                     },
                     url: self.server + klass,
                     success: function (result) {
+                        var msg;
                         if (result.isOk === false) {
-                            msg += result.message + "\n";
+                            msg = result.message + "\n";
                         } else if (result.error) {
-                            msg += result.error + "\n";
+                            msg = result.error + "\n";
+                        }
+                        if (msg) {
+                            self.error('Calling SmartSea MSP server failed: ' + msg);
                         } else {
                             self.klasses[klass] = result;
                         }
                     },
                     fail: function (xhr, textStatus) {
-                        msg += xhr.responseText || textStatus;
+                        var msg = xhr.responseText || textStatus;
+                        self.error('Calling SmartSea MSP server failed: ' + msg);
                     }
                 })
             );

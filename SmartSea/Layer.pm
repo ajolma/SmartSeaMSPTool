@@ -132,7 +132,14 @@ sub new {
 
 sub id {
     my ($self) = @_;
+    return unless $self->{duck};
     return $self->{duck}->id;
+}
+
+sub style {
+    my ($self) = @_;
+    return unless $self->{duck};
+    return $self->{duck}->style;
 }
 
 {

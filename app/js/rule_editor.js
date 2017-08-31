@@ -401,7 +401,7 @@ MSPController.prototype.editBayesianRule = function (layer, rule, dataset) {
         id: 'rule-node',
         type: 'select',
         list: nodes,
-        selected: rule ? rule.node: nodes[0],
+        selected: rule ? rule.node : nodes[0],
         pretext: 'Link the dataset to node: '
     });
     offset = new Widget({
