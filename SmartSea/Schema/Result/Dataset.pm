@@ -370,16 +370,25 @@ sub Band {
         my @extent = @{$tile->extent}; # minx miny maxx maxy 
         
         if ($epsg != $args->{epsg}) {
+            #say STDERR "extent:  $extent[0] $extent[3] $extent[2] $extent[1]" if $args->{debug} > 1;
             my $src = Geo::OSR::SpatialReference->new(EPSG => $args->{epsg});
             my $dst = Geo::OSR::SpatialReference->new(EPSG => $self->epsg);
             my $ct = Geo::OSR::CoordinateTransformation->new($src, $dst);
-            my $ll = $ct->TransformPoint(@extent[0..1]);
-            my $tr = $ct->TransformPoint(@extent[2..3]);
-            
-            $projwin[0] = $ll->[0] > $tr->[0] ? $tr->[0] : $ll->[0];
-            $projwin[2] = $ll->[0] < $tr->[0] ? $tr->[0] : $ll->[0];
-            $projwin[3] = $ll->[1] > $tr->[1] ? $tr->[1] : $ll->[1];
-            $projwin[1] = $ll->[1] < $tr->[1] ? $tr->[1] : $ll->[1];
+            my $nn = $ct->TransformPoint(@extent[0,1]);
+            my $nx = $ct->TransformPoint(@extent[0,3]);
+            my $xn = $ct->TransformPoint(@extent[2,1]);
+            my $xx = $ct->TransformPoint(@extent[2,3]);
+            #say STDERR "  x,   y" if $args->{debug} > 1;
+            #say STDERR "min, min:  @$nn" if $args->{debug} > 1;
+            #say STDERR "min, max:  @$nx" if $args->{debug} > 1;
+            #say STDERR "max, min:  @$xn" if $args->{debug} > 1;
+            #say STDERR "max, max:  @$xx" if $args->{debug} > 1;
+
+            $projwin[0] = $nn->[0] < $nx->[0] ? $nn->[0] : $nx->[0];
+            $projwin[1] = $nx->[1] < $xx->[1] ? $xx->[1] : $nx->[1];
+            $projwin[2] = $xn->[0] < $xx->[0] ? $xx->[0] : $xn->[0];
+            $projwin[3] = $nn->[1] < $xn->[1] ? $nn->[1] : $xn->[1];
+            #say STDERR "projwin:  @projwin" if $args->{debug} > 1;
         } else {
             $projwin[0] = $extent[0];
             $projwin[1] = $extent[3];
@@ -390,7 +399,7 @@ sub Band {
         my $k = ($projwin[2] - $projwin[0]) / ($projwin[1] - $projwin[3]);
         $outsize[0] = POSIX::lround($outsize[1] * $k);
         
-        say STDERR "-projwin @projwin -outsize @outsize" if $args->{debug} > 1;
+        #say STDERR "-projwin @projwin -outsize @outsize" if $args->{debug} > 1;
         my $jpeg = "/vsimem/wms.jpeg";
         
         Geo::GDAL::Open("$args->{data_dir}$path")
