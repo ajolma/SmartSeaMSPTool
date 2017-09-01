@@ -30,9 +30,11 @@ my @columns = (
     semantics       => { html_input => 'textarea', rows => 10, cols => 20 },
     unit            => { is_foreign_key => 1, source => 'Unit' },
     style           => { is_foreign_key => 1, source => 'Style', is_part => 1 },
-    driver          => { data_type => 'text' },
-    subset          => { data_type => 'text' },
+    driver          => { data_type => 'text', html_size => 40 },
+    subset          => { data_type => 'text', html_size => 40 },
     epsg            => { data_type => 'integer' },
+    bbox            => { data_type => 'text', html_size => 40 },
+    band            => { data_type => 'integer' },
     );
 
 __PACKAGE__->table('datasets');
@@ -165,7 +167,7 @@ sub parse_gdalinfo {
     return \%parsed;
 }
 
-sub gdalinfo_dataset {
+sub gdal_dataset_name {
     my ($self, $args) = @_;
     my $path = $args->{parameters}{path};
     if (ref $self) {
@@ -184,6 +186,7 @@ sub gdalinfo_dataset {
             $driver = $self->driver;
         }
     }
+    $driver //= '';
     my $subset = $args->{parameters}{subset};
     if (ref $self) {
         if (defined $args->{parameters}{subset}) {
@@ -192,26 +195,62 @@ sub gdalinfo_dataset {
             $subset = $self->subset;
         }
     }
-    my $dataset = $args->{data_dir}.$path;
-    if ($driver) {
-        $dataset = $driver.':'.$dataset;
+    if ($driver eq 'PG') {
+        $path = "$path.$subset";
+        my $so = 'PG:"dbname='.$args->{dbname}.' user='.$args->{db_user}.' password='.$args->{db_passwd}.'"';
+        $path = "-so $so '$path'";
+    } elsif ($driver eq 'WMS') {
+        $path = $args->{data_dir}.$path;
+    } elsif ($driver eq 'NETCDF') {
+        $path = 'NETCDF:'.$args->{data_dir}.$path;
+        $path .= ':'.$subset if $subset;
+    } else {
+        $path = $args->{data_dir}.$path;
     }
-    if ($subset) {
-        $dataset .= ':'.$subset;
-    }
+    return $path;
 }
 
 sub auto_fill_cols {
     my ($self, $args) = @_;
-    my $path = $self->gdalinfo_dataset($args);
-    if ($path && !($path =~ /^PG:/)) {
-        say STDERR "autofill from $path" if $args->{debug};
-        my @info = `gdalinfo $path`;
-        my $parsed = parse_gdalinfo(\@info, $args);
-        my %col = @columns;
-        for my $key (sort keys %$parsed) {
+    my $driver = $self->driver // '';
+    return if $driver eq 'PG' || $driver eq 'WMS';
+    my $path = $self->gdal_dataset_name($args);
+    say STDERR "autofill from $path" if $args->{debug};
+    my @info = `gdalinfo $path`;
+    my $parsed = parse_gdalinfo(\@info, $args);
+    my %col = @columns;
+    for my $key (sort keys %$parsed) {
+        my $value = $self->$key;
+        say STDERR "$key = $parsed->{$key}, value = $value" if $args->{debug} > 1;
+        if (defined($value) && defined($parsed->{$key})) {
+            my $comp;
+            if (data_type_is_numeric($col{$key}{data_type})) {
+                $comp = $value == $parsed->{$key};
+            } elsif ($col{$key}{is_foreign_key}) {
+                $comp = $value->id == $parsed->{$key};
+            } else {
+                $comp = $value eq $parsed->{$key};
+            }
+            $self->$key($parsed->{$key}) if !$comp;
+        } else {
+            $self->$key($parsed->{$key}) if defined($value) || defined($parsed->{$key});
+        }
+    }
+}
+
+sub compute_cols {
+    my ($self, $args) = @_;
+    my $driver = $self->driver // '';
+    return if $driver eq 'PG' || $driver eq 'WMS';
+    my $path = $self->gdal_dataset_name($args);
+    say STDERR "compute cols from $path"if $args->{debug};
+    my @info = `gdalinfo -mm $path`;
+    my $parsed = parse_gdalinfo(\@info, $args);
+    my %col = @columns;
+    for my $key (sort keys %$parsed) {
+        say STDERR "$key = $parsed->{$key}" if $args->{debug} > 1;
+        if (ref $self) {
             my $value = $self->$key;
-            say STDERR "$key = $parsed->{$key}, value = $value" if $args->{debug} > 1;
             if (defined($value) && defined($parsed->{$key})) {
                 my $comp;
                 if (data_type_is_numeric($col{$key}{data_type})) {
@@ -225,59 +264,27 @@ sub auto_fill_cols {
             } else {
                 $self->$key($parsed->{$key}) if defined($value) || defined($parsed->{$key});
             }
-        }
-    }
-    if ($path && ($path =~ /^PG:/)) {
-        $self->min_value(0);
-        $self->max_value(1);
-        $self->data_type(1);
-    }
-}
-
-sub compute_cols {
-    my ($self, $args) = @_;
-    my $path = $self->gdalinfo_dataset($args);
-    if ($path && !($path =~ /^PG:/)) {
-        say STDERR "compute cols from $path"if $args->{debug};
-        my @info = `gdalinfo -mm $path`;
-        my $parsed = parse_gdalinfo(\@info, $args);
-        my %col = @columns;
-        for my $key (sort keys %$parsed) {
-            say STDERR "$key = $parsed->{$key}" if $args->{debug} > 1;
-            if (ref $self) {
-                my $value = $self->$key;
-                if (defined($value) && defined($parsed->{$key})) {
-                    my $comp;
-                    if (data_type_is_numeric($col{$key}{data_type})) {
-                        $comp = $value == $parsed->{$key};
-                    } elsif ($col{$key}{is_foreign_key}) {
-                        $comp = $value->id == $parsed->{$key};
-                    } else {
-                        $comp = $value eq $parsed->{$key};
-                    }
-                    $self->$key($parsed->{$key}) if !$comp;
-                } else {
-                    $self->$key($parsed->{$key}) if defined($value) || defined($parsed->{$key});
-                }
-            } else {
-                $args->{parameters}->set($key => $parsed->{$key}) if defined $parsed->{$key};
-            }
+        } else {
+            $args->{parameters}->set($key => $parsed->{$key}) if defined $parsed->{$key};
         }
     }
 }
 
 sub info {
     my ($self, $args) = @_;
-    return '' unless $self->path;
+    my $path = $self->path;
+    return unless $path;
+    $path = $self->gdal_dataset_name($args);
+    say STDERR $path;
+    
+    my $driver = $self->driver // '';
     my $info = '';
-    if ($self->path =~ /^PG:/) {
-        my $dsn = $self->path;
-        $dsn =~ s/^PG://;
-        $info = `ogrinfo -so PG:"dbname=$args->{dbname} user=$args->{db_user} password=$args->{db_passwd}" '$dsn'`;
+    if ($driver eq 'PG') {
+        $info = `ogrinfo $path`;
         $info =~ s/user=(.*?) /user=xxx /;
         $info =~ s/password=(.*)/password=xxx/;
-    } else {
-        my $path = $args->{data_dir}.$self->path;
+        
+    } else {    
         my @info = `gdalinfo $path`;
         my $table;
         for (@info) {
@@ -287,6 +294,7 @@ sub info {
             $table = 0 if /<\/GDALRasterAttributeTable>/;
         }
     }
+
     return [pre => $info];
 }
 
@@ -332,8 +340,12 @@ sub Band {
 
     my $path = $self->path;
     my $tile = $args->{tile};
+    my $driver = $self->driver // '';
+    my $epsg = $self->epsg // 3067;
+    my $band = $self->band // 1;
 
-    if ($path =~ /^PG:/) {
+    if ($driver eq 'PG') {
+        # path is Schema, subset is table
         
         my ($w, $h) = $tile->size;
         my $ds = Geo::GDAL::Driver('GTiff')->Create(Name => "/vsimem/r.tiff", Width => $w, Height => $h);
@@ -341,48 +353,77 @@ sub Band {
         $ds->GeoTransform($minx, ($maxx-$minx)/$w, 0, $maxy, 0, ($miny-$maxy)/$h);        
         $ds->SpatialReference(Geo::OSR::SpatialReference->new(EPSG=>$args->{epsg}));
 
-        $path =~ s/^PG://;
-        $path =~ s/\./"."/;
-        $path = '"'.$path.'"';
+        my $table = $self->subset // '';
+        $path = "\"$path\".\"$table\"";
         my $sql = "select gid,st_transform(geom,$args->{epsg}) as geom from $path";
         $args->{GDALVectorDataset}->Rasterize($ds, [-burn => 1, -sql => $sql]);
         
         return $ds->Band;
+
+    }
+
+    if ($driver eq 'WMS') {
+        # download a suitable piece of the data
+        my @projwin; # xmin, ymax, xmax, ymin
+        my @outsize = (undef, 300); # w h
+        
+        my @extent = @{$tile->extent}; # minx miny maxx maxy 
+        
+        if ($epsg != $args->{epsg}) {
+            my $src = Geo::OSR::SpatialReference->new(EPSG => $args->{epsg});
+            my $dst = Geo::OSR::SpatialReference->new(EPSG => $self->epsg);
+            my $ct = Geo::OSR::CoordinateTransformation->new($src, $dst);
+            my $ll = $ct->TransformPoint(@extent[0..1]);
+            my $tr = $ct->TransformPoint(@extent[2..3]);
+            
+            $projwin[0] = $ll->[0] > $tr->[0] ? $tr->[0] : $ll->[0];
+            $projwin[2] = $ll->[0] < $tr->[0] ? $tr->[0] : $ll->[0];
+            $projwin[3] = $ll->[1] > $tr->[1] ? $tr->[1] : $ll->[1];
+            $projwin[1] = $ll->[1] < $tr->[1] ? $tr->[1] : $ll->[1];
+        } else {
+            $projwin[0] = $extent[0];
+            $projwin[1] = $extent[3];
+            $projwin[2] = $extent[2];
+            $projwin[3] = $extent[1];
+        }
+        
+        my $k = ($projwin[2] - $projwin[0]) / ($projwin[1] - $projwin[3]);
+        $outsize[0] = POSIX::lround($outsize[1] * $k);
+        
+        say STDERR "-projwin @projwin -outsize @outsize" if $args->{debug} > 1;
+        my $jpeg = "/vsimem/wms.jpeg";
+        
+        Geo::GDAL::Open("$args->{data_dir}$path")
+            ->Translate( $jpeg,
+                         [ -of => 'JPEG',
+                           -r => 'nearest',
+                           -outsize => @outsize,
+                           -projwin => @projwin ]);
+        $path = $jpeg;
         
     } else {
-
-        if ($self->epsg) {
-            $path = $self->gdalinfo_dataset($args);
-            
-            return Geo::GDAL::Open($path)
-                ->Warp( "/vsimem/tmp.tiff", 
-                        [ -of => 'GTiff', 
-                          -r => 'near' ,
-                          -s_srs => 'EPSG:'.$self->epsg,
-                          -t_srs => 'EPSG:'.$args->{epsg},
-                          -te => @{$tile->extent},
-                          -ts => $tile->size ])
-                ->Band if $self->epsg;
-        }
-   
-        return Geo::GDAL::Open("$args->{data_dir}$path")
-            ->Translate( "/vsimem/tmp.tiff", 
-                         [ -of => 'GTiff',
-                           -r => 'nearest',
-                           -outsize , $tile->size,
-                           -projwin, $tile->projwin ])
-            ->Band if $args->{epsg} == 3067;
-
-        return Geo::GDAL::Open("$args->{data_dir}$path")
-            ->Warp( "/vsimem/tmp.tiff", 
-                    [ -of => 'GTiff', 
-                      -r => 'near' ,
-                      -t_srs => 'EPSG:'.$args->{epsg},
-                      -te => @{$tile->extent},
-                      -ts => $tile->size ])
-            ->Band;
+        
+        $path = $self->gdal_dataset_name($args);
+        
     }
-            
+   
+    return Geo::GDAL::Open($path)
+        ->Translate( "/vsimem/tmp.tiff", 
+                     [ -of => 'GTiff',
+                       -r => 'nearest',
+                       -outsize => $tile->size,
+                       -projwin => $tile->projwin ])
+        ->Band($band) if $args->{epsg} == $epsg;
+    
+    return Geo::GDAL::Open($path)
+        ->Warp( "/vsimem/tmp.tiff", 
+                [ -of => 'GTiff', 
+                  -r => 'near',
+                  -s_srs => 'EPSG:'.$epsg,
+                  -t_srs => 'EPSG:'.$args->{epsg},
+                  -te => @{$tile->extent},
+                  -ts => $tile->size ])
+        ->Band($band);
 }
 
 1;

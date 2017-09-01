@@ -103,7 +103,9 @@ CREATE TABLE datasets (
     semantics text,
     driver text,
     subset text,
-    epsg integer
+    epsg integer DEFAULT 3067,
+    bbox text,
+    band integer
 );
 
 
