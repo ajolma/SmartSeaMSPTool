@@ -142,7 +142,7 @@ sub make_point_report {
         my $tile = [3, 3, $point->[0]-30, $point->[1]+30, $point->[0]+30, $point->[1]-30, 20, 20];
         $tile = bless $tile, 'Geo::OGC::Service::WMTS::Tile';
         my $layer = SmartSea::Layer->new({
-            epsg => $self->{epsg},
+            epsg => 3067, # the requested point is converted to 3067
             tile => $tile,
             schema => $self->{schema},
             data_dir => $self->{data_dir},
