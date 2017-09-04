@@ -166,7 +166,7 @@ for my $set (0..$N) {
                     $json->utf8;
                     my $user = $env->{REMOTE_USER} // 'guest';
                     my $protocol = $env->{HTTP_X_REAL_PROTOCOL} // 'http';
-                    my $auth = $user eq 'guest' ? 'false' : 'true';
+                    my $auth = $user eq 'guest' ? JSON::false : JSON::true;
                     my $server = $conf{server}.$conf{root};
                     $server .= '/auth' if $auth eq 'true';
                     return [ 200, 
