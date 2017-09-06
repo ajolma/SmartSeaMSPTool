@@ -168,16 +168,17 @@ for my $set (0..$N) {
                     my $protocol = $env->{HTTP_X_REAL_PROTOCOL} // 'http';
                     my $auth = $user eq 'guest' ? JSON::false : JSON::true;
                     my $server = $conf{server}.$conf{root};
-                    $server .= '/auth' if $auth eq 'true';
+                    $server .= '/auth' if $auth == JSON::true;
+                    my $response = {
+                        protocol => $protocol,
+                        server => $server,
+                        user => $user,
+                        auth => $auth,
+                    };
+                    $response->{wfs_passwd} = $conf{wfs_passwd} if $auth == JSON::true;
                     return [ 200, 
                              ['Content-Type' => 'application/json; charset=utf-8'], 
-                             [$json->encode(
-                                  {
-                                      protocol => $protocol,
-                                      server => $server,
-                                      user => $user,
-                                      auth => $auth
-                                  })] ];
+                             [$json->encode($response)] ];
                     
                 };
 
