@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <!-- thanks to http://wordpress-dbauszus.rhcloud.com/wfs-t-with-openlayers-3-5/ -->
+    <title>MSPlanner</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://openlayers.org/en/v4.3.2/css/ol.css" type="text/css">
+    <!-- The line below is only needed for old environments like Internet Explorer and Android 4.x -->
+    <script src="https://cdn.polyfill.io/v2/polyfill.min.js?features=requestAnimationFrame,Element.prototype.classList,URL"></script>
+    <script src="https://openlayers.org/en/v4.3.2/build/ol.js"></script>
+  </head>
+  <body>
+    <div id="container">
+      
+      <div id="left-content">
+        <div id="left-map" class="map"></div>
+        
+        <button id="btnEdit" class="mdl-button mdl-js-button mdl-button--fab mdl-button--colored">
+          <i class="material-icons">edit</i>
+        </button>
+        <button id="btnDelete" class="mdl-button mdl-js-button mdl-button--fab mdl-button--colored">
+          <i class="material-icons">delete</i>
+        </button>
+
+        <img src="Tuulivoima.png" />
+        <button id="btnArea1" class="mdl-button mdl-js-button mdl-button--fab mdl-button--colored">
+          <i class="material-icons">add</i>          
+        </button><br />
+        
+        <img src="Kalankasvatus.png" />
+        <button id="btnArea2" class="mdl-button mdl-js-button mdl-button--fab mdl-button--colored">
+          <i class="material-icons">add</i>
+        </button><br />
+
+        <img src="Matkailu.png" />
+        <button id="btnArea3" class="mdl-button mdl-js-button mdl-button--fab mdl-button--colored">
+          <i class="material-icons">add</i>
+        </button><br />
+
+        <canvas id="leftChart" width="400" height="200"></canvas><br />
+        
+      </div>
+      
+      <div id="right-content">
+        <div id="right-map" class="map"></div>
+        <canvas id="rightChart" width="400" height="200"></canvas><br />
+      </div>
+      
+      <div id="right">Right Side</div>
+    </div>
+    
+
+    <script src="https://code.jquery.com/jquery-1.10.2.js"></script>
+    <script src="http://msp.smartsea.fmi.fi/js/Chart.min.js"></script>
+    <script src="WFSEditor.js"></script>
+    <script src="PlannerMaps.js"></script>
+    <script src="script.js"></script>
+  </body>
+</html>

@@ -1,0 +1,64 @@
+* {
+    margin: 1px;
+    padding: 0;
+}
+#container {
+    height: 100%;
+    width:100%;
+    font-size:0;
+}
+#left-map, #right-map {
+    height: 600px;
+}
+#left-content, #right-content, #right {
+    display: inline-block;
+    *display: inline;
+    zoom: 1;
+    vertical-align: top;
+    font-size: 12px;
+}
+#left-content {
+    width: 45%;
+}
+#right-content {
+    width: 45%;
+}
+#right {
+    width: 9%;
+}
+
+#btnPoint {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+}
+
+#btnLine {
+  position: absolute;
+  top: 10px;
+  left: 80px;
+}
+
+/*
+#btnArea {
+  position: absolute;
+  top: 10px;
+  left: 150px;
+}
+*/
+
+#btnEdit {
+  position: absolute;
+  top: 10px;
+  left: 220px;
+}
+
+#btnDelete {
+  position: absolute;
+  top: 10px;
+  left: 290px;
+}
+
+.btn-active {
+  background-color: #0d47a1 !important;
+}
