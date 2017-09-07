@@ -410,7 +410,6 @@ MSPView.prototype = {
                     item = element('input', attr, item);
                 }
                 self.elements.rules.append(item);
-                rule.active = true;
                 self.elements.rules.append(element('br'));
             });
             /*jslint unparam: false*/
