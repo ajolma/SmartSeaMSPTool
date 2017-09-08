@@ -13,11 +13,18 @@ use Data::Dumper;
 
 our $have_hugin;
 BEGIN {
+    $ENV{HUGINHOME} = '/usr/local/hugin';
     eval {
         require 'Hugin.pm';
         require 'Geo/GDAL/Bayes/Hugin.pm';
     };
-    $have_hugin = !$@;
+    if ($@) {
+        say STDERR "Tried Hugin: ",$@;
+        undef $@;
+    } else {
+        say STDERR "Hugin ok";
+        $have_hugin = 1;
+    }
 }
 
 my @columns = (

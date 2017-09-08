@@ -8,7 +8,7 @@ use Carp;
 sub smart {
     my ($self, $env, $request, $parameters) = @_;
 
-    return $self->json200([]) unless $SmartSea::Schema::Result::RuleSystem::have_hugin;
+    return $self->json200([]) unless $self->{hugin};
 
     my $dir = $self->{data_dir} . 'Bayesian_networks';
 

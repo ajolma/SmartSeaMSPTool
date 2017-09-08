@@ -50,6 +50,16 @@ sub call {
     $self->{json} = 1 if $parameters->{accept} && $parameters->{accept} eq 'json';
 
     $self->{debug} = $parameters->{debug} if defined $parameters->{debug};
+
+    if ($SmartSea::Schema::Result::RuleSystem::have_hugin) {
+        if ($ENV{HUGINAUTH} && !$env->{REMOTE_USER}) {
+            delete $self->{hugin};
+        } else {
+            $self->{hugin} = 1;
+        }
+    } else {
+        delete $self->{hugin};
+    }
     
     return $self->smart($env, $request, $parameters);
 }
@@ -111,7 +121,7 @@ sub read_bayesian_networks {
     my $self = shift;
     $self->{domains} = {};
 
-    return unless $SmartSea::Schema::Result::RuleSystem::have_hugin;
+    return unless $self->{hugin};
     
     my $dir = $self->{data_dir} . 'Bayesian_networks';
     opendir(my $dh, $dir) || croak "Can't opendir $dir: $!";

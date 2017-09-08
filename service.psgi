@@ -23,8 +23,7 @@ my @services;
 my $confdir = '/var/www/etc/';
 my $conf = 'smartsea-service.conf';
 my %conf;
-open(my $fh, "<", $confdir.$conf)
-	or die "Can't open < $confdir.$conf: $!";
+open(my $fh, "<", $confdir.$conf) or die "Can't open < $confdir.$conf: $!";
 while (<$fh>) {
     chomp;
     my ($key, $value) = /^(\w+) = (.*)$/;
@@ -33,6 +32,15 @@ while (<$fh>) {
 for my $key (qw/https server root src_dir db_name db_user db_passwd data_dir image_dir OGC_Service_conf/) {
     die "Missing configuration variable '$key'." unless defined $conf{$key};
 }
+if ($conf{Hugin} eq 'yes') {
+} elsif ($conf{Hugin} eq 'auth') {
+    $ENV{HUGINAUTH} = 1;
+    say STDERR "Hugin requires authentication.";
+} else {
+    undef $SmartSea::Schema::Result::RuleSystem::have_hugin;
+    say STDERR "Hugin support off.";
+}
+
 
 sub authen_cb {
     my ($username, $password, $env) = @_;
@@ -176,10 +184,13 @@ for my $set (0..$N) {
                         auth => $auth,
                     };
                     $response->{wfs_passwd} = $conf{wfs_passwd} if $auth == JSON::true;
-                    return [ 200, 
-                             ['Content-Type' => 'application/json; charset=utf-8'], 
-                             [$json->encode($response)] ];
-                    
+                    return [ 200,
+                             [
+                              'Content-Type' => 'application/json; charset=utf-8',
+                              'Access-Control-Allow-Credentials' => 'true',
+                              'Access-Control-Allow-Origin' => '*'
+                             ],
+                             [$json->encode($response)] ];                    
                 };
 
             }
