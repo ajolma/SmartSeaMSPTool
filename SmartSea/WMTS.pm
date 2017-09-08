@@ -133,7 +133,7 @@ sub process {
 
     my $hugin;
     if ($SmartSea::Schema::Result::RuleSystem::have_hugin) {
-        unless ($ENV{HUGINAUTH} && !$self->{service}{env}{REMOTE_USER}) {
+        unless ($ENV{HUGINAUTH} && !$args->{service}{env}{REMOTE_USER}) {
             $hugin = 1;
         }
     }
