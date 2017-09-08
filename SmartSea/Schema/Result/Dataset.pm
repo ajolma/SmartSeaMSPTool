@@ -22,19 +22,31 @@ my @columns = (
     license         => { is_foreign_key => 1, source => 'License' },
     attribution     => { data_type => 'text',    html_size => 40 },
     disclaimer      => { data_type => 'text',    html_size => 80 },
-    path            => { data_type => 'text',    html_size => 30 },
-    db_table        => { data_type => 'text',    html_size => 30 },
-    min_value       => { data_type => 'double',  html_size => 20 },
-    max_value       => { data_type => 'double',  html_size => 20 },
-    data_type       => { is_foreign_key => 1, source => 'NumberType' },
-    semantics       => { html_input => 'textarea', rows => 10, cols => 20 },
+    path            => { data_type => 'text',    html_size => 30,
+                         comment => "File path relative to data_dir, or schema in main DB." },
+    db_table        => { data_type => 'text',    html_size => 30,
+                         comment => "Not used any more" },
+    min_value       => { data_type => 'double',  html_size => 20,
+                         comment => "Only for real datasets. Use button 'obtain values'." },
+    max_value       => { data_type => 'double',  html_size => 20,
+                         comment => "Only for real datasets. Use button 'obtain values'." },
+    data_type       => { is_foreign_key => 1, source => 'NumberType',
+                         comment => "Only for real datasets. Use button 'obtain values'." },
+    semantics       => { html_input => 'textarea', rows => 10, cols => 20,
+                         comment => "integer_value = bla bla; ..." },
     unit            => { is_foreign_key => 1, source => 'Unit' },
-    style           => { is_foreign_key => 1, source => 'Style', is_part => 1 },
-    driver          => { data_type => 'text', html_size => 40 },
-    subset          => { data_type => 'text', html_size => 40 },
+    style           => { is_foreign_key => 1, source => 'Style', is_part => 1,
+                         comment => "Required to be able to visualize." },
+    driver          => { data_type => 'text', html_size => 40,
+                         comment => "PG, NETCDF, WMS, or nothing" },
+    subset          => { data_type => 'text', html_size => 40,
+                         comment => "NetCDF subset, table in schema, or nothing" },
     epsg            => { data_type => 'integer' },
-    bbox            => { data_type => 'text', html_size => 40 },
+    bbox            => { data_type => 'text', html_size => 40,
+                         comment => "only for external data such as WMS but not yet used" },
     band            => { data_type => 'integer' },
+    discretizer     => { data_type => 'double[]', html_size => 40,
+                         comment => "{x0,..}, to be used only for derivatives of real datasets" },
     );
 
 __PACKAGE__->table('datasets');
@@ -123,6 +135,7 @@ sub lineage {
 
 sub usable_in_rule {
     my $self = shift;
+    return 1 if $self->discretizer;
     return $self->data_type && defined $self->min_value && defined $self->max_value;
 }
 
@@ -169,6 +182,9 @@ sub parse_gdalinfo {
 
 sub gdal_dataset_name {
     my ($self, $args) = @_;
+
+    return $self->is_derived_from->gdal_dataset_name($args) if $self->discretizer;
+    
     my $path = $args->{parameters}{path};
     if (ref $self) {
         if (defined $args->{parameters}{path}) {
@@ -215,6 +231,7 @@ sub auto_fill_cols {
     my $driver = $self->driver // '';
     return if $driver eq 'PG' || $driver eq 'WMS';
     my $path = $self->gdal_dataset_name($args);
+    return unless $path;
     say STDERR "autofill from $path" if $args->{debug};
     my @info = `gdalinfo $path`;
     my $parsed = parse_gdalinfo(\@info, $args);
@@ -275,7 +292,6 @@ sub info {
     my $path = $self->path;
     return unless $path;
     $path = $self->gdal_dataset_name($args);
-    say STDERR $path;
     
     my $driver = $self->driver // '';
     my $info = '';
@@ -340,9 +356,26 @@ sub Band {
 
     my $path = $self->path;
     my $tile = $args->{tile};
-    my $driver = $self->driver // '';
-    my $epsg = $self->epsg // 3067;
+    my $driver = $self->driver;
+    my $epsg = $self->epsg;
     my $band = $self->band // 1;
+    my $discretizer = $self->discretizer;
+
+    # some OO logic
+    unless ($driver) {
+        if ($discretizer) {
+            $driver = $self->is_derived_from->driver;
+        } else {
+            $driver = '';
+        }
+    }
+    unless ($epsg) {
+        if ($discretizer) {
+            $epsg = $self->is_derived_from->epsg;
+        } else {
+            $epsg = 3067;
+        }
+    }
 
     if ($driver eq 'PG') {
         # path is Schema, subset is table
@@ -416,23 +449,41 @@ sub Band {
         
     }
    
-    return Geo::GDAL::Open($path)
-        ->Translate( "/vsimem/tmp.tiff", 
-                     [ -of => 'GTiff',
-                       -r => 'nearest',
-                       -outsize => $tile->size,
-                       -projwin => $tile->projwin ])
-        ->Band($band) if $args->{epsg} == $epsg;
-    
-    return Geo::GDAL::Open($path)
-        ->Warp( "/vsimem/tmp.tiff", 
-                [ -of => 'GTiff', 
-                  -r => 'near',
-                  -s_srs => 'EPSG:'.$epsg,
-                  -t_srs => 'EPSG:'.$args->{epsg},
-                  -te => @{$tile->extent},
-                  -ts => $tile->size ])
-        ->Band($band);
+    my $retval;
+    if ($args->{epsg} == $epsg) {
+        
+        $retval = return Geo::GDAL::Open($path)
+            ->Translate( "/vsimem/tmp.tiff", 
+                         [ -of => 'GTiff',
+                           -r => 'nearest',
+                           -outsize => $tile->size,
+                           -projwin => $tile->projwin ])
+            ->Band($band);
+
+    } else {
+        
+        $retval = Geo::GDAL::Open($path)
+            ->Warp( "/vsimem/tmp.tiff", 
+                    [ -of => 'GTiff', 
+                      -r => 'near',
+                      -s_srs => 'EPSG:'.$epsg,
+                      -t_srs => 'EPSG:'.$args->{epsg},
+                      -te => @{$tile->extent},
+                      -ts => $tile->size ])
+            ->Band($band);
+        
+    }
+        
+    if ($discretizer) {
+        my $classifier = ['<='];
+        my $tree = [$discretizer->[0], 0, 1];
+        for my $i (1 .. $#$discretizer) {
+            $tree = [$discretizer->[$i], [@$tree], $i+1];
+        }
+        push @$classifier, $tree;
+        $retval->Reclassify($classifier);
+    }
+    return $retval;
 }
 
 1;

@@ -45,16 +45,22 @@ sub new {
         $self->{duck} = $self->{schema}->resultset('Dataset')->single({ id => $id });
         croak "Dataset $id does not exist.\n" unless $self->{duck};
         # min, max, and data type really should have been set
-        $self->{min} = $self->{duck}->min_value // 0;
-        $self->{max} = $self->{duck}->max_value // 1;
-        $self->{min} = $self->{max} if $self->{min} > $self->{max};
-        if (my $t = $self->{duck}->data_type) {
-            $self->{data_type} = $t->id;
+        if ($self->{duck}->discretizer) {
+            $self->{min} = 0;
+            $self->{max} = @{$self->{duck}->discretizer};
+            $self->{data_type} = INTEGER_NUMBER;
         } else {
-            $self->{data_type} = INTEGER_NUMBER; # wild guess
+            $self->{min} = $self->{duck}->min_value // 0;
+            $self->{max} = $self->{duck}->max_value // 1;
+            $self->{min} = $self->{max} if $self->{min} > $self->{max};
+            if (my $t = $self->{duck}->data_type) {
+                $self->{data_type} = $t->id;
+            } else {
+                $self->{data_type} = INTEGER_NUMBER; # wild guess
+            }
+            my $unit = $self->{duck}->unit;
+            $self->{unit} = defined $unit ? $unit->name : '';
         }
-        my $unit = $self->{duck}->unit;
-        $self->{unit} = defined $unit ? $unit->name : '';
         if ($self->{duck}->semantics) {
             $self->{labels} = $self->{duck}->semantics_hash;
         } elsif ($self->{min} == $self->{max}) {
@@ -224,6 +230,7 @@ sub compute {
             $band = $self->{duck}->Band($self);
         };
         if ($@) {
+            say STDERR "Error getting data: $@";
             $y = zeroes($self->{tile}->size);
             $y = $y->setbadif($y == 0);
         } else {

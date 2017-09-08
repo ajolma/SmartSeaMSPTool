@@ -919,13 +919,15 @@ sub simple_items {
             push @li, [li => [[b => [1 => $meta->{source}]], [ul => $li]]];
         } else {
             $value //= '(undef)';
-            if (ref $value) {
+            if (blessed $value) {
                 for my $key (qw/name id data/) {
                     if ($value->can($key)) {
                         $value = $value->$key;
                         last;
                     }
                 }
+            } elsif (ref $value) { # array
+                $value = "[".join(',',@$value)."]";
             }
             push @li, [li => "$column: ",encode_entities_numeric($value)];
         }
@@ -1336,6 +1338,9 @@ END_CODE
             if ($meta->{from_up}) {
                 my $info = ref $meta->{from_up} ? $meta->{from_up}->name : $meta->{from_up};
                 push @content, [i => {style=>"color:grey"}, " ($info)"];
+            }
+            if ($meta->{comment}) {
+                push @content, [i => {style=>"color:red"}, " ($meta->{comment})"];
             }
             push @form, [ p => \@content ] if @input;
         }

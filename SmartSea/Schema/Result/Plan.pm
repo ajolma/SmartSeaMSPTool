@@ -108,7 +108,7 @@ sub read {
         push @uses, $use->read;
     }
     for my $dataset ($self->extra_datasets) {
-        $data{$dataset->id} = 1 if $dataset->path;
+        $data{$dataset->id} = 1 if $dataset->usable_in_rule;
     }
     return {
         owner => $self->owner,

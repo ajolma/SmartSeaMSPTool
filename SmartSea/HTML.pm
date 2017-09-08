@@ -50,9 +50,16 @@ sub checkbox {
 }
 sub text_input {
     my (%arg) = @_;
+    my $value;
+    if (ref $arg{value} eq 'ARRAY') {
+        # array -> postgresql string
+        $value = '{'.join(',', @{$arg{value}}).'}';
+    } else {
+        $value = encode_entities_numeric($arg{value});
+    }
     return [input => { type => 'text', 
                        name => $arg{name},
-                       value => encode_entities_numeric($arg{value}),
+                       value => $value,
                        size => $arg{size} // 10,
             }
         ];
