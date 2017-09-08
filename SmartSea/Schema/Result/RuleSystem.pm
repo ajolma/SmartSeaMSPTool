@@ -19,10 +19,10 @@ BEGIN {
         require 'Geo/GDAL/Bayes/Hugin.pm';
     };
     if ($@) {
-        say STDERR "Tried Hugin: ",$@;
+        #say STDERR "Tried Hugin: ",$@;
         undef $@;
     } else {
-        say STDERR "Hugin ok";
+        #say STDERR "Hugin ok";
         $have_hugin = 1;
     }
 }

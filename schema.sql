@@ -105,7 +105,8 @@ CREATE TABLE datasets (
     subset text,
     epsg integer DEFAULT 3067,
     bbox text,
-    band integer
+    band integer,
+    discretizer double precision[]
 );
 
 
@@ -130,6 +131,13 @@ COMMENT ON COLUMN datasets.db_table IS 'For raster datasets: the table from it w
 --
 
 COMMENT ON COLUMN datasets.semantics IS 'map of cell values to their meanings, format: i = meaning; ...';
+
+
+--
+-- Name: COLUMN datasets.discretizer; Type: COMMENT; Schema: data; Owner: ajolma
+--
+
+COMMENT ON COLUMN datasets.discretizer IS '-inf,x0] => 0, (x0,x1] => 1, etc';
 
 
 --

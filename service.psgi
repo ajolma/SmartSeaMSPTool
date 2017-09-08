@@ -35,10 +35,10 @@ for my $key (qw/https server root src_dir db_name db_user db_passwd data_dir ima
 if ($conf{Hugin} eq 'yes') {
 } elsif ($conf{Hugin} eq 'auth') {
     $ENV{HUGINAUTH} = 1;
-    say STDERR "Hugin requires authentication.";
+    #say STDERR "Hugin requires authentication.";
 } else {
     undef $SmartSea::Schema::Result::RuleSystem::have_hugin;
-    say STDERR "Hugin support off.";
+    #say STDERR "Hugin support off.";
 }
 
 
