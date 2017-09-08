@@ -142,7 +142,7 @@ MSPLayer.prototype = {
                 if (self.network) {
                     body = element('img', {
                         src: url + '/networks?name=' + self.network.name + '&accept=jpeg',
-                        width: 220
+                        width: 230 // layout.right.width
                     }, '') +
                         '<br/>' + 'Output is from node ' + self.output_node.name + ', state ' + self.output_state;
                 } else {

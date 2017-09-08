@@ -105,7 +105,7 @@ function MSPView(model, elements, id) {
 
 MSPView.prototype = {
     windowResize: function () {
-        var right_width = 220, // from layout.css
+        var right_width = 230, // from layout.css
             h = $(window).height() -  $('.header').height() - $('.plot').height(),
             w = $(window).width() - right_width - 15;
         this.elements.map

@@ -217,4 +217,29 @@ function makeConfig() {
     });
     view.windowResize();
 
+    var sourceSwap = function () {
+        var $this = $(this);
+        var newSource = $this.data('hilite-src');
+        $this.data('hilite-src', $this.attr('src'));
+        $this.attr('src', newSource);
+    }
+
+    $(function () {
+        $('img.main-menu').hover(sourceSwap, sourceSwap);
+        $('img.main-menu').click(function (event) {
+            var options = [{cmd: 'boot', label: 'Boot'}];
+            makeMenu({
+                element: $('#main-menu'),
+                menu: $('#main-menu-ul'),
+                right: 24,
+                options: options,
+                select: function (cmd) {
+                    controller.loadPlans();
+                },
+                event: event
+            });
+            return false;
+        });
+    });
+
 }());

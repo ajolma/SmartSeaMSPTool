@@ -265,7 +265,22 @@ Widget.prototype = {
 
 function makeMenu(args) {
     var menu = $(args.menu),
-        options = '';
+        options = '',
+        handler = function (event) {
+            if (args.prelude) {
+                args.prelude();
+            }
+            menu.css('position', 'absolute');
+            menu.css('top', event.pageY);
+            if (args.right) {
+                menu.css('right', args.right);
+            } else {
+                menu.css('left', event.pageX);
+            }
+            $(".menu").hide(); // close all other menus
+            menu.show();
+            return false;
+        };
     /*jslint unparam: true*/
     $.each(args.options, function (i, item) {
         if (Array.isArray(item)) {
@@ -292,17 +307,11 @@ function makeMenu(args) {
     });
     /*jslint unparam: false*/
     menu.menu("refresh");
-    args.element.contextmenu(function (e) {
-        if (args.prelude) {
-            args.prelude();
-        }
-        menu.css('position', 'absolute');
-        menu.css('top', e.pageY);
-        menu.css('left', e.pageX);
-        $(".menu").hide(); // close all other menus
-        menu.show();
-        return false;
-    });
+    if (args.event) {
+        handler(args.event);
+    } else {
+        args.element.contextmenu(handler);
+    }
 }
 
 function Event(sender) {

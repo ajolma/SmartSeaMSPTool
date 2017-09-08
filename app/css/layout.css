@@ -3,8 +3,6 @@ body {
 }
 
 .header {
-    //max-height: 48px;
-    //display: block;
     height: 0px;
     text-align: left;
     color: #ffffff;
@@ -24,10 +22,9 @@ body {
 
 .right {
     float: right;
-    width: 220px;
+    width: 230px;
     overflow: auto;
-    //background-color: #aaffaa;
-    //font-family: Helvetica, Arial, Sans-Serif;
+    /*position: relative;*/
 }
 
 .plot {
@@ -37,9 +34,7 @@ body {
 }
 
 .fs1 {
-    //width: 100px;
     padding: 0px 0px 0px 0px;
-    //display: inline-block;
 }
 
 #useslist ul {
@@ -110,8 +105,6 @@ input.opacity {
 /* Tooltip container */
 .tooltip {
     position: relative;
-//    display: inline-block;
-//    border-bottom: 1px dotted black; /* If you want dots under the hoverable text */
 }
 
 /* Tooltip text */
@@ -128,7 +121,6 @@ input.opacity {
     position: absolute;
     top: 0%;
     left: 30%;
-    //margin-left: -80px;
     z-index: 1;
 }
 
@@ -166,5 +158,9 @@ except tree-item is for non-auth and context-menu is for auth
 
 .context-menu:hover {
     border-style: dotted;
+    display: inline;
+}
+
+#main-menu {
     display: inline;
 }
