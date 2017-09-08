@@ -60,6 +60,7 @@ sub call {
     } else {
         delete $self->{hugin};
     }
+    #say STDERR $self->{hugin} ? "Hugin available." : "Hugin not available.";
     
     return $self->smart($env, $request, $parameters);
 }
@@ -121,7 +122,7 @@ sub read_bayesian_networks {
     my $self = shift;
     $self->{domains} = {};
 
-    return unless $self->{hugin};
+    return unless $SmartSea::Schema::Result::RuleSystem::have_hugin;
     
     my $dir = $self->{data_dir} . 'Bayesian_networks';
     opendir(my $dh, $dir) || croak "Can't opendir $dir: $!";

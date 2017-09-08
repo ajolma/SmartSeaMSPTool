@@ -130,6 +130,13 @@ sub process {
     #my @tile = ($params->{tilematrix},$params->{tilecol},$params->{tilerow});
     #say STDERR "$server->{service}&request=$params->{request}&crs=EPSG:$epsg&layer=$want&tile=@tile";
     #say STDERR "style = $params->{style}";
+
+    my $hugin;
+    if ($SmartSea::Schema::Result::RuleSystem::have_hugin) {
+        unless ($ENV{HUGINAUTH} && !$self->{service}{env}{REMOTE_USER}) {
+            $hugin = 1;
+        }
+    }
     
     $layer = SmartSea::Layer->new({
         mask => $self->{mask},
@@ -141,7 +148,7 @@ sub process {
         cookie => $args->{service}{request}->cookies->{SmartSea}, 
         trail => $layer,
         style => $params->{style},
-        domains => $self->{domains},
+        domains => $hugin ? $self->{domains} : {},
         debug => $debug });
 
     my $result = $layer->compute();

@@ -150,7 +150,7 @@ sub make_point_report {
             #cookie => $args->{service}{request}->cookies->{SmartSea},
             trail => '2_'.$self->{layer}.'_all',
             #style => $params->{style},
-            domains => $self->{domains},
+            domains => $self->{hugin} ? $self->{domains} : {},
             debug => $self->{debug}
         });
         

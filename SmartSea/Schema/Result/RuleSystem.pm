@@ -18,13 +18,11 @@ BEGIN {
         require 'Hugin.pm';
         require 'Geo/GDAL/Bayes/Hugin.pm';
     };
-    if ($@) {
-        #say STDERR "Tried Hugin: ",$@;
-        undef $@;
-    } else {
-        #say STDERR "Hugin ok";
+    unless ($@) {
         $have_hugin = 1;
     }
+    #say STDERR $have_hugin ? "Hugin ok" : "Tried Hugin: ".$@;
+    undef $@;
 }
 
 my @columns = (
