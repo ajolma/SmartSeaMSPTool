@@ -27,7 +27,7 @@ BEGIN {
 sub new {
     my ($class, $self) = @_;
     
-    my $dsn = "PG:dbname='$self->{dbname}' host='localhost' port='5432'";
+    my $dsn = "PG:dbname='$self->{db_name}' host='localhost' port='5432'";
 
     $self->{GDALVectorDataset} = Geo::GDAL::Open(
         Name => "$dsn user=$self->{db_user} password=$self->{db_passwd}",

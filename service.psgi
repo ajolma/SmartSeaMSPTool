@@ -17,6 +17,7 @@ use SmartSea::Plans;
 use SmartSea::Bayesian_networks;
 use SmartSea::Explain;
 use SmartSea::Browser;
+use SmartSea::Planner;
 
 my $N = 0;
 my @services;
@@ -69,6 +70,7 @@ my %services = (
     legend => 'Legend API. Expects layer parameter.',
     explain => 'Map query API. Expects WKT (Polygon) or Easting/Northing (Point) and layer parameters.',
     app => 'The mapping app. Authenticated version supports modeling.',
+    planner => '',
     config => ''
 );
 
@@ -86,11 +88,11 @@ for my $set (0..$N) {
         for my $auth (qw/none auth/) {
 
             my %config = (
-                dbname => $conf{db_name},
-                table_postfix => $postfix,
-                sequences => 1,
+                db_name => $conf{db_name},
                 db_user => $conf{db_user},
                 db_passwd => $conf{db_passwd},
+                table_postfix => $postfix,
+                sequences => 1,
                 schema => $schema,
                 data_dir => $conf{data_dir},
                 images => $conf{image_dir},
@@ -165,6 +167,10 @@ for my $set (0..$N) {
                     my $env = shift;
                     return [ 200, ['Content-Type' => 'text/html'], \@file ];
                 };
+
+            } elsif ($service eq 'planner') {
+
+                $app = SmartSea::Planner->new(\%config)->to_app;
 
             } elsif ($service eq 'config') {
 
