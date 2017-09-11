@@ -23,6 +23,7 @@ $.ajax('https://msp.smartsea.fmi.fi/Starman/auth/config', {
     var plannerMaps = new PlannerMaps({
         chart: chart,
         username: config.user,
+        wfs_password: config.wfs_passwd,
     }),
         editor = new WFSEditor({
             chart: chart,
@@ -31,5 +32,5 @@ $.ajax('https://msp.smartsea.fmi.fi/Starman/auth/config', {
             map: plannerMaps.getMap('left'),
             layer: plannerMaps.getLayer('left'),
         });
-
+    
 });

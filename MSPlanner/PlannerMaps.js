@@ -6,6 +6,7 @@ function PlannerMaps(options) {
     var self = this;
 
     self.username = options.username;
+    self.wfs_password = options.wfs_password;
     self.chart = options.chart;
 
     self.formatWFS = new ol.format.WFS();
@@ -63,6 +64,10 @@ function PlannerMaps(options) {
     self.sourceWFS = new ol.source.Vector({
         loader: function (extent) {
             $.ajax('https://msp.smartsea.fmi.fi/geoserver/ows', {
+                beforeSend: function (xhr) {
+                    var username = 'planner';
+                    xhr.setRequestHeader("Authorization", "Basic " + btoa(username + ":" + self.wfs_password));
+                },
                 type: 'GET',
                 data: {
                     service: 'WFS',
