@@ -88,7 +88,6 @@ function PlannerMaps(options) {
                 });
                 /*jslint unparam: false*/
                 self.sourceWFS.addFeatures(myFeatures);
-                self.chart({layer: 'left'}, self.config);
             });
         },
         strategy: ol.loadingstrategy.bbox,
@@ -128,7 +127,6 @@ function PlannerMaps(options) {
             }).done(function (response) {
                 var f = self.formatWFS.readFeatures(response);
                 self.sourceWFS2.addFeatures(f);
-                self.chart({layer: 'right'}, self.config);
             });
         },
         strategy: ol.loadingstrategy.bbox,
@@ -151,6 +149,9 @@ function PlannerMaps(options) {
         view: self.view,
         target: 'right-map'
     });
+
+    self.chart({layer: 'left'}, self.config);
+    self.chart({layer: 'right'}, self.config);
 }
 
 PlannerMaps.prototype = {

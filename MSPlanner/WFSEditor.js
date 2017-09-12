@@ -63,6 +63,7 @@ WFSEditor.prototype = {
 
         if (self.selectedButton === button.attr('id')) {
             button.removeClass('btn-active');
+            self.selectedButton = null;
             return;
         }
         self.selectedButton = button.attr('id');
