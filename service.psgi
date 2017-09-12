@@ -259,7 +259,9 @@ for my $set (0..$N) {
     push @body, [ p => "Set $set" ] if $N > 0;
     push @body, [ dl => \@service_links ];
 
-    push @body, a(url => "$path/auth/planner-app/index.html", link => 'Planner App');
+    my $url = "$path/auth/planner-app/index.html";
+    $url = 'https://' . $conf{server} . $url if $conf{https};
+    push @body, a(url => $url, link => 'Planner App');
 }
 
 my $default = sub {
@@ -287,7 +289,7 @@ builder {
         }
     }
     for my $auth ('', '/auth') {
-        mount $conf{root}.$auth."/planner-app" => Plack::App::File->new(root => "/var/www/proj/SmartSea/planner-app")->to_app;
+        mount $conf{root}.$auth."/planner-app" => Plack::App::File->new(root => $conf{planner_app})->to_app;
         
         mount $conf{root}.$auth."/js" => Plack::App::File->new(root => $conf{src_dir}."js")->to_app;
         mount $conf{root}.$auth."/css" => Plack::App::File->new(root => $conf{src_dir}."css")->to_app;
