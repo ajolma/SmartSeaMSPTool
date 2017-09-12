@@ -5,8 +5,7 @@
 function PlannerMaps(options) {
     var self = this;
 
-    self.username = options.username;
-    self.wfs_password = options.wfs_password;
+    self.config = options.config;
     self.chart = options.chart;
 
     self.formatWFS = new ol.format.WFS();
@@ -52,10 +51,10 @@ function PlannerMaps(options) {
     self.style3 = self.newStyle('rgba(0, 255, 0, 0.6)');
 
     self.style = function (feature) {
-        if (feature.get('use') === "1") {
+        if (parseInt(feature.get('use'),10) === 1) {
             return self.style1;
         }
-        if (feature.get('use') === "2") {
+        if (parseInt(feature.get('use'),10) === 2) {
             return self.style2;
         }
         return self.style3;
@@ -63,17 +62,18 @@ function PlannerMaps(options) {
 
     self.sourceWFS = new ol.source.Vector({
         loader: function (extent) {
-            $.ajax('https://msp.smartsea.fmi.fi/geoserver/ows', {
+            var url = self.config.protocol + '://' + self.config.wfs_server;
+            $.ajax(url, {
                 beforeSend: function (xhr) {
-                    var username = 'planner';
-                    xhr.setRequestHeader("Authorization", "Basic " + btoa(username + ":" + self.wfs_password));
+                    var auth = self.config.wfs_username + ":" + self.config.wfs_password;
+                    xhr.setRequestHeader("Authorization", "Basic " + btoa(auth));
                 },
                 type: 'GET',
                 data: {
                     service: 'WFS',
                     version: '1.1.0',
                     request: 'GetFeature',
-                    typename: 'wfs',
+                    typename: self.config.wfs_user_type,
                     srsname: 'EPSG:3857',
                     bbox: extent.join(',') + ',EPSG:3857'
                 }
@@ -82,13 +82,13 @@ function PlannerMaps(options) {
                     myFeatures = [];
                 /*jslint unparam: true*/
                 $.each(f, function (i, feature) {
-                    if (feature.get('username') === self.username) {
+                    if (feature.get('username') === self.config.user) {
                         myFeatures.push(feature);
                     }
                 });
                 /*jslint unparam: false*/
                 self.sourceWFS.addFeatures(myFeatures);
-                self.chart({layer: 'left', username: self.username });
+                self.chart({layer: 'left'}, self.config);
             });
         },
         strategy: ol.loadingstrategy.bbox,
@@ -114,20 +114,21 @@ function PlannerMaps(options) {
 
     self.sourceWFS2 = new ol.source.Vector({
         loader: function (extent) {
-            $.ajax('https://msp.smartsea.fmi.fi/geoserver/ows', {
+            var url = self.config.protocol + '://' + self.config.wfs_server;
+            $.ajax(url, {
                 type: 'GET',
                 data: {
                     service: 'WFS',
                     version: '1.1.0',
                     request: 'GetFeature',
-                    typename: 'wfs2',
+                    typename: self.config.wfs_comparison_type,
                     srsname: 'EPSG:3857',
                     bbox: extent.join(',') + ',EPSG:3857'
                 }
             }).done(function (response) {
                 var f = self.formatWFS.readFeatures(response);
                 self.sourceWFS2.addFeatures(f);
-                self.chart({layer: 'right', username: self.username });
+                self.chart({layer: 'right'}, self.config);
             });
         },
         strategy: ol.loadingstrategy.bbox,

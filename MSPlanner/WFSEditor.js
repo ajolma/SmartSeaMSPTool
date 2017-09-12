@@ -8,14 +8,13 @@ function WFSEditor(options) {
     self.chart = options.chart;
     self.layer = options.layer;
     self.map = options.map;
-    self.username = options.username;
-    self.wfs_password = options.wfs_password;
+    self.config = options.config;
 
     self.formatWFS = new ol.format.WFS();
 
     self.formatGML = new ol.format.GML({
-        featureNS: 'http://msp.smartsea.fmi.fi/geoserver/smartsea',
-        featureType: 'wfs',
+        featureNS: self.config.wfs_feature_ns,
+        featureType: self.config.wfs_user_type,
         srsName: 'EPSG:3857'
     });
 
@@ -128,7 +127,7 @@ WFSEditor.prototype = {
             });
             self.interaction.on('drawend', function (e) {
                 e.feature.set('use', use);
-                e.feature.set('username', self.username);
+                e.feature.set('username', self.config.user);
                 self.transactWFS('insert', e.feature);
             });
             self.map.addInteraction(self.interaction);
@@ -141,6 +140,7 @@ WFSEditor.prototype = {
     transactWFS: function (mode, f) {
         var self = this,
             node,
+            url = self.config.protocol + '://' + self.config.wfs_server,
             payload;
         switch (mode) {
         case 'insert':
@@ -154,10 +154,10 @@ WFSEditor.prototype = {
             break;
         }
         payload = self.xs.serializeToString(node);
-        $.ajax('https://msp.smartsea.fmi.fi/geoserver/ows', {
+        $.ajax(url, {
             beforeSend: function (xhr) {
-                var username = 'planner';
-                xhr.setRequestHeader("Authorization", "Basic " + btoa(username + ":" + self.wfs_password));
+                var auth = self.config.wfs_username + ":" + self.config.wfs_password;
+                xhr.setRequestHeader("Authorization", "Basic " + btoa(auth));
             },
             type: 'POST',
             dataType: 'xml',
@@ -166,7 +166,7 @@ WFSEditor.prototype = {
             data: payload
         }).done(function () {
             self.layer.getSource().clear();
-            self.chart({layer: 'left', username: self.username });
+            self.chart({layer: 'left'}, self.config);
         });
     }
 };

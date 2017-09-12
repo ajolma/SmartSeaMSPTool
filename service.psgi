@@ -71,6 +71,7 @@ my %services = (
     explain => 'Map query API. Expects WKT (Polygon) or Easting/Northing (Point) and layer parameters.',
     app => 'The mapping app. Authenticated version supports modeling.',
     planner => '',
+    WFS => '',
     config => ''
 );
 
@@ -121,6 +122,14 @@ for my $set (0..$N) {
                         WMTS => 'Geo::OGC::Service::WMTS',
                         WMS => 'Geo::OGC::Service::WMTS',
                         TMS => 'Geo::OGC::Service::WMTS',
+                    }})->to_app;
+
+            } elsif ($service eq 'WFS') {
+
+                $app = Geo::OGC::Service->new({
+                    config => $confdir.$conf{OGC_Service_conf},
+                    services => {
+                        WFS => 'Geo::OGC::Service::WFS',
                     }})->to_app;
 
             } elsif ($service eq 'legend') {
@@ -189,7 +198,11 @@ for my $set (0..$N) {
                         user => $user,
                         auth => $auth,
                     };
-                    $response->{wfs_passwd} = $conf{wfs_passwd} if $auth == JSON::true;
+                    if ($auth == JSON::true) {
+                        for my $key (qw/server username password user_type comparison_type feature_ns/) {
+                            $response->{'wfs_' . $key} = $conf{'wfs_' . $key};
+                        }
+                    }
                     return [ 200,
                              [
                               'Content-Type' => 'application/json; charset=utf-8',
@@ -245,6 +258,8 @@ for my $set (0..$N) {
     }
     push @body, [ p => "Set $set" ] if $N > 0;
     push @body, [ dl => \@service_links ];
+
+    push @body, a(url => "$path/auth/planner-app/index.html", link => 'Planner App');
 }
 
 my $default = sub {
@@ -272,6 +287,8 @@ builder {
         }
     }
     for my $auth ('', '/auth') {
+        mount $conf{root}.$auth."/planner-app" => Plack::App::File->new(root => "/var/www/proj/SmartSea/planner-app")->to_app;
+        
         mount $conf{root}.$auth."/js" => Plack::App::File->new(root => $conf{src_dir}."js")->to_app;
         mount $conf{root}.$auth."/css" => Plack::App::File->new(root => $conf{src_dir}."css")->to_app;
         mount $conf{root}.$auth."/img" => Plack::App::File->new(root => $conf{src_dir}."img")->to_app;
