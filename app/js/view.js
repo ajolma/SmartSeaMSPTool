@@ -301,7 +301,7 @@ MSPView.prototype = {
                 // select and unselect a layer
                 $("#use" + use.id + " #layer" + layer.id).click(function () {
                     var layer2 = self.model.unselectLayer();
-                    if (!layer2 || !(layer2.id === layer.id && layer2.use.class_id === layer.use_class_id)) {
+                    if (!layer2 || !(layer2.id === layer.id && layer2.use.class_id === layer.use.class_id)) {
                         self.model.selectLayer({use: use.id, layer: layer.id});
                     }
                 });
