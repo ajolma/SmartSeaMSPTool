@@ -390,6 +390,7 @@ sub Band {
         my ($minx, $maxy, $maxx, $miny) = $tile->projwin;
         $ds->GeoTransform($minx, ($maxx-$minx)/$w, 0, $maxy, 0, ($miny-$maxy)/$h);        
         $ds->SpatialReference(Geo::OSR::SpatialReference->new(EPSG=>$args->{epsg}));
+        $ds->Band->NoDataValue(0);
 
         my $table = $self->subset // '';
         $path = "\"$path\".\"$table\"";
