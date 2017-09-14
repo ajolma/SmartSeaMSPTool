@@ -247,14 +247,19 @@ for my $set (0..$N) {
             my $name = $service;
             $name =~ s/^(\w)/uc($1)/e;
             $name =~ s/_/ /g;
-            $dt = [a(url => "$path/$service", link => $name)];
+            $dt = [a(url => "http://$conf{server}$path/$service", link => $name)];
             my $url = "$path/auth/$service";
-            $url = 'https://' . $conf{server} . $url if $conf{https};
-            push @$dt, [0 => ' '], a(url => $url, link => 'Authenticated version')
-                if $service eq 'app' || $service eq 'browser';
+            if ($conf{https}) {
+                $url = 'https://' . $conf{server} . $url;
+            } else {
+                $url = 'http://' . $conf{server} . $url;
+            }
+            push @$dt, [0 => ' '], a(url => $url, link => 'Authenticated version');
         }
         push @service_links, [dt => $dt];
-        push @service_links, [dd => $services{$service}] if $services{$service};
+        if ($conf{https}) {
+            push @service_links, [dd => $services{$service}];
+        }
     }
     push @body, [ p => "Set $set" ] if $N > 0;
     push @body, [ dl => \@service_links ];
