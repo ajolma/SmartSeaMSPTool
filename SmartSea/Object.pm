@@ -322,7 +322,9 @@ sub columns {
     my $columns_info = $row->columns_info(undef, $prev);
     for my $column (keys %$columns_info) {
         my $meta = $columns_info->{$column};
+        # clean the meta from previous values_from.. calls
         delete $meta->{value};
+        delete $meta->{fixed};
         if ($meta->{is_superclass} || $meta->{is_part}) {
             my %args = (app => $self->{app});
             if ($self->{row}) {
@@ -1184,7 +1186,8 @@ sub form {
         $self->widgets($columns),
         button(name => 'request', value => 'save', content => 'Save'), 
         [1 => ' '], 
-        button(content => 'Cancel'));
+        button(content => 'Cancel')
+    );
     push @widgets, (
         [1 => "&nbsp;&nbsp;&nbsp;"], 
         button(name => 'request', value => 'compute', content => 'Obtain values from data')
