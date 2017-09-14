@@ -109,8 +109,8 @@ CREATE TABLE datasets (
     discretizer double precision[],
     gid text,
     burn text,
-    geometry_column integer NOT NULL,
-    where_clause integer NOT NULL
+    geometry_column text,
+    where_clause text
 );
 
 
@@ -145,27 +145,6 @@ COMMENT ON COLUMN datasets.discretizer IS '-inf,x0] => 0, (x0,x1] => 1, etc';
 
 
 --
--- Name: datasets_geometry_column_seq; Type: SEQUENCE; Schema: data; Owner: ajolma
---
-
-CREATE SEQUENCE datasets_geometry_column_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
-ALTER TABLE datasets_geometry_column_seq OWNER TO ajolma;
-
---
--- Name: datasets_geometry_column_seq; Type: SEQUENCE OWNED BY; Schema: data; Owner: ajolma
---
-
-ALTER SEQUENCE datasets_geometry_column_seq OWNED BY datasets.geometry_column;
-
-
---
 -- Name: datasets_id_seq; Type: SEQUENCE; Schema: data; Owner: ajolma
 --
 
@@ -184,27 +163,6 @@ ALTER TABLE datasets_id_seq OWNER TO ajolma;
 --
 
 ALTER SEQUENCE datasets_id_seq OWNED BY datasets.id;
-
-
---
--- Name: datasets_where_clause_seq; Type: SEQUENCE; Schema: data; Owner: ajolma
---
-
-CREATE SEQUENCE datasets_where_clause_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
-ALTER TABLE datasets_where_clause_seq OWNER TO ajolma;
-
---
--- Name: datasets_where_clause_seq; Type: SEQUENCE OWNED BY; Schema: data; Owner: ajolma
---
-
-ALTER SEQUENCE datasets_where_clause_seq OWNED BY datasets.where_clause;
 
 
 --
@@ -1361,20 +1319,6 @@ ALTER TABLE ONLY data_models ALTER COLUMN id SET DEFAULT nextval('data_models_id
 --
 
 ALTER TABLE ONLY datasets ALTER COLUMN id SET DEFAULT nextval('datasets_id_seq'::regclass);
-
-
---
--- Name: geometry_column; Type: DEFAULT; Schema: data; Owner: ajolma
---
-
-ALTER TABLE ONLY datasets ALTER COLUMN geometry_column SET DEFAULT nextval('datasets_geometry_column_seq'::regclass);
-
-
---
--- Name: where_clause; Type: DEFAULT; Schema: data; Owner: ajolma
---
-
-ALTER TABLE ONLY datasets ALTER COLUMN where_clause SET DEFAULT nextval('datasets_where_clause_seq'::regclass);
 
 
 --
