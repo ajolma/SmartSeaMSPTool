@@ -213,7 +213,8 @@ sub gdal_dataset_name {
     }
     if ($driver eq 'PG') {
         $path = "$path.$subset";
-        my $so = 'PG:"dbname='.$args->{dbname}.' user='.$args->{db_user}.' password='.$args->{db_passwd}.'"';
+        my $so = 'PG:"dbname='.$args->{db_name}.' user='.$args->{db_user}.' password='.$args->{db_passwd}.'"';
+        say STDERR $so;
         $path = "-so $so '$path'";
     } elsif ($driver eq 'WMS') {
         $path = $args->{data_dir}.$path;
