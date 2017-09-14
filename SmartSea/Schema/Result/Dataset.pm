@@ -47,6 +47,10 @@ my @columns = (
     band            => { data_type => 'integer' },
     discretizer     => { data_type => 'double[]', html_size => 40,
                          comment => "{x0,..}, to be used only for derivatives of real datasets" },
+    gid             => { data_type => 'text', comment => 'PK (for PG datasets)' },
+    burn            => { data_type => 'text', comment => 'burn column (for PG datasets)' },
+    geometry_column => { data_type => 'text', comment => 'geometry column (for PG datasets)' },
+    where_clause    => { data_type => 'text', comment => 'where clause (for PG datasets)' },
     );
 
 __PACKAGE__->table('datasets');
@@ -389,8 +393,20 @@ sub Band {
 
         my $table = $self->subset // '';
         $path = "\"$path\".\"$table\"";
-        my $sql = "select gid,st_transform(geom,$args->{epsg}) as geom from $path";
-        $args->{GDALVectorDataset}->Rasterize($ds, [-burn => 1, -sql => $sql]);
+        my $gid = $self->gid // 'gid';
+        my $burn = $self->burn;
+        my $burn_col = $burn ? ",$burn" : '';
+        my $geom = $self->geometry_column // 'geom';
+        my $where = $self->where_clause // '';
+        $where = "where $where" if $where;
+        my $sql = "select $gid$burn_col,st_transform($geom,$args->{epsg}) as geom from $path $where";
+        my @arg = (-sql => $sql);
+        if ($burn) {
+            push @arg, (-a => $burn);
+        } else {
+            push @arg, (-burn => 1);
+        }
+        $args->{GDALVectorDataset}->Rasterize($ds, \@arg);
         
         return $ds->Band;
 
