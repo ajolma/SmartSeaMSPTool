@@ -59,14 +59,22 @@ MSPController.prototype.datasetValueWidget = function (args) {
             attr.slider_value_id = args.id + '-value';
         }
         if (args.rule) {
-            attr2 = args.rule.getMinMax();
-            attr.min = attr2.min;
-            attr.max = attr2.max;
-            attr.value = args.rule.value;
+            if (args.dataset.semantics) {
+                attr.selected = args.dataset.semantics[args.rule.value];
+            } else {
+                attr2 = args.rule.getMinMax();
+                attr.min = attr2.min;
+                attr.max = attr2.max;
+                attr.value = args.rule.value;
+            }
         } else {
-            attr.min = args.dataset.min_value;
-            attr.max = args.dataset.max_value;
-            attr.value = args.dataset.min_value;
+            if (args.dataset.semantics) {
+                attr.selected = undefined;
+            } else {
+                attr.min = args.dataset.min_value;
+                attr.max = args.dataset.max_value;
+                attr.value = args.dataset.min_value;
+            }
         }
         widget = new Widget(attr);
         args.elem.html(args.elem_pre + element('p', {}, widget.html()));
@@ -160,6 +168,9 @@ MSPController.prototype.editBooleanRule = function (plan, use, layer, rule, data
         } else {
             retval.op = op.getSelected().id;
             retval.value = threshold.getValue();
+            if (dataset.semantics) {
+                retval.value = parseInt(retval.value, 10);
+            }
         }
         return retval;
     };
