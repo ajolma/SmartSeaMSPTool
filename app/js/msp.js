@@ -179,27 +179,14 @@ MSP.prototype = {
         self.newPlans.notify();
         self.changePlan(self.firstPlan);
     },
-    getPlan: function (id) {
-        console.assert(typeof id === "number", {message: "id is not number"});
-        var self = this,
-            i;
-        for (i = 0; i < self.plans.length; i += 1) {
-            if (self.plans[i].id === id) {
-                return this.plans[i];
-            }
+    planByName: function (name) {
+        var self = this;
+        if (!self.plans) {
+            return undefined;
         }
-    },
-    planNameOk: function (name) {
-        var self = this,
-            ok = true,
-            i;
-        for (i = 0; i < self.plans.length; i += 1) {
-            if (self.plans[i].name === name) {
-                ok = false;
-                break;
-            }
-        }
-        return ok;
+        return self.plans.find(function (plan) {
+            return plan.name === name;
+        });
     },
     addPlan: function (plan) {
         var self = this;
@@ -214,16 +201,21 @@ MSP.prototype = {
         self.changePlan(plan.id);
         self.initSite();
     },
-    editPlan: function (plan) {
+    editPlan: function (data) {
         var self = this,
-            plan2 = self.getPlan(plan.id);
-        if (plan2) {
-            plan2.owner = plan.owner;
-            plan2.name = plan.name;
+            plan = self.plans.find(function (plan) {
+                if (plan.id === data.id) {
+                    plan.owner = data.owner;
+                    plan.name = data.name;
+                    return true;
+                }
+                return false;
+            });
+        if (plan) {
+            self.newPlans.notify();
+            self.changePlan(plan.id);
+            self.initSite();
         }
-        self.newPlans.notify();
-        self.changePlan(plan2.id);
-        self.initSite();
     },
     setPlanData: function (data) {
         var self = this;
@@ -233,7 +225,6 @@ MSP.prototype = {
             self.plan.data[dataset.id] = 1;
         });
         /*jslint unparam: false*/
-        // add datasets to Data plan?
         self.changePlan(self.plan.id);
     },
     deletePlan: function (id) {
@@ -272,47 +263,65 @@ MSP.prototype = {
         /*jslint unparam: false*/
         return datasets;
     },
+    by_name: function (a, b) {
+        if (a.name < b.name) {
+            return -1;
+        }
+        if (a.name > b.name) {
+            return 1;
+        }
+        return 0;
+    },
+    datasetsForDataUse: function () {
+        var self = this,
+            datasets = self.datasetsInRules(),
+            array = [];
+        /*jslint unparam: true*/
+        // add to dataUse those that have dataset_id in data
+        $.each(self.plan.data, function (id, i) { // self.plan.data is existence hash
+            var dataset = self.datasets.layers.find(function (layer) {
+                return layer.id === parseInt(id, 10); // hash key is always a string
+            });
+            if (dataset) {
+                datasets[id] = dataset;
+            }
+        });
+        $.each(datasets, function (id, layer) {
+            array.push(layer);
+        });
+        /*jslint unparam: false*/
+        return array.sort(self.by_name);
+    },
+    resetPlan: function () {
+        var self = this,
+            uses = self.plan.uses.slice();
+        self.plan.uses = [];
+        /*jslint unparam: true*/
+        $.each(uses, function (i, use) {
+            if (use.id > 1) {
+                self.plan.uses.push(use);
+            }
+        });
+        /*jslint unparam: false*/
+    },
     changePlan: function (id) {
         console.assert(typeof id === "number", {message: "id is not number"});
         var self = this,
-            newUses = [],
-            datasets = { // pseudo use
+            dataUse = { // pseudo use
                 id: self.datasets.id,
                 class_id: self.datasets.class_id,
                 owner: self.datasets.owner,
                 name: self.datasets.name
-            },
-            layers,
-            by_name = function (a, b) {
-                if (a.name < b.name) {
-                    return -1;
-                }
-                if (a.name > b.name) {
-                    return 1;
-                }
-                return 0;
-            },
-            array = [],
-            uses;
+            };
 
-        /*jslint unparam: true*/
-        // remove extra uses
         if (self.plan) {
-            $.each(self.plan.uses, function (i, use) {
-                if (use.id > 1) {
-                    newUses.push(use);
-                }
-            });
-            this.plan.uses = newUses;
+            self.resetPlan();
         }
-        self.plan = null;
-        self.layer = null;
-        $.each(self.plans, function (i, plan) {
-            if (id === plan.id) {
-                self.plan = plan;
-                return false;
-            }
+        // set the requested plan
+        self.plan = self.plans.find(function (plan) {
+            return plan.id === id;
         });
+        // checks
         if (!self.plan) {
             if (self.plans.length > 0) {
                 self.plan = self.plans[0];
@@ -325,29 +334,14 @@ MSP.prototype = {
                 };
             }
         }
+        self.layer = null;
 
-        // add to datasets those that have dataset_id in any rule
-        layers = self.datasetsInRules();
-        // add to datasets those that have dataset_id in data
-        $.each(self.plan.data, function (key, id) {
-            $.each(self.datasets.layers, function (i, layer) {
-                if (layer.id === parseInt(key, 10)) { // key is always string
-                    layers[key] = layer;
-                    return false;
-                }
-            });
-        });
-        $.each(layers, function (i, layer) {
-            array.push(layer);
-        });
-        /*jslint unparam: false*/
-        datasets.layers = array.sort(by_name);
-        uses = self.plan.uses.sort(by_name);
-        self.plan.uses = uses;
+        dataUse.layers = self.datasetsForDataUse();
 
-        // add datasets and ecosystem as an extra use
+        self.plan.uses.sort(self.by_name);
+        // add dataUse and ecosystem as an extra use
         self.plan.uses.push(self.ecosystem);
-        self.plan.uses.push(datasets);
+        self.plan.uses.push(dataUse);
         self.createLayers();
         if (self.plan) {
             self.planChanged.notify({ plan: self.plan });
@@ -509,20 +503,33 @@ MSP.prototype = {
         });
     },
     addRule: function (rule) {
-        var self = this;
+        var self = this,
+            dataUse = self.plan.uses.find(function (use) {
+                return use.name === 'Data';
+            }),
+            dataset = dataUse.layers.find(function (layer) {
+                return layer.id === rule.dataset.id;
+            });
         self.layer.addRule(rule);
-        // add rule.dataset to use 'Data'?
-        self.rulesChanged.notify();
+        if (!dataset) {
+            dataUse.layers = self.datasetsForDataUse();
+            self.createLayers();
+        }
+        self.selectLayer({use: self.layer.use.id, layer: self.layer.id});
     },
     getRule: function (id) {
         var self = this;
         return self.layer.getRule(id);
     },
     deleteRules: function (rules) {
-        var self = this;
+        var self = this,
+            dataUse = self.plan.uses.find(function (use) {
+                return use.name === 'Data';
+            });
         self.layer.deleteRules(rules);
-        // remove rule.dataset(s) from use 'Data'?
-        self.rulesChanged.notify();
+        dataUse.layers = self.datasetsForDataUse();
+        self.createLayers();
+        self.selectLayer({use: self.layer.use.id, layer: self.layer.id});
     },
     initSite: function () {
         var self = this,

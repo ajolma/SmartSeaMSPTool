@@ -290,7 +290,7 @@ MSPController.prototype = {
         self.editor.html(html);
         self.ok = function () {
             name = $(self.editor_id + ' #' + name).val();
-            if (self.model.planNameOk(name)) {
+            if (!self.model.planByName(name)) {
                 self.post({
                     url: self.server + 'plan?request=save',
                     payload: { name: name },
@@ -310,19 +310,26 @@ MSPController.prototype = {
         };
         self.editor.dialog('open');
     },
-    editPlan: function (plan) {
+    editPlan: function (plan, args) {
         var self = this,
             name = 'plan-name',
             html = element('p', {}, 'Suunnitelman nimi: ' +
                            element('input', {type: 'text', id: name, value: plan.name}, ''));
 
+        if (!args) {
+            args = {};
+        }
         self.editor.dialog('option', 'title', 'Suunnitelma');
         self.editor.dialog('option', 'height', 400);
         self.setEditorButtons(true);
+
+        if (args.error) {
+            html = element('p', {style: 'color:red;'}, args.error) + html;
+        }
         self.editor.html(html);
         self.ok = function () {
             name = $(self.editor_id + ' #' + name).val();
-            if (self.model.planNameOk(name)) {
+            if (!self.model.planByName(name)) {
                 self.post({
                     url: self.server + 'plan:' + plan.id + '?request=update',
                     payload: { name: name },
@@ -335,7 +342,7 @@ MSPController.prototype = {
                     }
                 });
             } else {
-                self.addPlan({error: "Suunnitelma '" + name + "' on jo olemassa."});
+                self.editPlan(plan, {error: "Suunnitelma '" + name + "' on jo olemassa."});
                 return false;
             }
             return true;

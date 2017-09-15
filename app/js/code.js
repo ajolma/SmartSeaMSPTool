@@ -28,7 +28,7 @@ DAMAGE.
 
 "use strict";
 /*jslint browser: true*/
-/*global $, jQuery, alert, ol, element, getConfig, projection, MSP, MSPView, MSPController*/
+/*global $, jQuery, alert, ol, element, getConfig, projection, makeMenu, MSP, MSPView, MSPController*/
 
 function makeConfig() {
     var config = window.location.href.replace(/app[\w\W]*/, 'config'),
@@ -149,11 +149,16 @@ function makeConfig() {
         map = new ol.Map({
             layers: [],
             target: 'map',
+            controls: ol.control.defaults().extend([
+                new ol.control.FullScreen()
+            ]),
+            /*
             controls: ol.control.defaults({
                 attributionOptions: {
                     collapsible: false
                 }
             }),
+            */
             view: config.proj.view
         }),
         model = new MSP({
@@ -183,7 +188,13 @@ function makeConfig() {
             uses: "#useslist",
             rules: "#rules"
         }),
-        controller = new MSPController(model, view);
+        controller = new MSPController(model, view),
+        sourceSwap = function () {
+            var $this = $(this),
+                newSource = $this.data('hilite-src');
+            $this.data('hilite-src', $this.attr('src'));
+            $this.attr('src', newSource);
+        };
 
     $('body').addClass('stop-scrolling');
     $('.menu').hide();
@@ -217,13 +228,6 @@ function makeConfig() {
     });
     view.windowResize();
 
-    var sourceSwap = function () {
-        var $this = $(this);
-        var newSource = $this.data('hilite-src');
-        $this.data('hilite-src', $this.attr('src'));
-        $this.attr('src', newSource);
-    }
-
     $(function () {
         $('img.main-menu').hover(sourceSwap, sourceSwap);
         $('img.main-menu').click(function (event) {
@@ -233,7 +237,7 @@ function makeConfig() {
                 menu: $('#main-menu-ul'),
                 right: 24,
                 options: options,
-                select: function (cmd) {
+                select: function () { // cmd
                     controller.loadPlans();
                 },
                 event: event
