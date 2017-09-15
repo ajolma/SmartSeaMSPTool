@@ -692,6 +692,8 @@ MSPController.prototype = {
 
                 } else {
                     rule_class_extra.html('');
+                    rule_class_extra2.html('');
+                    rule_class_extra3.html('');
                 }
                 return changed;
             }()));
