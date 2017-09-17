@@ -292,7 +292,7 @@ function Menu(args) {
     self.menu.menu({
         select: function (event, ui) {
             var cmd = ui.item.children().attr('tag');
-            self.menu.menu.hide();
+            self.menu.hide();
             args.select(cmd);
         }
     });

@@ -114,7 +114,7 @@ MSPController.prototype = {
 
             self.view.planCommand.attach(function (ignore, args) {
                 if (args.cmd === 'add') {
-                    self.addPlan();
+                    self.editPlan(null);
                 } else if (args.cmd === 'edit') {
                     self.editPlan(self.model.plan);
                 } else if (args.cmd === 'delete') {
@@ -172,24 +172,40 @@ MSPController.prototype = {
     },
     setEditorButtons: function (ok) {
         var self = this,
-            buttons = ok ? {
-                Ok: function () {
-                    if (self.ok()) {
+            buttons = ok
+                ? {
+                    Ok: function () {
+                        if (self.ok()) {
+                            self.editor.dialog('close');
+                        }
+                    },
+                    Cancel: function () {
                         self.editor.dialog('close');
                     }
-                },
-                Cancel: function () {
-                    self.editor.dialog('close');
                 }
-            } : {
-                Apply: function () {
-                    self.apply();
-                },
-                Close: function () {
-                    self.editor.dialog('close');
-                }
-            };
+                : {
+                    Apply: function () {
+                        self.apply();
+                    },
+                    Close: function () {
+                        self.editor.dialog('close');
+                    }
+                };
         self.editor.dialog('option', 'buttons', buttons);
+    },
+    setEditor: function (options) {
+        var self = this;
+        if (options.title) {
+            self.editor.dialog('option', 'title', options.title);
+        }
+        self.editor.dialog('option', 'width', options.width || 350);
+        self.editor.dialog('option', 'height', options.height || 400);
+        if (options.html) {
+            self.editor.html(options.error
+                ? element('p', {style: 'color:red;'}, options.error) + options.html
+                : options.html);
+        }
+        self.setEditorButtons(!options.applyClose);
     },
     error: function (msg) {
         var self = this;
@@ -269,73 +285,36 @@ MSPController.prototype = {
             }
         });
     },
-    addPlan: function (args) {
+    editPlan: function (plan, args) {
         var self = this,
-            name = 'plan-name',
-            html = 'Anna nimi suunnitelmalle: ' + element('input', {type: 'text', id: name}, '');
-
+            name = 'plan-name';
         if (!args) {
             args = {};
         }
-        self.editor.dialog('option', 'title', 'Uusi suunnitelma');
-        self.editor.dialog('option', 'height', 400);
-        self.setEditorButtons(true);
-
-        if (args.error) {
-            html = element('p', {style: 'color:red;'}, args.error) + html;
-        }
-        self.editor.html(html);
+        self.setEditor({
+            title: 'Suunnitelma',
+            html: element('p', {}, 'Suunnitelman nimi: ' +
+                          element('input', {type: 'text', id: name, value: plan ? plan.name : ''}, '')),
+            error: args.error
+        });
         self.ok = function () {
+            var request = plan ? 'plan:' + plan.id + '?request=update' : 'plan?request=save';
             name = $(self.editor_id + ' #' + name).val();
             if (!self.model.planByName(name)) {
                 self.post({
-                    url: self.server + 'plan?request=save',
+                    url: self.server + request,
                     payload: { name: name },
                     atSuccess: function (data) {
-                        var plan = {
+                        var plan_data = {
                             id: data.id.value,
                             owner: data.owner.value,
                             name: data.name.value
                         };
-                        self.model.addPlan(plan);
-                    }
-                });
-            } else {
-                self.addPlan({error: 'Suunnitelma \'' + name + '\' on jo olemassa.'});
-                return false;
-            }
-        };
-        self.editor.dialog('open');
-    },
-    editPlan: function (plan, args) {
-        var self = this,
-            name = 'plan-name',
-            html = element('p', {}, 'Suunnitelman nimi: ' +
-                           element('input', {type: 'text', id: name, value: plan.name}, ''));
-
-        if (!args) {
-            args = {};
-        }
-        self.editor.dialog('option', 'title', 'Suunnitelma');
-        self.editor.dialog('option', 'height', 400);
-        self.setEditorButtons(true);
-
-        if (args.error) {
-            html = element('p', {style: 'color:red;'}, args.error) + html;
-        }
-        self.editor.html(html);
-        self.ok = function () {
-            name = $(self.editor_id + ' #' + name).val();
-            if (!self.model.planByName(name)) {
-                self.post({
-                    url: self.server + 'plan:' + plan.id + '?request=update',
-                    payload: { name: name },
-                    atSuccess: function (data) {
-                        self.model.editPlan({
-                            id: data.id.value,
-                            owner: data.owner.value,
-                            name: data.name.value
-                        });
+                        if (plan) {
+                            self.model.editPlan(plan_data);
+                        } else {    
+                            self.model.addPlan(plan_data);
+                        }
                     }
                 });
             } else {
@@ -348,11 +327,10 @@ MSPController.prototype = {
     },
     deletePlan: function (plan) {
         var self = this;
-        self.editor.dialog('option', 'title', 'Poista suunnitelma?');
-        self.editor.dialog('option', 'height', 400);
-        self.setEditorButtons(true);
-
-        self.editor.html('Haluatko varmasti poistaa koko suunnitelman \'' + plan.name + '\'?');
+        self.setEditor({
+            title: 'Poista suunnitelma?',
+            html: 'Haluatko varmasti poistaa koko suunnitelman \'' + plan.name + '\'?'
+        });
         self.ok = function () {
             self.post({
                 url: self.server + 'plan:' + plan.id + '?request=delete',
@@ -367,11 +345,7 @@ MSPController.prototype = {
     addUse: function (plan) {
         var self = this,
             id = 'use-id',
-            list = '',
-            html;
-        self.editor.dialog('option', 'title', 'New use');
-        self.editor.dialog('option', 'height', 400);
-        self.setEditorButtons(true);
+            list = '';
 
         $.each(self.klasses.use_class, function (i, klass) {
             if (!self.model.hasUse(klass.id)) {
@@ -379,8 +353,11 @@ MSPController.prototype = {
             }
         });
 
-        html = 'Select the class for the new use: ' + element('select', {id: id}, list);
-        self.editor.html(html);
+        self.setEditor({
+            title: 'Uusi käyttömuoto',
+            html: 'Select the class for the new use: ' + element('select', {id: id}, list)
+        });
+
         self.ok = function () {
             id = $(self.editor_id + ' #' + id).val();
             self.post({
@@ -410,12 +387,6 @@ MSPController.prototype = {
     editUse: function (use) {
         var self = this;
         self.getData('use_class:' + use.class_id + '/activities', function (activities) {
-            var html;
-
-            self.editor.dialog('option', 'title', use.name);
-            self.editor.dialog('option', 'height', 400);
-            self.setEditorButtons(true);
-
             $.each(activities, function (i, item) {
                 activities[item.id] = item;
             });
@@ -427,10 +398,11 @@ MSPController.prototype = {
                 selected: activities,
                 pretext: ''
             });
-            html = element('p', {}, 'Activities in this use. Sorry, not editable.')
-                + element('p', {}, activities.html());
-
-            self.editor.html(html);
+            self.setEditor({
+                title: use.name,
+                html: element('p', {}, 'Activities in this use. Sorry, not editable.')
+                    + element('p', {}, activities.html())
+            });
             self.ok = function () {
                 return true;
             };
@@ -441,11 +413,7 @@ MSPController.prototype = {
         var self = this,
             inRules = self.model.datasetsInRules(),
             notInRules = [],
-            datasets,
-            html;
-        self.editor.dialog('option', 'title', 'Dataset list');
-        self.editor.dialog('option', 'height', 400);
-        self.setEditorButtons(true);
+            datasets;
 
         // put into the list those datasets that are not in rules
         // selected are those in plan.data
@@ -463,8 +431,11 @@ MSPController.prototype = {
             pretext: 'Select the extra datasets for this plan: '
         });
 
-        html = element('p', {}, datasets.html());
-        self.editor.html(html);
+        self.setEditor({
+            title: 'Dataset list',
+            html: element('p', {}, datasets.html())
+        });
+
         self.ok = function () {
             var selected = datasets.getSelectedIds(),
                 update = '';
@@ -487,11 +458,11 @@ MSPController.prototype = {
     },
     deleteUse: function (plan, use) {
         var self = this;
-        self.editor.dialog('option', 'title', 'Poista käyttömuoto?');
-        self.editor.dialog('option', 'height', 400);
-        self.setEditorButtons(true);
-
-        self.editor.html('Haluatko varmasti poistaa käyttömuodon \'' + use.name + '\' suunnitelmasta \'' + plan.name + '\'?');
+        self.setEditor({
+            title: 'Poista käyttömuoto?',
+            html: 'Haluatko varmasti poistaa käyttömuodon \'' + use.name +
+                '\' suunnitelmasta \'' + plan.name + '\'?'
+        });
         self.ok = function () {
             self.post({
                 url: self.server + 'use:' + use.id + '?request=delete',
@@ -621,21 +592,13 @@ MSPController.prototype = {
                   element('p', {}, rule_class_list.html()),
 
             value_from = function (obj) {
-                if (obj) {
-                    return obj.value;
-                }
-                return null;
+                return obj ? obj.value : null;
             };
 
         if (!layer && available_layer_classes.length === 0) {
             self.error('No more slots for layers in this use.');
             return;
         }
-
-        self.editor.dialog('option', 'title', 'Layer for ' + use.name);
-        self.editor.dialog('option', 'width', 500);
-        self.editor.dialog('option', 'height', 600);
-        self.setEditorButtons(!layer);
 
         html = element('p', {}, 'This layer is computed by rules.') + html;
         html += element('p', {}, rule_class_extra.html());
@@ -645,7 +608,14 @@ MSPController.prototype = {
             html += element('p', {}, 'The color setting is temporary for datasets.');
         }
         html += element('p', {}, palette.html());
-        self.editor.html(html);
+
+        self.setEditor({
+            title: 'Layer for ' + use.name,
+            width: 500,
+            height: 600,
+            applyClose: layer,
+            html: html
+        });
 
         if (layer) {
             if (layer.rule_class === mspEnum.BAYESIAN_NETWORK) {
@@ -758,7 +728,8 @@ MSPController.prototype = {
                 layer.refresh();
                 self.model.selectLayer({use: use.id, layer: layer.id});
             } else {
-                url = self.server + 'plan:' + plan.id + '/uses:' + use.id + '/layers:' + layer.id + '?request=update';
+                url = self.server + 'plan:' + plan.id + '/uses:' + use.id +
+                    '/layers:' + layer.id + '?request=update';
                 self.post({
                     url: url,
                     payload: payload,
@@ -786,11 +757,11 @@ MSPController.prototype = {
     },
     deleteLayer: function (use, layer) {
         var self = this;
-        self.editor.dialog('option', 'title', 'Poista taso?');
-        self.editor.dialog('option', 'height', 400);
-        self.setEditorButtons(true);
-
-        self.editor.html('Haluatko varmasti poistaa tason \'' + layer.name + '\' käyttömuodosta \'' + use.name + '\'?');
+        self.setEditor({
+            title: 'Poista taso?',
+            html: 'Haluatko varmasti poistaa tason \'' + layer.name +
+                '\' käyttömuodosta \'' + use.name + '\'?'
+        });
         self.ok = function () {
             self.post({
                 url: self.server + 'layer:' + layer.id + '?request=delete',
@@ -816,15 +787,14 @@ MSPController.prototype = {
                 }),
             getPayload,
             value_from = function (obj) {
-                if (obj) {
-                    return obj.value;
-                }
-                return null;
+                return obj ? obj.value : null;
             };
 
-        self.editor.dialog('option', 'title', 'Sääntö tasossa ' + layer.name);
-        self.editor.dialog('option', 'height', 500);
-        self.setEditorButtons(!rule);
+        self.setEditor({
+            title: 'Sääntö tasossa ' + layer.name,
+            height: 500,
+            applyClose: rule
+        });
 
         if (layer.rule_class === mspEnum.EXCLUSIVE) {
             getPayload = self.editBooleanRule(plan, use, layer, rule, dataset);
@@ -905,14 +875,12 @@ MSPController.prototype = {
                 nameForItem: function (rule) {
                     return rule.getName();
                 }
-            }),
-            html = element('p', {}, 'Select rules to delete:') + rules.html();
+            });
 
-        self.editor.dialog('option', 'title', 'Delete rules from layer \'' + layer.name + '\'');
-        self.editor.dialog('option', 'height', 400);
-        self.setEditorButtons(true);
-
-        self.editor.html(html);
+        self.setEditor({
+            title: 'Delete rules from layer \'' + layer.name + '\'',
+            html: element('p', {}, 'Select rules to delete:') + rules.html()
+        });
 
         self.ok = function () {
             var selected = rules.getSelectedIds(),
@@ -924,7 +892,8 @@ MSPController.prototype = {
                 deletes += 'rule=' + id;
             });
             self.post({
-                url: self.server + 'plan:' + plan.id + '/uses:' + use.id + '/layers:' + layer.id + '/rules?request=delete',
+                url: self.server + 'plan:' + plan.id + '/uses:'
+                    + use.id + '/layers:' + layer.id + '/rules?request=delete',
                 payload: deletes,
                 atSuccess: function () {
                     self.model.deleteRules(selected);
