@@ -26,14 +26,13 @@ USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 DAMAGE.
 */
 
-"use strict";
-/*jslint browser: true*/
-/*global $, jQuery, alert, ol*/
+'use strict';
+/*global alert, ol*/
 
-function projection(options) {
-    var p = ol.proj.get('EPSG:' + options.epsg),
+function Projection(options) {
+    var self = this,
+        p = ol.proj.get('EPSG:' + options.epsg),
         extent,
-        proj,
         size,
         z_n,
         z;
@@ -43,23 +42,23 @@ function projection(options) {
     } else {
         extent = p.getExtent();
     }
-    proj = {
-        projection: p,
-        matrixSet: options.matrixSet,
-        view: new ol.View({
-            projection: p, // needed at least for 3067, not for 3857
-            center: options.center,
-            zoom: options.zoom
-        }),
-        extent: extent
-    };
+    self.projection = p;
+    self.matrixSet = options.matrixSet;
+    self.view = new ol.View({
+        projection: p, // needed at least for 3067, not for 3857
+        center: options.center,
+        zoom: options.zoom
+    });
+    self.extent = extent;
     size = ol.extent.getWidth(extent) / 256;
     z_n = 16;
-    proj.resolutions = [];
-    proj.matrixIds = [];
+    self.resolutions = [];
+    self.matrixIds = [];
     for (z = 0; z < z_n; z += 1) {
-        proj.resolutions[z] = size / Math.pow(2, z);
-        proj.matrixIds[z] = z;
+        self.resolutions[z] = size / Math.pow(2, z);
+        self.matrixIds[z] = z;
     }
-    return proj;
 }
+
+Projection.prototype = {
+};

@@ -26,9 +26,8 @@ USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 DAMAGE.
 */
 
-"use strict";
-/*jslint browser: true*/
-/*global $, jQuery, alert, ol, Event, element, makeMenu*/
+'use strict';
+/*global $, alert, ol, Event, element, Menu*/
 
 // after https://alexatnet.com/articles/model-view-controller-mvc-javascript
 
@@ -59,27 +58,27 @@ function MSPView(model, elements, id) {
     // model event listeners
 
     /*jslint unparam: true*/
-    self.model.newPlans.attach(function (sender, args) {
+    self.model.newPlans.attach(function () {
         self.buildPlans();
     });
     self.model.planChanged.attach(function (sender, args) {
         self.elements.plans.val(args.plan.id);
         self.buildPlan();
     });
-    self.model.newLayerList.attach(function (sender, args) {
+    self.model.newLayerList.attach(function () {
         self.buildLayers();
     });
-    self.model.layerSelected.attach(function (sender, args) {
+    self.model.layerSelected.attach(function () {
         self.selectLayer();
         self.fillRulesPanel();
     });
     self.model.layerUnselected.attach(function (sender, args) {
         self.unselectLayer(args);
     });
-    self.model.rulesChanged.attach(function (sender, args) {
+    self.model.rulesChanged.attach(function () {
         self.fillRulesPanel();
     });
-    self.model.ruleEdited.attach(function (sender, args) {
+    self.model.ruleEdited.attach(function () {
         self.fillRulesPanel();
     });
     self.model.siteInitialized.attach(function (sender, args) {
@@ -140,7 +139,8 @@ MSPView.prototype = {
     buildPlan: function () {
         // activate selected plan
         var self = this,
-            options;
+            options,
+            menu;
         if (self.model.auth) {
             options = [{cmd: 'add', label: 'Add...'}];
             if (self.model.plan.owner === self.model.user) {
@@ -148,7 +148,7 @@ MSPView.prototype = {
                 options.push({cmd: 'delete', label: 'Delete...'});
                 options.push({cmd: 'add_use', label: 'Add use...'});
             }
-            makeMenu({
+            menu = new Menu({
                 element: self.elements.plan,
                 menu: self.elements.plan_menu,
                 options: options,
@@ -156,6 +156,7 @@ MSPView.prototype = {
                     self.planCommand.notify({cmd: cmd});
                 }
             });
+            menu.activate();
         }
         $('#plan-owner').html('Owner: ' + self.model.plan.owner);
         self.elements.rules.empty();
@@ -170,7 +171,7 @@ MSPView.prototype = {
             item = element('div', {id: id, class: klass}, layer.name),
             retval = '';
         if (auth) {
-            item += element('ul', {class: 'menu', id: "menu" + layer.id, style: 'display:none'}, '');
+            item += element('ul', {class: 'menu', id: 'menu' + layer.id, style: 'display:none'}, '');
         }
         retval = element('input', attr, item + '<br/>');
         attr = {class: 'opacity' + layer.id, type: 'range', min: '0', max: '1', step: '0.01'};
@@ -183,13 +184,14 @@ MSPView.prototype = {
             auth = self.model.isAuthorized({use: use}),
             klass = auth ? 'context-menu' : 'tree-item',
             use_text = element('div', {class: klass}, use.name),
-            button = use.layers.length > 0 ?
-                    element('button', {class: 'use', type: 'button'}, '&rtrif;') + '&nbsp;' : '',
+            button = use.layers.length > 0
+                ? element('button', {class: 'use', type: 'button'}, '&rtrif;') + '&nbsp;'
+                : '',
             use_item = button  +  use_text,
             layers = '';
         use_item = element('label', {title: 'Owner: ' + use.owner}, use_item);
         if (auth) {
-            use_item += element('ul', {class: 'menu', id: "menu", style: 'display:none'}, '');
+            use_item += element('ul', {class: 'menu', id: 'menu', style: 'display:none'}, '');
         }
         /*jslint unparam: true*/
         $.each(use.layers, function (j, layer) {
@@ -203,9 +205,10 @@ MSPView.prototype = {
         var self = this;
         /*jslint unparam: true*/
         $.each(self.model.plan.uses, function (i, use) {
-            var selector = self.id.uses + " #use" + use.id,
+            var selector = self.id.uses + ' #use' + use.id,
                 item = self.usesItem(use),
-                options = [];
+                options = [],
+                menu;
             self.elements.layers.append(item.element);
 
             if (!self.model.auth) {
@@ -226,31 +229,35 @@ MSPView.prototype = {
                     options.push({cmd: 'add_layer', label: 'Add layer...'});
                 }
             }
-            makeMenu({
-                element: $(selector + " label"),
-                menu: $(selector + " #menu"),
+            menu = new Menu({
+                element: $(selector + ' label'),
+                menu: $(selector + ' #menu'),
                 options: options,
                 select: function (cmd) {
                     self.useCommand.notify({cmd: cmd, use: use});
                 }
             });
+            menu.activate();
 
             $.each(use.layers, function (j, layer) {
                 var auth = self.model.isAuthorized({layer: layer}),
-                    options2 = [];
+                    options2 = [],
+                    menu;
                 if (!auth) {
                     return true;
                 }
                 options2.push({cmd: 'edit', label: 'Edit...'});
                 if (use.id > 2) {
                     options2.push({cmd: 'delete', label: 'Delete...'});
-                    options2.push([{label: 'Rule'},
-                                   {cmd: 'add_rule', label: 'Add...'},
-                                   {cmd: 'delete_rule', label: 'Delete...'}]);
+                    options2.push([
+                        {label: 'Rule'},
+                        {cmd: 'add_rule', label: 'Add...'},
+                        {cmd: 'delete_rule', label: 'Delete...'}
+                    ]);
                 }
-                makeMenu({
-                    element: $(selector + " #layer" + layer.id),
-                    menu: $(selector + " #menu" + layer.id),
+                menu = new Menu({
+                    element: $(selector + ' #layer' + layer.id),
+                    menu: $(selector + ' #menu' + layer.id),
                     options: options2,
                     prelude: function () {
                         self.model.unselectLayer();
@@ -260,6 +267,7 @@ MSPView.prototype = {
                         self.layerCommand.notify({cmd: cmd, use: use, layer: layer});
                     }
                 });
+                menu.activate();
             });
         });
     },
@@ -273,7 +281,7 @@ MSPView.prototype = {
         // attach controllers:
         /*jslint unparam: true*/
         $.each(self.model.plan.uses, function (i, use) {
-            var selector = self.id.uses + " #use" + use.id,
+            var selector = self.id.uses + ' #use' + use.id,
                 useButton = $(selector + ' button.use');
 
             // edit use
@@ -283,7 +291,7 @@ MSPView.prototype = {
 
             // open and close a use item
             useButton.on('click', null, {use: use}, function (event) {
-                $(self.id.uses + " #use" + event.data.use.id + ' div.use').toggle();
+                $(self.id.uses + ' #use' + event.data.use.id + ' div.use').toggle();
                 if (!this.flipflop) {
                     this.flipflop = 1;
                     $(this).html('&dtrif;');
@@ -299,7 +307,7 @@ MSPView.prototype = {
             // show/hide layer and set its transparency
             $.each(use.layers, function (j, layer) {
                 // select and unselect a layer
-                $("#use" + use.id + " #layer" + layer.id).click(function () {
+                $('#use' + use.id + ' #layer' + layer.id).click(function () {
                     var layer2 = self.model.unselectLayer();
                     if (!layer2 || !(layer2.id === layer.id && layer2.use.class_id === layer.use.class_id)) {
                         self.model.selectLayer({use: use.id, layer: layer.id});
@@ -309,7 +317,7 @@ MSPView.prototype = {
                 var cb = $(selector + ' input.visible' + layer.id),
                     slider = $(selector + ' input.opacity' + layer.id);
                 cb.change({use: use, layer: layer}, function (event) {
-                    $(self.id.uses + " #use" + event.data.use.id + ' div.opacity' + event.data.layer.id).toggle();
+                    $(self.id.uses + ' #use' + event.data.use.id + ' div.opacity' + event.data.layer.id).toggle();
                     event.data.layer.setVisible(this.checked);
                     if (this.checked) {
                         self.model.unselectLayer();

@@ -26,24 +26,9 @@ USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 DAMAGE.
 */
 
-"use strict";
+'use strict';
 /*jslint browser: true*/
-/*global $, jQuery, alert, ol, Event, MSPLayer*/
-
-var mspEnum = {
-    BAYESIAN_NETWORK: 'Bayesian network',
-    BOXCAR: 'boxcar',
-    EXCLUSIVE: 'exclusive',
-    INCLUSIVE: 'inclusive',
-    ADDITIVE: 'additive',
-    MULTIPLICATIVE: 'multiplicative',
-};
-
-var mspStrings = {
-    THIS_IS_A_LAYER: function (a, b) {
-        return 'This is a layer made by ' + a + ' rules and defined by ' + b + '.';
-    }
-};
+/*global $, alert, ol, Event, MSPLayer*/
 
 // after https://alexatnet.com/articles/model-view-controller-mvc-javascript
 
@@ -228,7 +213,6 @@ MSP.prototype = {
         self.changePlan(self.plan.id);
     },
     deletePlan: function (id) {
-        console.assert(typeof id === "number", {message: "id is not number"});
         var self = this,
             plans = [],
             i;
@@ -250,7 +234,6 @@ MSP.prototype = {
     datasetsInRules: function () {
         var self = this,
             datasets = {};
-        /*jslint unparam: true*/
         $.each(self.plan.uses, function (i, use) {
             if (use.id > 1) {
                 $.each(use.layers, function (i, layer) {
@@ -260,7 +243,6 @@ MSP.prototype = {
                 });
             }
         });
-        /*jslint unparam: false*/
         return datasets;
     },
     by_name: function (a, b) {
@@ -276,9 +258,8 @@ MSP.prototype = {
         var self = this,
             datasets = self.datasetsInRules(),
             array = [];
-        /*jslint unparam: true*/
         // add to dataUse those that have dataset_id in data
-        $.each(self.plan.data, function (id, i) { // self.plan.data is existence hash
+        $.each(self.plan.data, function (id) { // self.plan.data is existence hash
             var dataset = self.datasets.layers.find(function (layer) {
                 return layer.id === parseInt(id, 10); // hash key is always a string
             });
@@ -289,23 +270,19 @@ MSP.prototype = {
         $.each(datasets, function (id, layer) {
             array.push(layer);
         });
-        /*jslint unparam: false*/
         return array.sort(self.by_name);
     },
     resetPlan: function () {
         var self = this,
             uses = self.plan.uses.slice();
         self.plan.uses = [];
-        /*jslint unparam: true*/
         $.each(uses, function (i, use) {
             if (use.id > 1) {
                 self.plan.uses.push(use);
             }
         });
-        /*jslint unparam: false*/
     },
     changePlan: function (id) {
-        console.assert(typeof id === "number", {message: "id is not number"});
         var self = this,
             dataUse = { // pseudo use
                 id: self.datasets.id,
@@ -350,9 +327,7 @@ MSP.prototype = {
     setUseOrder: function (order) {
         var self = this,
             newUses = [];
-        /*jslint unparam: true*/
         $.each(order, function (i, id) {
-            console.assert(typeof id === "number", {message: "id is not number in order"});
             $.each(self.plan.uses, function (j, use) {
                 if (use.id === id) {
                     newUses.push(use);
@@ -360,7 +335,6 @@ MSP.prototype = {
                 }
             });
         });
-        /*jslint unparam: false*/
         self.plan.uses = newUses;
         self.createLayers();
     },
@@ -370,30 +344,24 @@ MSP.prototype = {
         self.createLayers();
     },
     hasUse: function (class_id) {
-        console.assert(typeof class_id === "number", {message: "class id is not number"});
         var self = this,
             retval = false;
-        /*jslint unparam: true*/
         $.each(self.plan.uses, function (i, use) {
             if (use.class_id === class_id) {
                 retval = true;
                 return false;
             }
         });
-        /*jslint unparam: false*/
         return retval;
     },
     deleteUse: function (id) {
-        console.assert(typeof id === "number", {message: "id is not number"});
         var self = this,
             uses = [];
-        /*jslint unparam: true*/
         $.each(self.plan.uses, function (i, use) {
             if (use.id !== id) {
                 uses.push(use);
             }
         });
-        /*jslint unparam: false*/
         self.plan.uses = uses;
         self.createLayers();
     },
@@ -401,17 +369,13 @@ MSP.prototype = {
         var self = this;
         self.removeSite();
         // reverse order to show in correct order, slice to not to mutate
-        /*jslint unparam: true*/
         $.each(self.plan.uses.slice().reverse(), function (i, use) {
             $.each(use.layers.slice().reverse(), function (j, layer) {
                 if (layer) {
                     layer.addToMap();
-                } else {
-                    console.log("Layer undefined in use " + use.id + " " + j);
                 }
             });
         });
-        /*jslint unparam: false*/
         self.newLayerList.notify();
         self.addSite();
     },
@@ -421,14 +385,11 @@ MSP.prototype = {
         self.createLayers();
     },
     deleteLayer: function (use_id, layer_id) {
-        console.assert(typeof use_id === "number", {message: "use id is not number"});
-        console.assert(typeof layer_id === "number", {message: "layer id is not number"});
         var self = this,
             use = self.plan.uses.find(function (u) {
                 return u.id === use_id;
             }),
             layers = [];
-        /*jslint unparam: true*/
         $.each(use.layers, function (j, layer) {
             if (layer.id === layer_id) {
                 layer.removeFromMap();
@@ -437,7 +398,6 @@ MSP.prototype = {
             }
         });
         use.layers = layers;
-        /*jslint unparam: false*/
         self.createLayers();
     },
     removeLayers: function () {
@@ -445,13 +405,11 @@ MSP.prototype = {
         if (!self.plan) {
             return;
         }
-        /*jslint unparam: true*/
         $.each(self.plan.uses, function (i, use) {
             $.each(use.layers, function (j, layer) {
                 layer.removeFromMap();
             });
         });
-        /*jslint unparam: false*/
         self.newLayerList.notify();
     },
     getLayer: function (id) {
@@ -496,7 +454,6 @@ MSP.prototype = {
         return layer;
     },
     getDataset: function (id) {
-        console.assert(typeof id === "number", {message: "id is not number"});
         var self = this;
         return self.datasets.layers.find(function (layer) {
             return layer.id === id;

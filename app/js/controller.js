@@ -26,9 +26,8 @@ USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 DAMAGE.
 */
 
-"use strict";
-/*jslint browser: true*/
-/*global $, jQuery, alert, element, Widget, mspEnum, MSPRule, MSPLayer*/
+'use strict';
+/*global $, alert, element, Widget, mspEnum, MSPRule, MSPLayer*/
 
 // after https://alexatnet.com/articles/model-view-controller-mvc-javascript
 
@@ -84,8 +83,7 @@ MSPController.prototype = {
                 op: '',
             },
             calls = [];
-        /*jslint unparam: true*/
-        $.each(klasses, function (klass, value) {
+        $.each(klasses, function (klass) {
             calls.push(
                 $.ajax({
                     headers: {
@@ -95,9 +93,9 @@ MSPController.prototype = {
                     success: function (result) {
                         var msg;
                         if (result.isOk === false) {
-                            msg = result.message + "\n";
+                            msg = result.message + '\n';
                         } else if (result.error) {
-                            msg = result.error + "\n";
+                            msg = result.error + '\n';
                         }
                         if (msg) {
                             self.error('Calling SmartSea MSP server failed: ' + msg);
@@ -114,7 +112,7 @@ MSPController.prototype = {
         });
         $.when.apply($, calls).then(function () {
 
-            self.view.planCommand.attach(function (sender, args) {
+            self.view.planCommand.attach(function (ignore, args) {
                 if (args.cmd === 'add') {
                     self.addPlan();
                 } else if (args.cmd === 'edit') {
@@ -126,7 +124,7 @@ MSPController.prototype = {
                 }
             });
 
-            self.view.useCommand.attach(function (sender, args) {
+            self.view.useCommand.attach(function (ignore, args) {
                 if (args.cmd === 'edit') {
                     if (args.use.id === 0) { // "Data"
                         self.editDatasetList(self.model.plan);
@@ -140,7 +138,7 @@ MSPController.prototype = {
                 }
             });
 
-            self.view.layerCommand.attach(function (sender, args) {
+            self.view.layerCommand.attach(function (ignore, args) {
                 if (args.cmd === 'edit') {
                     self.editLayer(self.model.plan, args.use, args.layer);
                 } else if (args.cmd === 'delete') {
@@ -157,7 +155,7 @@ MSPController.prototype = {
                 self.editRule(self.model.plan, null, self.model.layer, rule);
             });
 
-            self.model.newPlans.attach(function (sender, args) {
+            self.model.newPlans.attach(function () {
                 self.editor.dialog('close');
             });
 
@@ -171,7 +169,6 @@ MSPController.prototype = {
         }, function (a) {
             self.error('Calling SmartSea MSP server failed: ' + a.statusText);
         });
-        /*jslint unparam: false*/
     },
     setEditorButtons: function (ok) {
         var self = this,
@@ -304,7 +301,7 @@ MSPController.prototype = {
                     }
                 });
             } else {
-                self.addPlan({error: "Suunnitelma '" + name + "' on jo olemassa."});
+                self.addPlan({error: 'Suunnitelma \'' + name + '\' on jo olemassa.'});
                 return false;
             }
         };
@@ -342,7 +339,7 @@ MSPController.prototype = {
                     }
                 });
             } else {
-                self.editPlan(plan, {error: "Suunnitelma '" + name + "' on jo olemassa."});
+                self.editPlan(plan, {error: 'Suunnitelma \'' + name + '\' on jo olemassa.'});
                 return false;
             }
             return true;
@@ -355,7 +352,7 @@ MSPController.prototype = {
         self.editor.dialog('option', 'height', 400);
         self.setEditorButtons(true);
 
-        self.editor.html("Haluatko varmasti poistaa koko suunnitelman '" + plan.name + "'?");
+        self.editor.html('Haluatko varmasti poistaa koko suunnitelman \'' + plan.name + '\'?');
         self.ok = function () {
             self.post({
                 url: self.server + 'plan:' + plan.id + '?request=delete',
@@ -376,13 +373,12 @@ MSPController.prototype = {
         self.editor.dialog('option', 'height', 400);
         self.setEditorButtons(true);
 
-        /*jslint unparam: true*/
         $.each(self.klasses.use_class, function (i, klass) {
             if (!self.model.hasUse(klass.id)) {
                 list += element('option', {value: klass.id}, klass.name);
             }
         });
-        /*jslint unparam: false*/
+
         html = 'Select the class for the new use: ' + element('select', {id: id}, list);
         self.editor.html(html);
         self.ok = function () {
@@ -398,14 +394,12 @@ MSPController.prototype = {
                         class_id: data.use_class.value,
                         layers: []
                     };
-                    /*jslint unparam: true*/
                     $.each(self.klasses.use_class, function (i, klass) {
                         if (klass.id === data.use_class.value) {
                             use.name = klass.name;
                             return false;
                         }
                     });
-                    /*jslint unparam: false*/
                     self.model.addUse(use);
                 }
             });
@@ -422,11 +416,9 @@ MSPController.prototype = {
             self.editor.dialog('option', 'height', 400);
             self.setEditorButtons(true);
 
-            /*jslint unparam: true*/
             $.each(activities, function (i, item) {
                 activities[item.id] = item;
             });
-            /*jslint unparam: false*/
             activities = new Widget({
                 container_id: self.editor_id,
                 id: 'activities_list',
@@ -435,7 +427,7 @@ MSPController.prototype = {
                 selected: activities,
                 pretext: ''
             });
-            html = element('p', {}, "Activities in this use. Sorry, not editable.")
+            html = element('p', {}, 'Activities in this use. Sorry, not editable.')
                 + element('p', {}, activities.html());
 
             self.editor.html(html);
@@ -457,13 +449,11 @@ MSPController.prototype = {
 
         // put into the list those datasets that are not in rules
         // selected are those in plan.data
-        /*jslint unparam: true*/
         $.each(self.model.datasets.layers, function (i, layer) {
             if (!inRules[layer.id]) {
                 notInRules.push(layer);
             }
         });
-        /*jslint unparam: false*/
         datasets = new Widget({
             container_id: self.editor_id,
             id: 'dataset_list',
@@ -478,14 +468,12 @@ MSPController.prototype = {
         self.ok = function () {
             var selected = datasets.getSelectedIds(),
                 update = '';
-            /*jslint unparam: true*/
-            $.each(selected, function (id, i) {
+            $.each(selected, function (id) {
                 if (update) {
                     update += '&';
                 }
                 update += 'dataset=' + id;
             });
-            /*jslint unparam: false*/
             self.post({
                 url: self.server + 'plan:' + plan.id + '/extra_datasets?request=update',
                 payload: update,
@@ -503,7 +491,7 @@ MSPController.prototype = {
         self.editor.dialog('option', 'height', 400);
         self.setEditorButtons(true);
 
-        self.editor.html("Haluatko varmasti poistaa käyttömuodon '" + use.name + "' suunnitelmasta '" + plan.name + "'?");
+        self.editor.html('Haluatko varmasti poistaa käyttömuodon \'' + use.name + '\' suunnitelmasta \'' + plan.name + '\'?');
         self.ok = function () {
             self.post({
                 url: self.server + 'use:' + use.id + '?request=delete',
@@ -518,7 +506,6 @@ MSPController.prototype = {
     availableLayerClasses: function (use) {
         var self = this,
             list = [];
-        /*jslint unparam: true*/
         $.each(self.klasses.layer_class, function (i, klass) {
             if (klass.id === 5) {
                 return false; // Impact layer
@@ -530,46 +517,44 @@ MSPController.prototype = {
                 list.push(klass);
             }
         });
-        /*jslint unparam: false*/
         return list;
     },
     editLayer: function (plan, use, layer) {
         // add new if no layer
-        /*jslint unparam: true*/
         var self = this,
 
             available_layer_classes = self.availableLayerClasses(use),
 
-            class_list = layer ?
-                    null :
-                    new Widget({
-                        container_id: self.editor_id,
-                        id: 'layer-class',
-                        type: 'select',
-                        list: self.klasses.layer_class,
-                        includeItem: function (i, klass) {
-                            return available_layer_classes.find(function (element) {
-                                return element.id === klass.id;
-                            });
-                        },
-                        pretext: available_layer_classes.length ? 'The layer class: ' : ''
-                    }),
+            class_list = layer
+                ? null
+                : new Widget({
+                    container_id: self.editor_id,
+                    id: 'layer-class',
+                    type: 'select',
+                    list: self.klasses.layer_class,
+                    includeItem: function (klass) {
+                        return available_layer_classes.find(function (element) {
+                            return element.id === klass.id;
+                        });
+                    },
+                    pretext: available_layer_classes.length ? 'The layer class: ' : ''
+                }),
 
-            klass = layer ?
-                    self.klasses.layer_class.find(function (element) {
-                        return element.id === layer.class_id;
-                    }) :
-                    null,
+            klass = layer
+                ? self.klasses.layer_class.find(function (element) {
+                    return element.id === layer.class_id;
+                })
+                : null,
 
-            rule_class_list = layer ?
-                    self.klasses.rule_class :
-                    new Widget({
-                        container_id: self.editor_id,
-                        id: 'layer-rule-class',
-                        type: 'select',
-                        list: self.klasses.rule_class,
-                        pretext: 'The rule system: '
-                    }),
+            rule_class_list = layer
+                ? self.klasses.rule_class
+                : new Widget({
+                    container_id: self.editor_id,
+                    id: 'layer-rule-class',
+                    type: 'select',
+                    list: self.klasses.rule_class,
+                    pretext: 'The rule system: '
+                }),
 
             rule_class_extra = new Widget({
                 container_id: self.editor_id,
@@ -629,13 +614,11 @@ MSPController.prototype = {
                 }()));
             },
 
-            html = layer ?
-
-                    element('p', {}, 'This layer attempts to depict ' + klass.name + '.') +
-                    element('p', {}, 'Rule system is ' + layer.rule_class + '.') :
-
-                    element('p', {}, class_list.html()) +
-                    element('p', {}, rule_class_list.html()),
+            html = layer
+                ? element('p', {}, 'This layer attempts to depict ' + klass.name + '.') +
+                  element('p', {}, 'Rule system is ' + layer.rule_class + '.')
+                : element('p', {}, class_list.html()) +
+                  element('p', {}, rule_class_list.html()),
 
             value_from = function (obj) {
                 if (obj) {
@@ -643,7 +626,6 @@ MSPController.prototype = {
                 }
                 return null;
             };
-        /*jslint unparam: false*/
 
         if (!layer && available_layer_classes.length === 0) {
             self.error('No more slots for layers in this use.');
@@ -808,7 +790,7 @@ MSPController.prototype = {
         self.editor.dialog('option', 'height', 400);
         self.setEditorButtons(true);
 
-        self.editor.html("Haluatko varmasti poistaa tason '" + layer.name + "' käyttömuodosta '" + use.name + "'?");
+        self.editor.html('Haluatko varmasti poistaa tason \'' + layer.name + '\' käyttömuodosta \'' + use.name + '\'?');
         self.ok = function () {
             self.post({
                 url: self.server + 'layer:' + layer.id + '?request=delete',
@@ -823,14 +805,15 @@ MSPController.prototype = {
     editRule: function (plan, use, layer, rule) {
         var self = this,
             owner = layer.owner === self.model.user,
-            dataset = rule ? rule.dataset :
-                    new Widget({
-                        container_id: self.editor_id,
-                        id: 'rule-dataset',
-                        type: 'select',
-                        list: self.model.datasets.layers,
-                        pretext: 'Rule is based on the dataset: '
-                    }),
+            dataset = rule
+                ? rule.dataset
+                : new Widget({
+                    container_id: self.editor_id,
+                    id: 'rule-dataset',
+                    type: 'select',
+                    list: self.model.datasets.layers,
+                    pretext: 'Rule is based on the dataset: '
+                }),
             getPayload,
             value_from = function (obj) {
                 if (obj) {
@@ -925,7 +908,7 @@ MSPController.prototype = {
             }),
             html = element('p', {}, 'Select rules to delete:') + rules.html();
 
-        self.editor.dialog('option', 'title', "Delete rules from layer '" + layer.name + "'");
+        self.editor.dialog('option', 'title', 'Delete rules from layer \'' + layer.name + '\'');
         self.editor.dialog('option', 'height', 400);
         self.setEditorButtons(true);
 
@@ -934,14 +917,12 @@ MSPController.prototype = {
         self.ok = function () {
             var selected = rules.getSelectedIds(),
                 deletes = '';
-            /*jslint unparam: true*/
-            $.each(selected, function (id, i) {
+            $.each(selected, function (id) {
                 if (deletes) {
                     deletes += '&';
                 }
                 deletes += 'rule=' + id;
             });
-            /*jslint unparam: false*/
             self.post({
                 url: self.server + 'plan:' + plan.id + '/uses:' + use.id + '/layers:' + layer.id + '/rules?request=delete',
                 payload: deletes,

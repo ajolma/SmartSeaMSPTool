@@ -72,10 +72,15 @@ sub smart {
     } elsif ($parameters->{easting} && $parameters->{northing}) {
 
         my $point = [$parameters->{easting},$parameters->{northing}];
-        $point = $ct->TransformPoint(@$point) if $ct;
-        say STDERR "location = @$point" if $self->{debug};
-
-        $report = $self->make_point_report($point);
+        eval {
+            $point = $ct->TransformPoint(@$point) if $ct;
+        };
+        if ($@) {
+            $report = 'Very bad request.';
+        } else {
+            say STDERR "location = @$point" if $self->{debug};
+            $report = $self->make_point_report($point);
+        }
 
     } else {
 

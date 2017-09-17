@@ -24,7 +24,7 @@ sub new {
         "dbi:Pg:dbname=$self->{db_name}", 
         $self->{db_user}, 
         $self->{db_passwd}, 
-        {AutoCommit => 0}) or die "Can't connect to $self->{db_name}!";
+        {AutoCommit => 0}) or die $DBI::errstr;
 
     $self->{user_table} = 'wfs';
     $self->{comparison_table} = 'wfs2';

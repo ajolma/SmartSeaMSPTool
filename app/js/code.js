@@ -26,9 +26,8 @@ USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 DAMAGE.
 */
 
-"use strict";
-/*jslint browser: true*/
-/*global $, jQuery, alert, ol, element, getConfig, projection, makeMenu, MSP, MSPView, MSPController*/
+'use strict';
+/*global $, alert, ol, element, Projection, Menu, MSP, MSPView, MSPController*/
 
 function makeConfig() {
     var config = window.location.href.replace(/app[\w\W]*/, 'config'),
@@ -56,9 +55,9 @@ function makeConfig() {
         config.matrixSet = 'EPSG:3857';
         config.center = [2671763, 8960514];
         config.zoom = 6;
-        config.proj = projection(config);
+        config.proj = new Projection(config);
         config.bg.push({
-            title: "ESRI World Ocean Base",
+            title: 'ESRI World Ocean Base',
             layer: new ol.layer.Tile({
                 source: new ol.source.XYZ({
                     attributions: [new ol.Attribution({
@@ -81,7 +80,7 @@ function makeConfig() {
             })
         });
         config.bg.push({
-            title: "OSM",
+            title: 'OSM',
             layer: new ol.layer.Tile({
                 source: new ol.source.OSM()
             })
@@ -91,7 +90,7 @@ function makeConfig() {
         config.matrixSet = 'ETRS-TM35FIN';
         config.center = [346735, 6943420];
         config.zoom = 3;
-        config.proj = projection(config);
+        config.proj = new Projection(config);
         config.bg.push({
             title: 'MML taustakartta',
             layer: new ol.layer.Tile({
@@ -138,7 +137,7 @@ function makeConfig() {
             })
         });
     } else {
-        window.alert("EPSG " + epsg + " is not a supported projection!");
+        window.alert('EPSG ' + epsg + ' is not a supported projection!');
     }
 
     return config;
@@ -171,22 +170,22 @@ function makeConfig() {
             auth: config.auth
         }),
         view = new MSPView(model, {
-            map: $("#map"),
-            user: $("#user"),
-            plan: $("#plan"),
-            plan_menu: $("#plan-menu"),
-            plans: $("#plans"),
-            layers: $("#layers"),
-            rule_header: $("#rule-header"),
-            rule_info: $("#rule-info"),
-            rules: $("#rules"),
+            map: $('#map'),
+            user: $('#user'),
+            plan: $('#plan'),
+            plan_menu: $('#plan-menu'),
+            plans: $('#plans'),
+            layers: $('#layers'),
+            rule_header: $('#rule-header'),
+            rule_info: $('#rule-info'),
+            rules: $('#rules'),
             site: $('#explain-site'),
             site_type: $('#site-type'),
             site_info: $('#site-info'),
             legend: $('#legend')
         }, {
-            uses: "#useslist",
-            rules: "#rules"
+            uses: '#useslist',
+            rules: '#rules'
         }),
         controller = new MSPController(model, view),
         sourceSwap = function () {
@@ -199,8 +198,8 @@ function makeConfig() {
     $('body').addClass('stop-scrolling');
     $('.menu').hide();
     $(document).click(function (e) {
-        if ($(".menu").has(e.target).length === 0) {
-            $(".menu").hide();
+        if ($('.menu').has(e.target).length === 0) {
+            $('.menu').hide();
         }
     });
     map.addControl(new ol.control.ScaleLine());
@@ -218,7 +217,7 @@ function makeConfig() {
         config.base.setVisible(true);
     });
 
-    $("#reload").click((function reload() {
+    $('#reload').click((function reload() {
         controller.loadPlans();
         return reload;
     }()));
@@ -231,17 +230,18 @@ function makeConfig() {
     $(function () {
         $('img.main-menu').hover(sourceSwap, sourceSwap);
         $('img.main-menu').click(function (event) {
-            var options = [{cmd: 'boot', label: 'Boot'}];
-            makeMenu({
-                element: $('#main-menu'),
-                menu: $('#main-menu-ul'),
-                right: 24,
-                options: options,
-                select: function () { // cmd
-                    controller.loadPlans();
-                },
-                event: event
-            });
+            var options = [{cmd: 'boot', label: 'Boot'}],
+                menu = new Menu({
+                    element: $('#main-menu'),
+                    menu: $('#main-menu-ul'),
+                    right: 24,
+                    options: options,
+                    select: function () { // cmd
+                        controller.loadPlans();
+                    },
+                    event: event
+                });
+            menu.activate();
             return false;
         });
     });

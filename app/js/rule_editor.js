@@ -26,8 +26,8 @@ USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 DAMAGE.
 */
 
-"use strict";
-/*global $, jQuery, alert, element, Widget, MSPController*/
+'use strict';
+/*global $, alert, element, Widget, MSPController*/
 
 MSPController.prototype.datasetValueWidget = function (args) {
     var self = this,
@@ -95,7 +95,7 @@ MSPController.prototype.editBooleanRule = function (plan, use, layer, rule, data
                 id: 'rule-op',
                 type: 'select',
                 list: self.klasses.op,
-                includeItem: function (i, item) {
+                includeItem: function (item) {
                     if (dataset.binary) {
                         return item.name === '==' || item.name === 'NOT';
                     }
@@ -117,7 +117,7 @@ MSPController.prototype.editBooleanRule = function (plan, use, layer, rule, data
     });
     if (rule) {
         html += rule.getCriteria().name;
-        regex = new RegExp("==");
+        regex = new RegExp('==');
         html = html
             .replace(/^- If/, 'Do not allocate if')
             .replace(regex, 'equals:');
@@ -249,7 +249,6 @@ MSPController.prototype.editBoxcarRule = function (rule, dataset) {
     self.editor.html(html);
 
     newValue = function (value) {
-        //console.log(this.id + ' ' + value);
         x0v = x0Widget.getValue();
         x1v = x1Widget.getValue();
         x2v = x2Widget.getValue();
@@ -367,7 +366,7 @@ MSPController.prototype.editBayesianRule = function (layer, rule, dataset) {
     if (!rule) {
         /*jslint unparam: true*/
         $.each(self.model.datasets.layers, function (i, dataset) {
-            if (dataset.data_type === "integer") {
+            if (dataset.data_type === 'integer') {
                 dataset_list.push(dataset);
             }
         });

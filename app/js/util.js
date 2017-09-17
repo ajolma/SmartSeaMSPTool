@@ -26,9 +26,9 @@ USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 DAMAGE.
 */
 
-"use strict";
+'use strict';
 /*jslint browser: true*/
-/*global $, jQuery, alert*/
+/*global $, alert*/
 
 function element(tag, attrs, text) {
     var a = '', key;
@@ -84,10 +84,8 @@ function Widget(args) {
         self.list = args.list;
         $.each(self.list, function (key, item) {
             var tag2, attr2, name, x;
-            if (args.includeItem) {
-                if (!args.includeItem(key, item)) {
-                    return true;
-                }
+            if (args.includeItem && !args.includeItem(item)) {
+                return true;
             }
             if (args.nameForItem) {
                 name = args.nameForItem(item);
@@ -119,11 +117,9 @@ function Widget(args) {
                 attr2 = {type: 'checkbox', item: item.id};
                 if (self.selected && self.selected[item.id]) {
                     // selected is a hash keyed with ids
-                    attr2.checked = "checked";
+                    attr2.checked = 'checked';
                 }
                 x = element('br');
-            } else {
-                console.assert(true, {message: "What is this list type: " + self.type});
             }
             html += element(tag2, attr2, name) + x;
         });
@@ -140,7 +136,7 @@ function Widget(args) {
         self.value_selector = self.container_id + ' #' + args.slider_value_id;
     } else if (tag === 'input') {
         if (self.type === 'checkbox' && self.selected) {
-            attr.checked = "checked";
+            attr.checked = 'checked';
         } else if (self.type === 'text' && self.value) {
             attr.value = self.value;
         }
@@ -263,25 +259,25 @@ Widget.prototype = {
     }
 };
 
-function makeMenu(args) {
-    var menu = $(args.menu),
-        options = '',
-        handler = function (event) {
-            if (args.prelude) {
-                args.prelude();
-            }
-            menu.css('position', 'absolute');
-            menu.css('top', event.pageY);
-            if (args.right) {
-                menu.css('right', args.right);
-            } else {
-                menu.css('left', event.pageX);
-            }
-            $(".menu").hide(); // close all other menus
-            menu.show();
-            return false;
-        };
-    /*jslint unparam: true*/
+function Menu(args) {
+    var self = this,
+        options = '';
+    self.menu = $(args.menu),
+    self.handler = function (event) {
+        if (args.prelude) {
+            args.prelude();
+        }
+        self.menu.css('position', 'absolute');
+        self.menu.css('top', event.pageY);
+        if (args.right) {
+            self.menu.css('right', args.right);
+        } else {
+            self.menu.css('left', event.pageX);
+        }
+        $('.menu').hide(); // close all other menus
+        self.menu.show();
+        return false;
+    };
     $.each(args.options, function (i, item) {
         if (Array.isArray(item)) {
             var first = item.shift(),
@@ -295,24 +291,29 @@ function makeMenu(args) {
             options += element('li', {}, element('div', {tag: item.cmd}, item.label));
         }
     });
-    /*jslint unparam: false*/
-    menu.html(options);
-    /*jslint unparam: true*/
-    menu.menu({
+    self.menu.html(options);
+    self.menu.menu({
         select: function (event, ui) {
             var cmd = ui.item.children().attr('tag');
-            menu.hide();
+            self.menu.menu.hide();
             args.select(cmd);
         }
     });
-    /*jslint unparam: false*/
-    menu.menu("refresh");
-    if (args.event) {
-        handler(args.event);
-    } else {
-        args.element.contextmenu(handler);
-    }
+    self.element = args.element;
+    self.event = args.event;
 }
+
+Menu.prototype = {
+    activate: function () {
+        var self = this;
+        self.menu.menu('refresh');
+        if (self.event) {
+            self.handler(self.event);
+        } else {
+            self.element.contextmenu(self.handler);
+        }
+    }
+};
 
 function Event(sender) {
     this.sender = sender;
@@ -320,10 +321,10 @@ function Event(sender) {
 }
 
 Event.prototype = {
-    attach : function (listener) {
+    attach: function (listener) {
         this.listeners.push(listener);
     },
-    notify : function (args) {
+    notify: function (args) {
         var i;
         for (i = 0; i < this.listeners.length; i += 1) {
             this.listeners[i](this.sender, args);

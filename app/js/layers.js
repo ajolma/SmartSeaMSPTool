@@ -26,9 +26,23 @@ USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 DAMAGE.
 */
 
-"use strict";
-/*jslint browser: true*/
-/*global $, jQuery, alert, ol, element, Event, MSPRule, mspEnum, mspStrings*/
+'use strict';
+/*global $, alert, ol, element, Event, MSPRule*/
+
+var mspEnum = {
+    BAYESIAN_NETWORK: 'Bayesian network',
+    BOXCAR: 'boxcar',
+    EXCLUSIVE: 'exclusive',
+    INCLUSIVE: 'inclusive',
+    ADDITIVE: 'additive',
+    MULTIPLICATIVE: 'multiplicative',
+};
+
+var mspStrings = {
+    THIS_IS_A_LAYER: function (a, b) {
+        return 'This is a layer made by ' + a + ' rules and defined by ' + b + '.';
+    }
+};
 
 function MSPLayer(args) {
     var self = this;
@@ -58,14 +72,12 @@ function MSPLayer(args) {
         self.rules = [];
 
         if (args.rules) {
-            /*jslint unparam: true*/
             $.each(args.rules, function (i, rule) {
                 rule.layer = self;
                 rule.dataset = self.model.getDataset(parseInt(rule.dataset, 10));
                 rule.active = true;
                 self.rules.push(new MSPRule(rule));
             });
-            /*jslint unparam: false*/
         }
 
     }
@@ -167,13 +179,11 @@ MSPLayer.prototype = {
         var self = this,
             n = self.use.class_id + '_' + self.id;
         if (self.rules && self.rules.length > 0) {
-            /*jslint unparam: true*/
             $.each(self.rules, function (i, rule) {
                 if (rule.active) {
                     n += '_' + rule.id; // add rules
                 }
             });
-            /*jslint unparam: false*/
         }
         return n;
     },
@@ -258,13 +268,11 @@ MSPLayer.prototype = {
     deleteRules: function (rules) {
         var self = this,
             rules2 = [];
-        /*jslint unparam: true*/
         $.each(self.rules, function (i, rule) {
             if (!rules[rule.id]) {
                 rules2.push(rule);
             }
         });
-        /*jslint unparam: false*/
         self.rules = rules2;
         self.refresh();
     },

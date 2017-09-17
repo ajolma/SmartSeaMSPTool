@@ -1,3 +1,5 @@
+JS = util.js layers.js projection.js msp.js view.js controller.js rule_editor.js code.js
+
 schema:
 	pg_dump -n tool -n data -s SmartSea >schema.sql
 
@@ -21,11 +23,13 @@ smartsea.0.0.1.zip:
 plugin.xml:
 	perl make-plugin-dist.pl
 
-test:
+test: test-perl test-js
+
+test-perl:
 	prove -I.
 
 test-js:
-	node node_modules/jslint/bin/jslint.js app/js/*.js
+	cd app/js; eslint $(JS); cd ../..
 	phantomjs phantomjs-test.js
 
 #plugin-test:
