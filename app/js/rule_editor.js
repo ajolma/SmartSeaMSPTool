@@ -83,7 +83,6 @@ MSPController.prototype.datasetValueWidget = function (args) {
     return widget;
 };
 
-/*jslint unparam: true*/
 MSPController.prototype.editBooleanRule = function (plan, use, layer, rule, dataset) {
     var self = this,
         owner = layer.owner === self.model.user,
@@ -175,7 +174,6 @@ MSPController.prototype.editBooleanRule = function (plan, use, layer, rule, data
         return retval;
     };
 };
-/*jslint unparam: false*/
 
 MSPController.prototype.editBoxcarRule = function (rule, dataset) {
     // boxcar rule converts data value into range [0..weight] or [weight..0] if weight is negative
@@ -364,13 +362,11 @@ MSPController.prototype.editBayesianRule = function (layer, rule, dataset) {
         };
 
     if (!rule) {
-        /*jslint unparam: true*/
         $.each(self.model.datasets.layers, function (i, dataset) {
             if (dataset.data_type === 'integer') {
                 dataset_list.push(dataset);
             }
         });
-        /*jslint unparam: false*/
         dataset = new Widget({
             container_id: self.editor_id,
             id: 'rule-dataset',
@@ -381,7 +377,6 @@ MSPController.prototype.editBayesianRule = function (layer, rule, dataset) {
         });
     }
 
-    /*jslint unparam: true*/
     network = self.networks.find(function (network) {
         return network.name === layer.network.name;
     });
@@ -405,7 +400,6 @@ MSPController.prototype.editBayesianRule = function (layer, rule, dataset) {
             nodes.push(node);
         }
     });
-    /*jslint unparam: false*/
     node = new Widget({
         container_id: self.editor_id,
         id: 'rule-node',

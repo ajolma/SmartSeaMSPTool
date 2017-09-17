@@ -27,7 +27,6 @@ DAMAGE.
 */
 
 'use strict';
-/*jslint browser: true*/
 /*global $, alert, ol, Event, MSPLayer*/
 
 // after https://alexatnet.com/articles/model-view-controller-mvc-javascript
@@ -129,7 +128,6 @@ MSP.prototype = {
         }
 
         self.plans = [];
-        /*jslint unparam: true*/
         $.each(data, function (i, plan) {
             if (plan.id < 2) {
                 return true;
@@ -159,7 +157,6 @@ MSP.prototype = {
             });
             self.plans.push(plan);
         });
-        /*jslint unparam: false*/
 
         self.newPlans.notify();
         self.changePlan(self.firstPlan);
@@ -205,11 +202,9 @@ MSP.prototype = {
     setPlanData: function (data) {
         var self = this;
         self.plan.data = {};
-        /*jslint unparam: true*/
         $.each(data, function (i, dataset) {
             self.plan.data[dataset.id] = 1;
         });
-        /*jslint unparam: false*/
         self.changePlan(self.plan.id);
     },
     deletePlan: function (id) {
@@ -415,7 +410,6 @@ MSP.prototype = {
     getLayer: function (id) {
         var self = this,
             retval = null;
-        /*jslint unparam: true*/
         $.each(self.plan.uses, function (i, use) {
             if (use.id === id.use) {
                 $.each(use.layers, function (i, layer) {
@@ -427,7 +421,6 @@ MSP.prototype = {
                 return false;
             }
         });
-        /*jslint unparam: false*/
         return retval;
     },
     selectLayer: function (id) {

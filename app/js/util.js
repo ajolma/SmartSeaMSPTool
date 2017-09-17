@@ -27,7 +27,6 @@ DAMAGE.
 */
 
 'use strict';
-/*jslint browser: true*/
 /*global $, alert*/
 
 function element(tag, attrs, text) {
@@ -243,13 +242,11 @@ Widget.prototype = {
         var self = this,
             ids = {};
         if (self.type === 'checkbox-list') {
-            /*jslint unparam: true*/
             $.each($(self.container_id + ' :checkbox'), function (i, item) {
                 if (item.checked) {
                     ids[item.getAttribute('item')] = 1;
                 }
             });
-            /*jslint unparam: false*/
         }
         return ids;
     },

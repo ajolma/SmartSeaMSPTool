@@ -57,7 +57,6 @@ function MSPView(model, elements, id) {
 
     // model event listeners
 
-    /*jslint unparam: true*/
     self.model.newPlans.attach(function () {
         self.buildPlans();
     });
@@ -87,7 +86,6 @@ function MSPView(model, elements, id) {
     self.model.siteInformationReceived.attach(function (sender, args) {
         self.elements.site_info.html(args.report);
     });
-    /*jslint unparam: false*/
 
     // events
 
@@ -129,11 +127,9 @@ MSPView.prototype = {
             self.elements.user.html('Hello ' + self.model.user + '!');
         }
         self.elements.plans.html('');
-        /*jslint unparam: true*/
         $.each(self.model.plans, function (i, plan) {
             self.elements.plans.append(element('option', {value: plan.id}, plan.name));
         });
-        /*jslint unparam: false*/
         self.cleanUp();
     },
     buildPlan: function () {
@@ -193,17 +189,14 @@ MSPView.prototype = {
         if (auth) {
             use_item += element('ul', {class: 'menu', id: 'menu', style: 'display:none'}, '');
         }
-        /*jslint unparam: true*/
         $.each(use.layers, function (j, layer) {
             layers += self.layerItem(layer);
         });
-        /*jslint unparam: false*/
         layers = element('div', {class: 'use'}, layers);
         return {auth: auth, element: element('li', {id: 'use' + use.id}, use_item + layers)};
     },
     buildLayerTree: function () {
         var self = this;
-        /*jslint unparam: true*/
         $.each(self.model.plan.uses, function (i, use) {
             var selector = self.id.uses + ' #use' + use.id,
                 item = self.usesItem(use),
@@ -279,7 +272,6 @@ MSPView.prototype = {
         self.selectLayer(); // restore selected layer
 
         // attach controllers:
-        /*jslint unparam: true*/
         $.each(self.model.plan.uses, function (i, use) {
             var selector = self.id.uses + ' #use' + use.id,
                 useButton = $(selector + ' button.use');
@@ -348,7 +340,6 @@ MSPView.prototype = {
                 use.open = false;
             }
         });
-        /*jslint unparam: false*/
 
         self.cleanUp();
     },
@@ -401,7 +392,6 @@ MSPView.prototype = {
         if (self.model.layer.descr) {
             self.elements.rules.append(self.model.layer.descr);
         } else if (self.model.layer.rules) {
-            /*jslint unparam: true*/
             $.each(self.model.layer.rules, function (i, rule) {
                 var name = rule.getName(),
                     item,
@@ -420,7 +410,6 @@ MSPView.prototype = {
                 self.elements.rules.append(item);
                 self.elements.rules.append(element('br'));
             });
-            /*jslint unparam: false*/
         }
         $(self.id.rules + ' :checkbox').change(function () {
             // send message rule activity changed?
