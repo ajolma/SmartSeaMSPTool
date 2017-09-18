@@ -32,7 +32,7 @@ my @columns = (
     value_at_min => { data_type => 'double', has_default => 1 },
     value_at_max => { data_type => 'double', has_default => 1 },
     weight       => { data_type => 'double', has_default => 1 },
-    boxcar       => { data_type => 'boolean', default => 1, has_default => 1 },
+    boxcar_type  => { is_foreign_key => 1, source => 'BoxcarRuleType', has_default => 1 },
     boxcar_x0    => { data_type => 'double', has_default => 1 },
     boxcar_x1    => { data_type => 'double', has_default => 1 },
     boxcar_x2    => { data_type => 'double', has_default => 1 },
@@ -49,6 +49,7 @@ __PACKAGE__->belongs_to(rule_system => 'SmartSea::Schema::Result::RuleSystem');
 __PACKAGE__->belongs_to(layer => 'SmartSea::Schema::Result::Layer');
 __PACKAGE__->belongs_to(dataset => 'SmartSea::Schema::Result::Dataset');
 __PACKAGE__->belongs_to(op => 'SmartSea::Schema::Result::Op');
+__PACKAGE__->belongs_to(boxcar_type => 'SmartSea::Schema::Result::BoxcarRuleType');
 
 sub criteria {
     my $self = shift;
@@ -200,7 +201,7 @@ sub name {
     } elsif ($class == BOXCAR_RULE) {
         my $fct = $self->boxcar_x0.', '.$self->boxcar_x1.', '.$self->boxcar_x2.', '.$self->boxcar_x3;
         $fct .= ' weight '.$self->weight;
-        return "Normal with turning points at ".$fct if $self->boxcar;
+        return "Normal with turning points at ".$fct if $self->boxcar_type->id == 1;
         return "Inverted with turning points at ".$fct;
 
     } elsif ($class == BAYESIAN_NETWORK_RULE) {
@@ -220,6 +221,7 @@ sub read {
     $retval->{layer} = $self->layer->id if $self->layer;
     $retval->{dataset} = $self->dataset->id if $self->dataset;
     $retval->{op} = $self->op->name if $clusive;
+    $retval->{boxcar_type} = $self->boxcar_type->name if $class == BOXCAR_RULE;
     for my $key (keys %$columns) {
         my $meta = $columns->{$key};
         next if $meta->{not_used};
@@ -334,14 +336,14 @@ sub apply {
 
     } elsif ($class == BOXCAR_RULE) {
 
-        my $boxcar = $self->boxcar;
+        my $normal = $self->boxcar_type->id == 1;
         my $x0 = $self->boxcar_x0;
         my $x1 = $self->boxcar_x1;
         my $x2 = $self->boxcar_x2;
         my $x3 = $self->boxcar_x3;
         my $w = $self->weight;
 
-        if ($boxcar) {
+        if ($normal) {
             my $divisor = $x1 - $x0;
             my $xleft;
             if ($divisor != 0) {

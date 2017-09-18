@@ -45,6 +45,47 @@ function element(tag, attrs, text) {
     return '<' + tag + a + '/>';
 }
 
+/**
+ * Options for creating a widget.
+ * @typedef {Object} WidgetOptions
+ * @property {string} container_id - The id of the parent element.
+ * @property {string} id - The id of this widget element.
+ * @property {string} slider_value_id - The id for the slider
+ * value. Needed if there are more than one slider in the same parent.
+ * @property {string} type - The type of the widget. Possible values
+ * are: paragraph, text, checkbox, select, checkbox-list, spinner,
+ * slider
+
+ * @property {string} pretext - Text to include in the html before the
+ * actual element.
+ * @property {string} label - 
+
+ * @property {boolean|number|string|Object} selected - For selection
+ * type widgets, the selected. Boolean for select true/false
+ * widget. The list item or item.name for select-one widgets. Hash
+ * keyed with ids for select-multiple type widgets.
+ * @property {number|string} value - The initial value of the text
+ * input or the numeric value of widgets for selecting a numeric
+ * value.
+ * @property {function=} newValue - Function to be called when user
+ * has adjusted the value.
+ * @property {number|string} min - The lower bound for value for
+ * widgets for selecting a numeric value.
+ * @property {number|string} max - The upper bound for value for
+ * widgets for selecting a numeric value.
+ * @property {Array|Object} list - The list of selectables for
+ * select-from-multiple-values type widgets.
+ * @property {function=} includeItem - Function to be called for
+ * querying whether a list item is to be included in the selectables.
+ * @property {function=} nameForItem - Function to be called to obtain
+ * a visible name for an item.
+ */
+
+/**
+ * An HTML element, mainly for user input.
+ * @constructor
+ * @param {WidgetOptions} args - Options {@link WidgetOptions}.
+ */
 function Widget(args) {
     var self = this,
         pretext = args.pretext || '',
@@ -58,8 +99,6 @@ function Widget(args) {
     self.selector = self.container_id + ' #' + args.id;
     self.selected = args.selected;
     self.value = args.value;
-    self.min = args.min;
-    self.max = args.max;
 
     self.newValue = args.newValue;
 
@@ -71,14 +110,12 @@ function Widget(args) {
     } else if (self.type === 'checkbox-list') {
         tag = 'div';
         attr.style = 'overflow-y:scroll; max-height:350px; background-color:#c7ecfe;';
-    } else if (self.type === 'para') {
+    } else if (self.type === 'paragraph') {
         tag = 'p';
     } else if (self.type === 'spinner') {
         tag = 'input';
     }
-    if (args.content) {
-        html = args.content;
-    } else if (args.list) {
+    if (args.list) {
         // key => scalar, or key => object
         self.list = args.list;
         $.each(self.list, function (key, item) {
@@ -124,8 +161,8 @@ function Widget(args) {
         });
     }
     if (self.type === 'slider') {
-        self.min = parseFloat(self.min);
-        self.max = parseFloat(self.max);
+        self.min = parseFloat(args.min);
+        self.max = parseFloat(args.max);
         self.value = parseFloat(self.value);
         html = element('p', {}, element('div', attr));
         if (!args.slider_value_id) {
@@ -152,6 +189,10 @@ function Widget(args) {
 }
 
 Widget.prototype = {
+    /**
+     * Prepare the element for the screen.
+     * @function
+     */
     prepare: function () {
         var self = this,
             slider;

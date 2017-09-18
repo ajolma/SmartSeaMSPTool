@@ -530,17 +530,17 @@ MSPController.prototype = {
             rule_class_extra = new Widget({
                 container_id: self.editor_id,
                 id: 'rule-class-extra',
-                type: 'para'
+                type: 'paragraph'
             }),
             rule_class_extra2 = new Widget({
                 container_id: self.editor_id,
                 id: 'rule-class-extra2',
-                type: 'para'
+                type: 'paragraph'
             }),
             rule_class_extra3 = new Widget({
                 container_id: self.editor_id,
                 id: 'rule-class-extra3',
-                type: 'para'
+                type: 'paragraph'
             }),
             palette = new Widget({
                 container_id: self.editor_id,
@@ -826,7 +826,7 @@ MSPController.prototype = {
                             return element.id === data.op.value;
                         }).name : null,
                         value: value_from(data.value),
-                        boxcar: value_from(data.boxcar),
+                        boxcar_type: data.boxcar_type.getSelected(),
                         boxcar_x0: value_from(data.boxcar_x0),
                         boxcar_x1: value_from(data.boxcar_x1),
                         boxcar_x2: value_from(data.boxcar_x2),
@@ -844,7 +844,12 @@ MSPController.prototype = {
                 payload = getPayload(),
                 data = {id: rule.id};
             $.each(payload, function (key, value) {
-                data[key] = value;
+                if (typeof value === 'object') {
+                    payload[key] = value.value;
+                    data[key] = value.selected;
+                } else {
+                    data[key] = value;
+                }
             });
             if (data.op) {
                 data.op = self.klasses.op.find(function (element) {

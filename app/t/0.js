@@ -25,7 +25,7 @@ var test_container = $(test_container_selector);
 var test = new Widget({
     container_id: test_container_selector,
     id: 'x',
-    type: 'para'
+    type: 'paragraph'
 });
 
 test_container.html(test.html());
@@ -34,7 +34,7 @@ var text = 'Hello world!';
 
 test.html(text);
 
-is(test_container.html(), '<p id="x">' + text + '</p>', 'para widget html');
+is(test_container.html(), '<p id="x">' + text + '</p>', 'paragraph widget html');
 
 // test a dropdown made from various types of lists
 // the list items can be scalars or objects
@@ -75,3 +75,4 @@ test(list2a, 'b', 'select from array of objects with name', sel);
 
 test(list2b, sel, 'select from object of objects with object');
 test(list2b, 'b', 'select from object of objects with name', sel);
+

@@ -357,6 +357,39 @@ CREATE TABLE beliefs (
 ALTER TABLE beliefs OWNER TO ajolma;
 
 --
+-- Name: boxcar_rule_type; Type: TABLE; Schema: tool; Owner: ajolma
+--
+
+CREATE TABLE boxcar_rule_type (
+    id integer NOT NULL,
+    name text NOT NULL
+);
+
+
+ALTER TABLE boxcar_rule_type OWNER TO ajolma;
+
+--
+-- Name: boxcar_rule_type_id_seq; Type: SEQUENCE; Schema: tool; Owner: ajolma
+--
+
+CREATE SEQUENCE boxcar_rule_type_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE boxcar_rule_type_id_seq OWNER TO ajolma;
+
+--
+-- Name: boxcar_rule_type_id_seq; Type: SEQUENCE OWNED BY; Schema: tool; Owner: ajolma
+--
+
+ALTER SEQUENCE boxcar_rule_type_id_seq OWNED BY boxcar_rule_type.id;
+
+
+--
 -- Name: ecosystem_components; Type: TABLE; Schema: tool; Owner: ajolma
 --
 
@@ -981,13 +1014,13 @@ CREATE TABLE rules (
     value_at_max double precision DEFAULT 1 NOT NULL,
     weight double precision DEFAULT 1 NOT NULL,
     rule_system integer NOT NULL,
-    boxcar boolean DEFAULT true NOT NULL,
     boxcar_x0 double precision DEFAULT 0 NOT NULL,
     boxcar_x1 double precision DEFAULT 0 NOT NULL,
     boxcar_x2 double precision DEFAULT 0 NOT NULL,
     boxcar_x3 double precision DEFAULT 0 NOT NULL,
     node text,
-    state_offset integer DEFAULT 0
+    state_offset integer DEFAULT 0,
+    boxcar_type integer DEFAULT 1
 );
 
 
@@ -1061,13 +1094,6 @@ COMMENT ON COLUMN rules.weight IS 'for additive and multiplicative rules';
 --
 
 COMMENT ON COLUMN rules.rule_system IS 'our father without whom we can''t live';
-
-
---
--- Name: COLUMN rules.boxcar; Type: COMMENT; Schema: tool; Owner: ajolma
---
-
-COMMENT ON COLUMN rules.boxcar IS 'for boxcar rules, is this normal or upside down';
 
 
 --
@@ -1355,6 +1381,13 @@ ALTER TABLE ONLY activities ALTER COLUMN id SET DEFAULT nextval('activities_id_s
 -- Name: id; Type: DEFAULT; Schema: tool; Owner: ajolma
 --
 
+ALTER TABLE ONLY boxcar_rule_type ALTER COLUMN id SET DEFAULT nextval('boxcar_rule_type_id_seq'::regclass);
+
+
+--
+-- Name: id; Type: DEFAULT; Schema: tool; Owner: ajolma
+--
+
 ALTER TABLE ONLY ecosystem_components ALTER COLUMN id SET DEFAULT nextval('ecosystem_components_id_seq'::regclass);
 
 
@@ -1635,6 +1668,14 @@ ALTER TABLE ONLY pressures
 
 ALTER TABLE ONLY beliefs
     ADD CONSTRAINT beliefs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: boxcar_rule_type_pkey; Type: CONSTRAINT; Schema: tool; Owner: ajolma
+--
+
+ALTER TABLE ONLY boxcar_rule_type
+    ADD CONSTRAINT boxcar_rule_type_pkey PRIMARY KEY (id);
 
 
 --
@@ -2154,6 +2195,14 @@ ALTER TABLE ONLY rule_systems
 
 
 --
+-- Name: rules_boxcar_type_fkey; Type: FK CONSTRAINT; Schema: tool; Owner: ajolma
+--
+
+ALTER TABLE ONLY rules
+    ADD CONSTRAINT rules_boxcar_type_fkey FOREIGN KEY (boxcar_type) REFERENCES boxcar_rule_type(id);
+
+
+--
 -- Name: rules_r_dataset_fkey; Type: FK CONSTRAINT; Schema: tool; Owner: ajolma
 --
 
@@ -2423,6 +2472,26 @@ REVOKE ALL ON TABLE beliefs FROM PUBLIC;
 REVOKE ALL ON TABLE beliefs FROM ajolma;
 GRANT ALL ON TABLE beliefs TO ajolma;
 GRANT ALL ON TABLE beliefs TO smartsea;
+
+
+--
+-- Name: boxcar_rule_type; Type: ACL; Schema: tool; Owner: ajolma
+--
+
+REVOKE ALL ON TABLE boxcar_rule_type FROM PUBLIC;
+REVOKE ALL ON TABLE boxcar_rule_type FROM ajolma;
+GRANT ALL ON TABLE boxcar_rule_type TO ajolma;
+GRANT ALL ON TABLE boxcar_rule_type TO smartsea;
+
+
+--
+-- Name: boxcar_rule_type_id_seq; Type: ACL; Schema: tool; Owner: ajolma
+--
+
+REVOKE ALL ON SEQUENCE boxcar_rule_type_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE boxcar_rule_type_id_seq FROM ajolma;
+GRANT ALL ON SEQUENCE boxcar_rule_type_id_seq TO ajolma;
+GRANT ALL ON SEQUENCE boxcar_rule_type_id_seq TO smartsea;
 
 
 --

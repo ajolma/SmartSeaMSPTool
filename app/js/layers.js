@@ -303,7 +303,7 @@ MSPRule.prototype = {
                 self.value = rule.value;
             }
         } else if (self.layer.rule_class === mspEnum.BOXCAR) {
-            self.boxcar = rule.boxcar;
+            self.boxcar_type = rule.boxcar_type;
             self.boxcar_x0 = rule.boxcar_x0;
             self.boxcar_x1 = rule.boxcar_x1;
             self.boxcar_x2 = rule.boxcar_x2;
@@ -335,11 +335,7 @@ MSPRule.prototype = {
             }
         /*} else if (self.layer.rule_class === mspEnum.MULTIPLICATIVE || self.layer.rule_class === mspEnum.ADDITIVE) {*/
         } else if (self.layer.rule_class === mspEnum.BOXCAR) {
-            if (self.boxcar) {
-                name += ' _/¯\\_ ';
-            } else {
-                name += ' ¯\\_/¯ ';
-            }
+            name += ': Boxcar ' + self.boxcar_type + ' ';
             name += self.boxcar_x0 + ', ' + self.boxcar_x1 + ', ' + self.boxcar_x2 + ', ' + self.boxcar_x3;
             name += ' weight ' + self.weight;
         } else if (self.layer.rule_class === mspEnum.BAYESIAN_NETWORK) {

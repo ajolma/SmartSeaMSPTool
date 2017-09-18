@@ -6,14 +6,10 @@ use HTTP::Cookies;
 use HTTP::Request::Common;
 use Plack::Builder;
 use JSON;
-
-use SmartSea::Schema::Result::RuleClass qw/:all/;
-
 use Data::Dumper;
-
 use lib '.';
 use Test::Helper;
-
+use SmartSea::Schema::Result::RuleClass qw/:all/;
 use_ok('SmartSea::Schema');
 use_ok('SmartSea::Object');
 use_ok('SmartSea::Plans');
@@ -69,7 +65,7 @@ my %column_tests = (
     value_at_min => {&MULTIPLICATIVE_RULE => 1, &ADDITIVE_RULE => 1},
     value_at_max => {&MULTIPLICATIVE_RULE => 1, &ADDITIVE_RULE => 1},
     weight => {&MULTIPLICATIVE_RULE => 1, &ADDITIVE_RULE => 1, &BOXCAR_RULE => 1},
-    boxcar => {&BOXCAR_RULE => 1},
+    boxcar_type => {&BOXCAR_RULE => 1},
     boxcar_x0 => {&BOXCAR_RULE => 1},
     boxcar_x1 => {&BOXCAR_RULE => 1},
     boxcar_x2 => {&BOXCAR_RULE => 1},
@@ -83,6 +79,7 @@ test_psgi $app, sub {
 
     # create, read, update, and delete once a rule of each type
     for my $rule_system (sort keys %rule_classes) {
+        #next unless $rule_classes{$rule_system} eq 'boxcar';
             
         my $res = $cb->(
             POST "$host/rest/rule?request=create", 
@@ -118,6 +115,7 @@ test_psgi $app, sub {
 
     for my $rule ($schema->resultset('Rule')->all) {
         my $res = $rule->read;
+        #print STDERR Dumper $res;
         my $rule_system = $rule->rule_system->id;
         for my $col (sort keys %column_tests) {
             if ($column_tests{$col}{$rule_system}) {

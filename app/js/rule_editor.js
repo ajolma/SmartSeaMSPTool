@@ -112,7 +112,7 @@ MSPController.prototype.editBooleanRule = function (plan, use, layer, rule, data
     value = new Widget({
         container_id: self.editor_id,
         id: 'rule-defs',
-        type: 'para',
+        type: 'paragraph',
     });
     if (rule) {
         html += rule.getCriteria().name;
@@ -190,29 +190,29 @@ MSPController.prototype.editBoxcarRule = function (rule, dataset) {
         form = new Widget({
             container_id: self.editor_id,
             id: 'form',
-            type: 'checkbox',
-            selected: rule ? 1 - rule.boxcar : 0,
-            label: 'Turn the function upside down ¯¯\\__/¯¯'
+            type: 'select',
+            list: {1: 'Normal _/¯\\_', 2: 'Inverted ¯\\_/¯'},
+            selected: rule ? rule.boxcar_type : 'Normal _/¯\\_',
         }),
         x0 = new Widget({
             container_id: self.editor_id,
             id: 'x0p',
-            type: 'para'
+            type: 'paragraph'
         }),
         x1 = new Widget({
             container_id: self.editor_id,
             id: 'x1p',
-            type: 'para'
+            type: 'paragraph'
         }),
         x2 = new Widget({
             container_id: self.editor_id,
             id: 'x2p',
-            type: 'para'
+            type: 'paragraph'
         }),
         x3 = new Widget({
             container_id: self.editor_id,
             id: 'x3p',
-            type: 'para'
+            type: 'paragraph'
         }),
         weight = new Widget({
             container_id: self.editor_id,
@@ -315,17 +315,18 @@ MSPController.prototype.editBoxcarRule = function (rule, dataset) {
     }
 
     return function () {
-        var retval = {};
+        var retval = {
+            boxcar_type: {value:form.getValue(), selected: form.getSelected()},
+            boxcar_x0: x0Widget.getValue(),
+            boxcar_x1: x1Widget.getValue(),
+            boxcar_x2: x2Widget.getValue(),
+            boxcar_x3: x3Widget.getValue(),
+            weight: weight.getValue()
+        };
         if (!rule) {
             dataset = dataset.getSelected();
             retval.dataset = dataset.id;
         }
-        retval.boxcar = form.getValue();
-        retval.boxcar_x0 = x0Widget.getValue();
-        retval.boxcar_x1 = x1Widget.getValue();
-        retval.boxcar_x2 = x2Widget.getValue();
-        retval.boxcar_x3 = x3Widget.getValue();
-        retval.weight = weight.getValue();
         return retval;
     };
 
