@@ -812,10 +812,11 @@ MSPController.prototype = {
         }
 
         self.ok = function () { // save new rule
-            var path = 'plan:' + plan.id + '/uses:' + use.id + '/layers:' + layer.id;
+            var path = 'plan:' + plan.id + '/uses:' + use.id + '/layers:' + layer.id,
+                payload = getPayload();
             self.post({
                 url: self.server + path + '/rules?request=save',
-                payload: getPayload(),
+                payload: payload,
                 atSuccess: function (data) {
                     self.model.addRule(new MSPRule({
                         id: data.id.value,
@@ -826,7 +827,7 @@ MSPController.prototype = {
                             return element.id === data.op.value;
                         }).name : null,
                         value: value_from(data.value),
-                        boxcar_type: data.boxcar_type.getSelected(),
+                        boxcar_type: payload.boxcar_type ? payload.boxcar_type.selected : null,
                         boxcar_x0: value_from(data.boxcar_x0),
                         boxcar_x1: value_from(data.boxcar_x1),
                         boxcar_x2: value_from(data.boxcar_x2),
