@@ -103,7 +103,9 @@ sub object_editor {
         my $class = $last->{class}; # what to delete
         $self->{parameters}->remove($class); # from a select accompanying create button
         my ($id) = $self->{parameters}{delete} =~ /(\d+)/;
+        say STDERR "delete = $last->{source}:$id" if $self->{debug};
         $last = SmartSea::Object->new({source => $last->{source}, id => $id, app => $last->{app}});
+        $objects->[$#$objects] = $last;
         delete $self->{parameters}{delete};
         $request = 'delete';
     } else {
@@ -221,6 +223,7 @@ sub object_editor {
         my $class = $last->{class}; # what to delete
         my @id = $self->{parameters}->get_all($class);
         if (@id) {
+            say STDERR "delete $class:@id" if $self->{debug};
             for my $id (@id) {
                 my $o = SmartSea::Object->new({source => $last->{source}, id => $id, app => $last->{app}});
                 eval {

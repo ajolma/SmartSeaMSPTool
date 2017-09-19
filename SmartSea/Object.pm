@@ -812,11 +812,10 @@ sub delete {
         return;
     }
     if ($self->{prev}) {
-        say STDERR "remove link ",$self->{prev}->str," -> ",$self->str if $self->{app}{debug};
         my $relationship = $self->{relation};
         if ($relationship) {
             if ($self->{prev}{source} eq $self->{source}) {
-                say STDERR "update self" if $self->{app}{debug};
+                say STDERR "remove link ",$self->{prev}->str," -> ",$self->str if $self->{app}{debug};
                 $self->{row}->update({$relationship->{ref_to_parent} => undef});
                 return;
             }
