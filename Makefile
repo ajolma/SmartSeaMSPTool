@@ -32,6 +32,9 @@ test-js:
 	cd app/js; eslint $(JS); cd ../..
 	phantomjs phantomjs-test.js
 
+js-doc:
+	cd app/js; jsdoc -d doc $(JS); cd ../..
+
 #plugin-test:
 #	rm -rf $HOME/.qgis2/python/plugins/smartsea/
 #	pwd = `pwd`

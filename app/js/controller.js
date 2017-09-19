@@ -31,6 +31,13 @@ DAMAGE.
 
 // after https://alexatnet.com/articles/model-view-controller-mvc-javascript
 
+/**
+ * A singleton for communicating with the server about plans, uses,
+ * layers, and rules.
+ * @constructor
+ * @param {MSP} model - Model.
+ * @param {MSPView} view - View.
+ */
 function MSPController(model, view) {
     var self = this;
     self.server = model.protocol + '://' + model.server + '/browser/';

@@ -50,30 +50,28 @@ function element(tag, attrs, text) {
  * @typedef {Object} WidgetOptions
  * @property {string} container_id - The id of the parent element.
  * @property {string} id - The id of this widget element.
- * @property {string} slider_value_id - The id for the slider
+ * @property {string=} slider_value_id - The id for the slider
  * value. Needed if there are more than one slider in the same parent.
  * @property {string} type - The type of the widget. Possible values
  * are: paragraph, text, checkbox, select, checkbox-list, spinner,
  * slider
-
- * @property {string} pretext - Text to include in the html before the
+ * @property {string=} pretext - Text to prepend to the html before the
  * actual element.
- * @property {string} label - 
-
- * @property {boolean|number|string|Object} selected - For selection
+ * @property {string=} label - Label for an input widget.
+ * @property {boolean|number|string|Object=} selected - For selection
  * type widgets, the selected. Boolean for select true/false
  * widget. The list item or item.name for select-one widgets. Hash
  * keyed with ids for select-multiple type widgets.
- * @property {number|string} value - The initial value of the text
+ * @property {number|string=} value - The initial value of the text
  * input or the numeric value of widgets for selecting a numeric
  * value.
  * @property {function=} newValue - Function to be called when user
  * has adjusted the value.
- * @property {number|string} min - The lower bound for value for
+ * @property {number|string=} min - The lower bound for value for
  * widgets for selecting a numeric value.
- * @property {number|string} max - The upper bound for value for
+ * @property {number|string=} max - The upper bound for value for
  * widgets for selecting a numeric value.
- * @property {Array|Object} list - The list of selectables for
+ * @property {Array|Object=} list - The list of selectables for
  * select-from-multiple-values type widgets.
  * @property {function=} includeItem - Function to be called for
  * querying whether a list item is to be included in the selectables.
@@ -84,7 +82,7 @@ function element(tag, attrs, text) {
 /**
  * An HTML element, mainly for user input.
  * @constructor
- * @param {WidgetOptions} args - Options {@link WidgetOptions}.
+ * @param {WidgetOptions} options - Options.
  */
 function Widget(args) {
     var self = this,
@@ -190,8 +188,11 @@ function Widget(args) {
 
 Widget.prototype = {
     /**
-     * Prepare the element for the screen.
-     * @function
+     * Prepare the element for display.
+     * @example
+     * widget = new Widget(options);
+     * parent.html(widget.html());
+     * widget.prepare();
      */
     prepare: function () {
         var self = this,
@@ -237,6 +238,9 @@ Widget.prototype = {
             });
         }
     },
+    /**
+     * Get or set the HTML of this widget.
+     */
     html: function (html) {
         var self = this;
         if (!(html === null || html === undefined)) {
@@ -245,10 +249,10 @@ Widget.prototype = {
         }
         return self.my_html;
     },
-    checked: function () {
-        var self = this;
-        return $(self.selector).prop('checked');
-    },
+    /**
+     * Set the value of this widget.
+     * @param {boolean|number|string} value
+     */
     setValue: function (value) {
         var self = this;
         if (self.type === 'select') {
@@ -261,8 +265,13 @@ Widget.prototype = {
                 self.value = self.max;
             }
             $(self.selector).slider('value', self.value);
+        } else if (self.type === 'checkbox') {
+            $(self.selector)[0].checked = value;
         }
     },
+    /**
+     * Get the value of this widget.
+     */
     getValue: function () {
         var self = this,
             value = $(self.selector).val();
@@ -270,15 +279,32 @@ Widget.prototype = {
             return $(self.selector).spinner('value');
         }
         if (self.type === 'slider') {
-            return self.value; //$(self.selector).slider('value'); is not the same for some reason
+            return self.value;
+        }
+        if (self.type === 'checkbox') {
+            return $(self.selector).prop('checked');
         }
         return value;
     },
+    getFloatValue: function () {
+        var self = this,
+            value = self.getValue();
+        if (typeof value === 'string') {
+            value = parseFloat(value);
+        }
+        return value;
+    },
+    /**
+     * Get the selected item.
+     */
     getSelected: function () {
         var self = this,
             value = self.getValue(); // key as string
         return self.list[value];
     },
+    /**
+     * Get the ids of the selected items in a existence hash.
+     */
     getSelectedIds: function () {
         var self = this,
             ids = {};
@@ -291,6 +317,21 @@ Widget.prototype = {
         }
         return ids;
     },
+    /**
+     * Set a listener for changes in this widget.
+     * @example
+     * widget = new Widget({
+     *     ...
+     *     list: list,
+     *     ...
+     * });
+     * parent.html(widget.html());
+     * widget.changed((function changed() {
+     *     ... do something because the user has changed the selected
+     *     item in the widget or the widget was just shown ...
+     *     return changed;
+     * }()));
+     */
     changed: function (fct) {
         var self = this;
         $(self.selector).change(fct);

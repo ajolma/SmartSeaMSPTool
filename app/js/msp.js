@@ -31,6 +31,22 @@ DAMAGE.
 
 // after https://alexatnet.com/articles/model-view-controller-mvc-javascript
 
+/**
+ * Options for creating a MSP model.
+ * @typedef {Object} MSPOptions
+ * @property {string} protocol - Communication protocol with the server: http or https.
+ * @property {string} server - The URL of the server.
+ * @property {string} user - The name of the current user, guest for unauthenticated.
+ * @property {Projection} proj - Projection.
+ * @property {ol.Map} map - The map view.
+ * @property {number=} firstPlan - The id of the plan to select initially.
+ * @property {boolean} auth - Whether the user is authenticated.
+ */
+/**
+ * A singleton for maintaining the plans.
+ * @constructor
+ * @param {MSPOptions} options - Options.
+ */
 function MSP(args) {
     var self = this;
     self.protocol = args.protocol;

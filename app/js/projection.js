@@ -29,6 +29,19 @@ DAMAGE.
 'use strict';
 /*global alert, ol*/
 
+/**
+ * Options for creating a projection.
+ * @typedef {Object} ProjectionOptions
+ * @property {number} epsg - 3857 or 3067.
+ * @property {string} matrixSet - ETRS-TM35FIN or EPSG:3857.
+ * @property {Array} center - [x,y].
+ * @property {number} zoom - .
+ */
+/**
+ * A projection and a view to be used in the map.
+ * @constructor
+ * @param {ProjectionOptions} options - Options.
+ */
 function Projection(options) {
     var self = this,
         p = ol.proj.get('EPSG:' + options.epsg),

@@ -31,6 +31,13 @@ DAMAGE.
 
 // after https://alexatnet.com/articles/model-view-controller-mvc-javascript
 
+/**
+ * A singleton for maintaining the GUI.
+ * @constructor
+ * @param {MSP} model - Model.
+ * @param {ViewElements} elements - jQuery objects representing some GUI elements.
+ * @param {ViewIds} ids - Selectors for some GUI elements.
+ */
 function MSPView(model, elements, id) {
     var self = this;
     self.model = model;

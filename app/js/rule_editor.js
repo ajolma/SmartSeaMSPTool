@@ -247,10 +247,10 @@ MSPController.prototype.editBoxcarRule = function (rule, dataset) {
     self.editor.html(html);
 
     newValue = function (value) {
-        x0v = x0Widget.getValue();
-        x1v = x1Widget.getValue();
-        x2v = x2Widget.getValue();
-        x3v = x3Widget.getValue();
+        x0v = x0Widget.getFloatValue();
+        x1v = x1Widget.getFloatValue();
+        x2v = x2Widget.getFloatValue();
+        x3v = x3Widget.getFloatValue();
         if (this.id === 'x0') {
             if (x1v < value) {
                 x1Widget.setValue(value);

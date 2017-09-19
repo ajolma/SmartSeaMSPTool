@@ -102,7 +102,7 @@ function makeConfig() {
                     })],
                     url: 'http://avoindata.maanmittauslaitos.fi/mapcache/wmts',
                     layer: 'taustakartta',
-                    matrixSet: 'ETRS-TM35FIN',
+                    matrixSet: config.matrixSet,
                     format: 'image/png',
                     projection: config.proj.projection,
                     tileGrid: new ol.tilegrid.WMTS({
@@ -126,7 +126,7 @@ function makeConfig() {
                     url: 'http://avaa.tdata.fi/geoserver/osm_finland/wms',
                     params: {'LAYERS': 'osm-finland', 'TILED': true},
                     serverType: 'geoserver',
-                    matrixSet: 'ETRS-TM35FIN',
+                    matrixSet: config.matrixSet,
                     projection: config.proj.projection,
                     tileGrid: new ol.tilegrid.WMTS({
                         origin: ol.extent.getTopLeft(config.proj.extent),

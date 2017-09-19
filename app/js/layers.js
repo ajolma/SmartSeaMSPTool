@@ -44,6 +44,22 @@ var mspStrings = {
     }
 };
 
+/**
+ * Options for creating a layer.
+ * @typedef {Object} MSPLayerOptions
+ * @property {number} id - .
+ * @property {string} name - .
+ * @property {string} owner - .
+ * @property {MSP} MSP - .
+ * @property {MSPUse} use - .
+ * @property {MSPStyle} style - .
+
+ */
+/**
+ * A WMTS layer in the map.
+ * @constructor
+ * @param {MSPLayerOptions} options - Options.
+ */
 function MSPLayer(args) {
     var self = this;
 
