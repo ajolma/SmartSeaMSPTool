@@ -34,7 +34,7 @@ DAMAGE.
 /**
  * A singleton for maintaining the GUI.
  * @constructor
- * @param {MSP} model - Model.
+ * @param {MSPModel} model - Model.
  * @param {ViewElements} elements - jQuery objects representing some GUI elements.
  * @param {ViewIds} ids - Selectors for some GUI elements.
  */
@@ -108,6 +108,9 @@ function MSPView(model, elements, id) {
 }
 
 MSPView.prototype = {
+    /**
+     * React to the browser window resize event.
+     */
     windowResize: function () {
         var right_width = 230, // from layout.css
             h = $(window).height() -  $('.header').height() - $('.plot').height(),
@@ -120,6 +123,9 @@ MSPView.prototype = {
             this.model.map.updateSize();
         }
     },
+    /**
+     * Clean up the GUI after deselecting a layer.
+     */
     cleanUp: function () {
         var self = this;
         self.elements.rule_header.html('');
@@ -127,10 +133,12 @@ MSPView.prototype = {
         self.elements.site.html('');
         self.elements.legend.html('');
     },
+    /**
+     * Update the list of available plans.
+     */
     buildPlans: function () {
-        // add plans to the plan drop down
         var self = this;
-        if (self.model.user !== 'guest') {
+        if (self.model.config.config.user !== 'guest') {
             self.elements.user.html('Hello ' + self.model.user + '!');
         }
         self.elements.plans.html('');
@@ -140,13 +148,12 @@ MSPView.prototype = {
         self.cleanUp();
     },
     buildPlan: function () {
-        // activate selected plan
         var self = this,
             options,
             menu;
-        if (self.model.auth) {
+        if (self.model.config.config.auth) {
             options = [{cmd: 'add', label: 'Add...'}];
-            if (self.model.plan.owner === self.model.user) {
+            if (self.model.plan.owner === self.model.config.config.user) {
                 options.push({cmd: 'edit', label: 'Edit...'});
                 options.push({cmd: 'delete', label: 'Delete...'});
                 options.push({cmd: 'add_use', label: 'Add use...'});
@@ -211,7 +218,7 @@ MSPView.prototype = {
                 menu;
             self.elements.layers.append(item.element);
 
-            if (!self.model.auth) {
+            if (!self.model.config.config.auth) {
                 return true;
             }
 
@@ -271,6 +278,9 @@ MSPView.prototype = {
             });
         });
     },
+    /**
+     * Build the list of uses with layers for the selected plan.
+     */
     buildLayers: function () {
         // an openable list of use items
         var self = this;
@@ -350,10 +360,13 @@ MSPView.prototype = {
 
         self.cleanUp();
     },
+    /**
+     * Build the GUI for a selected layer.
+     */
     selectLayer: function () {
         var self = this,
             layer = self.model.layer,
-            url = self.model.protocol + '://' + self.model.server,
+            url = self.model.serverURL(),
             style = '',
             cache_breaker = '&time=' + new Date().getTime(),
             layer_info = layer ? layer.info() : null;
@@ -382,6 +395,9 @@ MSPView.prototype = {
             self.elements.site.html(layer.name);
         }
     },
+    /**
+     * Clean up after a layer is deselected.
+     */
     unselectLayer: function (layer) {
         $('#use' + layer.use.id + ' #layer' + layer.id).css('background-color', 'white');
         this.elements.rule_header.html('');

@@ -1,3 +1,6 @@
+##
+# Object representing a SmartSea database object or a class of
+# objects.
 package SmartSea::Object;
 use strict;
 use warnings;
@@ -14,6 +17,9 @@ use Data::Dumper;
 
 binmode STDERR, ":utf8";
 
+##
+# 
+# @class-method
 sub from_app {
     my ($class, $app) = @_;
     
@@ -84,7 +90,9 @@ sub subclass_object {
     return $object;
 }
 
-# in args give object, or source and possibly id or search
+##
+# @param {ObjectOptions} options - Options.
+# Options need to contain object, or source and possibly id or search
 # polymorphic: returns the subclass object if this is one
 sub new {
     my ($class, $args) = @_;

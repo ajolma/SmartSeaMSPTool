@@ -76,18 +76,23 @@ sub read_file_for_doc {
                 $topic = 'param';
                 next;
             }
+            if (/^\@class-method/) {
+                $doc->{class_method} = 1;
+                next;
+            }
             if ($topic eq 'param') {
                 my $i = $#{$doc->{params}};
                 $doc->{params}[$i]{descr} .= ' '.$_;
                 next;
             }
-            $doc->{descr} .= $_;
+            $doc->{descr} .= ' '.$_;
             next;
         }
         if (/^package\s+([\w:]+)/) {
             next unless $doc;
             $class = $1;            
             $classes->{$class} = clone($doc);
+            undef $doc;
             my $href = $class;
             $href =~ s/::/_/g;
             $classes->{$class}{href} = $href.'.html';
@@ -96,12 +101,22 @@ sub read_file_for_doc {
         }
         if (/^sub\s+new/) {
             $classes->{$class}{constructor} = clone($doc);
+            undef $doc;
             $classes->{$class}{constructor}{meta} = {
                 source => $file,
                 line => $line
             };
+            next;
         }
-        undef $doc;
+        if (/^sub\s+(\w+)/) {
+            my $name = $1;
+            $doc->{meta} = {
+                source => $file,
+                line => $line
+            };
+            $classes->{$class}{methods}{$name} = clone($doc);
+            next;
+        }
     }
     close $fh;
 }
@@ -171,15 +186,52 @@ sub document_a_class {
             [h4 => {class => "name", id => "MSP"},
                 [span => {class => "type-signature"}],
                 [0 => $name.'->new'],
-                [span => {class => "signature"}, '('.join(',',@params).')']
+                [span => {class => "signature"}, '('.join(',', @params).')']
             ],
             [div => {class => "description"}, $class->{descr}],
             [h5 => 'Parameters:'],
             [table => {class => "params"}, parameter_table($class->{constructor}{params})],
             [dl => {class => "details"}, details($class->{constructor}{meta})]
         ],
-        [h3 => {class => "subsection-title"}, 'Methods']
     ];
+    
+    push @$article, [h3 => {class => "subsection-title"}, 'Class Methods'];
+    for my $method (@{$class->{methods}}) {
+        next unless $method->{class_method};
+        my @params;
+        for my $param (@{$method->{params}}) {
+            push @params, $param->{name};
+        }
+        push @$article, [h4 => {class => 'name', id => $method->{name}},
+            [span => {class => "type-signature"}],
+            [0 => $method->{name}],
+            [span => {class => "signature"}, '('.join(', ', @params).')'],
+            [span => {class => "type-signature"}]
+        ];
+        push @$article, [div => {class => 'description'}, $method->{descr}];
+        push @$article, [dl => {class => "details"}, details($method->{meta})];
+        push @$article, [h5 => 'Example'];
+        push @$article, [pre => {class => "prettyprint"}, [code => $method->{code}]];
+    }
+
+    push @$article, [h3 => {class => "subsection-title"}, 'Object Methods'];
+    for my $method (@{$class->{methods}}) {
+        next unless $method->{object_method};
+        my @params;
+        for my $param (@{$method->{params}}) {
+            push @params, $param->{name};
+        }
+        push @$article, [h4 => {class => 'name', id => $method->{name}},
+            [span => {class => "type-signature"}],
+            [0 => $method->{name}],
+            [span => {class => "signature"}, '('.join(', ', @params).')'],
+            [span => {class => "type-signature"}]
+        ];
+        push @$article, [div => {class => 'description'}, $method->{descr}];
+        push @$article, [dl => {class => "details"}, details($method->{meta})];
+        push @$article, [h5 => 'Example'];
+        push @$article, [pre => {class => "prettyprint"}, [code => $method->{code}]];
+    }
 
     my $main = [
         [h1 => {class => "page-title"}, 'Class: '.$name],

@@ -35,12 +35,12 @@ DAMAGE.
  * A singleton for communicating with the server about plans, uses,
  * layers, and rules.
  * @constructor
- * @param {MSP} model - Model.
+ * @param {MSPModel} model - Model.
  * @param {MSPView} view - View.
  */
 function MSPController(model, view) {
     var self = this;
-    self.server = model.protocol + '://' + model.server + '/browser/';
+    self.server = model.serverURL() + '/browser/';
     self.model = model;
     self.view = view;
     self.msg = $('#error');
@@ -79,6 +79,9 @@ function MSPController(model, view) {
 }
 
 MSPController.prototype = {
+    /**
+     * Get some lists from the server.
+     */
     getKlasses: function () {
         var self = this,
             klasses = {
@@ -200,6 +203,9 @@ MSPController.prototype = {
                 };
         self.editor.dialog('option', 'buttons', buttons);
     },
+    /**
+     * Set up the editor dialog.
+     */
     setEditor: function (options) {
         var self = this;
         if (options.title) {
@@ -263,12 +269,15 @@ MSPController.prototype = {
             }
         });
     },
+    /**
+     * Get the list of Bayesian Networks from the server.
+     */
     getNetworks: function (when_done) {
         var self = this;
         if (!self.networks) {
             $.ajax({
                 headers: {Accept: 'application/json'},
-                url: self.model.protocol + '://' + self.model.server + '/networks',
+                url: self.model.serverURL() + '/networks',
                 success: function (result) {
                     self.networks = result;
                     when_done();
@@ -279,10 +288,13 @@ MSPController.prototype = {
             when_done();
         }
     },
+    /**
+     * Get the plans from the server. This is the main bootstrap function.
+     */
     loadPlans: function () {
         var self = this;
         self.post({
-            url: self.model.protocol + '://' + self.model.server + '/plans',
+            url: self.model.serverURL() + '/plans',
             payload: {},
             atSuccess: function (data) {
                 self.getNetworks(function () {
@@ -292,6 +304,9 @@ MSPController.prototype = {
             }
         });
     },
+    /**
+     * Open a plan editor dialog.
+     */
     editPlan: function (plan, args) {
         var self = this,
             name = 'plan-name';
@@ -332,6 +347,9 @@ MSPController.prototype = {
         };
         self.editor.dialog('open');
     },
+    /**
+     * Confirm and delete a plan.
+     */
     deletePlan: function (plan) {
         var self = this;
         self.setEditor({
@@ -349,6 +367,9 @@ MSPController.prototype = {
         };
         self.editor.dialog('open');
     },
+    /**
+     * Open add use dialog.
+     */
     addUse: function (plan) {
         var self = this,
             id = 'use-id',
@@ -391,6 +412,9 @@ MSPController.prototype = {
         };
         self.editor.dialog('open');
     },
+    /**
+     * Open edit use dialog.
+     */
     editUse: function (use) {
         var self = this;
         self.getData('use_class:' + use.class_id + '/activities', function (activities) {
@@ -416,6 +440,9 @@ MSPController.prototype = {
             self.editor.dialog('open');
         });
     },
+    /**
+     * Open a dialog for managing the list of datasets in a plan.
+     */
     editDatasetList: function (plan) {
         var self = this,
             inRules = self.model.datasetsInRules(),
@@ -463,6 +490,9 @@ MSPController.prototype = {
         };
         self.editor.dialog('open');
     },
+    /**
+     * Confirm and delete a use from a plan.
+     */
     deleteUse: function (plan, use) {
         var self = this;
         self.setEditor({
@@ -497,6 +527,9 @@ MSPController.prototype = {
         });
         return list;
     },
+    /**
+     * Open a dialog for adding or editing a layer in a use of a plan.
+     */
     editLayer: function (plan, use, layer) {
         // add new if no layer
         var self = this,
@@ -693,7 +726,7 @@ MSPController.prototype = {
                         name: klass2.name,
                         owner: data.owner.value,
 
-                        MSP: self.model,
+                        model: self.model,
                         use: use,
                         style: {
                             palette: color.name
@@ -762,6 +795,9 @@ MSPController.prototype = {
 
         self.editor.dialog('open');
     },
+    /**
+     * Confirm and delete a layer from a use of a plan.
+     */
     deleteLayer: function (use, layer) {
         var self = this;
         self.setEditor({
@@ -780,9 +816,12 @@ MSPController.prototype = {
         };
         self.editor.dialog('open');
     },
+    /**
+     * Open a dialog for adding or editing a rule in a layer in a use of a plan.
+     */
     editRule: function (plan, use, layer, rule) {
         var self = this,
-            owner = layer.owner === self.model.user,
+            owner = layer.owner === self.model.config.config.user,
             dataset = rule
                 ? rule.dataset
                 : new Widget({
@@ -878,6 +917,9 @@ MSPController.prototype = {
 
         self.editor.dialog('open');
     },
+    /**
+     * Confirm and delete a rule from a layer in a use of a plan.
+     */
     deleteRule: function (plan, use, layer) {
         var self = this,
             rules = new Widget({

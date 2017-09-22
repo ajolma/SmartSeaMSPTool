@@ -85,7 +85,7 @@ MSPController.prototype.datasetValueWidget = function (args) {
 
 MSPController.prototype.editBooleanRule = function (plan, use, layer, rule, dataset) {
     var self = this,
-        owner = layer.owner === self.model.user,
+        owner = layer.owner === self.model.config.config.user,
         value,
         html = '',
         make_op = function (dataset) {

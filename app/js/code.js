@@ -27,223 +27,104 @@ DAMAGE.
 */
 
 'use strict';
-/*global $, alert, ol, element, Projection, Menu, MSP, MSPView, MSPController*/
 
-function makeConfig() {
-    var config = window.location.href.replace(/app[\w\W]*/, 'config'),
-        epsg = /epsg=([\d]+)/.exec(window.location.href);
-    if (epsg && epsg[1]) {
-        epsg = parseInt(epsg[1], 10);
-    } else {
-        // default projection
-        epsg = 3857;
-    }
-    $.ajax({
-        url: config,
-        success: function (result) {
-            config = result;
-        },
-        fail: function (xhr, textStatus) {
-            alert(xhr.responseText || textStatus);
-        },
-        async: false
-    });
-    config.bg = [];
-
-    if (epsg === 3857) {
-        config.epsg = 3857;
-        config.matrixSet = 'EPSG:3857';
-        config.center = [2671763, 8960514];
-        config.zoom = 6;
-        config.proj = new Projection(config);
-        config.bg.push({
-            title: 'ESRI World Ocean Base',
-            layer: new ol.layer.Tile({
-                source: new ol.source.XYZ({
-                    attributions: [new ol.Attribution({
-                        html: 'Background map © Esri, DeLorme, GEBCO, NOAA NGDC, and other contributors'
-                    })],
-                    url: config.protocol + '://services.arcgisonline.com/arcgis/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}'
-                })
-            })
-        });
-        config.bg.push({
-            title: 'MML taustakartta',
-            layer: new ol.layer.Tile({
-                extent: config.proj.extent,
-                source: new ol.source.XYZ({
-                    attributions: [new ol.Attribution({
-                        html: 'Sisältää Maanmittauslaitoksen aineistoa <a href="http://www.maanmittauslaitos.fi/avoindata_lisenssi_versio1_20120501">(lisenssi)</a>'
-                    })],
-                    url: 'http://tile1.kartat.kapsi.fi/1.0.0/taustakartta/{z}/{x}/{y}.png'
-                })
-            })
-        });
-        config.bg.push({
-            title: 'OSM',
-            layer: new ol.layer.Tile({
-                source: new ol.source.OSM()
-            })
-        });
-    } else if (epsg === 3067) {
-        config.epsg = 3067;
-        config.matrixSet = 'ETRS-TM35FIN';
-        config.center = [346735, 6943420];
-        config.zoom = 3;
-        config.proj = new Projection(config);
-        config.bg.push({
-            title: 'MML taustakartta',
-            layer: new ol.layer.Tile({
-                opacity: 1,
-                extent: config.proj.extent,
-                source: new ol.source.WMTS({
-                    attributions: [new ol.Attribution({
-                        html: 'Tiles &copy; <a href="http://www.maanmittauslaitos.fi/avoindata_lisenssi">MML</a>'
-                    })],
-                    url: 'http://avoindata.maanmittauslaitos.fi/mapcache/wmts',
-                    layer: 'taustakartta',
-                    matrixSet: config.matrixSet,
-                    format: 'image/png',
-                    projection: config.proj.projection,
-                    tileGrid: new ol.tilegrid.WMTS({
-                        origin: ol.extent.getTopLeft(config.proj.extent),
-                        resolutions: config.proj.resolutions,
-                        matrixIds: config.proj.matrixIds
-                    }),
-                    style: 'default'
-                })
-            })
-        });
-        config.bg.push({
-            title: 'OSM Suomi',
-            layer: new ol.layer.Tile({
-                opacity: 1,
-                extent: config.proj.extent,
-                source: new ol.source.TileWMS({
-                    attributions: [new ol.Attribution({
-                        html: 'Map: Ministry of Education and Culture, Data: OpenStreetMap contributors'
-                    })],
-                    url: 'http://avaa.tdata.fi/geoserver/osm_finland/wms',
-                    params: {'LAYERS': 'osm-finland', 'TILED': true},
-                    serverType: 'geoserver',
-                    matrixSet: config.matrixSet,
-                    projection: config.proj.projection,
-                    tileGrid: new ol.tilegrid.WMTS({
-                        origin: ol.extent.getTopLeft(config.proj.extent),
-                        resolutions: config.proj.resolutions,
-                        matrixIds: config.proj.matrixIds
-                    })
-                })
-            })
-        });
-    } else {
-        window.alert('EPSG ' + epsg + ' is not a supported projection!');
-    }
-
-    return config;
-}
+/*global $, alert, ol, element, Config, Menu, MSPModel, MSPView, MSPController*/
 
 (function () {
-    var config = makeConfig(),
-        map = new ol.Map({
-            layers: [],
-            target: 'map',
-            controls: ol.control.defaults().extend([
-                new ol.control.FullScreen()
-            ]),
-            /*
-            controls: ol.control.defaults({
-                attributionOptions: {
-                    collapsible: false
-                }
-            }),
-            */
-            view: config.proj.view
-        }),
-        model = new MSP({
-            protocol: config.protocol,
-            server: config.server,
-            user: config.user,
-            proj: config.proj,
-            map: map,
-            firstPlan: 30,
-            auth: config.auth
-        }),
-        view = new MSPView(model, {
-            map: $('#map'),
-            user: $('#user'),
-            plan: $('#plan'),
-            plan_menu: $('#plan-menu'),
-            plans: $('#plans'),
-            layers: $('#layers'),
-            rule_header: $('#rule-header'),
-            rule_info: $('#rule-info'),
-            rules: $('#rules'),
-            site: $('#explain-site'),
-            site_type: $('#site-type'),
-            site_info: $('#site-info'),
-            legend: $('#legend')
-        }, {
-            uses: '#useslist',
-            rules: '#rules'
-        }),
-        controller = new MSPController(model, view),
-        sourceSwap = function () {
-            var $this = $(this),
-                newSource = $this.data('hilite-src');
-            $this.data('hilite-src', $this.attr('src'));
-            $this.attr('src', newSource);
-        };
+    var config = new Config({
+        bootstrap: function () {
+            var map = new ol.Map({
+                    layers: [],
+                    target: 'map',
+                    controls: ol.control.defaults().extend([
+                        new ol.control.FullScreen()
+                    ]),
+                    view: config.proj.view
+                }),
+                model = new MSPModel({
+                    config: config,
+                    map: map,
+                    firstPlan: 30
+                }),
+                view = new MSPView(model, {
+                    map: $('#map'),
+                    user: $('#user'),
+                    plan: $('#plan'),
+                    plan_menu: $('#plan-menu'),
+                    plans: $('#plans'),
+                    layers: $('#layers'),
+                    rule_header: $('#rule-header'),
+                    rule_info: $('#rule-info'),
+                    rules: $('#rules'),
+                    site: $('#explain-site'),
+                    site_type: $('#site-type'),
+                    site_info: $('#site-info'),
+                    legend: $('#legend')
+                },{
+                    uses: '#useslist',
+                    rules: '#rules'
+                }),
+                controller = new MSPController(model, view),
+                sourceSwap = function () {
+                    var $this = $(this),
+                        newSource = $this.data('hilite-src');
+                    $this.data('hilite-src', $this.attr('src'));
+                    $this.attr('src', newSource);
+                };
+            
+            map.addControl(new ol.control.ScaleLine());
 
+            $.each(config.bg, function (i, bg) {
+                bg.layer.setVisible(false);
+                map.addLayer(bg.layer);
+                $('#bg-map').append(element('option', {value: i}, bg.title));
+            });
+            config.base = config.bg[0].layer;
+            config.base.setVisible(true);
+            $('#bg-map').change(function () {
+                config.base.setVisible(false);
+                config.base = config.bg[parseInt($('#bg-map').val(), 10)].layer;
+                config.base.setVisible(true);
+            });
+            
+            $('#reload').click((function reload() {
+                controller.loadPlans();
+                return reload;
+            }()));
+            
+            $(window).resize(function () {
+                view.windowResize();
+            });
+            view.windowResize();
+
+            $(function () {
+                $('img.main-menu').hover(sourceSwap, sourceSwap);
+                $('img.main-menu').click(function (event) {
+                    var options = [{cmd: 'boot', label: 'Boot'}],
+                        menu = new Menu({
+                            element: $('#main-menu'),
+                            menu: $('#main-menu-ul'),
+                            right: 24,
+                            options: options,
+                            select: function () { // cmd
+                                controller.loadPlans();
+                            },
+                            event: event
+                        });
+                    menu.activate();
+                    return false;
+                });
+            });
+            
+        }
+    }); 
+    
     $('body').addClass('stop-scrolling');
     $('.menu').hide();
     $(document).click(function (e) {
         if ($('.menu').has(e.target).length === 0) {
             $('.menu').hide();
         }
-    });
-    map.addControl(new ol.control.ScaleLine());
-
-    $.each(config.bg, function (i, bg) {
-        bg.layer.setVisible(false);
-        map.addLayer(bg.layer);
-        $('#bg-map').append(element('option', {value: i}, bg.title));
-    });
-    config.base = config.bg[0].layer;
-    config.base.setVisible(true);
-    $('#bg-map').change(function () {
-        config.base.setVisible(false);
-        config.base = config.bg[parseInt($('#bg-map').val(), 10)].layer;
-        config.base.setVisible(true);
-    });
-
-    $('#reload').click((function reload() {
-        controller.loadPlans();
-        return reload;
-    }()));
-
-    $(window).resize(function () {
-        view.windowResize();
-    });
-    view.windowResize();
-
-    $(function () {
-        $('img.main-menu').hover(sourceSwap, sourceSwap);
-        $('img.main-menu').click(function (event) {
-            var options = [{cmd: 'boot', label: 'Boot'}],
-                menu = new Menu({
-                    element: $('#main-menu'),
-                    menu: $('#main-menu-ul'),
-                    right: 24,
-                    options: options,
-                    select: function () { // cmd
-                        controller.loadPlans();
-                    },
-                    event: event
-                });
-            menu.activate();
-            return false;
-        });
     });
 
 }());

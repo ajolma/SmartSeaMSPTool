@@ -50,10 +50,21 @@ var mspStrings = {
  * @property {number} id - .
  * @property {string} name - .
  * @property {string} owner - .
- * @property {MSP} MSP - .
+ * @property {MSPModel} model - .
  * @property {MSPUse} use - .
- * @property {MSPStyle} style - .
-
+ * @property {MSPStyle} style - {palette:string}.
+ * @property {number} min_value - Only for datasets. Minimum value.
+ * @property {number} max_value - Only for datasets. Maximum value.
+ * @property {string} data_type - Only for datasets. integer or real.
+ * @property {Object} semantics -  Interpretation of data values {number:string}.
+ * @property {string} descr - Only for datasets. Description of the dataset.
+ * @property {string} provenance - Only for datasets. Provenance of the dataset.
+ * @property {number} class_id - The id of the class to which this layer belongs to.
+ * @property {string} rule_class - Only for computed layers. The class
+ * of rules used to compute this layer.
+ * @property {string} network - For layers computed with Bayesian Networks.
+ * @property {string} output_node - For layers computed with Bayesian Networks.
+ * @property {string} output_state - For layers computed with Bayesian Networks.
  */
 /**
  * A WMTS layer in the map.
@@ -68,10 +79,10 @@ function MSPLayer(args) {
     self.owner = args.owner;
 
     // mapping
-    self.model = args.MSP;
-    self.server = args.MSP.protocol + '://' + args.MSP.server + '/WMTS';
-    self.map = args.MSP.map;
-    self.projection = args.MSP.proj;
+    self.model = args.model;
+    self.server = args.model.serverURL() + '/WMTS';
+    self.map = args.model.map;
+    self.projection = args.model.config.proj;
 
     self.use = args.use;
     self.style = args.style;
@@ -144,9 +155,13 @@ MSPLayer.prototype = {
 
         self.refresh();
     },
+    /**
+     * Return information about this layer in an object of type
+     * {header:'', body:''}.
+     */
     info: function () {
         var self = this,
-            url = self.model.protocol + '://' + self.model.server,
+            url = self.model.serverURL(),
             header,
             body = '';
         if (self.use.class_id === 0) { // Data
@@ -233,6 +248,9 @@ MSPLayer.prototype = {
         self.layer.setVisible(visible); // restore visibility
         self.visible = visible;
     },
+    /**
+     * Add this layer into the map.
+     */
     addToMap: function () {
         var self = this;
         if (self.layer) {
@@ -241,6 +259,9 @@ MSPLayer.prototype = {
         self.newLayer();
         self.map.addLayer(self.layer);
     },
+    /**
+     * Remove this layer from the map.
+     */
     removeFromMap: function () {
         var self = this;
         if (self.layer) {
@@ -251,6 +272,10 @@ MSPLayer.prototype = {
         var self = this;
         self.layer.setVisible(visible);
     },
+    /**
+     * Update this layer in the map. Call after changes to the
+     * layer. No need to call after edd, edit, or delete of a rule.
+     */
     refresh: function () {
         var self = this,
             ind,
@@ -265,6 +290,10 @@ MSPLayer.prototype = {
         coll.setAt(ind, self.layer);
         self.map.render();
     },
+    /**
+     * Add a rule to this layer.
+     * @param {MSPRule} rule
+     */
     addRule: function (rule) {
         var self = this;
         self.rules.push(rule);
@@ -301,6 +330,22 @@ MSPLayer.prototype = {
     }
 };
 
+/**
+ * Options for creating a rule.
+ * @typedef {Object} MSPRuleOptions
+ * @property {number} id - .
+ * @property {MSPLayer} layer - .
+ * @property {MSPLayer} dataset - .
+ * @property {boolean} active - .
+ * @property {string} op - .
+ * @property {number} value - .
+
+ */
+/**
+ * A rule in a layer.
+ * @constructor
+ * @param {MSPRuleOptions} options - Options.
+ */
 function MSPRule(args) {
     var self = this;
     self.id = args.id;

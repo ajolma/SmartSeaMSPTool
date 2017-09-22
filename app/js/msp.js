@@ -32,30 +32,36 @@ DAMAGE.
 // after https://alexatnet.com/articles/model-view-controller-mvc-javascript
 
 /**
- * Options for creating a MSP model.
- * @typedef {Object} MSPOptions
+ * Configuration.
+ * @typedef {Object} MSPConfigFromServer
  * @property {string} protocol - Communication protocol with the server: http or https.
  * @property {string} server - The URL of the server.
  * @property {string} user - The name of the current user, guest for unauthenticated.
+ * @property {boolean} auth - Whether the user is authenticated.
+ */
+/**
+ * Configuration.
+ * @typedef {Object} MSPConfig
+ * @property {MSPConfigFromServer} config - Config.
  * @property {Projection} proj - Projection.
+ */
+/**
+ * Options for creating a MSP model.
+ * @typedef {Object} MSPOptions
+ * @property {MSPConfig} config - Configuration.
  * @property {ol.Map} map - The map view.
  * @property {number=} firstPlan - The id of the plan to select initially.
- * @property {boolean} auth - Whether the user is authenticated.
  */
 /**
  * A singleton for maintaining the plans.
  * @constructor
  * @param {MSPOptions} options - Options.
  */
-function MSP(args) {
+function MSPModel(args) {
     var self = this;
-    self.protocol = args.protocol;
-    self.server = args.server;
-    self.user = args.user;
-    self.proj = args.proj;
+    self.config = args.config;
     self.map = args.map;
     self.firstPlan = args.firstPlan;
-    self.auth = args.auth;
 
     self.site = null; // layer showing selected location or area
     self.plans = null;
@@ -81,11 +87,15 @@ function MSP(args) {
 
 }
 
-MSP.prototype = {
+MSPModel.prototype = {
+    serverURL: function () {
+        var self = this;
+        return self.config.config.protocol + '://' + self.config.config.server;
+    },
     isAuthorized: function (object) {
         var self = this,
-            user = self.user;
-        if (!self.auth) {
+            user = self.config.config.user;
+        if (!self.config.config.auth) {
             return false;
         }
         if (object.use) {
@@ -124,7 +134,7 @@ MSP.prototype = {
         if (plan && plan.uses) {
             self.datasets = plan.uses[0];
             $.each(self.datasets.layers, function (i, layer) {
-                layer.MSP = self;
+                layer.model = self;
                 layer.use = self.datasets;
                 self.datasets.layers[i] = new MSPLayer(layer);
             });
@@ -137,7 +147,7 @@ MSP.prototype = {
         if (plan && plan.uses) {
             self.ecosystem = plan.uses[0];
             $.each(self.ecosystem.layers, function (i, layer) {
-                layer.MSP = self;
+                layer.model = self;
                 layer.use = self.ecosystem;
                 self.ecosystem.layers[i] = new MSPLayer(layer);
             });
@@ -153,7 +163,7 @@ MSP.prototype = {
             }
             $.each(plan.uses, function (j, use) {
                 $.each(use.layers, function (k, layer) {
-                    layer.MSP = self;
+                    layer.model = self;
                     layer.use = use;
                     if (layer.network) {
                         layer.network = networks.find(function (network) {
@@ -517,9 +527,9 @@ MSP.prototype = {
                 coordinates = geom.getCoordinates();
                 query += '&easting=' + coordinates[0] + '&northing=' + coordinates[1];
             }
-            query += '&srs=' + self.proj.projection.getCode();
+            query += '&srs=' + self.config.proj.projection.getCode();
             $.ajax({
-                url: self.protocol + '://' + self.server + '/explain?' + query
+                url: self.serverURL() + '/explain?' + query
             }).done(function (data) {
                 self.siteInformationReceived.notify(data);
             });

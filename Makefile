@@ -1,4 +1,4 @@
-JS = util.js layers.js projection.js msp.js view.js controller.js rule_editor.js code.js
+JS = util.js projection.js config.js layers.js msp.js view.js controller.js rule_editor.js code.js
 
 schema:
 	pg_dump -n tool -n data -s SmartSea >schema.sql
