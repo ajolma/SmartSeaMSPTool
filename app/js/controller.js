@@ -291,7 +291,7 @@ MSPController.prototype = {
     /**
      * Get the plans from the server. This is the main bootstrap function.
      */
-    loadPlans: function () {
+    loadPlans: function (when_done) {
         var self = this;
         self.post({
             url: self.model.serverURL() + '/plans',
@@ -300,6 +300,9 @@ MSPController.prototype = {
                 self.getNetworks(function () {
                     self.model.setPlans(data, self.networks);
                     self.getKlasses();
+                    if (when_done) {
+                        when_done();
+                    }
                 });
             }
         });

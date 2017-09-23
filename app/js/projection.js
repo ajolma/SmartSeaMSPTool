@@ -55,6 +55,7 @@ function Projection(options) {
     } else {
         extent = p.getExtent();
     }
+    self.epsg = options.epsg;
     self.projection = p;
     self.matrixSet = options.matrixSet;
     self.view = new ol.View({

@@ -100,7 +100,7 @@ DAMAGE.
             $(function () {
                 $('img.main-menu').hover(sourceSwap, sourceSwap);
                 $('img.main-menu').click(function (event) {
-                    var options = [{cmd: 'boot', label: 'Boot'}],
+                    var options = model.menu(),
                         menu = new Menu({
                             element: $('#main-menu'),
                             menu: $('#main-menu-ul'),

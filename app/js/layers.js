@@ -253,6 +253,9 @@ MSPLayer.prototype = {
      */
     addToMap: function () {
         var self = this;
+        if (!self.map) {
+            return;
+        }
         if (self.layer) {
             self.map.removeLayer(self.layer);
         }
@@ -279,7 +282,11 @@ MSPLayer.prototype = {
     refresh: function () {
         var self = this,
             ind,
-            coll = self.map.getLayers();
+            coll;
+        if (!self.map) {
+            return;
+        }
+        coll = self.map.getLayers();
         coll.forEach(function (elem, i) {
             var id = elem.get('msp_id');
             if (id === self.id) {

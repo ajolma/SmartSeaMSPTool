@@ -31,9 +31,11 @@ DAMAGE.
 
 function element(tag, attrs, text) {
     var a = '', key;
-    for (key in attrs) {
-        if (attrs.hasOwnProperty(key)) {
-            a += ' ' + key + '="' + attrs[key] + '"';
+    if (attrs) {
+        for (key in attrs) {
+            if (attrs.hasOwnProperty(key)) {
+                a += ' ' + key + '="' + attrs[key] + '"';
+            }
         }
     }
     if (text) {
@@ -112,12 +114,14 @@ function Widget(args) {
         tag = 'p';
     } else if (self.type === 'spinner') {
         tag = 'input';
+    } else if (self.type === 'radio-group') {
+        tag = 'p';
     }
     if (args.list) {
         // key => scalar, or key => object
         self.list = args.list;
         $.each(self.list, function (key, item) {
-            var tag2, attr2, name, x;
+            var a = '', tag2, attr2, name, x = '';
             if (args.includeItem && !args.includeItem(item)) {
                 return true;
             }
@@ -144,7 +148,6 @@ function Widget(args) {
                         attr2.selected = 'selected';
                     }
                 }
-                x = '';
             } else if (self.type === 'checkbox-list') {
                 tag2 = 'input';
                 name = element('a', {id: 'item', item: item.id}, name);
@@ -154,9 +157,23 @@ function Widget(args) {
                     attr2.checked = 'checked';
                 }
                 x = element('br');
+            } else if (self.type === 'radio-group') {
+                attr2 = {type: 'radio', name: 'radio-' + self.id, id: item.id};
+                if (self.selected === item.id) {
+                    attr2.checked = 'checked';
+                }
+                a = element('input', attr2);
+                tag2 = 'label';
+                attr2 = {for: self.id + '-' + key};
+                x = element('br');
             }
-            html += element(tag2, attr2, name) + x;
+            html += a + element(tag2, attr2, name) + x;
         });
+    }
+    if (self.type === 'radio-group') {
+        html = element('fieldset', {}, element('legend', {}, pretext) + html);
+        pretext = '';
+        self.selector = self.container_id + ' input[name=\'radio-' + self.id + '\']';
     }
     if (self.type === 'slider') {
         self.min = parseFloat(args.min);
@@ -273,8 +290,7 @@ Widget.prototype = {
      * Get the value of this widget.
      */
     getValue: function () {
-        var self = this,
-            value = $(self.selector).val();
+        var self = this;
         if (self.type === 'spinner') {
             return $(self.selector).spinner('value');
         }
@@ -284,7 +300,7 @@ Widget.prototype = {
         if (self.type === 'checkbox') {
             return $(self.selector).prop('checked');
         }
-        return value;
+        return $(self.selector).val();
     },
     getFloatValue: function () {
         var self = this,
@@ -298,9 +314,17 @@ Widget.prototype = {
      * Get the selected item.
      */
     getSelected: function () {
-        var self = this,
-            value = self.getValue(); // key as string
-        return self.list[value];
+        var self = this, id;
+        if (self.type === 'paragraph') {
+            return undefined;
+        }
+        if (self.type === 'radio-group') {
+            id = parseInt($(self.selector + ':checked')[0].getAttribute('id'), 10);
+            return self.list.find(function (item) {
+                return item.id === id;
+            });
+        }
+        return self.list[self.getValue()]; // key as string
     },
     /**
      * Get the ids of the selected items in a existence hash.
@@ -340,7 +364,22 @@ Widget.prototype = {
 
 function Menu(args) {
     var self = this,
-        options = '';
+        options = '',
+        itemDiv = function (item) {
+            var html = element('div', {}, item.label),
+                li = '';
+            if (item.submenu) {
+                $.each(item.submenu, function (i, entry) {
+                    if (entry.submenu) {
+                        li += element('li', {}, itemDiv(entry));
+                    } else {
+                        li += element('li', {}, element('div', {tag: entry.cmd}, entry.label));
+                    }
+                });
+                html += element('ul', {}, li);
+            }
+            return html;
+        };
     self.menu = $(args.menu),
     self.handler = function (event) {
         if (args.prelude) {
@@ -353,22 +392,18 @@ function Menu(args) {
         } else {
             self.menu.css('left', event.pageX);
         }
+
+        self.menu.menu({
+            position: { my: 'right top' }
+        });
+        
         $('.menu').hide(); // close all other menus
         self.menu.show();
         return false;
     };
     $.each(args.options, function (i, item) {
-        if (Array.isArray(item)) {
-            var first = item.shift(),
-                sub = '';
-            $.each(item, function (i, item2) {
-                sub += element('li', {}, element('div', {tag: item2.cmd}, item2.label));
-            });
-            sub = element('div', {}, first.label) + element('ul', {}, sub);
-            options += element('li', {}, sub);
-        } else {
-            options += element('li', {}, element('div', {tag: item.cmd}, item.label));
-        }
+        var attr = item.submenu ? {} : {tag: item.cmd};
+        options += element('li', attr, itemDiv(item));
     });
     self.menu.html(options);
     self.menu.menu({

@@ -32,11 +32,91 @@ DAMAGE.
 
 function Config(options) {
     var self = this,
-        url = window.location.href.replace(/app[\w\W]*/, 'config'),
-        epsg = /epsg=([\d]+)/.exec(window.location.href);
+        url = options.config || options.url || window.location.href.replace(/app[\w\W]*/, 'config'),
+        epsg = options.epsg || /epsg=([\d]+)/.exec(window.location.href),
+        bg_maps = function (options) {
+            if (options.proj.epsg === 3857) {
+                return [{
+                    title: 'ESRI World Ocean Base',
+                    layer: new ol.layer.Tile({
+                        source: new ol.source.XYZ({
+                            attributions: [new ol.Attribution({
+                                html: 'Background map © Esri, DeLorme, GEBCO, NOAA NGDC, and other contributors'
+                            })],
+                            url: options.config.protocol + '://services.arcgisonline.com/arcgis/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}'
+                        })
+                    })
+                },{
+                    title: 'MML taustakartta',
+                    layer: new ol.layer.Tile({
+                        extent: options.proj.extent,
+                        source: new ol.source.XYZ({
+                            attributions: [new ol.Attribution({
+                                html: 'Sisältää Maanmittauslaitoksen aineistoa <a href="http://www.maanmittauslaitos.fi/avoindata_lisenssi_versio1_20120501">(lisenssi)</a>'
+                            })],
+                            url: 'http://tile1.kartat.kapsi.fi/1.0.0/taustakartta/{z}/{x}/{y}.png'
+                        })
+                    })
+                },{
+                    title: 'OSM',
+                    layer: new ol.layer.Tile({
+                        source: new ol.source.OSM()
+                    })
+                }];
+            }
+            if (options.proj.epsg === 3067) {
+                return [{
+                    title: 'MML taustakartta',
+                    layer: new ol.layer.Tile({
+                        opacity: 1,
+                        extent: options.proj.extent,
+                        source: new ol.source.WMTS({
+                            attributions: [new ol.Attribution({
+                                html: 'Tiles &copy; <a href="http://www.maanmittauslaitos.fi/avoindata_lisenssi">MML</a>'
+                            })],
+                            url: 'http://avoindata.maanmittauslaitos.fi/mapcache/wmts',
+                            layer: 'taustakartta',
+                            matrixSet: options.proj.matrixSet,
+                            format: 'image/png',
+                            projection: options.proj.projection,
+                            tileGrid: new ol.tilegrid.WMTS({
+                                origin: ol.extent.getTopLeft(options.proj.extent),
+                                resolutions: options.proj.resolutions,
+                                matrixIds: options.proj.matrixIds
+                            }),
+                            style: 'default'
+                        })
+                    })
+                },{
+                    title: 'OSM Suomi',
+                    layer: new ol.layer.Tile({
+                        opacity: 1,
+                        extent: options.proj.extent,
+                        source: new ol.source.TileWMS({
+                            attributions: [new ol.Attribution({
+                                html: 'Map: Ministry of Education and Culture, Data: OpenStreetMap contributors'
+                            })],
+                            url: 'http://avaa.tdata.fi/geoserver/osm_finland/wms',
+                            params: {'LAYERS': 'osm-finland', 'TILED': true},
+                            serverType: 'geoserver',
+                            matrixSet: options.matrixSet,
+                            projection: options.proj.projection,
+                            tileGrid: new ol.tilegrid.WMTS({
+                                origin: ol.extent.getTopLeft(options.proj.extent),
+                                resolutions: options.proj.resolutions,
+                                matrixIds: options.proj.matrixIds
+                            })
+                        })
+                    })
+                }];
+            }
+        }
+    ;
     
-    if (epsg && epsg[1]) {
-        epsg = parseInt(epsg[1], 10);
+    if (epsg) {
+        if (epsg.isArray) {
+            epsg = parseInt(epsg[1], 10);
+        }
     } else {
         // default projection
         epsg = 3857;
@@ -56,88 +136,24 @@ function Config(options) {
             center: [346735, 6943420],
             zoom: 3
         });
+        /*
     } else {
         window.alert('EPSG ' + epsg + ' is not a supported projection!');
+        */
     }
-    
+
+    if (options.config) {
+        self.config = options.config;
+        if (options.bootstrap) {
+            options.bootstrap();
+        }
+        return;
+    }
     $.ajax({
         url: url,
         success: function (result) {
             self.config = result;
-            if (epsg === 3857) {
-                self.bg = [{
-                    title: 'ESRI World Ocean Base',
-                    layer: new ol.layer.Tile({
-                        source: new ol.source.XYZ({
-                            attributions: [new ol.Attribution({
-                                html: 'Background map © Esri, DeLorme, GEBCO, NOAA NGDC, and other contributors'
-                            })],
-                            url: result.protocol + '://services.arcgisonline.com/arcgis/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}'
-                        })
-                    })
-                },{
-                    title: 'MML taustakartta',
-                    layer: new ol.layer.Tile({
-                        extent: self.proj.extent,
-                        source: new ol.source.XYZ({
-                            attributions: [new ol.Attribution({
-                                html: 'Sisältää Maanmittauslaitoksen aineistoa <a href="http://www.maanmittauslaitos.fi/avoindata_lisenssi_versio1_20120501">(lisenssi)</a>'
-                            })],
-                            url: 'http://tile1.kartat.kapsi.fi/1.0.0/taustakartta/{z}/{x}/{y}.png'
-                        })
-                    })
-                },{
-                    title: 'OSM',
-                    layer: new ol.layer.Tile({
-                        source: new ol.source.OSM()
-                    })
-                }];
-            } else {
-                self.bg = [{
-                    title: 'MML taustakartta',
-                    layer: new ol.layer.Tile({
-                        opacity: 1,
-                        extent: self.proj.extent,
-                        source: new ol.source.WMTS({
-                            attributions: [new ol.Attribution({
-                                html: 'Tiles &copy; <a href="http://www.maanmittauslaitos.fi/avoindata_lisenssi">MML</a>'
-                            })],
-                            url: 'http://avoindata.maanmittauslaitos.fi/mapcache/wmts',
-                            layer: 'taustakartta',
-                            matrixSet: self.proj.matrixSet,
-                            format: 'image/png',
-                            projection: self.proj.projection,
-                            tileGrid: new ol.tilegrid.WMTS({
-                                origin: ol.extent.getTopLeft(self.proj.extent),
-                                resolutions: self.proj.resolutions,
-                                matrixIds: self.proj.matrixIds
-                            }),
-                            style: 'default'
-                        })
-                    })
-                },{
-                    title: 'OSM Suomi',
-                    layer: new ol.layer.Tile({
-                        opacity: 1,
-                        extent: self.proj.extent,
-                        source: new ol.source.TileWMS({
-                            attributions: [new ol.Attribution({
-                                html: 'Map: Ministry of Education and Culture, Data: OpenStreetMap contributors'
-                            })],
-                            url: 'http://avaa.tdata.fi/geoserver/osm_finland/wms',
-                            params: {'LAYERS': 'osm-finland', 'TILED': true},
-                            serverType: 'geoserver',
-                            matrixSet: self.matrixSet,
-                            projection: self.proj.projection,
-                            tileGrid: new ol.tilegrid.WMTS({
-                                origin: ol.extent.getTopLeft(self.proj.extent),
-                                resolutions: self.proj.resolutions,
-                                matrixIds: self.proj.matrixIds
-                            })
-                        })
-                    })
-                }];
-            }
+            self.bg = bg_maps(self);
             options.bootstrap();
         },
         fail: function (xhr, textStatus) {

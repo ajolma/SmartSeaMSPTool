@@ -139,7 +139,7 @@ MSPView.prototype = {
     buildPlans: function () {
         var self = this;
         if (self.model.config.config.user !== 'guest') {
-            self.elements.user.html('Hello ' + self.model.user + '!');
+            self.elements.user.html('Hello ' + self.model.config.config.user + '!');
         }
         self.elements.plans.html('');
         $.each(self.model.plans, function (i, plan) {

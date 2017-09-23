@@ -88,6 +88,44 @@ function MSPModel(args) {
 }
 
 MSPModel.prototype = {
+    menu: function () {
+        var self = this,
+            menu = [{label: 'Boot', cmd: 'boot'}],
+            submenu;
+
+        if (self.config.config.auth) {
+            menu.push({label: 'Plans', submenu: []});
+            submenu = menu[1].submenu;
+            submenu.push({label: 'Add', cmd: 'add plan'});
+            submenu.push({label: 'Current', submenu: []});
+            submenu = submenu[1].submenu;
+            submenu.push({label: 'Edit', cmd: 'edit plan'});
+            submenu.push({label: 'Delete', cmd: 'delete plan'});
+            submenu.push({label: 'Add use', cmd: 'add use to plan'});
+            menu.push({label: 'Uses', submenu: []});
+            submenu = menu[2].submenu;
+            $.each(self.plan.uses, function (i, use) {
+                var usemenu;
+                submenu.push({label: use.name, submenu: []});
+                usemenu = submenu[submenu.length - 1].submenu;
+                usemenu.push({label: 'Edit'});
+                usemenu.push({label: 'Delete'});
+                usemenu.push({label: 'Layers', submenu: []});
+                $.each(use.layers, function (i, layer) {
+                    var layersmenu = usemenu[usemenu.length - 1].submenu,
+                        layermenu;
+                    layersmenu.push({label: layer.name, submenu: []});
+                    layermenu = layersmenu[layersmenu.length - 1].submenu,
+                    layermenu.push({label: 'Edit'});
+                    layermenu.push({label: 'Delete'});
+                    layermenu.push({label: 'Add rule'});
+                    layermenu.push({label: 'Delete rule'});
+                });
+            });
+        }
+
+        return menu;
+    },
     serverURL: function () {
         var self = this;
         return self.config.config.protocol + '://' + self.config.config.server;
@@ -183,6 +221,10 @@ MSPModel.prototype = {
             });
             self.plans.push(plan);
         });
+
+        if (!self.firstPlan) {
+            self.firstPlan = self.plans[0].id;
+        }
 
         self.newPlans.notify();
         self.changePlan(self.firstPlan);
@@ -509,7 +551,11 @@ MSPModel.prototype = {
     },
     initSite: function () {
         var self = this,
-            source = new ol.source.Vector({});
+            source;
+        if (!self.map) {
+            return;
+        }
+        source = new ol.source.Vector({});
         source.on('addfeature', function (evt) {
             var feature = evt.feature,
                 geom = feature.getGeometry(),
