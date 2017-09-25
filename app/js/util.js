@@ -50,7 +50,7 @@ function element(tag, attrs, text) {
 /**
  * Options for creating a widget.
  * @typedef {Object} WidgetOptions
- * @property {string} container_id - The id of the parent element.
+ * @property {string} container - The selector of the parent element.
  * @property {string} id - The id of this widget element.
  * @property {string=} slider_value_id - The id for the slider
  * value. Needed if there are more than one slider in the same parent.
@@ -94,9 +94,9 @@ function Widget(args) {
         html = '';
 
     self.type = args.type;
-    self.container_id = args.container_id;
+    self.container = args.container;
     self.id = args.id;
-    self.selector = self.container_id + ' #' + args.id;
+    self.selector = self.container + ' #' + args.id;
     self.selected = args.selected;
     self.value = args.value;
 
@@ -173,7 +173,7 @@ function Widget(args) {
     if (self.type === 'radio-group') {
         html = element('fieldset', {}, element('legend', {}, pretext) + html);
         pretext = '';
-        self.selector = self.container_id + ' input[name=\'radio-' + self.id + '\']';
+        self.selector = self.container + ' input[name=\'radio-' + self.id + '\']';
     }
     if (self.type === 'slider') {
         self.min = parseFloat(args.min);
@@ -184,7 +184,7 @@ function Widget(args) {
             args.slider_value_id = 'slider-value';
         }
         html += element('input', {id: args.slider_value_id, type: 'text'}, '');
-        self.value_selector = self.container_id + ' #' + args.slider_value_id;
+        self.value_selector = self.container + ' #' + args.slider_value_id;
     } else if (tag === 'input') {
         if (self.type === 'checkbox' && self.selected) {
             attr.checked = 'checked';
@@ -333,7 +333,7 @@ Widget.prototype = {
         var self = this,
             ids = {};
         if (self.type === 'checkbox-list') {
-            $.each($(self.container_id + ' :checkbox'), function (i, item) {
+            $.each($(self.container + ' :checkbox'), function (i, item) {
                 if (item.checked) {
                     ids[item.getAttribute('item')] = 1;
                 }
@@ -408,7 +408,7 @@ function Menu(args) {
     self.menu.html(options);
     self.menu.menu({
         select: function (event, ui) {
-            var cmd = ui.item.children().attr('tag');
+            var cmd = ui.item.attr('tag');
             self.menu.hide();
             args.select(cmd);
         }

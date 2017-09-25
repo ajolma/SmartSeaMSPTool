@@ -77,6 +77,7 @@ function MSPModel(args) {
     self.error = new Event(self);
     self.newPlans = new Event(self);
     self.planChanged = new Event(self);
+    self.usesChanged = new Event(self);
     self.newLayerList = new Event(self);
     self.layerSelected = new Event(self);
     self.layerUnselected = new Event(self);
@@ -88,44 +89,6 @@ function MSPModel(args) {
 }
 
 MSPModel.prototype = {
-    menu: function () {
-        var self = this,
-            menu = [{label: 'Boot', cmd: 'boot'}],
-            submenu;
-
-        if (self.config.config.auth) {
-            menu.push({label: 'Plans', submenu: []});
-            submenu = menu[1].submenu;
-            submenu.push({label: 'Add', cmd: 'add plan'});
-            submenu.push({label: 'Current', submenu: []});
-            submenu = submenu[1].submenu;
-            submenu.push({label: 'Edit', cmd: 'edit plan'});
-            submenu.push({label: 'Delete', cmd: 'delete plan'});
-            submenu.push({label: 'Add use', cmd: 'add use to plan'});
-            menu.push({label: 'Uses', submenu: []});
-            submenu = menu[2].submenu;
-            $.each(self.plan.uses, function (i, use) {
-                var usemenu;
-                submenu.push({label: use.name, submenu: []});
-                usemenu = submenu[submenu.length - 1].submenu;
-                usemenu.push({label: 'Edit'});
-                usemenu.push({label: 'Delete'});
-                usemenu.push({label: 'Layers', submenu: []});
-                $.each(use.layers, function (i, layer) {
-                    var layersmenu = usemenu[usemenu.length - 1].submenu,
-                        layermenu;
-                    layersmenu.push({label: layer.name, submenu: []});
-                    layermenu = layersmenu[layersmenu.length - 1].submenu,
-                    layermenu.push({label: 'Edit'});
-                    layermenu.push({label: 'Delete'});
-                    layermenu.push({label: 'Add rule'});
-                    layermenu.push({label: 'Delete rule'});
-                });
-            });
-        }
-
-        return menu;
-    },
     serverURL: function () {
         var self = this;
         return self.config.config.protocol + '://' + self.config.config.server;
@@ -290,8 +253,11 @@ MSPModel.prototype = {
             self.firstPlan = plans[0].id;
         }
         self.plans = plans;
+        if (!self.plan || id === self.plan.id) {
+            self.plan = null;
+            self.changePlan(self.firstPlan);
+        }
         self.newPlans.notify();
-        self.changePlan(self.firstPlan);
         self.initSite();
     },
     datasetsInRules: function () {
@@ -355,6 +321,9 @@ MSPModel.prototype = {
             };
 
         if (self.plan) {
+            if (self.plan.id === id) {
+                return;
+            }
             self.resetPlan();
         }
         // set the requested plan
@@ -405,6 +374,7 @@ MSPModel.prototype = {
         var self = this;
         self.plan.uses.unshift(use);
         self.createLayers();
+        self.usesChanged.notify();
     },
     hasUse: function (class_id) {
         var self = this,
@@ -427,6 +397,7 @@ MSPModel.prototype = {
         });
         self.plan.uses = uses;
         self.createLayers();
+        self.usesChanged.notify();
     },
     createLayers: function () {
         var self = this;
@@ -475,30 +446,10 @@ MSPModel.prototype = {
         });
         self.newLayerList.notify();
     },
-    getLayer: function (id) {
-        var self = this,
-            retval = null;
-        $.each(self.plan.uses, function (i, use) {
-            if (use.id === id.use) {
-                $.each(use.layers, function (i, layer) {
-                    if (layer.id === id.layer) {
-                        retval = layer;
-                        return false;
-                    }
-                });
-                return false;
-            }
-        });
-        return retval;
-    },
-    selectLayer: function (id) {
-        var self = this,
-            layer = self.getLayer(id);
-        self.layer = null;
-        if (layer) {
-            self.layer = layer;
-            self.layerSelected.notify();
-        }
+    selectLayer: function (layer) {
+        var self = this;
+        self.layer = layer;
+        self.layerSelected.notify();
     },
     unselectLayer: function () {
         var self = this,
@@ -533,7 +484,8 @@ MSPModel.prototype = {
             dataUse.layers = self.datasetsForDataUse();
             self.createLayers();
         }
-        self.selectLayer({use: self.layer.use.id, layer: self.layer.id});
+        self.selectLayer(self.layer);
+        self.rulesChanged.notify();
     },
     getRule: function (id) {
         var self = this;
@@ -547,7 +499,8 @@ MSPModel.prototype = {
         self.layer.deleteRules(rules);
         dataUse.layers = self.datasetsForDataUse();
         self.createLayers();
-        self.selectLayer({use: self.layer.use.id, layer: self.layer.id});
+        self.selectLayer(self.layer);
+        self.rulesChanged.notify();
     },
     initSite: function () {
         var self = this,

@@ -42,7 +42,7 @@ is(test_container.html(), '<p id="x">' + text + '</p>', 'paragraph widget html')
 
 test = function (list, selected, descr, exp) {
     var test = new Widget({
-        container_id: test_container_selector,
+        container: test_container_selector,
         id: 'x',
         type: 'select',
         list: list,

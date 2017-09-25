@@ -28,7 +28,7 @@ DAMAGE.
 
 'use strict';
 
-/*global $, alert, ol, element, Config, Menu, MSPModel, MSPView, MSPController*/
+/*global $, alert, ol, element, Config, Menu, MSPModel, MSPView, MSPController, Editor*/
 
 (function () {
     var config = new Config({
@@ -46,25 +46,39 @@ DAMAGE.
                     map: map,
                     firstPlan: 30
                 }),
-                view = new MSPView(model, {
-                    map: $('#map'),
-                    user: $('#user'),
-                    plan: $('#plan'),
-                    plan_menu: $('#plan-menu'),
-                    plans: $('#plans'),
-                    layers: $('#layers'),
-                    rule_header: $('#rule-header'),
-                    rule_info: $('#rule-info'),
-                    rules: $('#rules'),
-                    site: $('#explain-site'),
-                    site_type: $('#site-type'),
-                    site_info: $('#site-info'),
-                    legend: $('#legend')
-                },{
-                    uses: '#useslist',
-                    rules: '#rules'
+                view = new MSPView({
+                    model: model,
+                    elements: {
+                        map: $('#map'),
+                        user: $('#user'),
+                        plan: $('#plan'),
+                        plan_menu: $('#plan-menu'),
+                        plans: $('#plans'),
+                        layers: $('#layers'),
+                        rule_header: $('#rule-header'),
+                        rule_info: $('#rule-info'),
+                        rules: $('#rules'),
+                        site: $('#explain-site'),
+                        site_type: $('#site-type'),
+                        site_info: $('#site-info'),
+                        legend: $('#legend')
+                    },
+                    selectors: {
+                        uses: '#useslist',
+                        rules: '#rules'
+                    }
                 }),
-                controller = new MSPController(model, view),
+                editor = new Editor({
+                    selector: '#editor',
+                    config: config,
+                    model: model,
+                    view: view
+                }),
+                controller = new MSPController({
+                    model: model,
+                    view: view,
+                    dialog: 'dialog'
+                }),
                 sourceSwap = function () {
                     var $this = $(this),
                         newSource = $this.data('hilite-src');
@@ -100,14 +114,23 @@ DAMAGE.
             $(function () {
                 $('img.main-menu').hover(sourceSwap, sourceSwap);
                 $('img.main-menu').click(function (event) {
-                    var options = model.menu(),
+                    var options = [{label: 'Boot', cmd: 'boot'},
+                            {label: 'Editor...', cmd: 'editor'}],
                         menu = new Menu({
                             element: $('#main-menu'),
                             menu: $('#main-menu-ul'),
                             right: 24,
                             options: options,
-                            select: function () { // cmd
-                                controller.loadPlans();
+                            select: function (cmd) { // cmd
+                                if (cmd === 'boot') {
+                                    controller.loadPlans();
+                                } else if (cmd === 'editor') {
+                                    if (model.layer) {
+                                        editor.open({active_tab: 'rules'});
+                                    } else {
+                                        editor.open({active_tab: 'uses'});
+                                    }
+                                }
                             },
                             event: event
                         });

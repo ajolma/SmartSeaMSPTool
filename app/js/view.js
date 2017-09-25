@@ -27,7 +27,7 @@ DAMAGE.
 */
 
 'use strict';
-/*global $, alert, ol, Event, element, Menu*/
+/*global $, alert, ol, Event, element*/
 
 // after https://alexatnet.com/articles/model-view-controller-mvc-javascript
 
@@ -38,11 +38,11 @@ DAMAGE.
  * @param {ViewElements} elements - jQuery objects representing some GUI elements.
  * @param {ViewIds} ids - Selectors for some GUI elements.
  */
-function MSPView(model, elements, id) {
+function MSPView(options) {
     var self = this;
-    self.model = model;
-    self.elements = elements;
-    self.id = id;
+    self.model = options.model;
+    self.elements = options.elements;
+    self.selectors = options.selectors;
     self.draw = {key: null, draw: null, source: null};
     // elements DOM elements selected with jquery $()
     // ids are jquery selectors
@@ -100,7 +100,7 @@ function MSPView(model, elements, id) {
     self.planCommand = new Event(self);
     self.useCommand = new Event(self);
     self.layerCommand = new Event(self);
-    self.ruleClicked = new Event(self);
+    self.ruleCommand = new Event(self);
 
     self.elements.plans.change(function () {
         self.model.changePlan(parseInt(self.elements.plans.val(), 10));
@@ -148,26 +148,7 @@ MSPView.prototype = {
         self.cleanUp();
     },
     buildPlan: function () {
-        var self = this,
-            options,
-            menu;
-        if (self.model.config.config.auth) {
-            options = [{cmd: 'add', label: 'Add...'}];
-            if (self.model.plan.owner === self.model.config.config.user) {
-                options.push({cmd: 'edit', label: 'Edit...'});
-                options.push({cmd: 'delete', label: 'Delete...'});
-                options.push({cmd: 'add_use', label: 'Add use...'});
-            }
-            menu = new Menu({
-                element: self.elements.plan,
-                menu: self.elements.plan_menu,
-                options: options,
-                select: function (cmd) {
-                    self.planCommand.notify({cmd: cmd});
-                }
-            });
-            menu.activate();
-        }
+        var self = this;
         $('#plan-owner').html('Owner: ' + self.model.plan.owner);
         self.elements.rules.empty();
         self.fillRulesPanel();
@@ -177,8 +158,7 @@ MSPView.prototype = {
             attr = {type: 'checkbox', class: 'visible' + layer.id},
             id = 'layer' + layer.id,
             auth = self.model.isAuthorized({layer: layer}),
-            klass = auth ? 'context-menu' : 'tree-item',
-            item = element('div', {id: id, class: klass}, layer.name),
+            item = element('div', {id: id, class: 'tree-item'}, layer.name),
             retval = '';
         if (auth) {
             item += element('ul', {class: 'menu', id: 'menu' + layer.id, style: 'display:none'}, '');
@@ -192,8 +172,7 @@ MSPView.prototype = {
         // an openable use item for a list
         var self = this,
             auth = self.model.isAuthorized({use: use}),
-            klass = auth ? 'context-menu' : 'tree-item',
-            use_text = element('div', {class: klass}, use.name),
+            use_text = element('div', {class: 'tree-item'}, use.name),
             button = use.layers.length > 0
                 ? element('button', {class: 'use', type: 'button'}, '&rtrif;') + '&nbsp;'
                 : '',
@@ -212,70 +191,8 @@ MSPView.prototype = {
     buildLayerTree: function () {
         var self = this;
         $.each(self.model.plan.uses, function (i, use) {
-            var selector = self.id.uses + ' #use' + use.id,
-                item = self.usesItem(use),
-                options = [],
-                menu;
+            var item = self.usesItem(use);
             self.elements.layers.append(item.element);
-
-            if (!self.model.config.config.auth) {
-                return true;
-            }
-
-            // attach menus
-            if (item.auth) {
-                if (use.id === 0) { // data
-                    options.push({cmd: 'edit', label: 'Edit...'});
-                } else { // use
-                    options.push({cmd: 'edit', label: 'Edit...'});
-                    options.push({cmd: 'delete', label: 'Delete...'});
-                    options.push({cmd: 'add_layer', label: 'Add layer...'});
-                }
-            } else {
-                if (use.id > 1) { // not data or ecosystem component
-                    options.push({cmd: 'add_layer', label: 'Add layer...'});
-                }
-            }
-            menu = new Menu({
-                element: $(selector + ' label'),
-                menu: $(selector + ' #menu'),
-                options: options,
-                select: function (cmd) {
-                    self.useCommand.notify({cmd: cmd, use: use});
-                }
-            });
-            menu.activate();
-
-            $.each(use.layers, function (j, layer) {
-                var auth = self.model.isAuthorized({layer: layer}),
-                    options2 = [],
-                    menu;
-                if (!auth) {
-                    return true;
-                }
-                options2.push({cmd: 'edit', label: 'Edit...'});
-                if (use.id > 2) {
-                    options2.push({cmd: 'delete', label: 'Delete...'});
-                    options2.push([
-                        {label: 'Rule'},
-                        {cmd: 'add_rule', label: 'Add...'},
-                        {cmd: 'delete_rule', label: 'Delete...'}
-                    ]);
-                }
-                menu = new Menu({
-                    element: $(selector + ' #layer' + layer.id),
-                    menu: $(selector + ' #menu' + layer.id),
-                    options: options2,
-                    prelude: function () {
-                        self.model.unselectLayer();
-                        self.model.selectLayer({use: use.id, layer: layer.id});
-                    },
-                    select: function (cmd) {
-                        self.layerCommand.notify({cmd: cmd, use: use, layer: layer});
-                    }
-                });
-                menu.activate();
-            });
         });
     },
     /**
@@ -290,7 +207,7 @@ MSPView.prototype = {
 
         // attach controllers:
         $.each(self.model.plan.uses, function (i, use) {
-            var selector = self.id.uses + ' #use' + use.id,
+            var selector = self.selectors.uses + ' #use' + use.id,
                 useButton = $(selector + ' button.use');
 
             // edit use
@@ -300,16 +217,8 @@ MSPView.prototype = {
 
             // open and close a use item
             useButton.on('click', null, {use: use}, function (event) {
-                $(self.id.uses + ' #use' + event.data.use.id + ' div.use').toggle();
-                if (!this.flipflop) {
-                    this.flipflop = 1;
-                    $(this).html('&dtrif;');
-                    event.data.use.open = true;
-                } else {
-                    this.flipflop = 0;
-                    $(this).html('&rtrif;');
-                    event.data.use.open = false;
-                }
+                self.toggleUse(event.data.use);
+                
             });
             $(selector + ' div.use').hide();
 
@@ -319,18 +228,18 @@ MSPView.prototype = {
                 $('#use' + use.id + ' #layer' + layer.id).click(function () {
                     var layer2 = self.model.unselectLayer();
                     if (!layer2 || !(layer2.id === layer.id && layer2.use.class_id === layer.use.class_id)) {
-                        self.model.selectLayer({use: use.id, layer: layer.id});
+                        self.model.selectLayer(layer);
                     }
                 });
                 // show/hide layer
                 var cb = $(selector + ' input.visible' + layer.id),
                     slider = $(selector + ' input.opacity' + layer.id);
                 cb.change({use: use, layer: layer}, function (event) {
-                    $(self.id.uses + ' #use' + event.data.use.id + ' div.opacity' + event.data.layer.id).toggle();
+                    $(self.selectors.uses + ' #use' + event.data.use.id + ' div.opacity' + event.data.layer.id).toggle();
                     event.data.layer.setVisible(this.checked);
                     if (this.checked) {
                         self.model.unselectLayer();
-                        self.model.selectLayer({use: event.data.use.id, layer: event.data.layer.id});
+                        self.model.selectLayer(event.data.layer);
                     }
                     if (self.model.layer) {
                         self.elements.site.html(self.model.layer.name);
@@ -350,15 +259,48 @@ MSPView.prototype = {
             });
 
             // restore openness of use
-            if (use.hasOwnProperty('open') && use.open) {
-                use.open = true;
-                useButton.trigger('click');  // triggers useButton.on('click'... above
-            } else {
+            if (use.open) {
                 use.open = false;
+                self.openUse(use);
             }
         });
 
         self.cleanUp();
+    },
+    closeUse: function (use) {
+        var self = this,
+            button = $(self.selectors.uses + ' #use' + use.id + ' button');
+        if (!use || !use.open) {
+            return;
+        }
+        $(self.selectors.uses + ' #use' + use.id + ' div.use').toggle();
+        $(button).html('&rtrif;');
+        use.open = false;
+    },
+    openUse: function (use) {
+        var self = this,
+            button = $(self.selectors.uses + ' #use' + use.id + ' button');
+        if (!use || use.open) {
+            return;
+        }
+        $(self.selectors.uses + ' #use' + use.id + ' div.use').toggle();
+        $(button).html('&dtrif;');
+        use.open = true;
+    },
+    toggleUse: function (use) {
+        var self = this,
+            button = $(self.selectors.uses + ' #use' + use.id + ' button');
+        if (!use) {
+            return;
+        }
+        $(self.selectors.uses + ' #use' + use.id + ' div.use').toggle();
+        if (!use.open) {
+            $(button).html('&dtrif;');
+            use.open = true;
+        } else {
+            $(button).html('&rtrif;');
+            use.open = false;
+        }
     },
     /**
      * Build the GUI for a selected layer.
@@ -434,14 +376,21 @@ MSPView.prototype = {
                 self.elements.rules.append(element('br'));
             });
         }
-        $(self.id.rules + ' :checkbox').change(function () {
+        $(self.selectors.rules + ' :checkbox').change(function () {
             // send message rule activity changed?
             var rule_id = parseInt($(this).attr('rule'), 10),
                 active = this.checked;
             self.model.layer.setRuleActive(rule_id, active);
         });
-        $(self.id.rules + ' #rule').click(function () {
-            self.ruleClicked.notify({id: parseInt($(this).attr('rule'), 10)});
+        $(self.selectors.rules + ' #rule').click(function () {
+            var id = parseInt($(this).attr('rule'), 10),
+                rule = self.model.getRule(id);
+            self.ruleCommand.notify({
+                cmd: 'edit',
+                plan: self.model.plan,
+                layer: self.model.layer,
+                rule: rule
+            });
         });
     },
     siteInteraction: function (source) {
