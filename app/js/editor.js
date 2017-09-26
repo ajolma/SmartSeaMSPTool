@@ -66,13 +66,13 @@ Editor.prototype = {
 
     buttons: function (what, klass) {
         var a = [];
-        if (what.includes('a')) {
+        if (what.indexOf('a') !== -1) {
             a.push(element('button', {type: 'button', class: klass + ' add'}, 'Add'));
         }
-        if (what.includes('e')) {
+        if (what.indexOf('e') !== -1) {
             a.push(element('button', {type: 'button', class: klass + ' edit'}, 'Edit'));
         }
-        if (what.includes('d')) {
+        if (what.indexOf('d') !== -1) {
             a.push(element('button', {type: 'button', class: klass + ' delete'}, 'Delete'));
         }
         return a.join('&nbsp;&nbsp;');
@@ -80,13 +80,18 @@ Editor.prototype = {
 
     createPlans: function () {
         var self = this;
-        self.plans = new Widget({
+        self.plans = self.model.plans.length > 0 ? new Widget({
             pretext: 'Select a plan:',
             container: self.selector,
             id: 'plans-radio',
             type: 'radio-group',
             list: self.model.plans,
             selected: self.model.plan.id
+        }) : new Widget({
+            pretext: 'No plans yet.',
+            container: self.selector,
+            id: 'plans',
+            type: 'paragraph'                    
         });
     },
 
@@ -95,10 +100,17 @@ Editor.prototype = {
         self.createPlans();
         $(self.tabs[0].selector + ' #radio').html(self.plans.html());
         self.plans.changed(function foo() {
-            var b = '';
-            self.model.changePlan(self.plans.getSelected().id);
-            if (self.model.plan && self.config.config.auth) {
-                b = self.model.plan.owner === self.config.config.user ? 'ade' : 'a';
+            var b = '',
+                plan = self.plans.getSelected();
+            if (plan) {
+                self.model.changePlan(plan.id);
+                if (self.model.plan && self.config.config.auth) {
+                    b = self.model.plan.owner === self.config.config.user ? 'ade' : 'a';
+                }
+            } else {
+                if (self.config.config.auth) {
+                    b = 'a';
+                }
             }
             $(self.tabs[0].selector + ' #buttons').html(self.buttons(b, 'plan-button'));
             $(self.tabs[0].selector + ' .plan-button').click(function (event) {
@@ -118,7 +130,7 @@ Editor.prototype = {
 
     createUses: function () {
         var self = this;
-        self.use = self.model.plan.uses[0];
+        self.use = self.model.plan ? self.model.plan.uses[0] : null;
         self.uses = self.use ? new Widget({
             pretext: 'Select a use:',
             container: self.selector,
@@ -142,13 +154,13 @@ Editor.prototype = {
             var b = '';
             self.view.closeUse(self.use);
             self.use = self.uses.getSelected();
-            if (self.config.config.auth) {
-                if (self.use.id === 0) {
+            if (self.use && self.config.config.auth) {
+                if (self.use.id === 'data') {
                     b = 'ae';
-                } else if (self.use) {
-                    b = self.use.owner === self.config.config.user ? 'ade' : 'a';
-                } else {
+                } else if (self.use.id === 'ecosystem') {
                     b = 'a';
+                } else {
+                    b = self.use.owner === self.config.config.user ? 'ade' : 'a';
                 }
             }
             $(self.tabs[1].selector + ' #buttons').html(self.buttons(b, 'use-button'));
@@ -172,17 +184,14 @@ Editor.prototype = {
 
     createLayers: function () {
         var self = this;
-        if (!self.use) {
-            return;
-        }
-        if (self.model.layer) {
+        if (self.use && self.model.layer) {
             if (!self.use.layers.find(function (layer) {
                 return layer.id === self.model.layer.id && layer.use.id === self.model.layer.use.id;
             })) {
                 self.model.unselectLayer();
             }
         }
-        if (!self.model.layer && self.use.layers[0]) {
+        if (self.use && !self.model.layer && self.use.layers[0]) {
             self.model.selectLayer(self.use.layers[0]);
         }
         self.layers = self.model.layer ? new Widget({
@@ -208,7 +217,7 @@ Editor.prototype = {
             var b = '';
             self.model.unselectLayer();
             self.model.selectLayer(self.layers.getSelected());
-            if (self.config.config.auth) {
+            if (self.use && self.config.config.auth) {
                 if (self.use.id > 1) {
                     if (self.model.layer) {
                         b = self.model.layer.owner === self.config.config.user ? 'ade' : 'a';

@@ -71,7 +71,7 @@ sub config {
     }
     for my $dataset ($self->{schema}->resultset('Dataset')->layers) {
         push @tilesets, {
-            Layers => "0_".$dataset->{id},
+            Layers => "data_".$dataset->{id},
             "Format" => "image/png",
             Resolutions => "9..19",
             SRS => "EPSG:3067",
@@ -82,7 +82,7 @@ sub config {
     }
     for my $component ($self->{schema}->resultset('EcosystemComponent')->layers) {
         push @tilesets, {
-            Layers => "1_".$component->{id},
+            Layers => "ecosystem_".$component->{id},
             "Format" => "image/png",
             Resolutions => "9..19",
             SRS => "EPSG:3067",

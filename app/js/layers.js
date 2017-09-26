@@ -94,7 +94,7 @@ function MSPLayer(args) {
 
     self.edit(args);
 
-    if (self.use.class_id > 0) {
+    if (self.use.id !== 'data') {
 
         self.rules = [];
 
@@ -117,7 +117,7 @@ function MSPLayer(args) {
 MSPLayer.prototype = {
     edit: function (args) {
         var self = this;
-        if (self.use.class_id === 0) {
+        if (self.use.id === 'data') {
 
             // subclass dataset
             self.min_value = args.min_value;
@@ -164,10 +164,10 @@ MSPLayer.prototype = {
             url = self.model.serverURL(),
             header,
             body = '';
-        if (self.use.class_id === 0) { // Data
+        if (self.use.id === 'data') {
             header = 'Dataset.';
             body = self.provenance;
-        } else if (self.use.class_id === 1) { // Ecosystem
+        } else if (self.use.id === 'ecosystem') { // Ecosystem
             header = 'Ecosystem component.';
         } else {
             header = mspStrings.THIS_IS_A_LAYER(self.rule_class, self.owner);
@@ -208,15 +208,23 @@ MSPLayer.prototype = {
     },
     getName: function () {
         var self = this,
-            n = self.use.class_id + '_' + self.id;
+            name;
+        if (self.use.id === 'data') {
+            name = self.use.id;
+        } else if (self.use.id === 'ecosystem') {
+            name = self.use.id;
+        } else {
+            name = self.use.class_id;
+        }
+        name += '_' + self.id;
         if (self.rules && self.rules.length > 0) {
             $.each(self.rules, function (i, rule) {
                 if (rule.active) {
-                    n += '_' + rule.id; // add rules
+                    name += '_' + rule.id; // add rules
                 }
             });
         }
-        return n;
+        return name;
     },
     newLayer: function () {
         var self = this,

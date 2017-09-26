@@ -9,14 +9,14 @@ use SmartSea::Schema::Result::RuleClass qw(:all);
 use SmartSea::Core qw(:all);
 
 # A WMTS layer, which is in this system either
-# 0: a dataset,
-# 1: distribution & abundance of an ecosystem component or some other ecosystem indicator, or
-# 2: a spatial value computed from those
+# a dataset,
+# distribution & abundance of an ecosystem component or some other ecosystem indicator, or
+# a spatial value computed from those
 #
 # Also the ecosystem value is computed from a dataset or datasets.
 # Computing is based on rules.
 # 
-# The trail (below) is (0|1|2)_id[_rule-id...]
+# The trail (below) is (data|ecosystem|use_class)_id[_rule-id...]
 #
 # From visualization point of view this is a raster source.
 # The raster is either continuous data or classed data.
@@ -40,7 +40,7 @@ sub new {
     $type //= 0;
     $id //= 0;
     # 'duck' since the different types are conceptually subclasses
-    if ($type == 0) {
+    if ($type eq 'data') {
         # dataset is really not viewable unless its min, max and data type have been set
         $self->{duck} = $self->{schema}->resultset('Dataset')->single({ id => $id });
         croak "Dataset $id does not exist.\n" unless $self->{duck};
@@ -67,7 +67,7 @@ sub new {
             #$self->{labels} = jotain;
         }
         
-    } elsif ($type == 1) {
+    } elsif ($type eq 'ecosystem') {
         $self->{duck} = $self->{schema}->resultset('EcosystemComponent')->single({ id => $id });
         croak "Ecosystem component $id does not exist!" unless $self->{duck};
         $self->{min} = 1;

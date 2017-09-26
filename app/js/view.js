@@ -154,15 +154,10 @@ MSPView.prototype = {
         self.fillRulesPanel();
     },
     layerItem: function (layer) {
-        var self = this,
-            attr = {type: 'checkbox', class: 'visible' + layer.id},
+        var attr = {type: 'checkbox', class: 'visible' + layer.id},
             id = 'layer' + layer.id,
-            auth = self.model.isAuthorized({layer: layer}),
             item = element('div', {id: id, class: 'tree-item'}, layer.name),
             retval = '';
-        if (auth) {
-            item += element('ul', {class: 'menu', id: 'menu' + layer.id, style: 'display:none'}, '');
-        }
         retval = element('input', attr, item + '<br/>');
         attr = {class: 'opacity' + layer.id, type: 'range', min: '0', max: '1', step: '0.01'};
         retval += element('div', {class: 'opacity' + layer.id}, element('input', attr, '<br/>'));
@@ -171,7 +166,6 @@ MSPView.prototype = {
     usesItem: function (use) {
         // an openable use item for a list
         var self = this,
-            auth = self.model.isAuthorized({use: use}),
             use_text = element('div', {class: 'tree-item'}, use.name),
             button = use.layers.length > 0
                 ? element('button', {class: 'use', type: 'button'}, '&rtrif;') + '&nbsp;'
@@ -179,14 +173,11 @@ MSPView.prototype = {
             use_item = button  +  use_text,
             layers = '';
         use_item = element('label', {title: 'Owner: ' + use.owner}, use_item);
-        if (auth) {
-            use_item += element('ul', {class: 'menu', id: 'menu', style: 'display:none'}, '');
-        }
         $.each(use.layers, function (j, layer) {
             layers += self.layerItem(layer);
         });
         layers = element('div', {class: 'use'}, layers);
-        return {auth: auth, element: element('li', {id: 'use' + use.id}, use_item + layers)};
+        return {element: element('li', {id: 'use' + use.id}, use_item + layers)};
     },
     buildLayerTree: function () {
         var self = this;

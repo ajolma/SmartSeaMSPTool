@@ -281,7 +281,7 @@ sub make_layer {
     my ($args) = @_;
     my $id = $args->{id};
     my $schema = $args->{schema};
-    if ($args->{use_class_id} > 1) {
+    if ($args->{use_class_id} ne 'data') {
         $schema->resultset('Style')->new({
             id => $args->{style}->{id},
             palette => $args->{style}->{palette}->id,
@@ -311,7 +311,8 @@ sub make_layer {
         data_dir => $args->{tile}->data_dir,
         GDALVectorDataset => undef,
         cookie => '', 
-        trail => $args->{use_class_id}.'_'.$id.'_all' });
+        trail => $args->{use_class_id}.'_'.$id.'_all' }
+    );
 }
 
 sub add_rule {

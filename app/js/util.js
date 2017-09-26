@@ -319,9 +319,9 @@ Widget.prototype = {
             return undefined;
         }
         if (self.type === 'radio-group') {
-            id = parseInt($(self.selector + ':checked')[0].getAttribute('id'), 10);
+            id = $(self.selector + ':checked')[0].getAttribute('id');
             return self.list.find(function (item) {
-                return item.id === id;
+                return item.id.toString() === id;
             });
         }
         return self.list[self.getValue()]; // key as string

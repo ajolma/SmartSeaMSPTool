@@ -89,7 +89,7 @@ MSPController.prototype.editBooleanRule = function (args) {
         value,
         html = '',
         make_op = function (dataset) {
-            return new Widget({
+            return dataset ? new Widget({
                 container: self.selector,
                 id: 'rule-op',
                 type: 'select',
@@ -102,6 +102,11 @@ MSPController.prototype.editBooleanRule = function (args) {
                 },
                 selected: args.rule ? args.rule.op : null,
                 pretext: 'Define the operator:<br/>'
+            }) : new Widget({
+                container: self.selector,
+                pretext: 'No datasets available.',
+                id: 'rule-op',
+                type: 'paragraph'                    
             });
         },
         op = args.rule ? make_op(args.rule.dataset) : null,
@@ -157,14 +162,16 @@ MSPController.prototype.editBooleanRule = function (args) {
     }
 
     return function () {
-        var retval = {};
+        var retval = {},
+            dataset = args.dataset.getSelected();
         if (!args.rule) {
-            retval.dataset = args.dataset.getSelected().id;
+            retval.dataset = dataset ? dataset.id : undefined;
         }
-        if (args.dataset.binary) {
-            retval.op = op.getSelected().id;
-        } else {
-            retval.op = op.getSelected().id;
+        retval.op = op.getSelected();
+        if (retval.op) {
+            retval.op = retval.op.id;
+        }
+        if (!args.dataset.binary) {
             retval.value = threshold ? threshold.getValue() : 0;
             if (args.dataset.semantics) {
                 retval.value = parseInt(retval.value, 10);

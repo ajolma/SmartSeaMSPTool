@@ -32,8 +32,8 @@ DAMAGE.
 
 function Config(options) {
     var self = this,
-        url = options.config || options.url || window.location.href.replace(/app[\w\W]*/, 'config'),
-        epsg = options.epsg || /epsg=([\d]+)/.exec(window.location.href),
+        url = window.location.href.replace(/app[\w\W]*/, 'config'),
+        epsg = /epsg=([\d]+)/.exec(window.location.href),
         bg_maps = function (options) {
             if (options.proj.epsg === 3857) {
                 return [{
@@ -112,6 +112,10 @@ function Config(options) {
             }
         }
     ;
+
+    // tests may set these:
+    self.plans = options.plans;
+    self.klasses = options.klasses;
     
     if (epsg) {
         if (epsg.isArray) {
@@ -121,28 +125,28 @@ function Config(options) {
         // default projection
         epsg = 3857;
     }
-    
-    if (epsg === 3857) {
-        self.proj = new Projection({
-            epsg: epsg,
-            matrixSet: 'EPSG:3857',
-            center: [2671763, 8960514],
-            zoom: 6
-        });
-    } else if (epsg === 3067) {
-        self.proj = new Projection({
-            epsg: epsg,
-            matrixSet: 'ETRS-TM35FIN',
-            center: [346735, 6943420],
-            zoom: 3
-        });
-        /*
-    } else {
-        window.alert('EPSG ' + epsg + ' is not a supported projection!');
-        */
+
+    if (typeof Projection !== 'undefined') {
+        if (epsg === 3857) {
+            self.proj = new Projection({
+                epsg: epsg,
+                matrixSet: 'EPSG:3857',
+                center: [2671763, 8960514],
+                zoom: 6
+            });
+        } else if (epsg === 3067) {
+            self.proj = new Projection({
+                epsg: epsg,
+                matrixSet: 'ETRS-TM35FIN',
+                center: [346735, 6943420],
+                zoom: 3
+            });
+        } else {
+            window.alert('EPSG ' + epsg + ' is not a supported projection!');
+        }
     }
 
-    if (options.config) {
+    if (options.klasses) {
         self.config = options.config;
         if (options.bootstrap) {
             options.bootstrap();

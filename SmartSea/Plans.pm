@@ -14,31 +14,15 @@ sub smart {
     my $plans = $self->{schema}->resultset('Plan')->read;
     
     # two pseudo plans, these will be shown as uses in all real plans
-    # Data and Ecosystem have reserved ids
-    # see Layer.pm, WMTS.pm and msp.js
     
-    push @$plans, { 
-        name => 'Data', 
-        id => 0,
-        uses => [{
-            name => 'Data',
-            owner => 'system',
-            id => 0,
-            plan => 0,
-            class_id => 0,
-            layers => scalar($self->{schema}->resultset('Dataset')->layers) }]
+    push @$plans, {
+        name => 'Data',
+        layers => scalar($self->{schema}->resultset('Dataset')->layers)
     };
 
     push @$plans, {
         name => 'Ecosystem',
-        id => 1,
-        uses => [{
-            name => 'Ecosystem',
-            owner => 'system',
-            id => 1,
-            plan => 1,
-            class_id => 1,
-            layers => scalar($self->{schema}->resultset('EcosystemComponent')->layers) }]
+        layers => scalar($self->{schema}->resultset('EcosystemComponent')->layers)
     };
         
     # This is the first request made by the App, thus set the cookie

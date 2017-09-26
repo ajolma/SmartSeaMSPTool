@@ -49,7 +49,8 @@ test_psgi $app, sub {
     eval {
         $plans = decode_json $res->content;
     };
-    ok($plans->[0]{name} eq 'Data' && @{$plans->[0]{uses}[0]{layers}} == 0, "empty plans");
+    #print STDERR Dumper $plans;
+    ok($plans->[0]{name} eq 'Data' && $plans->[1]{name} eq 'Ecosystem', "empty plans");
 };
 
 done_testing;

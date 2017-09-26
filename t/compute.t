@@ -286,7 +286,7 @@ sub test_a_dataset_layer {
                         schema => $schema,
                         sequences => $sequences,
                         tile => $tile,
-                        use_class_id => 0,
+                        use_class_id => 'data',
                         id => $dataset->id, 
                         debug => $args{debug}
                     });

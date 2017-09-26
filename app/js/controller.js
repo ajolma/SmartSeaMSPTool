@@ -41,7 +41,10 @@ DAMAGE.
 function MSPController(options) {
     var self = this;
     self.model = options.model;
-    self.server = self.model.serverURL() + '/browser/';
+    self.server = self.model.serverURL();
+    if (self.server) {
+        self.server += '/browser/';
+    }
     self.view = options.view;
     self.dialog = options.dialog;
     self.selector = '#' + self.dialog;
@@ -55,6 +58,58 @@ function MSPController(options) {
 }
 
 MSPController.prototype = {
+    attach: function () {
+        var self = this;
+        self.view.planCommand.attach(function (ignore, args) {
+            if (args.cmd === 'add') {
+                self.editPlan(args);
+            } else if (args.cmd === 'edit') {
+                self.editPlan(args);
+            } else if (args.cmd === 'delete') {
+                self.deletePlan(args);
+            }
+        });
+        self.view.useCommand.attach(function (ignore, args) {
+            if (args.cmd === 'add') {
+                self.addUse(args);
+            } else if (args.cmd === 'edit') {
+                if (args.use.id === 'data') {
+                    self.editDatasetList(args);
+                } else {
+                    self.editUse(args);
+                }
+            } else if (args.cmd === 'delete') {
+                self.deleteUse(args);
+            }
+        });
+        self.view.layerCommand.attach(function (ignore, args) {
+            if (args.cmd === 'add') {
+                self.editLayer(args);
+            } else if (args.cmd === 'edit') {
+                self.editLayer(args);
+            } else if (args.cmd === 'delete') {
+                self.deleteLayer(args);
+            }
+        });
+        self.view.ruleCommand.attach(function (ignore, args) {
+            if (args.cmd === 'add') {
+                self.editRule(args);
+            } else if (args.cmd === 'edit') {
+                self.editRule(args);
+            } else if (args.cmd === 'delete') {
+                self.deleteRule(args);
+            }
+        });
+        self.model.newPlans.attach(function () {
+            self.editor.dialog('close');
+        });
+        self.model.error.attach(function (sender, args) {
+            self.error(args.msg);
+        });
+        self.view.error.attach(function (sender, args) {
+            self.error(args.msg);
+        });
+    },
     /**
      * Get some lists from the server.
      */
@@ -97,62 +152,7 @@ MSPController.prototype = {
             );
         });
         $.when.apply($, calls).then(function () {
-
-            self.view.planCommand.attach(function (ignore, args) {
-                if (args.cmd === 'add') {
-                    self.editPlan(args);
-                } else if (args.cmd === 'edit') {
-                    self.editPlan(args);
-                } else if (args.cmd === 'delete') {
-                    self.deletePlan(args);
-                }
-            });
-
-            self.view.useCommand.attach(function (ignore, args) {
-                if (args.cmd === 'add') {
-                    self.addUse(args);
-                } else if (args.cmd === 'edit') {
-                    if (args.use.id === 0) { // "Data"
-                        self.editDatasetList(args);
-                    } else {
-                        self.editUse(args);
-                    }
-                } else if (args.cmd === 'delete') {
-                    self.deleteUse(args);
-                }
-            });
-
-            self.view.layerCommand.attach(function (ignore, args) {
-                if (args.cmd === 'add') {
-                    self.editLayer(args);
-                } else if (args.cmd === 'edit') {
-                    self.editLayer(args);
-                } else if (args.cmd === 'delete') {
-                    self.deleteLayer(args);
-                }
-            });
-
-            self.view.ruleCommand.attach(function (ignore, args) {
-                if (args.cmd === 'add') {
-                    self.editRule(args);
-                } else if (args.cmd === 'edit') {
-                    self.editRule(args);
-                } else if (args.cmd === 'delete') {
-                    self.deleteRule(args);
-                }
-            });
-
-            self.model.newPlans.attach(function () {
-                self.editor.dialog('close');
-            });
-
-            self.model.error.attach(function (sender, args) {
-                self.error(args.msg);
-            });
-
-            self.view.error.attach(function (sender, args) {
-                self.error(args.msg);
-            });
+            self.attach();
         }, function (a) {
             self.error('Calling SmartSea MSP server failed: ' + a.statusText);
         });
@@ -160,24 +160,24 @@ MSPController.prototype = {
     setEditorButtons: function (buttons) {
         var self = this,
             b = {};
-        if (buttons.includes('ok')) {
+        if (buttons.indexOf('ok') !== -1) {
             b.Ok = function () {
                 if (self.ok()) {
                     self.editor.dialog('close');
                 }
             };
         }
-        if (buttons.includes('cancel')) {
+        if (buttons.indexOf('cancel') !== -1) {
             b.Cancel = function () {
                 self.editor.dialog('close');
             };
         }
-        if (buttons.includes('apply')) {
+        if (buttons.indexOf('apply') !== -1) {
             b.Apply = function () {
                 self.apply();
             };
         }
-        if (buttons.includes('close')) {
+        if (buttons.indexOf('close') !== -1) {
             b.Close = function () {
                 self.editor.dialog('close');
             };
@@ -215,6 +215,14 @@ MSPController.prototype = {
     },
     post: function (args) {
         var self = this;
+        if (!self.server) {
+            if (args.fake) {
+                args.fake();
+            } else {
+                args.atSuccess();
+            }
+            return;
+        }
         $.ajaxSetup({
             headers: {
                 Accept : 'application/json'
@@ -279,20 +287,30 @@ MSPController.prototype = {
      * Get the plans from the server. This is the main bootstrap function.
      */
     loadPlans: function (when_done) {
-        var self = this;
-        self.post({
-            url: self.model.serverURL() + '/plans',
-            payload: {},
-            atSuccess: function (data) {
-                self.getNetworks(function () {
-                    self.model.setPlans(data, self.networks);
-                    self.getKlasses();
-                    if (when_done) {
-                        when_done();
-                    }
-                });
+        var self = this,
+            url = self.model.serverURL();
+        if (url) {
+            self.post({
+                url: url + '/plans',
+                payload: {},
+                atSuccess: function (data) {
+                    self.getNetworks(function () {
+                        self.model.setPlans(data, self.networks);
+                        self.getKlasses();
+                        if (when_done) {
+                            when_done();
+                        }
+                    });
+                }
+            });
+        } else {
+            self.model.setPlans(self.model.config.plans, []);
+            self.klasses = self.model.config.klasses;
+            self.attach();
+            if (when_done) {
+                when_done();
             }
-        });
+        }
     },
     /**
      * Open a plan editor dialog.
@@ -310,25 +328,42 @@ MSPController.prototype = {
         self.ok = function () {
             var request = plan ? 'plan:' + plan.id + '?request=update' : 'plan?request=save';
             name = $(self.selector + ' #' + name).val();
-            if (!self.model.planByName(name)) {
+            if (name && !self.model.planByName(name)) {
                 self.post({
                     url: self.server + request,
                     payload: { name: name },
-                    atSuccess: function (data) {
-                        var plan_data = {
-                            id: data.id.value,
-                            owner: data.owner.value,
-                            name: data.name.value
+                    atSuccess: function (response) {
+                        var data = {
+                            id: response.id.value,
+                            owner: response.owner.value,
+                            name: response.name.value
                         };
                         if (plan) {
-                            self.model.editPlan(plan_data);
+                            self.model.editPlan(data);
                         } else {    
-                            self.model.addPlan(plan_data);
+                            self.model.addPlan(data);
+                        }
+                    },
+                    fake: function () {
+                        var data = {
+                            owner: self.model.config.config.owner,
+                            name: name
+                        };
+                        if (plan) {
+                            data.id = plan.id;
+                            self.model.editPlan(data);
+                        } else {
+                            data.id = 5;
+                            self.model.addPlan(data);
                         }
                     }
                 });
             } else {
-                args.error = 'Suunnitelma \'' + name + '\' on jo olemassa.';
+                if (!name) {
+                    args.error = 'Anna suunnitelmalle nimi.';
+                } else {
+                    args.error = 'Suunnitelma \'' + name + '\' on jo olemassa.';
+                }
                 self.editPlan(args);
                 return false;
             }
@@ -361,7 +396,7 @@ MSPController.prototype = {
      */
     addUse: function () {
         var self = this,
-            id = 'use-id',
+            eid = 'use-id',
             list = '';
 
         $.each(self.klasses.use_class, function (i, klass) {
@@ -372,28 +407,37 @@ MSPController.prototype = {
 
         self.setEditor({
             title: 'Uusi käyttömuoto',
-            html: 'Select the class for the new use: ' + element('select', {id: id}, list)
+            html: 'Select the class for the new use: ' + element('select', {id: eid}, list)
         });
 
         self.ok = function () {
-            id = $(self.selector + ' #' + id).val();
+            var id = $(self.selector + ' #' + eid).val(),
+                name = self.klasses.use_class.find(function (klass) {
+                    return klass.id.toString() === id;
+                }).name;
             self.post({
                 url: self.server + 'plan:' + self.model.plan.id + '/uses?request=create',
                 payload: {use_class: id},
                 atSuccess: function (data) {
                     var use = {
                         id: data.id.value,
+                        name: name,
                         owner: data.owner.value,
                         plan: data.plan.value,
                         class_id: data.use_class.value,
                         layers: []
                     };
-                    $.each(self.klasses.use_class, function (i, klass) {
-                        if (klass.id === data.use_class.value) {
-                            use.name = klass.name;
-                            return false;
-                        }
-                    });
+                    self.model.addUse(use);
+                },
+                fake: function () {
+                    var use = {
+                        id: 5,
+                        name: name,
+                        owner: self.model.config.config.owner,
+                        plan: self.model.plan.id,
+                        class_id: id,
+                        layers: []
+                    };
                     self.model.addUse(use);
                 }
             });
@@ -503,7 +547,7 @@ MSPController.prototype = {
     availableLayerClasses: function (use) {
         var self = this,
             list = [];
-        if (use.id <= 1) {
+        if (use.id === 'data' || use.id === 'ecosystem') {
             return list;
         }
         $.each(self.klasses.layer_class, function (i, klass) {
@@ -582,6 +626,7 @@ MSPController.prototype = {
                 selected: (layer && layer.style ? layer.style.palette : null),
                 pretext: 'Layer color scheme: '
             }),
+            haveNetworks = self.networks && self.networks.length > 0,
             network,
             node,
             state,
@@ -636,7 +681,7 @@ MSPController.prototype = {
         html += element('p', {}, rule_class_extra.html());
         html += element('p', {}, rule_class_extra2.html());
         html += element('p', {}, rule_class_extra3.html());
-        if (args.use.id === 0) {
+        if (args.use.id === 'data') {
             html += element('p', {}, 'The color setting is temporary for datasets.');
         }
         html += element('p', {}, palette.html());
@@ -664,22 +709,29 @@ MSPController.prototype = {
                 var klass2 = rule_class_list.getSelected();
                 if (klass2 && klass2.name === mspEnum.BAYESIAN_NETWORK) {
 
-                    network = new Widget({
+                    network = haveNetworks ? new Widget({
                         container: self.selector,
+                        pretext: 'Select the Bayesian network: ',
                         id: 'layer-network',
                         type: 'select',
                         list: self.networks,
                         selected: self.networks[0],
-                        pretext: 'Select the Bayesian network: '
+                    }) : new Widget({
+                        container: self.selector,
+                        pretext: element('font', {color: 'red'}, 'No networks available.'),
+                        id: 'layer-network',
+                        type: 'paragraph'
                     });
                     rule_class_extra.html(element('p', {}, network.html()));
 
-                    network.changed((function changed() {
-                        // net is not null since we have set selected above
-                        var net = network.getSelected();
-                        select_network_node(net, net.nodes[0], '');
-                        return changed;
-                    }()));
+                    if (haveNetworks) {
+                        network.changed((function changed() {
+                            // net is not null since we have set selected above
+                            var net = network.getSelected();
+                            select_network_node(net, net.nodes[0], '');
+                            return changed;
+                        }()));
+                    }
 
                 } else {
                     rule_class_extra.html('');
@@ -704,6 +756,9 @@ MSPController.prototype = {
                 return true;
             }
             if (rule_class.name === mspEnum.BAYESIAN_NETWORK) {
+                if (!haveNetworks) {
+                    return true;
+                }
                 payload.network = network.getSelected().name;
                 payload.output_node = node.getSelected().name;
                 payload.output_state = state.getSelected();
@@ -737,6 +792,28 @@ MSPController.prototype = {
                         data.output_state = value_from(response.rule_system.columns.output_state);
                     }
                     self.model.addLayer(new MSPLayer(data));
+                },
+                fake: function () {
+                    var data = {
+                        id: 5,
+                        name: klass2.name,
+                        owner: self.model.config.config.owner,
+                        model: self.model,
+                        use: args.use,
+                        style: {
+                            palette: color.name
+                        },
+                        // can't create new datasets
+                        class_id: klass2.id,
+                        rule_class: rule_class.name,
+                        rules: []
+                    };
+                    if (rule_class.name === mspEnum.BAYESIAN_NETWORK) {
+                        data.network = network.getSelected();
+                        data.output_node = node.getSelected();
+                        data.output_state = state.getSelected();
+                    }
+                    self.model.addLayer(new MSPLayer(data));
                 }
             });
             return true;
@@ -749,10 +826,13 @@ MSPController.prototype = {
                 },
                 url;
             if (layer.rule_class === mspEnum.BAYESIAN_NETWORK) {
+                if (!haveNetworks) {
+                    return true;
+                }
                 payload.output_node = node.getSelected().name;
                 payload.output_state = state.getSelected();
             }
-            if (args.use.id === 0) {
+            if (args.use.id === 'data') {
                 // layer is dataset
                 layer.style = {
                     palette: color.name
@@ -828,12 +908,17 @@ MSPController.prototype = {
         if (args.rule) {
             args.dataset = args.rule.dataset;
         } else {
-            args.dataset = new Widget({
+            args.dataset = self.model.datasets.layers.length > 0 ? new Widget({
                 container: self.selector,
+                pretext: 'Rule is based on the dataset: ',
                 id: 'rule-dataset',
                 type: 'select',
                 list: self.model.datasets.layers,
-                pretext: 'Rule is based on the dataset: '
+            }) : new Widget({
+                container: self.selector,
+                pretext: element('font', {color: 'red'}, 'No datasets available.'),
+                id: 'rule-dataset',
+                type: 'paragraph'    
             });
         }
         
@@ -853,6 +938,9 @@ MSPController.prototype = {
         }
 
         self.ok = function () { // save new rule
+            if (self.model.datasets.layers.length === 0) {
+                return true;
+            }
             var path = 'plan:' + self.model.plan.id + '/uses:' + args.use.id + '/layers:' + self.model.layer.id,
                 payload = getPayload();
             self.post({
@@ -864,8 +952,8 @@ MSPController.prototype = {
                         layer: self.model.layer,
                         dataset: self.model.getDataset(response.dataset.value),
                         active: true,
-                        op: response.op ? self.klasses.op.find(function (element) {
-                            return element.id === response.op.value;
+                        op: response.op ? self.klasses.op.find(function (op) {
+                            return op.id === response.op.value;
                         }).name : null,
                         value: value_from(response.value),
                         boxcar_type: payload.boxcar_type ? payload.boxcar_type.selected : null,
@@ -877,11 +965,34 @@ MSPController.prototype = {
                         state_offset: value_from(response.state_offset),
                         node: value_from(response.node),
                     }));
+                },
+                fake: function () {
+                    self.model.addRule(new MSPRule({
+                        id: 5,
+                        layer: self.model.layer,
+                        dataset: self.model.getDataset(payload.dataset),
+                        active: true,
+                        op: payload.op ? self.klasses.op.find(function (op) {
+                            return op.id === payload.op;
+                        }).name : null,
+                        value: payload.value,
+                        boxcar_type: payload.boxcar_type ? payload.boxcar_type.selected : null,
+                        boxcar_x0: payload.boxcar_x0,
+                        boxcar_x1: payload.boxcar_x1,
+                        boxcar_x2: payload.boxcar_x2,
+                        boxcar_x3: payload.boxcar_x3,
+                        weight: payload.weight,
+                        state_offset: payload.state_offset,
+                        node: payload.node,
+                    }));
                 }
             });
             return true;
         };
         self.apply = function () { // update or modify existing rule
+            if (self.model.datasets.layers.length === 0) {
+                return true;
+            }
             var request = owner ? 'update' : 'modify',
                 payload = getPayload(),
                 data = {id: args.rule.id};

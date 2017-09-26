@@ -91,76 +91,56 @@ function MSPModel(args) {
 MSPModel.prototype = {
     serverURL: function () {
         var self = this;
+        if (!self.config.config || !self.config.config.protocol) {
+            return undefined;
+        }
         return self.config.config.protocol + '://' + self.config.config.server;
-    },
-    isAuthorized: function (object) {
-        var self = this,
-            user = self.config.config.user;
-        if (!self.config.config.auth) {
-            return false;
-        }
-        if (object.use) {
-            if (object.use.owner === user) {
-                if (object.use.id === 0 || object.use.id > 1) {
-                    return true;
-                }
-            }
-            if (self.plan.owner === user) {
-                if (object.use.id === 0) {
-                    return true;
-                }
-            }
-        }
-        if (object.layer) {
-            return object.layer.owner === user;
-        }
-        return false;
     },
     setPlans: function (data, networks) {
         var self = this,
             plan;
+        if (!data) {
+            data = [];
+        }
         if (self.plan) {
             self.firstPlan = self.plan.id;
         }
         self.removeLayers();
         self.removeSite();
         self.initSite();
-
-        // parse pseudo uses, note reserved use class id's
-
-        self.datasets = {layers: []};
+   
         plan = data.find(function (plan) {
-            return plan.id === 0;
+            return plan.name === 'Data';
         });
-        if (plan && plan.uses) {
-            self.datasets = plan.uses[0];
-            $.each(self.datasets.layers, function (i, layer) {
-                layer.model = self;
-                layer.use = self.datasets;
-                self.datasets.layers[i] = new MSPLayer(layer);
-            });
-        }
+        self.datasets = plan || {name: 'Data', layers: []};
+        $.each(self.datasets.layers, function (i, layer) {
+            layer.model = self;
+            layer.use = self.datasets;
+            self.datasets.layers[i] = new MSPLayer(layer);
+        });
+        self.datasets.id = 'data';
 
-        self.ecosystem = {layers: []};
         plan = data.find(function (plan) {
-            return plan.id === 1;
+            return plan.name === 'Ecosystem';
         });
-        if (plan && plan.uses) {
-            self.ecosystem = plan.uses[0];
-            $.each(self.ecosystem.layers, function (i, layer) {
-                layer.model = self;
-                layer.use = self.ecosystem;
-                self.ecosystem.layers[i] = new MSPLayer(layer);
-            });
-        }
-
+        self.ecosystem = plan || {name: 'Ecosystem', layers: []};
+        $.each(self.ecosystem.layers, function (i, layer) {
+            layer.model = self;
+            layer.use = self.ecosystem;
+            self.ecosystem.layers[i] = new MSPLayer(layer);
+        });
+        self.ecosystem.id = 'ecosystem';
+        
         self.plans = [];
         $.each(data, function (i, plan) {
-            if (plan.id < 2) {
+            if (plan.id === 'data' || plan.id === 'ecosystem') {
                 return true;
             }
             if (!plan.uses) {
                 plan.uses = [];
+            }
+            if (!plan.data) {
+                plan.data = {};
             }
             $.each(plan.uses, function (j, use) {
                 $.each(use.layers, function (k, layer) {
@@ -184,11 +164,11 @@ MSPModel.prototype = {
             });
             self.plans.push(plan);
         });
-
-        if (!self.firstPlan) {
+        
+        if (!self.firstPlan && self.plans.length > 0) {
             self.firstPlan = self.plans[0].id;
         }
-
+        
         self.newPlans.notify();
         self.changePlan(self.firstPlan);
     },
@@ -210,8 +190,8 @@ MSPModel.prototype = {
             plan.data = {};
         }
         self.plans.unshift(plan);
-        self.newPlans.notify();
         self.changePlan(plan.id);
+        self.newPlans.notify();
         self.initSite();
     },
     editPlan: function (data) {
@@ -263,15 +243,17 @@ MSPModel.prototype = {
     datasetsInRules: function () {
         var self = this,
             datasets = {};
-        $.each(self.plan.uses, function (i, use) {
-            if (use.id > 1) {
-                $.each(use.layers, function (i, layer) {
-                    $.each(layer.rules, function (i, rule) {
-                        datasets[rule.dataset.id] = rule.dataset;
+        if (self.plan) {
+            $.each(self.plan.uses, function (i, use) {
+                if (use.id !== 'data' && use.id !== 'ecosystem') {
+                    $.each(use.layers, function (i, layer) {
+                        $.each(layer.rules, function (i, rule) {
+                            datasets[rule.dataset.id] = rule.dataset;
+                        });
                     });
-                });
-            }
-        });
+                }
+            });
+        }
         return datasets;
     },
     by_name: function (a, b) {
@@ -287,18 +269,20 @@ MSPModel.prototype = {
         var self = this,
             datasets = self.datasetsInRules(),
             array = [];
-        // add to dataUse those that have dataset_id in data
-        $.each(self.plan.data, function (id) { // self.plan.data is existence hash
-            var dataset = self.datasets.layers.find(function (layer) {
-                return layer.id === parseInt(id, 10); // hash key is always a string
+        if (self.plan) {
+            // add to dataUse those that have dataset_id in data
+            $.each(self.plan.data, function (id) { // self.plan.data is existence hash
+                var dataset = self.datasets.layers.find(function (layer) {
+                    return layer.id === parseInt(id, 10); // hash key is always a string
+                });
+                if (dataset) {
+                    datasets[id] = dataset;
+                }
             });
-            if (dataset) {
-                datasets[id] = dataset;
-            }
-        });
-        $.each(datasets, function (id, layer) {
-            array.push(layer);
-        });
+            $.each(datasets, function (id, layer) {
+                array.push(layer);
+            });
+        }
         return array.sort(self.by_name);
     },
     resetPlan: function () {
@@ -306,17 +290,15 @@ MSPModel.prototype = {
             uses = self.plan.uses.slice();
         self.plan.uses = [];
         $.each(uses, function (i, use) {
-            if (use.id > 1) {
+            if (use.id !== 'data' && use.id !== 'ecosystem') {
                 self.plan.uses.push(use);
             }
         });
     },
     changePlan: function (id) {
         var self = this,
-            dataUse = { // pseudo use
+            dataUse = {
                 id: self.datasets.id,
-                class_id: self.datasets.class_id,
-                owner: self.datasets.owner,
                 name: self.datasets.name
             };
 
@@ -334,25 +316,18 @@ MSPModel.prototype = {
         if (!self.plan) {
             if (self.plans.length > 0) {
                 self.plan = self.plans[0];
-            } else {
-                self.plan = {
-                    id: 2,
-                    name: 'No plan',
-                    data: [],
-                    uses: []
-                };
             }
         }
         self.layer = null;
 
         dataUse.layers = self.datasetsForDataUse();
 
-        self.plan.uses.sort(self.by_name);
-        // add dataUse and ecosystem as an extra use
-        self.plan.uses.push(self.ecosystem);
-        self.plan.uses.push(dataUse);
-        self.createLayers();
         if (self.plan) {
+            self.plan.uses.sort(self.by_name);
+            // add ecosystem and data as extra uses
+            self.plan.uses.push(self.ecosystem);
+            self.plan.uses.push(dataUse);
+            self.createLayers();
             self.planChanged.notify({ plan: self.plan });
         }
     },
