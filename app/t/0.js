@@ -1,29 +1,8 @@
-
-var is = function (got, expected, desc) {
-    if (typeof got !== typeof expected) {
-        console.log('not ok - got ' + typeof got + ' expected ' + typeof expected + ' - ' + desc);
-    } else {
-        if (typeof got === 'object') {
-            if (got.id === expected.id) {
-                console.log('ok - ' + desc);
-            } else {
-                console.log('not ok - got ' + got.id + ' expected ' + expected.id + ' - ' + desc);
-            }
-        } else {
-            if (got === expected) {
-                console.log('ok - ' + desc);
-            } else {
-                console.log('not ok - got ' + got + ' expected ' + expected + ' - ' + desc);
-            }
-        }
-    }
-}
-
 var test_container_selector = '#test';
 var test_container = $(test_container_selector);
 
 var test = new Widget({
-    container_id: test_container_selector,
+    container: test_container_selector,
     id: 'x',
     type: 'paragraph'
 });
@@ -52,12 +31,12 @@ test = function (list, selected, descr, exp) {
     is(test.getSelected(), exp || selected, descr);
 };
 
-var list1a = ['a','b','c'];
-var list1b = {1:'a',2:'b',3:'c'};
-var list1c = [1,2,3];
-var list1d = {1:2,2:3,3:4};
-var list1e = {'1':'a','2':'b','3':'c'};
-var list1f = {'1':2,'2':3,'3':4};
+var list1a = ['a', 'b', 'c'];
+var list1b = {1:'a', 2:'b', 3:'c'};
+var list1c = [1, 2, 3];
+var list1d = {1:2, 2:3, 3:4};
+var list1e = {'1':'a', '2':'b', '3':'c'};
+var list1f = {'1':2, '2':3, '3':4};
 
 var sel = {id:2, name:'b'}
 var list2a = [{id:1, name:'a'},sel,{id:3, name:'c'}];
@@ -75,4 +54,3 @@ test(list2a, 'b', 'select from array of objects with name', sel);
 
 test(list2b, sel, 'select from object of objects with object');
 test(list2b, 'b', 'select from object of objects with name', sel);
-
