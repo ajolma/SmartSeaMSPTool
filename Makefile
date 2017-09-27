@@ -1,4 +1,4 @@
-JS = util.js projection.js config.js layers.js msp.js view.js controller.js rule_editor.js code.js
+JS = util.js projection.js config.js layers.js model.js view.js controller.js rule_editor.js editor.js code.js
 
 schema:
 	pg_dump -n tool -n data -s SmartSea >schema.sql
@@ -34,6 +34,9 @@ test-js:
 
 js-doc:
 	cd app/js; jsdoc -d doc $(JS); cd ../..
+
+minify-js:
+	cd app/js; cat copyright >msp.js; uglifyjs $(JS) >>msp.js; cd ../..
 
 #plugin-test:
 #	rm -rf $HOME/.qgis2/python/plugins/smartsea/
