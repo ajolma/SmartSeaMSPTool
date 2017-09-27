@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2016, Finnish Environment Institute SYKE All rights
+Copyright (c) 2016-2017, Finnish Environment Institute SYKE All rights
 reserved.
 
 Redistribution and use, with or without modification, are permitted
@@ -29,7 +29,12 @@ DAMAGE.
 'use strict';
 /*global $, alert*/
 
-function element(tag, attrs, text) {
+/* 
+   This is the root of the whole SmartSea MSP Toolbox - its namespace.
+*/
+var msp = {};
+
+msp.e = function (tag, attrs, text) {
     var a = '', key;
     if (attrs) {
         for (key in attrs) {
@@ -45,7 +50,7 @@ function element(tag, attrs, text) {
         return '<' + tag + a + '>' + text + '</' + tag + '>';
     }
     return '<' + tag + a + '/>';
-}
+};
 
 /**
  * Options for creating a widget.
@@ -86,7 +91,7 @@ function element(tag, attrs, text) {
  * @constructor
  * @param {WidgetOptions} options - Options.
  */
-function Widget(args) {
+msp.Widget = function (args) {
     var self = this,
         pretext = args.pretext || '',
         attr = {id: args.id},
@@ -150,28 +155,28 @@ function Widget(args) {
                 }
             } else if (self.type === 'checkbox-list') {
                 tag2 = 'input';
-                name = element('a', {id: 'item', item: item.id}, name);
+                name = msp.e('a', {id: 'item', item: item.id}, name);
                 attr2 = {type: 'checkbox', item: item.id};
                 if (self.selected && self.selected[item.id]) {
                     // selected is a hash keyed with ids
                     attr2.checked = 'checked';
                 }
-                x = element('br');
+                x = msp.e('br');
             } else if (self.type === 'radio-group') {
                 attr2 = {type: 'radio', name: 'radio-' + self.id, id: item.id};
                 if (self.selected === item.id) {
                     attr2.checked = 'checked';
                 }
-                a = element('input', attr2);
+                a = msp.e('input', attr2);
                 tag2 = 'label';
                 attr2 = {for: self.id + '-' + key};
-                x = element('br');
+                x = msp.e('br');
             }
-            html += a + element(tag2, attr2, name) + x;
+            html += a + msp.e(tag2, attr2, name) + x;
         });
     }
     if (self.type === 'radio-group') {
-        html = element('fieldset', {}, element('legend', {}, pretext) + html);
+        html = msp.e('fieldset', {}, msp.e('legend', {}, pretext) + html);
         pretext = '';
         self.selector = self.container + ' input[name=\'radio-' + self.id + '\']';
     }
@@ -179,11 +184,11 @@ function Widget(args) {
         self.min = parseFloat(args.min);
         self.max = parseFloat(args.max);
         self.value = parseFloat(self.value);
-        html = element('p', {}, element('div', attr));
+        html = msp.e('p', {}, msp.e('div', attr));
         if (!args.slider_value_id) {
             args.slider_value_id = 'slider-value';
         }
-        html += element('input', {id: args.slider_value_id, type: 'text'}, '');
+        html += msp.e('input', {id: args.slider_value_id, type: 'text'}, '');
         self.value_selector = self.container + ' #' + args.slider_value_id;
     } else if (tag === 'input') {
         if (self.type === 'checkbox' && self.selected) {
@@ -191,21 +196,21 @@ function Widget(args) {
         } else if (self.type === 'text' && self.value) {
             attr.value = self.value;
         }
-        html = element(tag, attr, 'Ø');
+        html = msp.e(tag, attr, 'Ø');
         if (args.label) {
-            html += element('label', {for: self.id}, args.label);
+            html += msp.e('label', {for: self.id}, args.label);
         }
     } else {
         if (!(tag === 'select' && html === '')) {
-            html = element(tag, attr, html);
+            html = msp.e(tag, attr, html);
         }
     }
     self.my_html = pretext + html;
-}
+};
 
-Widget.prototype = {
+msp.Widget.prototype = {
     /**
-     * Prepare the element for display.
+     * Prepare the Widget for display.
      * @example
      * widget = new Widget(options);
      * parent.html(widget.html());
@@ -362,21 +367,21 @@ Widget.prototype = {
     }
 };
 
-function Menu(args) {
+msp.Menu = function (args) {
     var self = this,
         options = '',
         itemDiv = function (item) {
-            var html = element('div', {}, item.label),
+            var html = msp.e('div', {}, item.label),
                 li = '';
             if (item.submenu) {
                 $.each(item.submenu, function (i, entry) {
                     if (entry.submenu) {
-                        li += element('li', {}, itemDiv(entry));
+                        li += msp.e('li', {}, itemDiv(entry));
                     } else {
-                        li += element('li', {}, element('div', {tag: entry.cmd}, entry.label));
+                        li += msp.e('li', {}, msp.e('div', {tag: entry.cmd}, entry.label));
                     }
                 });
-                html += element('ul', {}, li);
+                html += msp.e('ul', {}, li);
             }
             return html;
         };
@@ -403,7 +408,7 @@ function Menu(args) {
     };
     $.each(args.options, function (i, item) {
         var attr = item.submenu ? {} : {tag: item.cmd};
-        options += element('li', attr, itemDiv(item));
+        options += msp.e('li', attr, itemDiv(item));
     });
     self.menu.html(options);
     self.menu.menu({
@@ -415,9 +420,9 @@ function Menu(args) {
     });
     self.element = args.element;
     self.event = args.event;
-}
+};
 
-Menu.prototype = {
+msp.Menu.prototype = {
     activate: function () {
         var self = this;
         self.menu.menu('refresh');
@@ -429,12 +434,12 @@ Menu.prototype = {
     }
 };
 
-function Event(sender) {
+msp.Event = function (sender) {
     this.sender = sender;
     this.listeners = [];
-}
+};
 
-Event.prototype = {
+msp.Event.prototype = {
     attach: function (listener) {
         this.listeners.push(listener);
     },

@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2016, Finnish Environment Institute SYKE All rights
+Copyright (c) 2016-2017, Finnish Environment Institute SYKE All rights
 reserved.
 
 Redistribution and use, with or without modification, are permitted
@@ -27,7 +27,7 @@ DAMAGE.
 */
 
 'use strict';
-/*global alert, ol*/
+/*global alert, ol, msp*/
 
 /**
  * Options for creating a projection.
@@ -42,7 +42,7 @@ DAMAGE.
  * @constructor
  * @param {ProjectionOptions} options - Options.
  */
-function Projection(options) {
+msp.Projection = function (options) {
     var self = this,
         p = ol.proj.get('EPSG:' + options.epsg),
         extent,
@@ -72,7 +72,4 @@ function Projection(options) {
         self.resolutions[z] = size / Math.pow(2, z);
         self.matrixIds[z] = z;
     }
-}
-
-Projection.prototype = {
 };

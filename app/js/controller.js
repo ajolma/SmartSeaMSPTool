@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2016, Finnish Environment Institute SYKE All rights
+Copyright (c) 2016-2017, Finnish Environment Institute SYKE All rights
 reserved.
 
 Redistribution and use, with or without modification, are permitted
@@ -27,7 +27,7 @@ DAMAGE.
 */
 
 'use strict';
-/*global $, alert, element, Widget, mspEnum, MSPRule, MSPLayer*/
+/*global $, alert, msp*/
 
 // after https://alexatnet.com/articles/model-view-controller-mvc-javascript
 
@@ -38,7 +38,7 @@ DAMAGE.
  * @param {MSPModel} model - Model.
  * @param {MSPView} view - View.
  */
-function MSPController(options) {
+msp.Controller = function (options) {
     var self = this;
     self.model = options.model;
     self.server = self.model.serverURL();
@@ -55,9 +55,9 @@ function MSPController(options) {
         autoOpen: false,
         modal: true
     });
-}
+};
 
-MSPController.prototype = {
+msp.Controller.prototype = {
     attach: function () {
         var self = this;
         self.view.planCommand.attach(function (ignore, args) {
@@ -193,7 +193,7 @@ MSPController.prototype = {
         self.editor.dialog('option', 'height', options.height || 400);
         if (options.html) {
             self.editor.html(options.error
-                ? element('p', {style: 'color:red;'}, options.error) + options.html
+                ? msp.e('p', {style: 'color:red;'}, options.error) + options.html
                 : options.html);
         }
         if (options.buttons) {
@@ -321,8 +321,8 @@ MSPController.prototype = {
             name = 'plans-name';
         self.setEditor({
             title: 'Suunnitelma',
-            html: element('p', {}, 'Suunnitelman nimi: ' +
-                          element('input', {type: 'text', id: name, value: plan ? plan.name : ''}, '')),
+            html: msp.e('p', {}, 'Suunnitelman nimi: ' +
+                          msp.e('input', {type: 'text', id: name, value: plan ? plan.name : ''}, '')),
             error: args.error
         });
         self.ok = function () {
@@ -401,13 +401,13 @@ MSPController.prototype = {
 
         $.each(self.klasses.use_class, function (i, klass) {
             if (!self.model.hasUse(klass.id)) {
-                list += element('option', {value: klass.id}, klass.name);
+                list += msp.e('option', {value: klass.id}, klass.name);
             }
         });
 
         self.setEditor({
             title: 'Uusi käyttömuoto',
-            html: 'Select the class for the new use: ' + element('select', {id: eid}, list)
+            html: 'Select the class for the new use: ' + msp.e('select', {id: eid}, list)
         });
 
         self.ok = function () {
@@ -454,7 +454,7 @@ MSPController.prototype = {
             $.each(activities, function (i, item) {
                 activities[item.id] = item;
             });
-            activities = new Widget({
+            activities = new msp.Widget({
                 container: self.selector,
                 id: 'activities_list',
                 type: 'checkbox-list',
@@ -464,8 +464,8 @@ MSPController.prototype = {
             });
             self.setEditor({
                 title: args.use.name,
-                html: element('p', {}, 'Activities in this use. Sorry, not editable.')
-                    + element('p', {}, activities.html())
+                html: msp.e('p', {}, 'Activities in this use. Sorry, not editable.')
+                    + msp.e('p', {}, activities.html())
             });
             self.ok = function () {
                 return true;
@@ -489,7 +489,7 @@ MSPController.prototype = {
                 notInRules.push(layer);
             }
         });
-        datasets = new Widget({
+        datasets = new msp.Widget({
             container: self.selector,
             id: 'dataset_list',
             type: 'checkbox-list',
@@ -500,7 +500,7 @@ MSPController.prototype = {
 
         self.setEditor({
             title: 'Dataset list',
-            html: element('p', {}, datasets.html())
+            html: msp.e('p', {}, datasets.html())
         });
 
         self.ok = function () {
@@ -574,7 +574,7 @@ MSPController.prototype = {
 
             class_list = layer
                 ? null
-                : new Widget({
+                : new msp.Widget({
                     container: self.selector,
                     id: 'layer-class',
                     type: 'select',
@@ -595,7 +595,7 @@ MSPController.prototype = {
 
             rule_class_list = layer
                 ? self.klasses.rule_class
-                : new Widget({
+                : new msp.Widget({
                     container: self.selector,
                     id: 'layer-rule-class',
                     type: 'select',
@@ -603,22 +603,22 @@ MSPController.prototype = {
                     pretext: 'The rule system: '
                 }),
 
-            rule_class_extra = new Widget({
+            rule_class_extra = new msp.Widget({
                 container: self.selector,
                 id: 'rule-class-extra',
                 type: 'paragraph'
             }),
-            rule_class_extra2 = new Widget({
+            rule_class_extra2 = new msp.Widget({
                 container: self.selector,
                 id: 'rule-class-extra2',
                 type: 'paragraph'
             }),
-            rule_class_extra3 = new Widget({
+            rule_class_extra3 = new msp.Widget({
                 container: self.selector,
                 id: 'rule-class-extra3',
                 type: 'paragraph'
             }),
-            palette = new Widget({
+            palette = new msp.Widget({
                 container: self.selector,
                 id: 'layer-color',
                 type: 'select',
@@ -631,7 +631,7 @@ MSPController.prototype = {
             node,
             state,
             select_network_node = function (network, selected, extra) {
-                node = new Widget({
+                node = new msp.Widget({
                     container: self.selector,
                     id: 'layer-node',
                     type: 'select',
@@ -639,8 +639,8 @@ MSPController.prototype = {
                     selected: selected,
                     pretext: 'Select the node whose value to use for this layer: '
                 });
-                rule_class_extra2.html(element('p', {}, extra) +
-                                       element('p', {}, node.html()));
+                rule_class_extra2.html(msp.e('p', {}, extra) +
+                                       msp.e('p', {}, node.html()));
 
                 node.changed((function changed() {
                     var node2 = node.getSelected(), // node2 is not null since we have set selected above
@@ -648,7 +648,7 @@ MSPController.prototype = {
                     if (node2.attributes) {
                         desc = node2.attributes.HR_Desc;
                     }
-                    state = new Widget({
+                    state = new msp.Widget({
                         container: self.selector,
                         id: 'layer-state',
                         type: 'select',
@@ -656,17 +656,17 @@ MSPController.prototype = {
                         selected: node2.states[0],
                         pretext: 'Select the state for the layer value: '
                     });
-                    rule_class_extra3.html(element('p', {}, 'Description: ' + desc) +
-                                           element('p', {}, state.html()));
+                    rule_class_extra3.html(msp.e('p', {}, 'Description: ' + desc) +
+                                           msp.e('p', {}, state.html()));
                     return changed;
                 }()));
             },
 
             html = layer
-                ? element('p', {}, 'This layer attempts to depict ' + klass.name + '.') +
-                  element('p', {}, 'Rule system is ' + layer.rule_class + '.')
-                : element('p', {}, class_list.html()) +
-                  element('p', {}, rule_class_list.html()),
+                ? msp.e('p', {}, 'This layer attempts to depict ' + klass.name + '.') +
+                  msp.e('p', {}, 'Rule system is ' + layer.rule_class + '.')
+                : msp.e('p', {}, class_list.html()) +
+                  msp.e('p', {}, rule_class_list.html()),
 
             value_from = function (obj) {
                 return obj ? obj.value : null;
@@ -677,14 +677,14 @@ MSPController.prototype = {
             return;
         }
 
-        html = element('p', {}, 'This layer is computed by rules.') + html;
-        html += element('p', {}, rule_class_extra.html());
-        html += element('p', {}, rule_class_extra2.html());
-        html += element('p', {}, rule_class_extra3.html());
+        html = msp.e('p', {}, 'This layer is computed by rules.') + html;
+        html += msp.e('p', {}, rule_class_extra.html());
+        html += msp.e('p', {}, rule_class_extra2.html());
+        html += msp.e('p', {}, rule_class_extra3.html());
         if (args.use.id === 'data') {
-            html += element('p', {}, 'The color setting is temporary for datasets.');
+            html += msp.e('p', {}, 'The color setting is temporary for datasets.');
         }
-        html += element('p', {}, palette.html());
+        html += msp.e('p', {}, palette.html());
 
         self.setEditor({
             title: 'Layer for ' + args.use.name,
@@ -695,7 +695,7 @@ MSPController.prototype = {
         });
 
         if (layer) {
-            if (layer.rule_class === mspEnum.BAYESIAN_NETWORK) {
+            if (layer.rule_class === msp.enum.BAYESIAN_NETWORK) {
                 select_network_node(
                     self.networks.find(function (network) {
                         return network.name === layer.network.name;
@@ -707,22 +707,22 @@ MSPController.prototype = {
         } else {
             rule_class_list.changed((function changed() {
                 var klass2 = rule_class_list.getSelected();
-                if (klass2 && klass2.name === mspEnum.BAYESIAN_NETWORK) {
+                if (klass2 && klass2.name === msp.enum.BAYESIAN_NETWORK) {
 
-                    network = haveNetworks ? new Widget({
+                    network = haveNetworks ? new msp.Widget({
                         container: self.selector,
                         pretext: 'Select the Bayesian network: ',
                         id: 'layer-network',
                         type: 'select',
                         list: self.networks,
                         selected: self.networks[0],
-                    }) : new Widget({
+                    }) : new msp.Widget({
                         container: self.selector,
-                        pretext: element('font', {color: 'red'}, 'No networks available.'),
+                        pretext: msp.e('font', {color: 'red'}, 'No networks available.'),
                         id: 'layer-network',
                         type: 'paragraph'
                     });
-                    rule_class_extra.html(element('p', {}, network.html()));
+                    rule_class_extra.html(msp.e('p', {}, network.html()));
 
                     if (haveNetworks) {
                         network.changed((function changed() {
@@ -755,7 +755,7 @@ MSPController.prototype = {
             if (!klass2) {
                 return true;
             }
-            if (rule_class.name === mspEnum.BAYESIAN_NETWORK) {
+            if (rule_class.name === msp.enum.BAYESIAN_NETWORK) {
                 if (!haveNetworks) {
                     return true;
                 }
@@ -786,12 +786,12 @@ MSPController.prototype = {
 
                         rules: []
                     };
-                    if (rule_class.name === mspEnum.BAYESIAN_NETWORK) {
+                    if (rule_class.name === msp.enum.BAYESIAN_NETWORK) {
                         data.network = network.getSelected();
                         data.output_node = node.getSelected();
                         data.output_state = value_from(response.rule_system.columns.output_state);
                     }
-                    self.model.addLayer(new MSPLayer(data));
+                    self.model.addLayer(new msp.Layer(data));
                 },
                 fake: function () {
                     var data = {
@@ -808,12 +808,12 @@ MSPController.prototype = {
                         rule_class: rule_class.name,
                         rules: []
                     };
-                    if (rule_class.name === mspEnum.BAYESIAN_NETWORK) {
+                    if (rule_class.name === msp.enum.BAYESIAN_NETWORK) {
                         data.network = network.getSelected();
                         data.output_node = node.getSelected();
                         data.output_state = state.getSelected();
                     }
-                    self.model.addLayer(new MSPLayer(data));
+                    self.model.addLayer(new msp.Layer(data));
                 }
             });
             return true;
@@ -825,7 +825,7 @@ MSPController.prototype = {
                     palette: color.id
                 },
                 url;
-            if (layer.rule_class === mspEnum.BAYESIAN_NETWORK) {
+            if (layer.rule_class === msp.enum.BAYESIAN_NETWORK) {
                 if (!haveNetworks) {
                     return true;
                 }
@@ -852,7 +852,7 @@ MSPController.prototype = {
                                 palette: color.name
                             }
                         };
-                        if (layer.rule_class === mspEnum.BAYESIAN_NETWORK) {
+                        if (layer.rule_class === msp.enum.BAYESIAN_NETWORK) {
                             data.output_node = node.getSelected();
                             data.output_state = value_from(response.rule_system.columns.output_state);
                         }
@@ -908,29 +908,29 @@ MSPController.prototype = {
         if (args.rule) {
             args.dataset = args.rule.dataset;
         } else {
-            args.dataset = self.model.datasets.layers.length > 0 ? new Widget({
+            args.dataset = self.model.datasets.layers.length > 0 ? new msp.Widget({
                 container: self.selector,
                 pretext: 'Rule is based on the dataset: ',
                 id: 'rule-dataset',
                 type: 'select',
                 list: self.model.datasets.layers,
-            }) : new Widget({
+            }) : new msp.Widget({
                 container: self.selector,
-                pretext: element('font', {color: 'red'}, 'No datasets available.'),
+                pretext: msp.e('font', {color: 'red'}, 'No datasets available.'),
                 id: 'rule-dataset',
                 type: 'paragraph'    
             });
         }
         
-        if (self.model.layer.rule_class === mspEnum.EXCLUSIVE) {
+        if (self.model.layer.rule_class === msp.enum.EXCLUSIVE) {
             getPayload = self.editBooleanRule(args);
-        } else if (self.model.layer.rule_class === mspEnum.INCLUSIVE) {
+        } else if (self.model.layer.rule_class === msp.enum.INCLUSIVE) {
             getPayload = self.editBooleanRule(args);
-        } else if (self.model.layer.rule_class === mspEnum.BOXCAR) {
+        } else if (self.model.layer.rule_class === msp.enum.BOXCAR) {
             self.editor.dialog('option', 'width', 470);
             self.editor.dialog('option', 'height', 700);
             getPayload = self.editBoxcarRule(args);
-        } else if (self.model.layer.rule_class === mspEnum.BAYESIAN_NETWORK) {
+        } else if (self.model.layer.rule_class === msp.enum.BAYESIAN_NETWORK) {
             getPayload = self.editBayesianRule(args);
         } else {
             self.error('Editing ' + self.model.layer.rule_class + ' rules not supported yet.');
@@ -947,7 +947,7 @@ MSPController.prototype = {
                 url: self.server + path + '/rules?request=save',
                 payload: payload,
                 atSuccess: function (response) {
-                    self.model.addRule(new MSPRule({
+                    self.model.addRule(new msp.Rule({
                         id: response.id.value,
                         layer: self.model.layer,
                         dataset: self.model.getDataset(response.dataset.value),
@@ -967,7 +967,7 @@ MSPController.prototype = {
                     }));
                 },
                 fake: function () {
-                    self.model.addRule(new MSPRule({
+                    self.model.addRule(new msp.Rule({
                         id: 5,
                         layer: self.model.layer,
                         dataset: self.model.getDataset(payload.dataset),

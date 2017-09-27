@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2016, Finnish Environment Institute SYKE All rights
+Copyright (c) 2016-2017, Finnish Environment Institute SYKE All rights
 reserved.
 
 Redistribution and use, with or without modification, are permitted
@@ -27,9 +27,9 @@ DAMAGE.
 */
 
 'use strict';
-/*global $, alert, ol, element, Event, MSPRule*/
+/*global $, alert, ol, msp*/
 
-var mspEnum = {
+msp.enum = {
     BAYESIAN_NETWORK: 'Bayesian network',
     BOXCAR: 'boxcar',
     EXCLUSIVE: 'exclusive',
@@ -38,7 +38,7 @@ var mspEnum = {
     MULTIPLICATIVE: 'multiplicative',
 };
 
-var mspStrings = {
+msp.strings = {
     THIS_IS_A_LAYER: function (a, b) {
         return 'This is a layer made by ' + a + ' rules and defined by ' + b + '.';
     }
@@ -71,7 +71,7 @@ var mspStrings = {
  * @constructor
  * @param {MSPLayerOptions} options - Options.
  */
-function MSPLayer(args) {
+msp.Layer = function (args) {
     var self = this;
 
     self.id = args.id;
@@ -103,7 +103,7 @@ function MSPLayer(args) {
                 rule.layer = self;
                 rule.dataset = self.model.getDataset(parseInt(rule.dataset, 10));
                 rule.active = true;
-                self.rules.push(new MSPRule(rule));
+                self.rules.push(new msp.Rule(rule));
             });
         }
 
@@ -112,9 +112,9 @@ function MSPLayer(args) {
     if (self.layer) {
         self.map.removeLayer(self.layer);
     }
-}
+};
 
-MSPLayer.prototype = {
+msp.Layer.prototype = {
     edit: function (args) {
         var self = this;
         if (self.use.id === 'data') {
@@ -142,7 +142,7 @@ MSPLayer.prototype = {
                 self.rule_class = args.rule_class;
             }
 
-            if (self.rule_class === mspEnum.BAYESIAN_NETWORK) {
+            if (self.rule_class === msp.enum.BAYESIAN_NETWORK) {
                 if (args.network) {
                     self.network = args.network;
                 }
@@ -170,20 +170,20 @@ MSPLayer.prototype = {
         } else if (self.use.id === 'ecosystem') { // Ecosystem
             header = 'Ecosystem component.';
         } else {
-            header = mspStrings.THIS_IS_A_LAYER(self.rule_class, self.owner);
-            if (self.rule_class === mspEnum.EXCLUSIVE) {
+            header = msp.strings.THIS_IS_A_LAYER(self.rule_class, self.owner);
+            if (self.rule_class === msp.enum.EXCLUSIVE) {
                 body = 'Default is YES, rules subtract.';
-            } else if (self.rule_class === mspEnum.INCLUSIVE) {
+            } else if (self.rule_class === msp.enum.INCLUSIVE) {
                 body = 'Default is NO, rules add.';
-            } else if (self.rule_class === mspEnum.MULTIPLICATIVE) {
+            } else if (self.rule_class === msp.enum.MULTIPLICATIVE) {
                 body = 'Value is a product of rules.';
-            } else if (self.rule_class === mspEnum.ADDITIVE) {
+            } else if (self.rule_class === msp.enum.ADDITIVE) {
                 body = 'Value is a sum of rules.';
-            } else if (self.rule_class === mspEnum.BOXCAR) {
+            } else if (self.rule_class === msp.enum.BOXCAR) {
                 body = 'Value is a product of rules.';
-            } else if (self.rule_class === mspEnum.BAYESIAN_NETWORK) {
+            } else if (self.rule_class === msp.enum.BAYESIAN_NETWORK) {
                 if (self.network) {
-                    body = element('img', {
+                    body = msp.e('img', {
                         src: url + '/networks?name=' + self.network.name + '&accept=jpeg',
                         width: 230 // layout.right.width
                     }, '') +
@@ -361,31 +361,31 @@ MSPLayer.prototype = {
  * @constructor
  * @param {MSPRuleOptions} options - Options.
  */
-function MSPRule(args) {
+msp.Rule = function (args) {
     var self = this;
     self.id = args.id;
     self.layer = args.layer;
     self.dataset = args.dataset;
     self.active = args.active;
     self.edit(args);
-}
+};
 
-MSPRule.prototype = {
+msp.Rule.prototype = {
     edit: function (rule) {
         var self = this;
-        if (self.layer.rule_class === mspEnum.EXCLUSIVE || self.layer.rule_class === mspEnum.INCLUSIVE) {
+        if (self.layer.rule_class === msp.enum.EXCLUSIVE || self.layer.rule_class === msp.enum.INCLUSIVE) {
             self.op = rule.op;
             if (!self.dataset.binary) {
                 self.value = rule.value;
             }
-        } else if (self.layer.rule_class === mspEnum.BOXCAR) {
+        } else if (self.layer.rule_class === msp.enum.BOXCAR) {
             self.boxcar_type = rule.boxcar_type;
             self.boxcar_x0 = rule.boxcar_x0;
             self.boxcar_x1 = rule.boxcar_x1;
             self.boxcar_x2 = rule.boxcar_x2;
             self.boxcar_x3 = rule.boxcar_x3;
             self.weight = rule.weight;
-        } else if (self.layer.rule_class === mspEnum.BAYESIAN_NETWORK) {
+        } else if (self.layer.rule_class === msp.enum.BAYESIAN_NETWORK) {
             self.state_offset = rule.state_offset;
             self.node = rule.node;
         }
@@ -399,7 +399,7 @@ MSPRule.prototype = {
             name,
             value;
         name = self.dataset.name;
-        if (self.layer.rule_class === mspEnum.EXCLUSIVE || self.layer.rule_class === mspEnum.INCLUSIVE) {
+        if (self.layer.rule_class === msp.enum.EXCLUSIVE || self.layer.rule_class === msp.enum.INCLUSIVE) {
             if (self.dataset.binary) {
                 name = self.op + ' ' + name;
             } else {
@@ -409,12 +409,12 @@ MSPRule.prototype = {
                 }
                 name += ' ' + self.op + ' ' + value;
             }
-        /*} else if (self.layer.rule_class === mspEnum.MULTIPLICATIVE || self.layer.rule_class === mspEnum.ADDITIVE) {*/
-        } else if (self.layer.rule_class === mspEnum.BOXCAR) {
+        /*} else if (self.layer.rule_class === msp.enum.MULTIPLICATIVE || self.layer.rule_class === msp.enum.ADDITIVE) {*/
+        } else if (self.layer.rule_class === msp.enum.BOXCAR) {
             name += ': Boxcar ' + self.boxcar_type + ' ';
             name += self.boxcar_x0 + ', ' + self.boxcar_x1 + ', ' + self.boxcar_x2 + ', ' + self.boxcar_x3;
             name += ' weight ' + self.weight;
-        } else if (self.layer.rule_class === mspEnum.BAYESIAN_NETWORK) {
+        } else if (self.layer.rule_class === msp.enum.BAYESIAN_NETWORK) {
             if (self.layer.network) {
                 value = self.layer.network.nodes.find(function (node) {
                     return node.name === self.node;

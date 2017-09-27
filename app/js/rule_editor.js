@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2016, Finnish Environment Institute SYKE All rights
+Copyright (c) 2016-2017, Finnish Environment Institute SYKE All rights
 reserved.
 
 Redistribution and use, with or without modification, are permitted
@@ -27,9 +27,9 @@ DAMAGE.
 */
 
 'use strict';
-/*global $, alert, element, Widget, MSPController*/
+/*global $, alert, msp*/
 
-MSPController.prototype.datasetValueWidget = function (args) {
+msp.Controller.prototype.datasetValueWidget = function (args) {
     var self = this,
         attr = {
             container: self.selector,
@@ -76,20 +76,20 @@ MSPController.prototype.datasetValueWidget = function (args) {
                 attr.value = args.dataset.min_value;
             }
         }
-        widget = new Widget(attr);
-        args.elem.html(args.elem_pre + element('p', {}, widget.html()));
+        widget = new msp.Widget(attr);
+        args.elem.html(args.elem_pre + msp.e('p', {}, widget.html()));
         widget.prepare();
     }
     return widget;
 };
 
-MSPController.prototype.editBooleanRule = function (args) {
+msp.Controller.prototype.editBooleanRule = function (args) {
     var self = this,
         owner = self.model.layer.owner === self.model.config.config.user,
         value,
         html = '',
         make_op = function (dataset) {
-            return dataset ? new Widget({
+            return dataset ? new msp.Widget({
                 container: self.selector,
                 id: 'rule-op',
                 type: 'select',
@@ -102,7 +102,7 @@ MSPController.prototype.editBooleanRule = function (args) {
                 },
                 selected: args.rule ? args.rule.op : null,
                 pretext: 'Define the operator:<br/>'
-            }) : new Widget({
+            }) : new msp.Widget({
                 container: self.selector,
                 pretext: 'No datasets available.',
                 id: 'rule-op',
@@ -114,7 +114,7 @@ MSPController.prototype.editBooleanRule = function (args) {
         pretext = 'Define the threshold:<br/>',
         regex;
 
-    value = new Widget({
+    value = new msp.Widget({
         container: self.selector,
         id: 'rule-defs',
         type: 'paragraph',
@@ -126,13 +126,13 @@ MSPController.prototype.editBooleanRule = function (args) {
             .replace(/^- If/, 'Do not allocate if')
             .replace(regex, 'equals:');
         if (!owner) {
-            html += element('p', {}, 'Et ole tämän tason omistaja. Muutokset ovat tilapäisiä.');
+            html += msp.e('p', {}, 'Et ole tämän tason omistaja. Muutokset ovat tilapäisiä.');
         }
-        html += element('p', {}, 'Rule is based on ' + args.dataset.name);
+        html += msp.e('p', {}, 'Rule is based on ' + args.dataset.name);
     } else {
-        html += element('p', {}, args.dataset.html());
+        html += msp.e('p', {}, args.dataset.html());
     }
-    html += element('p', {id: 'descr'}, '');
+    html += msp.e('p', {id: 'descr'}, '');
     html += value.html();
 
     self.editor.html(html);
@@ -143,7 +143,7 @@ MSPController.prototype.editBooleanRule = function (args) {
             dataset: args.dataset,
             rule: args.rule,
             elem: value,
-            elem_pre: element('p', {}, op.html()),
+            elem_pre: msp.e('p', {}, op.html()),
             pretext: pretext
         });
     } else {
@@ -154,7 +154,7 @@ MSPController.prototype.editBooleanRule = function (args) {
                 id: 'thrs',
                 dataset: dataset2,
                 elem: value,
-                elem_pre: element('p', {}, op.html()),
+                elem_pre: msp.e('p', {}, op.html()),
                 pretext: pretext
             });
             return changed;
@@ -181,7 +181,7 @@ MSPController.prototype.editBooleanRule = function (args) {
     };
 };
 
-MSPController.prototype.editBoxcarRule = function (args) {
+msp.Controller.prototype.editBoxcarRule = function (args) {
     // boxcar rule converts data value into range [0..weight] or [weight..0] if weight is negative
     // the rule consists of four values (x0, x1, x2, x3) and a boolean form parameter in addition to weight
     // the data value is first mapped to a value (y) between 0 and 1
@@ -193,34 +193,34 @@ MSPController.prototype.editBoxcarRule = function (args) {
     // final rule value is then y*weight
     var self = this,
         html = '',
-        form = new Widget({
+        form = new msp.Widget({
             container: self.selector,
             id: 'form',
             type: 'select',
             list: {1: 'Normal _/¯\\_', 2: 'Inverted ¯\\_/¯'},
             selected: args.rule ? args.rule.boxcar_type : 'Normal _/¯\\_',
         }),
-        x0 = new Widget({
+        x0 = new msp.Widget({
             container: self.selector,
             id: 'x0p',
             type: 'paragraph'
         }),
-        x1 = new Widget({
+        x1 = new msp.Widget({
             container: self.selector,
             id: 'x1p',
             type: 'paragraph'
         }),
-        x2 = new Widget({
+        x2 = new msp.Widget({
             container: self.selector,
             id: 'x2p',
             type: 'paragraph'
         }),
-        x3 = new Widget({
+        x3 = new msp.Widget({
             container: self.selector,
             id: 'x3p',
             type: 'paragraph'
         }),
-        weight = new Widget({
+        weight = new msp.Widget({
             container: self.selector,
             id: 'weight',
             type: 'text',
@@ -238,12 +238,12 @@ MSPController.prototype.editBoxcarRule = function (args) {
         newValue;
 
     if (args.rule) {
-        html += element('p', {}, 'Rule is based on ' + args.dataset.name);
+        html += msp.e('p', {}, 'Rule is based on ' + args.dataset.name);
     } else {
-        html += element('p', {}, args.dataset.html());
+        html += msp.e('p', {}, args.dataset.html());
     }
 
-    html += element('p', {id: 'descr'}, '');
+    html += msp.e('p', {id: 'descr'}, '');
     html += form.html();
     html += x0.html();
     html += x1.html();
@@ -337,7 +337,7 @@ MSPController.prototype.editBoxcarRule = function (args) {
 
 };
 
-MSPController.prototype.editBayesianRule = function (args) {
+msp.Controller.prototype.editBayesianRule = function (args) {
     // rule is a node in a Bayesian network
     // for now we assume it is a (hard) evidence node, i.e.,
     // the dataset must be integer, and its value range the same as the node's
@@ -363,7 +363,7 @@ MSPController.prototype.editBayesianRule = function (args) {
             }
             return {
                 descr: dataset.descr,
-                states: 'States: ' + dataset.min_value + '..' + dataset.max_value + element('p', {}, states)
+                states: 'States: ' + dataset.min_value + '..' + dataset.max_value + msp.e('p', {}, states)
             };
         };
 
@@ -373,7 +373,7 @@ MSPController.prototype.editBayesianRule = function (args) {
                 dataset_list.push(dataset);
             }
         });
-        args.dataset = new Widget({
+        args.dataset = new msp.Widget({
             container: self.selector,
             id: 'rule-dataset',
             type: 'select',
@@ -406,7 +406,7 @@ MSPController.prototype.editBayesianRule = function (args) {
             nodes.push(node);
         }
     });
-    node = new Widget({
+    node = new msp.Widget({
         container: self.selector,
         id: 'rule-node',
         type: 'select',
@@ -414,7 +414,7 @@ MSPController.prototype.editBayesianRule = function (args) {
         selected: args.rule ? args.rule.node : nodes[0],
         pretext: 'Link the dataset to node: '
     });
-    offset = new Widget({
+    offset = new msp.Widget({
         container: self.selector,
         id: 'rule-offset',
         type: 'spinner',
@@ -425,16 +425,16 @@ MSPController.prototype.editBayesianRule = function (args) {
     });
 
     if (args.rule) {
-        html += element('p', {}, 'Rule is based on ' + args.dataset.name);
+        html += msp.e('p', {}, 'Rule is based on ' + args.dataset.name);
     } else {
-        html += element('p', {}, args.dataset.html());
+        html += msp.e('p', {}, args.dataset.html());
     }
 
-    html += element('p', {id: 'dataset-states'}, '') +
-        element('p', {id: 'descr'}, '') +
-        element('p', {}, offset.html()) +
+    html += msp.e('p', {id: 'dataset-states'}, '') +
+        msp.e('p', {id: 'descr'}, '') +
+        msp.e('p', {}, offset.html()) +
         node.html() +
-        element('p', {id: 'node-states'}, '');
+        msp.e('p', {id: 'node-states'}, '');
 
     self.editor.html(html);
     offset.prepare();

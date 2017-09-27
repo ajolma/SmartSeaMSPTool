@@ -1,7 +1,7 @@
 var test_container_selector = '#test';
 var test_container = $(test_container_selector);
 
-var test = new Widget({
+var test = new msp.Widget({
     container: test_container_selector,
     id: 'x',
     type: 'paragraph'
@@ -20,7 +20,7 @@ is(test_container.html(), '<p id="x">' + text + '</p>', 'paragraph widget html')
 // the selected must be the scalar, the object, or the name attribute of the object
 
 test = function (list, selected, descr, exp) {
-    var test = new Widget({
+    var test = new msp.Widget({
         container: test_container_selector,
         id: 'x',
         type: 'select',

@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2016, Finnish Environment Institute SYKE All rights
+Copyright (c) 2016-2017, Finnish Environment Institute SYKE All rights
 reserved.
 
 Redistribution and use, with or without modification, are permitted
@@ -28,10 +28,10 @@ DAMAGE.
 
 'use strict';
 
-/*global $, alert, ol, element, Config, Menu, MSPModel, MSPView, MSPController, Editor*/
+/*global $, alert, ol, msp*/
 
 (function () {
-    var config = new Config({
+    var config = new msp.Config({
         bootstrap: function () {
             var map = new ol.Map({
                     layers: [],
@@ -41,12 +41,12 @@ DAMAGE.
                     ]),
                     view: config.proj.view
                 }),
-                model = new MSPModel({
+                model = new msp.Model({
                     config: config,
                     map: map,
                     firstPlan: 30
                 }),
-                view = new MSPView({
+                view = new msp.View({
                     model: model,
                     elements: {
                         map: $('#map'),
@@ -68,13 +68,13 @@ DAMAGE.
                         rules: '#rules'
                     }
                 }),
-                editor = new Editor({
+                editor = new msp.Editor({
                     selector: '#editor',
                     config: config,
                     model: model,
                     view: view
                 }),
-                controller = new MSPController({
+                controller = new msp.Controller({
                     model: model,
                     view: view,
                     dialog: 'dialog'
@@ -91,7 +91,7 @@ DAMAGE.
             $.each(config.bg, function (i, bg) {
                 bg.layer.setVisible(false);
                 map.addLayer(bg.layer);
-                $('#bg-map').append(element('option', {value: i}, bg.title));
+                $('#bg-map').append(msp.e('option', {value: i}, bg.title));
             });
             config.base = config.bg[0].layer;
             config.base.setVisible(true);
@@ -116,7 +116,7 @@ DAMAGE.
                 $('img.main-menu').click(function (event) {
                     var options = [{label: 'Boot', cmd: 'boot'},
                             {label: 'Editor...', cmd: 'editor'}],
-                        menu = new Menu({
+                        menu = new msp.Menu({
                             element: $('#main-menu'),
                             menu: $('#main-menu-ul'),
                             right: 24,

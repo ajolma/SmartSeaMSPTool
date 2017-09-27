@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2016, Finnish Environment Institute SYKE All rights
+Copyright (c) 2016-2017, Finnish Environment Institute SYKE All rights
 reserved.
 
 Redistribution and use, with or without modification, are permitted
@@ -27,7 +27,7 @@ DAMAGE.
 */
 
 'use strict';
-/*global $, alert, ol, Event, element*/
+/*global $, alert, ol, msp*/
 
 // after https://alexatnet.com/articles/model-view-controller-mvc-javascript
 
@@ -38,7 +38,7 @@ DAMAGE.
  * @param {ViewElements} elements - jQuery objects representing some GUI elements.
  * @param {ViewIds} ids - Selectors for some GUI elements.
  */
-function MSPView(options) {
+msp.View = function (options) {
     var self = this;
     self.model = options.model;
     self.elements = options.elements;
@@ -96,18 +96,18 @@ function MSPView(options) {
 
     // events
 
-    self.error = new Event(self);
-    self.planCommand = new Event(self);
-    self.useCommand = new Event(self);
-    self.layerCommand = new Event(self);
-    self.ruleCommand = new Event(self);
+    self.error = new msp.Event(self);
+    self.planCommand = new msp.Event(self);
+    self.useCommand = new msp.Event(self);
+    self.layerCommand = new msp.Event(self);
+    self.ruleCommand = new msp.Event(self);
 
     self.elements.plans.change(function () {
         self.model.changePlan(parseInt(self.elements.plans.val(), 10));
     });
-}
+};
 
-MSPView.prototype = {
+msp.View.prototype = {
     /**
      * React to the browser window resize event.
      */
@@ -143,7 +143,7 @@ MSPView.prototype = {
         }
         self.elements.plans.html('');
         $.each(self.model.plans, function (i, plan) {
-            self.elements.plans.append(element('option', {value: plan.id}, plan.name));
+            self.elements.plans.append(msp.e('option', {value: plan.id}, plan.name));
         });
         self.cleanUp();
     },
@@ -156,28 +156,28 @@ MSPView.prototype = {
     layerItem: function (layer) {
         var attr = {type: 'checkbox', class: 'visible' + layer.id},
             id = 'layer' + layer.id,
-            item = element('div', {id: id, class: 'tree-item'}, layer.name),
+            item = msp.e('div', {id: id, class: 'tree-item'}, layer.name),
             retval = '';
-        retval = element('input', attr, item + '<br/>');
+        retval = msp.e('input', attr, item + '<br/>');
         attr = {class: 'opacity' + layer.id, type: 'range', min: '0', max: '1', step: '0.01'};
-        retval += element('div', {class: 'opacity' + layer.id}, element('input', attr, '<br/>'));
+        retval += msp.e('div', {class: 'opacity' + layer.id}, msp.e('input', attr, '<br/>'));
         return retval;
     },
     usesItem: function (use) {
         // an openable use item for a list
         var self = this,
-            use_text = element('div', {class: 'tree-item'}, use.name),
+            use_text = msp.e('div', {class: 'tree-item'}, use.name),
             button = use.layers.length > 0
-                ? element('button', {class: 'use', type: 'button'}, '&rtrif;') + '&nbsp;'
+                ? msp.e('button', {class: 'use', type: 'button'}, '&rtrif;') + '&nbsp;'
                 : '',
             use_item = button  +  use_text,
             layers = '';
-        use_item = element('label', {title: 'Owner: ' + use.owner}, use_item);
+        use_item = msp.e('label', {title: 'Owner: ' + use.owner}, use_item);
         $.each(use.layers, function (j, layer) {
             layers += self.layerItem(layer);
         });
-        layers = element('div', {class: 'use'}, layers);
-        return {element: element('li', {id: 'use' + use.id}, use_item + layers)};
+        layers = msp.e('div', {class: 'use'}, layers);
+        return {element: msp.e('li', {id: 'use' + use.id}, use_item + layers)};
     },
     buildLayerTree: function () {
         var self = this;
@@ -318,7 +318,7 @@ MSPView.prototype = {
         }
         */
         self.elements.legend.html(
-            element('img', {src: url + '/legend?layer=' + layer.getName() + style + cache_breaker}, '')
+            msp.e('img', {src: url + '/legend?layer=' + layer.getName() + style + cache_breaker}, '')
         );
 
         self.elements.rule_header.html(layer_info.header);
@@ -359,12 +359,12 @@ MSPView.prototype = {
                 if (rule.active) {
                     attr.checked = 'checked';
                 }
-                item = element('a', {id: 'rule', rule: rule.id}, name);
+                item = msp.e('a', {id: 'rule', rule: rule.id}, name);
                 if (self.model.layer.use.class_id > 1) {
-                    item = element('input', attr, item);
+                    item = msp.e('input', attr, item);
                 }
                 self.elements.rules.append(item);
-                self.elements.rules.append(element('br'));
+                self.elements.rules.append(msp.e('br'));
             });
         }
         $(self.selectors.rules + ' :checkbox').change(function () {

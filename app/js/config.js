@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2016, Finnish Environment Institute SYKE All rights
+Copyright (c) 2016-2017, Finnish Environment Institute SYKE All rights
 reserved.
 
 Redistribution and use, with or without modification, are permitted
@@ -28,9 +28,9 @@ DAMAGE.
 
 'use strict';
 
-/*global $, ol, Projection*/
+/*global $, ol, msp*/
 
-function Config(options) {
+msp.Config = function (options) {
     var self = this,
         url = window.location.href.replace(/app[\w\W]*/, 'config'),
         epsg = /epsg=([\d]+)/.exec(window.location.href),
@@ -126,16 +126,16 @@ function Config(options) {
         epsg = 3857;
     }
 
-    if (typeof Projection !== 'undefined') {
+    if (typeof msp.Projection !== 'undefined') {
         if (epsg === 3857) {
-            self.proj = new Projection({
+            self.proj = new msp.Projection({
                 epsg: epsg,
                 matrixSet: 'EPSG:3857',
                 center: [2671763, 8960514],
                 zoom: 6
             });
         } else if (epsg === 3067) {
-            self.proj = new Projection({
+            self.proj = new msp.Projection({
                 epsg: epsg,
                 matrixSet: 'ETRS-TM35FIN',
                 center: [346735, 6943420],
@@ -164,7 +164,4 @@ function Config(options) {
             alert(xhr.responseText || textStatus);
         }
     });
-}
-
-Config.prototype = {
 };

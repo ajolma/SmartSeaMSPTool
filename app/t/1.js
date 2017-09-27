@@ -9,9 +9,9 @@ var klasses = {
         {id: 1, name: 'Suitability'},
     ],
     rule_class: [
-        {id: 1, name: mspEnum.EXCLUSIVE},
-        {id: 2, name: mspEnum.BAYESIAN_NETWORK},
-        {id: 2, name: mspEnum.BOXCAR},
+        {id: 1, name: msp.enum.EXCLUSIVE},
+        {id: 2, name: msp.enum.BAYESIAN_NETWORK},
+        {id: 2, name: msp.enum.BOXCAR},
     ],
     activity: '',
     palette: [
@@ -24,11 +24,11 @@ var klasses = {
 
 function TestView() {
     var self = this;
-    self.error = new Event(self);
-    self.planCommand = new Event(self);
-    self.useCommand = new Event(self);
-    self.layerCommand = new Event(self);
-    self.ruleCommand = new Event(self);
+    self.error = new msp.Event(self);
+    self.planCommand = new msp.Event(self);
+    self.useCommand = new msp.Event(self);
+    self.layerCommand = new msp.Event(self);
+    self.ruleCommand = new msp.Event(self);
     self.closeUse = function (use) {};
     self.openUse = function (use) {};
 }
@@ -36,16 +36,16 @@ function TestView() {
 var config, model, view, controller, editor;
 
 function test0(auth) {
-    config = new Config({
+    config = new msp.Config({
         config: {
             auth: auth
         },
         klasses: klasses
     });
-    model = new MSPModel({config: config});
+    model = new msp.Model({config: config});
     view = new TestView();
-    controller = new MSPController({model: model, view: view, dialog: 'dialog'});
-    editor = new Editor({
+    controller = new msp.Controller({model: model, view: view, dialog: 'dialog'});
+    editor = new msp.Editor({
         selector: '#editor',
         config: config,
         model: model,
@@ -57,7 +57,7 @@ function test0(auth) {
 }
 
 function test1() {
-    config = new Config({
+    config = new msp.Config({
         config: {
             auth: true
         },
@@ -76,10 +76,10 @@ function test1() {
         ],
         klasses: klasses
     });
-    model = new MSPModel({config: config});
+    model = new msp.Model({config: config});
     view = new TestView();
-    controller = new MSPController({model: model, view: view, dialog: 'dialog'});
-    editor = new Editor({
+    controller = new msp.Controller({model: model, view: view, dialog: 'dialog'});
+    editor = new msp.Editor({
         selector: '#editor',
         config: config,
         model: model,

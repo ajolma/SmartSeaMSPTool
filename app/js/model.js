@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2016, Finnish Environment Institute SYKE All rights
+Copyright (c) 2016-2017, Finnish Environment Institute SYKE All rights
 reserved.
 
 Redistribution and use, with or without modification, are permitted
@@ -27,7 +27,7 @@ DAMAGE.
 */
 
 'use strict';
-/*global $, alert, ol, Event, MSPLayer*/
+/*global $, alert, ol, msp*/
 
 // after https://alexatnet.com/articles/model-view-controller-mvc-javascript
 
@@ -57,7 +57,7 @@ DAMAGE.
  * @constructor
  * @param {MSPOptions} options - Options.
  */
-function MSPModel(args) {
+msp.Model = function (args) {
     var self = this;
     self.config = args.config;
     self.map = args.map;
@@ -74,21 +74,21 @@ function MSPModel(args) {
 
     // events
 
-    self.error = new Event(self);
-    self.newPlans = new Event(self);
-    self.planChanged = new Event(self);
-    self.usesChanged = new Event(self);
-    self.newLayerList = new Event(self);
-    self.layerSelected = new Event(self);
-    self.layerUnselected = new Event(self);
-    self.rulesChanged = new Event(self);
-    self.ruleEdited = new Event(self);
-    self.siteInitialized = new Event(self);
-    self.siteInformationReceived = new Event(self);
+    self.error = new msp.Event(self);
+    self.newPlans = new msp.Event(self);
+    self.planChanged = new msp.Event(self);
+    self.usesChanged = new msp.Event(self);
+    self.newLayerList = new msp.Event(self);
+    self.layerSelected = new msp.Event(self);
+    self.layerUnselected = new msp.Event(self);
+    self.rulesChanged = new msp.Event(self);
+    self.ruleEdited = new msp.Event(self);
+    self.siteInitialized = new msp.Event(self);
+    self.siteInformationReceived = new msp.Event(self);
 
-}
+};
 
-MSPModel.prototype = {
+msp.Model.prototype = {
     serverURL: function () {
         var self = this;
         if (!self.config.config || !self.config.config.protocol) {
@@ -116,7 +116,7 @@ MSPModel.prototype = {
         $.each(self.datasets.layers, function (i, layer) {
             layer.model = self;
             layer.use = self.datasets;
-            self.datasets.layers[i] = new MSPLayer(layer);
+            self.datasets.layers[i] = new msp.Layer(layer);
         });
         self.datasets.id = 'data';
 
@@ -127,7 +127,7 @@ MSPModel.prototype = {
         $.each(self.ecosystem.layers, function (i, layer) {
             layer.model = self;
             layer.use = self.ecosystem;
-            self.ecosystem.layers[i] = new MSPLayer(layer);
+            self.ecosystem.layers[i] = new msp.Layer(layer);
         });
         self.ecosystem.id = 'ecosystem';
         
@@ -159,7 +159,7 @@ MSPModel.prototype = {
                         }
                         // bail out if fail here?
                     }
-                    use.layers[k] = new MSPLayer(layer);
+                    use.layers[k] = new msp.Layer(layer);
                 });
             });
             self.plans.push(plan);
