@@ -27,7 +27,7 @@ DAMAGE.
 */
 
 'use strict';
-/*global $, alert, ol, msp*/
+/*global $, ol, msp*/
 
 msp.enum = {
     BAYESIAN_NETWORK: 'Bayesian network',
@@ -46,13 +46,13 @@ msp.strings = {
 
 /**
  * Options for creating a layer.
- * @typedef {Object} MSPLayerOptions
+ * @typedef {Object} msp.Layer.Options
  * @property {number} id - .
  * @property {string} name - .
  * @property {string} owner - .
- * @property {MSPModel} model - .
- * @property {MSPUse} use - .
- * @property {MSPStyle} style - {palette:string}.
+ * @property {msp.Model} model - .
+ * @property {Object} use - .
+ * @property {Object} style - {palette:string}.
  * @property {number} min_value - Only for datasets. Minimum value.
  * @property {number} max_value - Only for datasets. Maximum value.
  * @property {string} data_type - Only for datasets. integer or real.
@@ -69,7 +69,7 @@ msp.strings = {
 /**
  * A WMTS layer in the map.
  * @constructor
- * @param {MSPLayerOptions} options - Options.
+ * @param {msp.Layer.Options} options - Options.
  */
 msp.Layer = function (args) {
     var self = this;

@@ -27,16 +27,22 @@ DAMAGE.
 */
 
 'use strict';
-/*global $, alert, ol, msp*/
+/*global $, ol, msp*/
 
 // after https://alexatnet.com/articles/model-view-controller-mvc-javascript
 
 /**
- * A singleton for maintaining the GUI.
- * @constructor
- * @param {MSPModel} model - Model.
+ * Options for creating a widget.
+ * @typedef {Object} msp.View.Options
+ * @param {msp.Model} model - Model.
  * @param {ViewElements} elements - jQuery objects representing some GUI elements.
  * @param {ViewIds} ids - Selectors for some GUI elements.
+ */
+
+/**
+ * A singleton for maintaining the GUI.
+ * @constructor
+ * @param {msp.View.Options} options - Options.
  */
 msp.View = function (options) {
     var self = this;

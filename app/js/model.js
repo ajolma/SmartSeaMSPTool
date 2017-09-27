@@ -27,35 +27,21 @@ DAMAGE.
 */
 
 'use strict';
-/*global $, alert, ol, msp*/
+/*global $, ol, msp*/
 
 // after https://alexatnet.com/articles/model-view-controller-mvc-javascript
 
 /**
- * Configuration.
- * @typedef {Object} MSPConfigFromServer
- * @property {string} protocol - Communication protocol with the server: http or https.
- * @property {string} server - The URL of the server.
- * @property {string} user - The name of the current user, guest for unauthenticated.
- * @property {boolean} auth - Whether the user is authenticated.
- */
-/**
- * Configuration.
- * @typedef {Object} MSPConfig
- * @property {MSPConfigFromServer} config - Config.
- * @property {Projection} proj - Projection.
- */
-/**
  * Options for creating a MSP model.
- * @typedef {Object} MSPOptions
- * @property {MSPConfig} config - Configuration.
+ * @typedef {Object} msp.Model.Options
+ * @property {msp.Config} config - Configuration.
  * @property {ol.Map} map - The map view.
  * @property {number=} firstPlan - The id of the plan to select initially.
  */
 /**
  * A singleton for maintaining the plans.
  * @constructor
- * @param {MSPOptions} options - Options.
+ * @param {msp.Model.Options} options - Options.
  */
 msp.Model = function (args) {
     var self = this;

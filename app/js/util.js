@@ -27,11 +27,15 @@ DAMAGE.
 */
 
 'use strict';
-/*global $, alert*/
+/*global $*/
 
 /* 
    This is the root of the whole SmartSea MSP Toolbox - its namespace.
 */
+/**
+ * A namespace.
+ * @namespace msp
+ */
 var msp = {};
 
 msp.e = function (tag, attrs, text) {
@@ -54,7 +58,7 @@ msp.e = function (tag, attrs, text) {
 
 /**
  * Options for creating a widget.
- * @typedef {Object} WidgetOptions
+ * @typedef {Object} msp.Widget.Options
  * @property {string} container - The selector of the parent element.
  * @property {string} id - The id of this widget element.
  * @property {string=} slider_value_id - The id for the slider
@@ -89,7 +93,7 @@ msp.e = function (tag, attrs, text) {
 /**
  * An HTML element, mainly for user input.
  * @constructor
- * @param {WidgetOptions} options - Options.
+ * @param {msp.Widget.Options} options - Options.
  */
 msp.Widget = function (args) {
     var self = this,
@@ -367,6 +371,11 @@ msp.Widget.prototype = {
     }
 };
 
+/**
+ * A wrapper for jqueryui Menu.
+ * @constructor
+ * @param {} options - Options.
+ */
 msp.Menu = function (args) {
     var self = this,
         options = '',
@@ -434,6 +443,12 @@ msp.Menu.prototype = {
     }
 };
 
+/**
+ * Message passer.
+ * @constructor
+ * @param {Object} sender - The object that will be sending the
+ * messages. Typically self.
+ */
 msp.Event = function (sender) {
     this.sender = sender;
     this.listeners = [];

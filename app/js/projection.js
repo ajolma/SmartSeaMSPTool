@@ -27,20 +27,20 @@ DAMAGE.
 */
 
 'use strict';
-/*global alert, ol, msp*/
+/*global ol, msp*/
 
 /**
  * Options for creating a projection.
- * @typedef {Object} ProjectionOptions
+ * @typedef {Object} msp.Projection.Options
  * @property {number} epsg - 3857 or 3067.
- * @property {string} matrixSet - ETRS-TM35FIN or EPSG:3857.
+ * @property {string} matrixSet - String, ETRS-TM35FIN or EPSG:3857.
  * @property {Array} center - [x,y].
  * @property {number} zoom - .
  */
 /**
  * A projection and a view to be used in the map.
  * @constructor
- * @param {ProjectionOptions} options - Options.
+ * @param {msp.Projection.Options} options - Options.
  */
 msp.Projection = function (options) {
     var self = this,

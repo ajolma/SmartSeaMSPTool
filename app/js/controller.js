@@ -27,16 +27,22 @@ DAMAGE.
 */
 
 'use strict';
-/*global $, alert, msp*/
+/*global $, msp*/
 
 // after https://alexatnet.com/articles/model-view-controller-mvc-javascript
 
 /**
+ * Options for creating a MSP controller.
+ * @typedef {Object} msp.Controller.Options
+ * @property {msp.Model} model - .
+ * @property {msp.View} view - .
+ * @property {string} dialog - The id of the dialog div.
+ */
+/**
  * A singleton for communicating with the server about plans, uses,
  * layers, and rules.
  * @constructor
- * @param {MSPModel} model - Model.
- * @param {MSPView} view - View.
+ * @param {msp.Controller.Options} options - Options.
  */
 msp.Controller = function (options) {
     var self = this;

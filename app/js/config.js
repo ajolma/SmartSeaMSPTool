@@ -30,6 +30,20 @@ DAMAGE.
 
 /*global $, ol, msp*/
 
+/**
+ * Configuration.
+ * @typedef {Object} msp.Config.Options
+ * @property {function} bootstrap - What to do after receiving the
+ * configuration from the server.
+ * @property {Object=} plans - For testing
+ * @property {Object=} klasses - For testing
+ * @property {Object=} config - For testing
+ */
+/**
+ * A singleton for maintaining the configuration.
+ * @constructor
+ * @param {msp.Config.Options} options - Options.
+ */
 msp.Config = function (options) {
     var self = this,
         url = window.location.href.replace(/app[\w\W]*/, 'config'),
@@ -161,7 +175,7 @@ msp.Config = function (options) {
             options.bootstrap();
         },
         fail: function (xhr, textStatus) {
-            alert(xhr.responseText || textStatus);
+            window.alert(xhr.responseText || textStatus);
         }
     });
 };

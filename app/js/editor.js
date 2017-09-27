@@ -27,8 +27,17 @@ DAMAGE.
 */
 
 'use strict';
-/*global $, alert, msp*/
+/*global $, msp*/
 
+/**
+ * A singleton for adding, editing, or deleting plans, uses, layers,
+ * or rules.
+ * @constructor
+ * @param {msp.Config} config - Configuration.
+ * @param {msp.Model} model - Model.
+ * @param {msp.View} view - View.
+ * @param {string} selector - selector of editor div.
+ */
 msp.Editor = function (options) {
     var self = this,
         lis = function (me) {

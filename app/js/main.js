@@ -28,7 +28,7 @@ DAMAGE.
 
 'use strict';
 
-/*global $, alert, ol, msp*/
+/*global $, ol, msp*/
 
 (function () {
     var config = new msp.Config({

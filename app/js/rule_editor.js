@@ -27,7 +27,7 @@ DAMAGE.
 */
 
 'use strict';
-/*global $, alert, msp*/
+/*global $, msp*/
 
 msp.Controller.prototype.datasetValueWidget = function (args) {
     var self = this,
