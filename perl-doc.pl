@@ -25,6 +25,8 @@ my $xml = $ARGV[0] && $ARGV[0] eq '--xml';
     }
     sub write {
         my ($self, $line) = @_;
+        return unless $line;
+        #print $line;
         push @{$self->{cache}}, $line;
     }
     sub html {
@@ -55,7 +57,7 @@ sub read_file_for_doc {
     open(my $fh, "<", $file) or die "Can't open < $file: $!";
     my $doc;
     my $class;
-    my $topic;
+    my $topic = '';
     my $line = 0;
     while (<$fh>) {
         $line += 1;
@@ -88,6 +90,7 @@ sub read_file_for_doc {
             $doc->{descr} .= ' '.$_;
             next;
         }
+        $topic = '';
         if (/^package\s+([\w:]+)/) {
             next unless $doc;
             $class = $1;            
@@ -196,7 +199,8 @@ sub document_a_class {
     ];
     
     push @$article, [h3 => {class => "subsection-title"}, 'Class Methods'];
-    for my $method (@{$class->{methods}}) {
+    for my $name (sort keys %{$class->{methods}}) {
+        my $method = $class->{methods}{$name};
         next unless $method->{class_method};
         my @params;
         for my $param (@{$method->{params}}) {
@@ -215,7 +219,8 @@ sub document_a_class {
     }
 
     push @$article, [h3 => {class => "subsection-title"}, 'Object Methods'];
-    for my $method (@{$class->{methods}}) {
+    for my $name (sort keys %{$class->{methods}}) {
+        my $method = $class->{methods}{$name};
         next unless $method->{object_method};
         my @params;
         for my $param (@{$method->{params}}) {

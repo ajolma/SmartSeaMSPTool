@@ -187,7 +187,7 @@ sub parse_gdalinfo {
 sub gdal_dataset_name {
     my ($self, $args) = @_;
 
-    return $self->is_derived_from->gdal_dataset_name($args) if $self->discretizer;
+    return $self->is_derived_from->gdal_dataset_name($args) if $self->discretizer && $self->is_derived_from;
     
     my $path = $args->{parameters}{path};
     if (ref $self) {
@@ -375,11 +375,15 @@ sub Band {
         }
     }
     unless ($epsg) {
-        if ($discretizer) {
+        if ($self->is_derived_from) {
             $epsg = $self->is_derived_from->epsg;
         } else {
             $epsg = 3067;
         }
+    }
+
+    if ($args->{debug} > 1) {
+        say STDERR "Dataset->Band: driver = $driver, from epsg = $epsg, to epsg = $args->{epsg}, band = $band";
     }
 
     if ($driver eq 'PG') {
@@ -423,7 +427,7 @@ sub Band {
         if ($epsg != $args->{epsg}) {
             #say STDERR "extent:  $extent[0] $extent[3] $extent[2] $extent[1]" if $args->{debug} > 1;
             my $src = Geo::OSR::SpatialReference->new(EPSG => $args->{epsg});
-            my $dst = Geo::OSR::SpatialReference->new(EPSG => $self->epsg);
+            my $dst = Geo::OSR::SpatialReference->new(EPSG => $epsg);
             my $ct = Geo::OSR::CoordinateTransformation->new($src, $dst);
             my $nn = $ct->TransformPoint(@extent[0,1]);
             my $nx = $ct->TransformPoint(@extent[0,3]);
@@ -446,19 +450,57 @@ sub Band {
             $projwin[2] = $extent[2];
             $projwin[3] = $extent[1];
         }
+        say STDERR "projwin: @projwin" if $args->{debug} > 1;
         
         my $k = ($projwin[2] - $projwin[0]) / ($projwin[1] - $projwin[3]);
         $outsize[0] = POSIX::lround($outsize[1] * $k);
         
         #say STDERR "-projwin @projwin -outsize @outsize" if $args->{debug} > 1;
         my $jpeg = "/vsimem/wms.jpeg";
+        my $dataset;
+
+        if ($path =~ /Velmukartta/) {
+
+            my $service = [
+                [ServerUrl => "http://paikkatieto.ymparisto.fi/arcgis/rest/services/$path/MapServer"],
+                [BBoxOrder => 'xyXY'],
+                [SRS => 3067],
+                [Transparent => 'TRUE'],
+                [Layers => 'show%3A' . $self->subset]
+            ];
+            my $data_window = [
+                [UpperLeftX => $projwin[0]],
+                [UpperLeftY => $projwin[1]],
+                [LowerRightX => $projwin[2]],
+                [LowerRightY => $projwin[3]],
+                [SizeX => $tile->[0]],
+                [SizeY => $tile->[1]]
+            ];
+            my $xml = Geo::OGC::Service::XMLWriter::Caching->new([], '');
+            $xml->element(GDAL_WMS => 
+                [Service => {name => 'AGS'}, $service],
+                [DataWindow => $data_window]
+            );
+            say STDERR $xml->to_string if $args->{debug} > 2;
+            $dataset = '/vsimem/velmu';
+            my $f = Geo::GDAL::VSIF::Open($dataset, 'w');
+            $f->Write($xml->to_string);
+            $f->Close;
+            
+        } else {
+
+            $dataset = "$args->{data_dir}$path";
+
+        }
         
-        Geo::GDAL::Open("$args->{data_dir}$path")
-            ->Translate( $jpeg,
-                         [ -of => 'JPEG',
-                           -r => 'nearest',
-                           -outsize => @outsize,
-                           -projwin => @projwin ]);
+        Geo::GDAL::Open($dataset)
+            ->Translate( $jpeg, [
+                             -a_nodata => 253,
+                             -of => 'JPEG',
+                             -r => 'nearest',
+                             -outsize => @outsize,
+                             -projwin => @projwin ]);
+        
         $path = $jpeg;
         
     } else {

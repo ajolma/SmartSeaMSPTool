@@ -43,12 +43,6 @@ if (!Array.prototype.find) {
     });
 }
 
-if (!Array.isArray) {
-  Array.isArray = function(arg) {
-    return Object.prototype.toString.call(arg) === '[object Array]';
-  };
-}
-
 // https://tc39.github.io/ecma262/#sec-array.prototype.includes
 if (!Array.prototype.includes) {
   Object.defineProperty(Array.prototype, 'includes', {

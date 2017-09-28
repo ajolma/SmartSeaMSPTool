@@ -132,9 +132,7 @@ msp.Config = function (options) {
     self.klasses = options.klasses;
     
     if (epsg) {
-        if (epsg.isArray) {
-            epsg = parseInt(epsg[1], 10);
-        }
+        epsg = parseInt(epsg[1], 10);
     } else {
         // default projection
         epsg = 3857;
