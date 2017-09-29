@@ -7,6 +7,7 @@ use Storable qw(dclone);
 use Scalar::Util 'blessed';
 use Carp;
 use PDL;
+use SmartSea::Schema::Result::NumberType qw(:all);
 use SmartSea::Schema::Result::RuleClass qw(:all);
 use SmartSea::Core qw(:all);
 use SmartSea::HTML qw(:all);
@@ -161,17 +162,31 @@ sub order_by {
 sub name {
     my ($self, %args) = @_;
 
+    my $class = $self->rule_system->rule_class->id;
+    my $dataset = $self->dataset;
     my $criteria = $self->criteria;
     croak "Rule ".$self->id." does not have criteria!" unless $criteria;
-
-    my $class = $self->rule_system->rule_class->id;
-
+    
+    my $value_should_be_one = '';
+    
+    if ($dataset->data_type == INTEGER_NUMBER && 
+    ($dataset->min_value == 0 || $dataset->min_value == 1) && 
+    $dataset->max_value == 1) {
+        # identified as binary data
+        if ($self->value != 1) {
+            $value_should_be_one = '!value should be one! ';
+        }
+        unless ($class == EXCLUSIVE_RULE || $class == INCLUSIVE_RULE) {
+            $value_should_be_one = '!binary dataset, should not be used for this rule! ';
+        }
+    }
+    
     if ($class == EXCLUSIVE_RULE || $class == INCLUSIVE_RULE) {
         my $sign = $class == EXCLUSIVE_RULE ? '-' : '+';
         my $n = $criteria->classes;
         say STDERR "Rule ".$self->id.": dataset ".$criteria->name." lacks data type!" unless defined $n;
         $n //= 1;
-        return "$sign if ".$criteria->name if $n == 1;
+        return $value_should_be_one."$sign if ".$criteria->name if $n == 1;
         my $op = $self->op->name // '';
         my $value = $self->value // '';
         say STDERR "Rule ".$self->id." does not have a threshold!" if $op eq '' || $value eq '';
@@ -183,9 +198,10 @@ sub name {
                 say STDERR "Value $value does not have a meaning in rule ".$self->id."!";
             }
         }
-        return "$sign if ".$criteria->name." $op $value";
+        return $value_should_be_one."$sign if ".$criteria->name." $op $value";
         
     } elsif ($class == MULTIPLICATIVE_RULE || $class == ADDITIVE_RULE) {
+        
         my $x_min = $self->min_value;
         my $x_max = $self->max_value;
         my $y_min = $self->value_at_min;
@@ -193,16 +209,16 @@ sub name {
         my $w = $self->weight;
         my $name = $criteria->name;
         if ($class == ADDITIVE_RULE) {
-            return "+ $y_min - $w * ($y_max-$y_min)/($x_max-$x_min) * ($name - $x_min)";
+            return $value_should_be_one."+ $y_min - $w * ($y_max-$y_min)/($x_max-$x_min) * ($name - $x_min)";
         } else {
-            return "* $y_min - $w * ($y_max-$y_min)/($x_max-$x_min) * ($name - $x_min)";
+            return $value_should_be_one."* $y_min - $w * ($y_max-$y_min)/($x_max-$x_min) * ($name - $x_min)";
         }
         
     } elsif ($class == BOXCAR_RULE) {
         my $fct = $self->boxcar_x0.', '.$self->boxcar_x1.', '.$self->boxcar_x2.', '.$self->boxcar_x3;
         $fct .= ' weight '.$self->weight;
-        return "Normal with turning points at ".$fct if $self->boxcar_type->id == 1;
-        return "Inverted with turning points at ".$fct;
+        return $value_should_be_one."Normal with turning points at ".$fct if $self->boxcar_type->id == 1;
+        return $value_should_be_one."Inverted with turning points at ".$fct;
 
     } elsif ($class == BAYESIAN_NETWORK_RULE) {
         return ($self->node//'').' offset='.$self->state_offset;
@@ -296,7 +312,7 @@ sub apply {
     if ($class == EXCLUSIVE_RULE || $class == INCLUSIVE_RULE) {
 
         my $op = $self->op->name;
-        my $value = $self->value;
+        my $value = $self->value; # value should be 1 for binary datasets
 
         my $value_if_true = $class == INCLUSIVE_RULE ? 1 : 0;
 

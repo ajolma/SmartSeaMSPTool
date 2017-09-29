@@ -15,7 +15,7 @@ use Data::Dumper;
 use SmartSea::Core qw(:all);
 use SmartSea::App;
 use SmartSea::Schema;
-use SmartSea::Layer;
+use SmartSea::Layer qw(:all);
 
 binmode STDERR, ":utf8";
 
@@ -71,7 +71,7 @@ sub config {
     }
     for my $dataset ($self->{schema}->resultset('Dataset')->layers) {
         push @tilesets, {
-            Layers => "data_".$dataset->{id},
+            Layers => DATA_LAYER."_".$dataset->{id},
             "Format" => "image/png",
             Resolutions => "9..19",
             SRS => "EPSG:3067",
@@ -82,7 +82,7 @@ sub config {
     }
     for my $component ($self->{schema}->resultset('EcosystemComponent')->layers) {
         push @tilesets, {
-            Layers => "ecosystem_".$component->{id},
+            Layers => ECOSYSTEM_LAYER."_".$component->{id},
             "Format" => "image/png",
             Resolutions => "9..19",
             SRS => "EPSG:3067",

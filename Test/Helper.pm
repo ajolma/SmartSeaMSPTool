@@ -281,7 +281,7 @@ sub make_layer {
     my ($args) = @_;
     my $id = $args->{id};
     my $schema = $args->{schema};
-    if ($args->{use_class_id} ne 'data') {
+    if ($args->{use_class_id} ne 'Data') { # use DATA_LAYER from Layer
         $schema->resultset('Style')->new({
             id => $args->{style}->{id},
             palette => $args->{style}->{palette}->id,

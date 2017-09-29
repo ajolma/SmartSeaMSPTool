@@ -76,7 +76,7 @@ my $layer = SmartSea::Layer->new(
         epsg => $tile->epsg,
         data_dir => $tile->data_dir,
         debug => 0,
-        trail => 'data_1'
+        trail => 'Data_1' # use DATA_LAYER from Layer
     });
 
 ok(ref $layer eq 'SmartSea::Layer', "layer done");

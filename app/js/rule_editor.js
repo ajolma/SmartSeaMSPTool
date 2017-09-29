@@ -100,6 +100,15 @@ msp.Controller.prototype.editBooleanRule = function (args) {
                     }
                     return true;
                 },
+                nameForItem: function (item) {
+                    if (dataset.binary) {
+                        if (item.name === '==') {
+                            return 'IS';
+                        }
+                        return 'IS NOT';
+                    }
+                    return item.name;
+                },
                 selected: args.rule ? args.rule.op : null,
                 pretext: 'Define the operator:<br/>'
             }) : new msp.Widget({
@@ -171,9 +180,11 @@ msp.Controller.prototype.editBooleanRule = function (args) {
         if (retval.op) {
             retval.op = retval.op.id;
         }
-        if (!args.dataset.binary) {
+        if (dataset.binary) {
+            retval.value = 1; // the semantics of binary datasets are 0: false, 1: true
+        } else {
             retval.value = threshold ? threshold.getValue() : 0;
-            if (args.dataset.semantics) {
+            if (dataset.semantics) {
                 retval.value = parseInt(retval.value, 10);
             }
         }
@@ -323,10 +334,10 @@ msp.Controller.prototype.editBoxcarRule = function (args) {
     return function () {
         var retval = {
             boxcar_type: {value:form.getValue(), selected: form.getSelected()},
-            boxcar_x0: x0Widget.getValue(),
-            boxcar_x1: x1Widget.getValue(),
-            boxcar_x2: x2Widget.getValue(),
-            boxcar_x3: x3Widget.getValue(),
+            boxcar_x0: x0Widget.getFloatValue(),
+            boxcar_x1: x1Widget.getFloatValue(),
+            boxcar_x2: x2Widget.getFloatValue(),
+            boxcar_x3: x3Widget.getFloatValue(),
             weight: weight.getValue()
         };
         if (!args.rule) {
@@ -352,6 +363,12 @@ msp.Controller.prototype.editBayesianRule = function (args) {
         dataset_info = function (dataset) {
             var states = '',
                 j = 0;
+            if (!dataset) {
+                return {
+                    descr: msp.e('font', {color: 'red'}, 'No suitable datasets available.'),
+                    states: ''
+                };
+            }
             if (dataset.semantics) {
                 $.each(dataset.semantics, function (i, value) {
                     if (j > 0) {

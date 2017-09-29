@@ -8,6 +8,14 @@ use SmartSea::Schema::Result::NumberType qw(:all);
 use SmartSea::Schema::Result::RuleClass qw(:all);
 use SmartSea::Core qw(:all);
 
+use constant DATA_LAYER => 'Data';
+use constant ECOSYSTEM_LAYER => 'Ecosystem';
+
+require Exporter;
+our @ISA = qw(Exporter);
+our @EXPORT_OK = qw(DATA_LAYER ECOSYSTEM_LAYER);
+our %EXPORT_TAGS = (all => \@EXPORT_OK);
+
 # A WMTS layer, which is in this system either
 # a dataset,
 # distribution & abundance of an ecosystem component or some other ecosystem indicator, or
@@ -40,7 +48,7 @@ sub new {
     $type //= 0;
     $id //= 0;
     # 'duck' since the different types are conceptually subclasses
-    if ($type eq 'data') {
+    if ($type eq DATA_LAYER) {
         # dataset is really not viewable unless its min, max and data type have been set
         $self->{duck} = $self->{schema}->resultset('Dataset')->single({ id => $id });
         croak "Dataset $id does not exist.\n" unless $self->{duck};
@@ -67,7 +75,7 @@ sub new {
             #$self->{labels} = jotain;
         }
         
-    } elsif ($type eq 'ecosystem') {
+    } elsif ($type eq ECOSYSTEM_LAYER) {
         $self->{duck} = $self->{schema}->resultset('EcosystemComponent')->single({ id => $id });
         croak "Ecosystem component $id does not exist!" unless $self->{duck};
         $self->{min} = 1;

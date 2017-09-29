@@ -19,6 +19,8 @@ var klasses = {
     ],
     op: [
         {id: 1, name: '>'},
+        {id: 2, name: '=='},
+        {id: 3, name: 'NOT'},
     ],
 };
 
@@ -55,21 +57,14 @@ function test0(auth) {
     return model;
 }
 
-function test1() {
+function test1(layers) {
     var config = new msp.Config({
         config: {
             auth: true
         },
         plans: [{
             name: 'Data',
-            layers: [{
-                id: 1,
-                name: 'Data layer',
-                binary: false,
-                data_type: msp.enum.INTEGER, // alt: REAL, semantics
-                min_value: 0,
-                max_value: 5
-            }]
+            layers: layers
         },{
             id: 1,
             name: 'My plan'
@@ -102,106 +97,164 @@ function test1() {
     return model;
 }
 
+var select_tab_cmd = function (tab, cmd) {
+    $('#editor #' + tab + '-tab a').trigger('click');
+    $('#editor #' + tab + ' .' + cmd).trigger('click');
+};
+
 var press_button = function (nr) {
     $('.ui-dialog').filter(':first').find('.ui-dialog-buttonpane').find('.ui-button').get(nr).click();
 };
 
-var model;
+function create_plan_use_layer(model) {
+    $('#editor .add').click();
+    $('#dialog #plans-name').val('a');
+    press_button(0); // Ok
+    
+    is(model.plan.name, 'a', 'Create a plan.');
 
-model = test0(false); // cannot edit
+    select_tab_cmd('uses', 'add');
+    press_button(0); // Ok
+    
+    is(model.plans[0].uses[0].name, 'Fish farming', 'Create a use.');
 
-model = test0(true); // can add plan, use, layer
+    select_tab_cmd('layers', 'add');
+    press_button(0); // Ok
+    
+    is(model.plans[0].uses[0].layers[0].name, 'Suitability', 'Create a layer.');
+}
 
-$('#editor .add').click();
-$('#dialog #plans-name').val('a');
-press_button(0); // Ok
+function run_layer_and_rule_tests(model) {
+    var value;
+    select_tab_cmd('uses', 'add');
+    press_button(0); // Ok
 
-is(model.plan.name, 'a', 'Create a plan.');
+    select_tab_cmd('layers', 'add');
+    press_button(0); // Ok
 
-$('#editor #uses-tab a').trigger('click');
-$('#editor #uses .add').trigger('click');
-press_button(0); // Ok
+    select_tab_cmd('rules', 'add');
+    press_button(0); // Ok
+    
+    is(model.plans[0].uses[0].layers[0].rules[0].dataset.name, 'Data layer', 'Create a rule.');
+    
+    $('#editor #rules .edit').trigger('click');
+    if (model.datasets.layers[0].binary) {
+        // skip the rest since dataset is binary
+        return;
+    } else if (model.datasets.layers[0].semantics) {
+        value = 2;
+        $('.ui-dialog #thrs').val(value).trigger('change');
+    } else if (model.datasets.layers[0].data_type === msp.enum.REAL) {
+        value = 2.5;
+        $('.ui-dialog #thrs-value').val(value).trigger('change');
+    } else {
+        value = 2;
+        $('.ui-dialog #thrs').spinner('value', value);
+    }
+    press_button(0); // Apply
+    press_button(1); // Close
+    
+    is(model.plans[0].uses[0].layers[0].rules[0].value, value, 'Edit rule.');
+    
+    $('#editor #rules .delete').trigger('click');
+    press_button(0);
+    
+    is(model.plans[0].uses[0].layers[0].rules.length, 0, 'Delete rule.');
 
-is(model.plans[0].uses[0].name, 'Fish farming', 'Create a use.');
+    select_tab_cmd('layers', 'delete');
+    press_button(0);
+    
+    is(model.plans[0].uses[0].layers.length, 0, 'Delete layer.');
 
-$('#editor #layers-tab a').trigger('click');
-$('#editor #layers .add').trigger('click');
-press_button(0); // Ok
+    $('#editor #layers .add').trigger('click');
+    $('#dialog #layer-rule-class').val('1');
+    press_button(0);
+    
+    is(model.plans[0].uses[0].layers[0].rule_class, 'boxcar', 'Add a boxcar layer.');
 
-is(model.plans[0].uses[0].layers[0].name, 'Suitability', 'Create a layer.');
+    select_tab_cmd('rules', 'add');
+    press_button(0);
+    
+    is(model.plans[0].uses[0].layers[0].rules[0].dataset.name, 'Data layer', 'Create a boxcar rule.');
+    
+    $('#editor #rules .edit').trigger('click');
+    if (model.datasets.layers[0].semantics) {
+        $('.ui-dialog #x2').val(value).trigger('change');
+    } else if (model.datasets.layers[0].data_type === msp.enum.REAL) {
+        $('.ui-dialog #x2-value').val(value).trigger('change');
+    } else {
+        $('.ui-dialog #x2').spinner('value', value);
+    }
+    press_button(0);
+    press_button(1);
+    
+    is(model.plans[0].uses[0].layers[0].rules[0].boxcar_x3, value, 'Edit boxcar rule.');
 
-model = test1(); // can add rules
+    select_tab_cmd('layers', 'delete');
+    press_button(0);
 
-$('#editor #uses-tab a').trigger('click');
-$('#editor #uses .add').trigger('click');
-press_button(0); // Ok
+    if (model.datasets.layers[0].data_type === msp.enum.REAL) {
+        // skip Bayesian network layer and rule since dataset is real
+        return;
+    }
+    
+    $('#editor #layers .add').trigger('click');
+    $('#dialog #layer-rule-class').val('2').trigger('change');
+    press_button(0);
+    
+    is(model.plans[0].uses[0].layers[0].rule_class, msp.enum.BAYESIAN_NETWORK, 'Add a Bayesian network layer.');
 
-$('#editor #layers-tab a').trigger('click');
-$('#editor #layers .add').trigger('click');
-press_button(0); // Ok
+    select_tab_cmd('rules', 'add');
+    press_button(0);
+    
+    is(model.plans[0].uses[0].layers[0].rules[0].node, 'Node 5', 'Create a Bayesian network rule.');
+    
+    $('#editor #rules .edit').trigger('click');
+    $('.ui-dialog #rule-offset').spinner('value', -1);
+    press_button(0);
+    press_button(1);
+    
+    is(model.plans[0].uses[0].layers[0].rules[0].state_offset, -1, 'Edit Bayesian network rule.');
 
-$('#editor #rules-tab a').trigger('click');
-$('#editor #rules .add').trigger('click');
-press_button(0); // Ok
+}
 
-is(model.plans[0].uses[0].layers[0].rules[0].dataset.name, 'Data layer', 'Create a rule.');
+test0(false); // cannot edit
 
-$('#editor #rules .edit').trigger('click');
-$('.ui-dialog #thrs').spinner('value', 2);
-press_button(0); // Apply
-press_button(1); // Close
+create_plan_use_layer(test0(true)); // can add plan, use, layer
 
-is(model.plans[0].uses[0].layers[0].rules[0].value, 2, 'Edit rule.');
+run_layer_and_rule_tests(test1([{
+    id: 1,
+    name: 'Data layer',
+    data_type: msp.enum.INTEGER,
+    min_value: 0,
+    max_value: 5
+}]));
 
-$('#editor #rules .delete').trigger('click');
-press_button(0);
+run_layer_and_rule_tests(test1([{
+    id: 1,
+    name: 'Data layer',
+    data_type: msp.enum.REAL,
+    min_value: 0,
+    max_value: 5
+}]));
 
-is(model.plans[0].uses[0].layers[0].rules.length, 0, 'Delete rule.');
+run_layer_and_rule_tests(test1([{
+    id: 1,
+    name: 'Data layer',
+    data_type: msp.enum.INTEGER,
+    min_value: 1,
+    max_value: 3,
+    semantics: {
+        1: 'one',
+        2: 'two',
+        3: 'three',
+    }
+}]));
 
-$('#editor #layers-tab a').trigger('click');
-$('#editor #layers .delete').trigger('click');
-press_button(0);
-
-is(model.plans[0].uses[0].layers.length, 0, 'Delete layer.');
-
-$('#editor #layers .add').trigger('click');
-$('#dialog #layer-rule-class').val('1');
-press_button(0);
-
-is(model.plans[0].uses[0].layers[0].rule_class, 'boxcar', 'Add a boxcar layer.');
-
-$('#editor #rules-tab a').trigger('click');
-$('#editor #rules .add').trigger('click');
-press_button(0);
-
-is(model.plans[0].uses[0].layers[0].rules[0].dataset.name, 'Data layer', 'Create a boxcar rule.');
-
-$('#editor #rules .edit').trigger('click');
-$('.ui-dialog #x2').spinner('value', 2);
-press_button(0);
-press_button(1);
-
-is(model.plans[0].uses[0].layers[0].rules[0].boxcar_x3, 2, 'Edit boxcar rule.');
-
-$('#editor #layers-tab a').trigger('click');
-$('#editor #layers .delete').trigger('click');
-press_button(0);
-
-$('#editor #layers .add').trigger('click');
-$('#dialog #layer-rule-class').val('2').trigger('change');
-press_button(0);
-
-is(model.plans[0].uses[0].layers[0].rule_class, msp.enum.BAYESIAN_NETWORK, 'Add a Bayesian network layer.');
-
-$('#editor #rules-tab a').trigger('click');
-$('#editor #rules .add').trigger('click');
-press_button(0);
-
-is(model.plans[0].uses[0].layers[0].rules[0].node, 'Node 5', 'Create a Bayesian network rule.');
-
-$('#editor #rules .edit').trigger('click');
-$('.ui-dialog #rule-offset').spinner('value', -1);
-press_button(0);
-press_button(1);
-
-is(model.plans[0].uses[0].layers[0].rules[0].state_offset, -1, 'Edit Bayesian network rule.');
+run_layer_and_rule_tests(test1([{
+    id: 1,
+    name: 'Data layer',
+    data_type: msp.enum.INTEGER,
+    min_value: 0,
+    max_value: 1,
+}]));
