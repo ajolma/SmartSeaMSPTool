@@ -52,9 +52,9 @@ msp.Controller.prototype.datasetValueWidget = function (args) {
         if (args.dataset.semantics) {
             attr.type = 'select';
             attr.list = args.dataset.semantics;
-        } else if (args.dataset.data_type === 'integer') {
+        } else if (args.dataset.data_type === msp.enum.INTEGER) {
             attr.type = 'spinner';
-        } else if (args.dataset.data_type === 'real') {
+        } else if (args.dataset.data_type === msp.enum.REAL) {
             attr.type = 'slider';
             attr.slider_value_id = args.id + '-value';
         }
@@ -163,7 +163,7 @@ msp.Controller.prototype.editBooleanRule = function (args) {
 
     return function () {
         var retval = {},
-            dataset = args.dataset.getSelected();
+            dataset = args.rule ? args.dataset : args.dataset.getSelected();
         if (!args.rule) {
             retval.dataset = dataset ? dataset.id : undefined;
         }
@@ -369,7 +369,7 @@ msp.Controller.prototype.editBayesianRule = function (args) {
 
     if (!args.rule) {
         $.each(self.model.datasets.layers, function (i, dataset) {
-            if (dataset.data_type === 'integer') {
+            if (dataset.data_type === msp.enum.INTEGER) {
                 dataset_list.push(dataset);
             }
         });

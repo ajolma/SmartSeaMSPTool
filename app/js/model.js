@@ -68,7 +68,6 @@ msp.Model = function (args) {
     self.layerSelected = new msp.Event(self);
     self.layerUnselected = new msp.Event(self);
     self.rulesChanged = new msp.Event(self);
-    self.ruleEdited = new msp.Event(self);
     self.siteInitialized = new msp.Event(self);
     self.siteInformationReceived = new msp.Event(self);
 
@@ -96,30 +95,30 @@ msp.Model.prototype = {
         self.initSite();
    
         plan = data.find(function (plan) {
-            return plan.name === 'Data';
+            return plan.name === msp.enum.DATA;
         });
-        self.datasets = plan || {name: 'Data', layers: []};
+        self.datasets = plan || {name: msp.enum.DATA, layers: []};
+        self.datasets.id = msp.enum.DATA;
         $.each(self.datasets.layers, function (i, layer) {
             layer.model = self;
             layer.use = self.datasets;
             self.datasets.layers[i] = new msp.Layer(layer);
         });
-        self.datasets.id = 'data';
 
         plan = data.find(function (plan) {
-            return plan.name === 'Ecosystem';
+            return plan.name === msp.enum.ECOSYSTEM;
         });
-        self.ecosystem = plan || {name: 'Ecosystem', layers: []};
+        self.ecosystem = plan || {name: msp.enum.ECOSYSTEM, layers: []};
+        self.ecosystem.id = msp.enum.ECOSYSTEM;
         $.each(self.ecosystem.layers, function (i, layer) {
             layer.model = self;
             layer.use = self.ecosystem;
             self.ecosystem.layers[i] = new msp.Layer(layer);
         });
-        self.ecosystem.id = 'ecosystem';
         
         self.plans = [];
         $.each(data, function (i, plan) {
-            if (plan.id === 'data' || plan.id === 'ecosystem') {
+            if (plan.name === msp.enum.DATA || plan.name === msp.enum.ECOSYSTEM) {
                 return true;
             }
             if (!plan.uses) {
@@ -231,7 +230,7 @@ msp.Model.prototype = {
             datasets = {};
         if (self.plan) {
             $.each(self.plan.uses, function (i, use) {
-                if (use.id !== 'data' && use.id !== 'ecosystem') {
+                if (msp.useClass(use) !== msp.enum.DATA && msp.useClass(use) !== msp.enum.ECOSYSTEM) {
                     $.each(use.layers, function (i, layer) {
                         $.each(layer.rules, function (i, rule) {
                             datasets[rule.dataset.id] = rule.dataset;
@@ -276,7 +275,7 @@ msp.Model.prototype = {
             uses = self.plan.uses.slice();
         self.plan.uses = [];
         $.each(uses, function (i, use) {
-            if (use.id !== 'data' && use.id !== 'ecosystem') {
+            if (msp.useClass(use) !== msp.enum.DATA && msp.useClass(use) !== msp.enum.ECOSYSTEM) {
                 self.plan.uses.push(use);
             }
         });
@@ -341,7 +340,7 @@ msp.Model.prototype = {
         var self = this,
             retval = false;
         $.each(self.plan.uses, function (i, use) {
-            if (use.class_id === class_id) {
+            if (msp.useClass(use) === class_id) {
                 retval = true;
                 return false;
             }
@@ -435,7 +434,7 @@ msp.Model.prototype = {
     addRule: function (rule) {
         var self = this,
             dataUse = self.plan.uses.find(function (use) {
-                return use.name === 'Data';
+                return msp.useClass(use) === msp.enum.DATA;
             }),
             dataset = dataUse.layers.find(function (layer) {
                 return layer.id === rule.dataset.id;
@@ -455,7 +454,7 @@ msp.Model.prototype = {
     deleteRules: function (rules) {
         var self = this,
             dataUse = self.plan.uses.find(function (use) {
-                return use.name === 'Data';
+                return msp.useClass(use) === msp.enum.DATA;
             });
         self.layer.deleteRules(rules);
         dataUse.layers = self.datasetsForDataUse();
@@ -478,7 +477,7 @@ msp.Model.prototype = {
                 format,
                 coordinates;
             if (self.layer && self.layer.visible) {
-                query += '&use=' + self.layer.use.class_id + '&layer=' + self.layer.id;
+                query += '&use=' + msp.useClass(self.layer.use) + '&layer=' + self.layer.id;
             }
             if (type === 'Polygon') {
                 format = new ol.format.WKT();

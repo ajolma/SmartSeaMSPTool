@@ -79,7 +79,7 @@ msp.Controller.prototype = {
             if (args.cmd === 'add') {
                 self.addUse(args);
             } else if (args.cmd === 'edit') {
-                if (args.use.id === 'data') {
+                if (msp.useClass(args.use) === msp.enum.DATA) {
                     self.editDatasetList(args);
                 } else {
                     self.editUse(args);
@@ -309,7 +309,8 @@ msp.Controller.prototype = {
                     });
                 }
             });
-        } else {
+        } else { // testing
+            self.networks = self.model.config.networks;
             self.model.setPlans(self.model.config.plans, []);
             self.klasses = self.model.config.klasses;
             self.attach();
@@ -553,7 +554,7 @@ msp.Controller.prototype = {
     availableLayerClasses: function (use) {
         var self = this,
             list = [];
-        if (use.id === 'data' || use.id === 'ecosystem') {
+        if (msp.useClass(use) === msp.enum.DATA || msp.useClass(use) === msp.enum.ECOSYSTEM) {
             return list;
         }
         $.each(self.klasses.layer_class, function (i, klass) {
@@ -687,7 +688,7 @@ msp.Controller.prototype = {
         html += msp.e('p', {}, rule_class_extra.html());
         html += msp.e('p', {}, rule_class_extra2.html());
         html += msp.e('p', {}, rule_class_extra3.html());
-        if (args.use.id === 'data') {
+        if (msp.useClass(args.use) === msp.enum.DATA) {
             html += msp.e('p', {}, 'The color setting is temporary for datasets.');
         }
         html += msp.e('p', {}, palette.html());
@@ -838,7 +839,7 @@ msp.Controller.prototype = {
                 payload.output_node = node.getSelected().name;
                 payload.output_state = state.getSelected();
             }
-            if (args.use.id === 'data') {
+            if (msp.useClass(args.use) === msp.enum.DATA) {
                 // layer is dataset
                 layer.style = {
                     palette: color.name
@@ -1020,7 +1021,11 @@ msp.Controller.prototype = {
                 payload: payload,
                 atSuccess: function () {
                     self.model.layer.editRule(data); // edit the rule and refresh the layer (includes map render)
-                    self.model.ruleEdited.notify(); // update view
+                    self.model.rulesChanged.notify(); // update view
+                },
+                fake: function () {
+                    self.model.layer.editRule(data);
+                    self.model.rulesChanged.notify();
                 }
                 // if (xhr.status === 403)
                 // self.error('Rule modification requires cookies. Please enable cookies and reload this app.');

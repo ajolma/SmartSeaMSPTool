@@ -29,18 +29,35 @@ DAMAGE.
 'use strict';
 /*global $, ol, msp*/
 
+// these must match what the server uses:
 msp.enum = {
+    INTEGER: 'integer',
+    REAL: 'real',
     BAYESIAN_NETWORK: 'Bayesian network',
     BOXCAR: 'boxcar',
     EXCLUSIVE: 'exclusive',
     INCLUSIVE: 'inclusive',
     ADDITIVE: 'additive',
     MULTIPLICATIVE: 'multiplicative',
+    DATA: 'Data',
+    ECOSYSTEM: 'Ecosystem'    
 };
 
 msp.strings = {
     THIS_IS_A_LAYER: function (a, b) {
         return 'This is a layer made by ' + a + ' rules and defined by ' + b + '.';
+    }
+};
+
+msp.useClass = function (use) {
+    if (!use) {
+        return undefined;
+    } else if (use.name === msp.enum.DATA) {
+        return msp.enum.DATA;
+    } else if (use.name === msp.enum.ECOSYSTEM) {
+        return msp.enum.ECOSYSTEM;
+    } else {
+        return use.class_id;
     }
 };
 
@@ -94,7 +111,7 @@ msp.Layer = function (args) {
 
     self.edit(args);
 
-    if (self.use.id !== 'data') {
+    if (msp.useClass(self.use) !== msp.enum.DATA) {
 
         self.rules = [];
 
@@ -117,7 +134,7 @@ msp.Layer = function (args) {
 msp.Layer.prototype = {
     edit: function (args) {
         var self = this;
-        if (self.use.id === 'data') {
+        if (msp.useClass(self.use) === msp.enum.DATA) {
 
             // subclass dataset
             self.min_value = args.min_value;
@@ -128,7 +145,7 @@ msp.Layer.prototype = {
             self.provenance = args.provenance;
 
             self.binary =
-                self.data_type === 'integer' &&
+                self.data_type === msp.enum.INTEGER &&
                 (self.min_value === 0 || self.min_value === 1) &&
                 self.max_value === 1;
 
@@ -155,6 +172,14 @@ msp.Layer.prototype = {
 
         self.refresh();
     },
+    useClass: function () {
+        var self = this;
+        return msp.useClass(self.use);
+    },
+    sameAs: function (layer) {
+        var self = this;
+        return self.id === layer.id && self.useClass() === layer.useClass();
+    },
     /**
      * Return information about this layer in an object of type
      * {header:'', body:''}.
@@ -164,10 +189,10 @@ msp.Layer.prototype = {
             url = self.model.serverURL(),
             header,
             body = '';
-        if (self.use.id === 'data') {
+        if (self.useClass() === msp.enum.DATA) {
             header = 'Dataset.';
             body = self.provenance;
-        } else if (self.use.id === 'ecosystem') { // Ecosystem
+        } else if (self.useClass() === msp.enum.ECOSYSTEM) {
             header = 'Ecosystem component.';
         } else {
             header = msp.strings.THIS_IS_A_LAYER(self.rule_class, self.owner);
@@ -209,10 +234,10 @@ msp.Layer.prototype = {
     getName: function () {
         var self = this,
             name;
-        if (self.use.id === 'data') {
-            name = self.use.id;
-        } else if (self.use.id === 'ecosystem') {
-            name = self.use.id;
+        if (self.useClass() === msp.enum.DATA) {
+            name = self.use.name;
+        } else if (self.useClass() === msp.enum.ECOSYSTEM) {
+            name = self.use.name;
         } else {
             name = self.use.class_id;
         }

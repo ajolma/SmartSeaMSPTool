@@ -195,6 +195,10 @@ msp.Widget = function (args) {
         html += msp.e('input', {id: args.slider_value_id, type: 'text'}, '');
         self.value_selector = self.container + ' #' + args.slider_value_id;
     } else if (tag === 'input') {
+        if (self.type === 'spinner') {
+            self.min = parseInt(args.min, 10);
+            self.max = parseInt(args.max, 10);
+        }
         if (self.type === 'checkbox' && self.selected) {
             attr.checked = 'checked';
         } else if (self.type === 'text' && self.value) {
@@ -222,6 +226,7 @@ msp.Widget.prototype = {
      */
     prepare: function () {
         var self = this,
+            spinner,
             slider;
         if (self.type === 'select') {
             if (self.newValue) {
@@ -230,12 +235,17 @@ msp.Widget.prototype = {
                 });
             }
         } else if (self.type === 'spinner') {
-            $(self.selector)
-                .spinner({
-                    min: self.min,
-                    max: self.max
-                })
-                .spinner('value', self.value);
+            spinner = $(self.selector).spinner({
+                min: self.min,
+                max: self.max
+            });
+            spinner.spinner('value', self.value);
+            spinner.on('spinchange', function () {
+                self.value = spinner.spinner('value');
+                if (self.newValue) {
+                    self.newValue(self.value);
+                }
+            });
         } else if (self.type === 'slider') {
             slider = $(self.selector).slider({
                 min: self.min,
@@ -291,6 +301,9 @@ msp.Widget.prototype = {
                 self.value = self.max;
             }
             $(self.selector).slider('value', self.value);
+        } else if (self.type === 'spinner') {
+            self.value = parseInt(value, 10);
+            $(self.selector).spinner('value', self.value);
         } else if (self.type === 'checkbox') {
             $(self.selector)[0].checked = value;
         }

@@ -193,9 +193,9 @@ msp.Editor.prototype = {
             self.view.closeUse(self.use);
             self.use = self.uses.getSelected();
             if (self.use && self.config.config.auth) {
-                if (self.use.id === 'data') {
+                if (msp.useClass(self.use) === msp.enum.DATA) {
                     b = 'ae';
-                } else if (self.use.id === 'ecosystem') {
+                } else if (msp.useClass(self.use) === msp.enum.ECOSYSTEM) {
                     b = 'a';
                 } else {
                     b = self.use.owner === self.config.config.user ? 'ade' : 'a';
@@ -252,11 +252,12 @@ msp.Editor.prototype = {
         self.createLayers();
         $(self.tabs[2].selector + ' #radio').html(self.layers.html());
         self.layers.changed(function foo() {
-            var b = '';
+            var b = '',
+                use_class = msp.useClass(self.use);
             self.model.unselectLayer();
             self.model.selectLayer(self.layers.getSelected());
             if (self.use && self.config.config.auth) {
-                if (self.use.id > 1) {
+                if (use_class !== msp.enum.DATA && use_class !== msp.enum.ECOSYSTEM) {
                     if (self.model.layer) {
                         b = self.model.layer.owner === self.config.config.user ? 'ade' : 'a';
                     } else {
@@ -307,7 +308,9 @@ msp.Editor.prototype = {
     createRulesPlus: function () {
         var self = this;
         var b = '';
-        if (self.config.config.auth  && self.model.layer && self.model.layer.owner === self.config.config.user) {
+        if (self.config.config.auth  &&
+            self.model.layer &&
+            self.model.layer.owner === self.config.config.user) {
             b = 'ade';
         }
         self.createRules();

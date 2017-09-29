@@ -130,6 +130,7 @@ msp.Config = function (options) {
     // tests may set these:
     self.plans = options.plans;
     self.klasses = options.klasses;
+    self.networks = options.networks;
     
     if (epsg) {
         epsg = parseInt(epsg[1], 10);

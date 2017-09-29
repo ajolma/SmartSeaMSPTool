@@ -21,8 +21,6 @@ sub layers {
         push @layers, {
             id => $component->id,
             name => $component->name,
-            use_id => 1, # reserved use id
-            use_class_id => 1, # reserved use class id
             owner => 'system',
             style => $component->style ? {
                 palette => $component->style->palette->name,

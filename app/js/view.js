@@ -90,9 +90,6 @@ msp.View = function (options) {
     self.model.rulesChanged.attach(function () {
         self.fillRulesPanel();
     });
-    self.model.ruleEdited.attach(function () {
-        self.fillRulesPanel();
-    });
     self.model.siteInitialized.attach(function (sender, args) {
         self.siteInteraction(args.source);
     });
@@ -224,7 +221,7 @@ msp.View.prototype = {
                 // select and unselect a layer
                 $('#use' + use.id + ' #layer' + layer.id).click(function () {
                     var layer2 = self.model.unselectLayer();
-                    if (!layer2 || !(layer2.id === layer.id && layer2.use.class_id === layer.use.class_id)) {
+                    if (!layer2 || !layer2.sameAs(layer)) {
                         self.model.selectLayer(layer);
                     }
                 });
@@ -366,7 +363,7 @@ msp.View.prototype = {
                     attr.checked = 'checked';
                 }
                 item = msp.e('a', {id: 'rule', rule: rule.id}, name);
-                if (self.model.layer.use.class_id > 1) {
+                if (msp.useClass(self.model.layer.use) !== msp.enum.ECOSYSTEM) {
                     item = msp.e('input', attr, item);
                 }
                 self.elements.rules.append(item);
