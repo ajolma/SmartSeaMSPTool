@@ -163,68 +163,51 @@ sub name {
     my ($self, %args) = @_;
 
     my $class = $self->rule_system->rule_class->id;
-    my $dataset = $self->dataset;
     my $criteria = $self->criteria;
-    croak "Rule ".$self->id." does not have criteria!" unless $criteria;
-    
-    my $value_should_be_one = '';
-    
-    if ($dataset->data_type == INTEGER_NUMBER && 
-    ($dataset->min_value == 0 || $dataset->min_value == 1) && 
-    $dataset->max_value == 1) {
-        # identified as binary data
-        if ($self->value != 1) {
-            $value_should_be_one = '!value should be one! ';
-        }
-        unless ($class == EXCLUSIVE_RULE || $class == INCLUSIVE_RULE) {
-            $value_should_be_one = '!binary dataset, should not be used for this rule! ';
-        }
-    }
-    
+    confess "Rule ".$self->id." does not have criteria!\n" unless $criteria;
+    my ($data_type, $min_value, $max_value) = $criteria->usable_in_rule;
+    my $name = $criteria->name;
+    confess "Rule ".$self->id.": criteria $name (".$criteria->id.") is not usable.\n" unless $data_type;
+        
     if ($class == EXCLUSIVE_RULE || $class == INCLUSIVE_RULE) {
-        my $sign = $class == EXCLUSIVE_RULE ? '-' : '+';
-        my $n = $criteria->classes;
-        say STDERR "Rule ".$self->id.": dataset ".$criteria->name." lacks data type!" unless defined $n;
-        $n //= 1;
-        return $value_should_be_one."$sign if ".$criteria->name if $n == 1;
-        my $op = $self->op->name // '';
-        my $value = $self->value // '';
-        say STDERR "Rule ".$self->id." does not have a threshold!" if $op eq '' || $value eq '';
+        my $op = $self->op->name;
+        if ($data_type == BOOLEAN) {
+            return $name if $op eq '==';
+            return 'NOT ' . $name if $op eq 'NOT';
+            croak "Rule ".$self->id.": $op is not valid operator for boolean data.\n";
+        }
+        my $value = $self->value;
         my $semantics = $criteria->semantics_hash;
         if ($semantics) {
             if (defined $semantics->{$value}) {
                 $value = $semantics->{$value};
-            } elsif ($value ne '') {
-                say STDERR "Value $value does not have a meaning in rule ".$self->id."!";
+            } else {
+                croak "Rule ".$self->id.": value $value does not have a meaning in $name.\n";
             }
         }
-        return $value_should_be_one."$sign if ".$criteria->name." $op $value";
+        return $name . ' ' . $op . ' ' . $value;
         
     } elsif ($class == MULTIPLICATIVE_RULE || $class == ADDITIVE_RULE) {
-        
         my $x_min = $self->min_value;
         my $x_max = $self->max_value;
         my $y_min = $self->value_at_min;
         my $y_max = $self->value_at_max;
         my $w = $self->weight;
-        my $name = $criteria->name;
         if ($class == ADDITIVE_RULE) {
-            return $value_should_be_one."+ $y_min - $w * ($y_max-$y_min)/($x_max-$x_min) * ($name - $x_min)";
+            return "$y_min - $w * ($y_max-$y_min)/($x_max-$x_min) * ($name - $x_min)";
         } else {
-            return $value_should_be_one."* $y_min - $w * ($y_max-$y_min)/($x_max-$x_min) * ($name - $x_min)";
+            return "$y_min - $w * ($y_max-$y_min)/($x_max-$x_min) * ($name - $x_min)";
         }
         
     } elsif ($class == BOXCAR_RULE) {
         my $fct = $self->boxcar_x0.', '.$self->boxcar_x1.', '.$self->boxcar_x2.', '.$self->boxcar_x3;
         $fct .= ' weight '.$self->weight;
-        return $value_should_be_one."Normal with turning points at ".$fct if $self->boxcar_type->id == 1;
-        return $value_should_be_one."Inverted with turning points at ".$fct;
+        return "Normal with turning points at ".$fct if $self->boxcar_type->id == 1;
+        return "Inverted with turning points at ".$fct;
 
     } elsif ($class == BAYESIAN_NETWORK_RULE) {
         return ($self->node//'').' offset='.$self->state_offset;
         
-    } else {
-        #croak "Unknown rule class: ".$self->rule_system->rule_class->name;
     }
 }
 
@@ -316,12 +299,21 @@ sub apply {
 
         my $value_if_true = $class == INCLUSIVE_RULE ? 1 : 0;
 
-        if ($op eq '<=')    { $y->where($x <= $value) .= $value_if_true; } 
-        elsif ($op eq '<')  { $y->where($x <  $value) .= $value_if_true; }
-        elsif ($op eq '>=') { $y->where($x >= $value) .= $value_if_true; }
-        elsif ($op eq '>')  { $y->where($x >  $value) .= $value_if_true; }
-        elsif ($op eq '==') { $y->where($x == $value) .= $value_if_true; }
-        elsif ($op eq 'NOT'){ $y->where($x != $value) .= $value_if_true; }
+        if ($self->dataset && $self->dataset->data_type->id == BOOLEAN) {
+
+               if ($op eq '==') { $y->where($x != 0) .= $value_if_true; }
+            elsif ($op eq 'NOT'){ $y->where($x == 0) .= $value_if_true; }
+            
+        } else {
+
+            if ($op eq '<=')    { $y->where($x <= $value) .= $value_if_true; } 
+            elsif ($op eq '<')  { $y->where($x <  $value) .= $value_if_true; }
+            elsif ($op eq '>=') { $y->where($x >= $value) .= $value_if_true; }
+            elsif ($op eq '>')  { $y->where($x >  $value) .= $value_if_true; }
+            elsif ($op eq '==') { $y->where($x == $value) .= $value_if_true; }
+            elsif ($op eq 'NOT'){ $y->where($x != $value) .= $value_if_true; }
+
+        }
 
     } elsif ($class == MULTIPLICATIVE_RULE || $class == ADDITIVE_RULE) {
         

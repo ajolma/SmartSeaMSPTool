@@ -101,7 +101,7 @@ test_psgi $app, sub {
 <?xml version="1.0"?>
 <xml>
   <b>Impact layers</b>
-  <ul><li><a href="/impact_layer:2">plan.use_class.Impact</a></li></ul>
+  <ul><li><a href="/impact_layer:2">2: plan.use_class.Impact</a></li></ul>
 </xml>
 END_XML
     my $diff = XML::SemanticDiff->new();
@@ -138,7 +138,7 @@ ok($schema->resultset('Layer')->single({id => 2})->descr eq $descr, "Set supercl
     my $expected = <<'END_XML';
 <?xml version="1.0"?>
 <xml>
-  <b><a href="/layer">Show all Impact layers</a></b>
+  <b><a href="">Close Impact layers</a><a href="/layer">Show all Impact layers</a></b>
   <ul>
     <li><b>Layer</b>
       <ul>

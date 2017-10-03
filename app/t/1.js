@@ -138,8 +138,8 @@ function run_layer_and_rule_tests(model) {
     is(model.plans[0].uses[0].layers[0].rules[0].dataset.name, 'Data layer', 'Create a rule.');
     
     $('#editor #rules .edit').trigger('click');
-    if (model.datasets.layers[0].binary) {
-        // skip the rest since dataset is binary
+    if (model.datasets.layers[0].data_type === msp.enum.BOOLEAN) {
+        // skip the rest since dataset is boolean
         return;
     } else if (model.datasets.layers[0].semantics) {
         value = 2;
@@ -254,7 +254,5 @@ run_layer_and_rule_tests(test1([{
 run_layer_and_rule_tests(test1([{
     id: 1,
     name: 'Data layer',
-    data_type: msp.enum.INTEGER,
-    min_value: 0,
-    max_value: 1,
+    data_type: msp.enum.BOOLEAN
 }]));

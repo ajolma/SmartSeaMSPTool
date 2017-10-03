@@ -6,6 +6,7 @@ use Test::More;
 use lib '.';
 use Test::Helper;
 
+use SmartSea::Schema::Result::NumberType qw(:all);
 use SmartSea::Schema::Result::RuleClass qw(:all);
 use_ok('SmartSea::Schema');
 use_ok('SmartSea::Layer');
@@ -43,6 +44,11 @@ for my $i (1..4) {
 
 $schema->resultset('Plan')->single({id => 1})
     ->create_related('uses', {id => 1, plan => 1, 'use_class' => 2});
+
+my $number_type_rs = $schema->resultset('NumberType');
+$number_type_rs->new({id => INTEGER_NUMBER, name => 'integer'})->insert;
+$number_type_rs->new({id => REAL_NUMBER, name => 'real'})->insert;
+$number_type_rs->new({id => BOOLEAN, name => 'boolean'})->insert;
 
 my $rule_class_rs = $schema->resultset('RuleClass');
 $rule_class_rs->new({id => EXCLUSIVE_RULE, name => 'exclusive'})->insert;

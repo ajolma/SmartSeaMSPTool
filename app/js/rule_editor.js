@@ -43,7 +43,7 @@ msp.Controller.prototype.datasetValueWidget = function (args) {
     }
     if (!args.dataset) {
         args.elem.html('');
-    } else if (args.dataset.binary) {
+    } else if (args.dataset.data_type === msp.enum.BOOLEAN) {
         $(self.selector + ' #descr').html(args.dataset.descr);
         args.elem.html(args.elem_pre);
     } else {
@@ -95,13 +95,13 @@ msp.Controller.prototype.editBooleanRule = function (args) {
                 type: 'select',
                 list: self.klasses.op,
                 includeItem: function (item) {
-                    if (dataset.binary) {
+                    if (dataset.data_type === msp.enum.BOOLEAN) {
                         return item.name === '==' || item.name === 'NOT';
                     }
                     return true;
                 },
                 nameForItem: function (item) {
-                    if (dataset.binary) {
+                    if (dataset.data_type === msp.enum.BOOLEAN) {
                         if (item.name === '==') {
                             return 'IS';
                         }
@@ -180,7 +180,7 @@ msp.Controller.prototype.editBooleanRule = function (args) {
         if (retval.op) {
             retval.op = retval.op.id;
         }
-        if (dataset.binary) {
+        if (dataset.data_type === msp.enum.BOOLEAN) {
             retval.value = 1; // the semantics of binary datasets are 0: false, 1: true
         } else {
             retval.value = threshold ? threshold.getValue() : 0;

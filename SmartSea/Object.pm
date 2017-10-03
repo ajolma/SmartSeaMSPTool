@@ -381,7 +381,7 @@ sub values_from_parameters {
                 push @errors, @errors2 if @errors2;
             }
         } elsif ($column eq 'id') {
-            $meta->{value} = $parameters->{$column} // $self->next_id;
+            $meta->{value} = $parameters->{id} // $self->next_id;
         } elsif ($column eq 'owner') {
             $meta->{value} = $self->{app}{user}; # admin can set user?
         } elsif ($column eq 'cookie') {
@@ -413,7 +413,11 @@ sub values_from_parameters {
             }
             next unless $meta->{is_foreign_key};
             if ($meta->{source}) {
-                my $related = SmartSea::Object->new({source => $meta->{source}, id => $meta->{$key}, app => $self->{app}});
+                my $related = SmartSea::Object->new({
+                    source => $meta->{source}, 
+                    id => $meta->{$key}, 
+                    app => $self->{app},
+                });
                 if (defined $related->{row}) {
                     $meta->{$key} = $related->{row};
                 } else {
@@ -955,13 +959,19 @@ sub item {
 
     return $self->item_class($self->all, $opt) unless exists $self->{row};
 
-    my $tag = $self->{relation} ? $self->{relation}{related} : ($self->superclass // $self->{class});
-    my $url = $opt->{url}.'/'.$tag;
-
     confess "no class name " unless defined $self->{name};
     my $name = $self->{name};
     $name = $self->{relation}{name} if $self->{relation} && $self->{relation}{name};
-    my @content = a(link => "Show all ".plural($name), url => $url);
+    $name = plural($name);
+    my $url = $opt->{url};
+
+    my @content = a(link => "Close $name", url => $url);
+
+    my $tag = $self->{relation} ? $self->{relation}{related} : ($self->superclass // $self->{class});
+    $url .= '/'.$tag;
+
+    push @content, [1 => ' '];
+    push @content, a(link => "Show all $name", url => $url);
 
     $url .= ':'.$self->{id} if $self->{row};
     # fixme: do not add edit if this made instead of a link object with nothing to edit
@@ -979,8 +989,12 @@ sub item {
         $link->values_from_self($columns);
         push @li, [li => [[b => [1 => 'Link']], [ul => [$link->simple_items($columns)]]]];
     }
-  
-    push @li, $self->simple_items($columns); # so here all cols (also unused) are shown
+
+    if ($self->next) {
+        push @li, [li => $self->{id}.": ".$self->{row}->name];
+    } else {
+        push @li, $self->simple_items($columns); # so here all cols (also unused) are shown
+    }
 
     if ($self->{row} && $self->{row}->can('info')) {
         my $info = $self->{row}->info($self->{app});
@@ -1056,14 +1070,22 @@ sub item_class {
         
     my @li;
     for my $obj (@$objects) {
-        my @content = a(link => $obj->name, url => $url.':'.$obj->id);
+        my $name;
+        eval {
+            $name = $obj->name;
+        };
+        if ($@) {
+            my @e = split /\n/, $@;
+            $name = $e[0];
+        }
+        my @content = a(link => $obj->id.': '.$name, url => $url.':'.$obj->id);
         if ($self->{edit}) {
             push @content, [1 => ' '], a(link => 'edit', url => $url.':'.$obj->id.'?request=edit');
             my $action = $self->{prev} ? 'Remove' : 'Delete';
             my $label = $action;
             $label .= ' the link to' if $action eq 'Remove';
             my $src = $obj->result_source->source_name;
-            my $str = 'Are you sure you want to '.lc($label).' '.$src." '".$obj->name."'?";
+            my $str = 'Are you sure you want to '.lc($label).' '.$src." '".$name."'?";
             my %attr = (
                 content => $action,
                 name => 'delete',
@@ -1141,7 +1163,7 @@ sub form {
 
     # if the object has external sources for column values
     # example: dataset, if path is given, that can be examined
-    $self->{row}->auto_fill_cols($self->{app}) if $self->{row} && $self->{row}->can('auto_fill_cols');
+    # $self->{row}->auto_fill_cols($self->{app}) if $self->{row} && $self->{row}->can('auto_fill_cols');
 
     # obtain default values for widgets
     $self->values_from_parameters($columns, $args->{input_is_fixed});
@@ -1217,6 +1239,7 @@ sub widgets {
     my ($self, $columns) = @_;
     my @fcts;
     my @form;
+    my $fieldset;
     for my $column ($self->{result}->columns) {
         next if $column eq 'id';
         next if $column eq 'super';
@@ -1341,8 +1364,15 @@ END_CODE
             }
             my $part = SmartSea::Object->new({source => $meta->{source}, row => $meta->{value}, app => $self->{app}});
             say STDERR "part ",($part->{row}//'undef') if $self->{app}{debug};
-            my @style = $part->widgets($meta->{columns});
-            push @form, [fieldset => {id => $column}, [[legend => $part->{source}], @style]];
+            my @set = $part->widgets($meta->{columns});
+            my $legend = $part->{source};
+            if ($meta->{comment}) {
+                $legend = [
+                    [1 => $legend],
+                    [i => {style=>"color:red"}, " ($meta->{comment})"]
+                    ];
+            }
+            push @form, [fieldset => {id => $column}, [[legend => $legend], @set]];
         } else {
             my @content = @input;
             if ($meta->{from_up}) {
@@ -1352,7 +1382,28 @@ END_CODE
             if ($meta->{comment}) {
                 push @content, [i => {style=>"color:red"}, " ($meta->{comment})"];
             }
-            push @form, [ p => \@content ] if @input;
+            my $push_to_form = sub {
+                my ($fieldset, $input) = @_;
+                if ($fieldset) {
+                    my $legend = shift @$fieldset;
+                    push @form, [fieldset => [[legend => $legend], @$fieldset]];
+                }
+                push @form, [ p => \@content ] if $input && @input;
+            };
+            if ($meta->{fieldset}) {
+                if ($fieldset) {
+                    if ($meta->{fieldset} ne $fieldset->[0]) {
+                        $push_to_form->($fieldset, 0);
+                        $fieldset = [$meta->{fieldset}];
+                    }
+                } else {
+                    $fieldset = [$meta->{fieldset}];
+                }
+                push @$fieldset, [ p => \@content ] if @input;
+            } else {
+                $push_to_form->($fieldset, 1);
+                undef $fieldset;
+            }
         }
     }
     if (@fcts) {

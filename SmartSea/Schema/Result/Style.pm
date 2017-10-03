@@ -65,6 +65,13 @@ sub name {
 sub prepare {
     my ($self, $args) = @_;
 
+    if ($args->{data_type} == BOOLEAN) {
+        $self->min(1);
+        $self->max(1);
+        $self->classes(1);
+        return;
+    }
+
     if (defined $self->min) {
         if (defined $args->{min}) {
             $args->{bound} = $args->{min} < $self->min;

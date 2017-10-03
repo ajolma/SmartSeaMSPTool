@@ -84,7 +84,8 @@ test_psgi $app, sub {
             push @href, $href;
         }
         my $n = @href;
-        ok(@href == 9 && $href[8] eq '/browser/plan:1/uses:1/layers:2?request=edit', "layer list $n");
+        #say STDERR join("\n", @href);
+        ok(@href == 11 && $href[10] eq '/browser/plan:1/uses:1/layers:2?request=edit', "layer list $n");
     }
 
     if (1) {
@@ -98,7 +99,8 @@ test_psgi $app, sub {
             push @href, $href;
         }
         my $n = @href;
-        ok(@href == 7 && $href[6] eq '/browser/plan:1/uses:1/layers:2?request=edit', "layer list ($n) with impact layer open");
+        #say STDERR join("\n", @href);
+        ok(@href == 10 && $href[9] eq '/browser/plan:1/uses:1/layers:2?request=edit', "layer list ($n) with impact layer open");
     }
 
     {

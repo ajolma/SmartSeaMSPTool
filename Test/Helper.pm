@@ -6,6 +6,8 @@ use File::Basename;
 use XML::LibXML;
 use XML::LibXML::PrettyPrint;
 
+use SmartSea::Schema::Result::NumberType qw(:all);
+
 require Exporter;
 our @ISA = qw(Exporter);
 our @EXPORT = qw(
@@ -242,6 +244,16 @@ sub make_dataset {
     }
     $schema->resultset('Style')->new($style)->insert;
     my $id = $sequences->{dataset};
+    my $number_type;
+    if ($datatype eq 'Byte' or $datatype =~ /^U?I/) {
+        $number_type = INTEGER_NUMBER;
+    } elsif ($datatype =~ /^F/) {
+        $number_type = REAL_NUMBER;
+    #} elsif () {
+    #    $number_type = BOOLEAN;
+    } else {
+        die "Unknown data type: $datatype";
+    }
     $schema->resultset('Dataset')->update_or_new(
         {
             id => $id,
@@ -256,6 +268,7 @@ sub make_dataset {
             attribution => '',
             disclaimer => '',
             path => $id.'.tiff',
+            data_type => $number_type,
             min_value => $min,
             max_value => $max,
             unit => undef,

@@ -130,6 +130,7 @@ sub test_create_related {
             my %data = set_data($cb, $rel->{class});
             $data{relationship} = $relation;
             my $param = join(q{&}, map{qq{$_=$data{$_}}} keys %data);
+            #say STDERR "create: $class:$id/$relation: $param";
             my $res = $cb->(POST "/$class:$id/$relation?request=create&$param&accept=json");
             my $rel_obj = decode_json $res->content;
             $object = read_class($cb, $class, $id, $relation);
@@ -224,7 +225,15 @@ sub get_schema {
     #say STDERR $class;
     my $res = $cb->(GET "/$class:0?accept=json");
     #say STDERR $res->content;
-    return decode_json $res->content;
+    $res = decode_json $res->content;
+    # exceptions:
+    if ($class eq 'dataset') {
+        # datasets must be usable in rules
+        $res->{data_type}{not_null} = 1;
+        $res->{min_value}{not_null} = 1;
+        $res->{max_value}{not_null} = 1;
+    }
+    return $res;
 }
 
 sub set_data {
@@ -234,6 +243,7 @@ sub set_data {
     %data = %$data if $data;
     for my $key (keys %$schema) {
         next unless ref $schema->{$key};
+        #say STDERR "$class: column $key ",($schema->{$key}{not_null}//'null ok');
         next unless $schema->{$key}{not_null};
         if ($schema->{$key}{is_part} || $schema->{$key}{is_superclass}) {
             %data = (%data, set_data($cb, $schema->{$key}{source}));

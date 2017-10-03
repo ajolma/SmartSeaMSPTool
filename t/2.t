@@ -75,7 +75,7 @@ test_psgi $app, sub {
         eval {
             $parser->load_xml(string => $res->content);
         };
-        say STDERR $res->content if $@;
+        say STDERR $res->content,': ',$@ if $@;
         ok(!$@, "GET $href:1");
     }
 };

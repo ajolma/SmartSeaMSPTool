@@ -15,7 +15,9 @@ sub layers {
     my ($self) = @_;
     my @datasets;
     for my $dataset ($self->search(undef, {order_by => {-asc => 'name'}})->all) {
-        next unless $dataset->usable_in_rule;
+        my $usable = $dataset->usable_in_rule;
+        #say STDERR "dataset ".$dataset->id." ".($usable ? 'usable' : 'not usable');
+        next unless $usable;
         push @datasets, $dataset->read;
     }
     return @datasets if wantarray;

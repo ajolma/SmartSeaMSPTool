@@ -33,6 +33,7 @@ DAMAGE.
 msp.enum = {
     INTEGER: 'integer',
     REAL: 'real',
+    BOOLEAN: 'boolean',
     BAYESIAN_NETWORK: 'Bayesian network',
     BOXCAR: 'boxcar',
     EXCLUSIVE: 'exclusive',
@@ -136,18 +137,14 @@ msp.Layer.prototype = {
         var self = this;
         if (msp.useClass(self.use) === msp.enum.DATA) {
 
-            // subclass dataset
-            self.min_value = args.min_value;
-            self.max_value = args.max_value;
-            self.data_type = args.data_type; // integer or real
-            self.semantics = args.semantics;
+            self.data_type = args.data_type;
+            if (self.data_type !== msp.enum.BOOLEAN) {
+                self.min_value = args.min_value;
+                self.max_value = args.max_value;
+                self.semantics = args.semantics;
+            }
             self.descr = args.descr;
             self.provenance = args.provenance;
-
-            self.binary =
-                self.data_type === msp.enum.INTEGER &&
-                (self.min_value === 0 || self.min_value === 1) &&
-                self.max_value === 1;
 
         } else {
 
@@ -400,7 +397,7 @@ msp.Rule.prototype = {
         var self = this;
         if (self.layer.rule_class === msp.enum.EXCLUSIVE || self.layer.rule_class === msp.enum.INCLUSIVE) {
             self.op = rule.op;
-            if (!self.dataset.binary) {
+            if (self.dataset.data_type !== msp.enum.BOOLEAN) {
                 self.value = rule.value;
             }
         } else if (self.layer.rule_class === msp.enum.BOXCAR) {
@@ -425,8 +422,10 @@ msp.Rule.prototype = {
             value;
         name = self.dataset.name;
         if (self.layer.rule_class === msp.enum.EXCLUSIVE || self.layer.rule_class === msp.enum.INCLUSIVE) {
-            if (self.dataset.binary) {
-                name = self.op + ' ' + name;
+            if (self.dataset.data_type === msp.enum.BOOLEAN) {
+                if (self.op !== '==') {
+                    name = self.op + ' ' + name;
+                }
             } else {
                 value = self.value;
                 if (self.dataset.semantics) {
@@ -434,7 +433,6 @@ msp.Rule.prototype = {
                 }
                 name += ' ' + self.op + ' ' + value;
             }
-        /*} else if (self.layer.rule_class === msp.enum.MULTIPLICATIVE || self.layer.rule_class === msp.enum.ADDITIVE) {*/
         } else if (self.layer.rule_class === msp.enum.BOXCAR) {
             name += ': Boxcar ' + self.boxcar_type + ' ';
             name += self.boxcar_x0 + ', ' + self.boxcar_x1 + ', ' + self.boxcar_x2 + ', ' + self.boxcar_x3;
@@ -448,6 +446,8 @@ msp.Rule.prototype = {
             } else {
                 name = 'Bayesian networks are not available.';
             }
+        } else {
+            name = 'unknown';
         }
         return name;
     },

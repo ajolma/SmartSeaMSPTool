@@ -9,8 +9,9 @@ use base qw/DBIx::Class::Core Exporter/;
 # if creating new db, use these
 use constant INTEGER_NUMBER => 1;
 use constant REAL_NUMBER => 2;
+use constant BOOLEAN => 3;
 require Exporter;
-our @EXPORT_OK = qw(INTEGER_NUMBER REAL_NUMBER);
+our @EXPORT_OK = qw(INTEGER_NUMBER REAL_NUMBER BOOLEAN);
 our %EXPORT_TAGS = (all => \@EXPORT_OK);
 
 use SmartSea::HTML qw(:all);

@@ -2,8 +2,8 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 9.5.8
--- Dumped by pg_dump version 9.5.8
+-- Dumped from database version 9.5.9
+-- Dumped by pg_dump version 9.5.9
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -96,7 +96,6 @@ CREATE TABLE datasets (
     path text,
     unit integer,
     style integer,
-    db_table text,
     min_value double precision,
     max_value double precision,
     data_type integer,
@@ -121,13 +120,6 @@ ALTER TABLE datasets OWNER TO ajolma;
 --
 
 COMMENT ON COLUMN datasets.style IS 'required if path is not null, ie real data';
-
-
---
--- Name: COLUMN datasets.db_table; Type: COMMENT; Schema: data; Owner: ajolma
---
-
-COMMENT ON COLUMN datasets.db_table IS 'For raster datasets: the table from it was created';
 
 
 --
