@@ -109,7 +109,8 @@ CREATE TABLE datasets (
     gid text,
     burn text,
     geometry_column text,
-    where_clause text
+    where_clause text,
+    wms_size text
 );
 
 
