@@ -23,17 +23,19 @@ my @columns = (
     attribution     => { data_type => 'text',    html_size => 40 },
     disclaimer      => { data_type => 'text',    html_size => 80 },
     driver          => { data_type => 'text', html_size => 40, fieldset => 'For GDAL',
-                         comment => "PG, NETCDF, WCS, WMS/AGS, or nothing" },
+                         comment => "PG, NETCDF, WCS, WMS(/AGS), or nothing" },
     data_model      => { is_foreign_key => 1, source => 'DataModel', fieldset => 'For GDAL', 
                          comment => 'To force data model on driver. Not usually needed.' },
-    path            => { data_type => 'text',    html_size => 30, fieldset => 'For GDAL',
-                         comment => "File path relative to data_dir, or schema in main DB." },
+    path            => { data_type => 'text',    html_size => 50, fieldset => 'For GDAL',
+                         comment => "File path relative to data_dir, schema in main DB, or URL." },
     subset          => { data_type => 'text', html_size => 40, fieldset => 'For GDAL',
                          comment => "NetCDF subset, table in schema, or nothing" },
     epsg            => { data_type => 'integer', fieldset => 'For GDAL',
                          comment => 'Default is 3067.' },
     bbox            => { data_type => 'text', html_size => 40, fieldset => 'For GDAL',
-                         comment => "Only for external data such as WMS but not yet used." },
+                         comment => "For the GDAL WMS description file. Format: UpperLeftX,LowerRightY,LowerRightX,UpperLeftY" },
+    wms_size        => { data_type => 'text', html_size => 40, fieldset => 'For GDAL',
+                         comment => "For the GDAL WMS description file. Format: SizeX,SizeY" },
     band            => { data_type => 'integer', fieldset => 'For GDAL',
                          comment => 'Default is 1' },
     gid             => { data_type => 'text', fieldset => 'For GDAL',
@@ -42,7 +44,7 @@ my @columns = (
                          comment => 'Burn column (for PG datasets).' },
     geometry_column => { data_type => 'text', fieldset => 'For GDAL',
                          comment => 'Geometry column (for PG datasets).' },
-    where_clause    => { data_type => 'text', fieldset => 'For GDAL',
+    where_clause    => { data_type => 'text', html_size => 60, fieldset => 'For GDAL',
                          comment => 'Where clause (for PG datasets).' },
     data_type       => { is_foreign_key => 1, source => 'NumberType', fieldset => 'For rules',
                          comment => "Only for real datasets. (Forcing) boolean means nodata and zero are false (0), others are true (1). Use button 'obtain values'." },
@@ -300,20 +302,22 @@ sub gdal_object { # Band or Layer
 
             my $service = [
                 [Version => '1.1.1'],
-                [ServerUrl => 'http://geo.vliz.be:80/geoserver/Emodnet/wms'],
-                [SRS => 'EPSG:4326'],
+                [ServerUrl => $self->path],
+                [SRS => 'EPSG:'.$self->epsg],
                 [ImageFormat => 'image/jpeg'],
                 [Transparent => 'FALSE'],
-                [Layers => 'chlorophyll'],
+                [Layers => $self->subset],
                 ];
 
+            my @bbox = split(/,/, $self->bbox);
+            my @size = split(/,/, $self->wms_size);
             my $data_window = [
-                [UpperLeftX => -20.0080000],
-                [UpperLeftY => 72.0000000],
-                [LowerRightX => 32.0010000],
-                [LowerRightY => 33.9990000],
-                [SizeX => 1073741824],
-                [SizeY => 784542349],
+                [UpperLeftX => $bbox[0]],
+                [UpperLeftY => $bbox[3]],
+                [LowerRightX => $bbox[2]],
+                [LowerRightY => $bbox[1]],
+                [SizeX => $size[0]],
+                [SizeY => $size[1]],
                 ];
 
             $xml->element(GDAL_WMS =>
