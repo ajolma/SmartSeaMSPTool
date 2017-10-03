@@ -270,7 +270,7 @@ sub gdal_object { # Band or Layer
     if ($driver =~ /WMS/) {
         # does not really make sense
 
-        my $name = '/vsimem/wms.xml';
+        my $xml = Geo::OGC::Service::XMLWriter::Caching->new([], '');
         
         if ($driver =~ /AGS/) {
 
@@ -290,17 +290,49 @@ sub gdal_object { # Band or Layer
                 [SizeX => $size->[0]],
                 [SizeY => $size->[1]]
             ];
-            my $xml = Geo::OGC::Service::XMLWriter::Caching->new([], '');
+            
             $xml->element(GDAL_WMS => 
                 [Service => {name => 'AGS'}, $service],
                 [DataWindow => $data_window]
             );
-            say STDERR $xml->to_string if $args->{debug} > 2;
-            my $f = Geo::GDAL::VSIF::Open($name, 'w');
-            $f->Write($xml->to_string);
-            $f->Close;
             
+        } else {
+
+            my $service = [
+                [Version => '1.1.1'],
+                [ServerUrl => 'http://geo.vliz.be:80/geoserver/Emodnet/wms'],
+                [SRS => 'EPSG:4326'],
+                [ImageFormat => 'image/jpeg'],
+                [Transparent => 'FALSE'],
+                [Layers => 'chlorophyll'],
+                ];
+
+            my $data_window = [
+                [UpperLeftX => -20.0080000],
+                [UpperLeftY => 72.0000000],
+                [LowerRightX => 32.0010000],
+                [LowerRightY => 33.9990000],
+                [SizeX => 1073741824],
+                [SizeY => 784542349],
+                ];
+
+            $xml->element(GDAL_WMS =>
+                [Service => {name => "WMS"}, $service],
+                [DataWindow => $data_window],
+                [BandsCount => 3],
+                [DataType => 'Byte'],
+                [BlockSizeX => 1024],
+                [BlockSizeY => 1024],
+            );
+
         }
+
+        say STDERR $xml->to_string if $args->{debug} > 2;
+        
+        my $name = '/vsimem/wms.xml';
+        my $f = Geo::GDAL::VSIF::Open($name, 'w');
+        $f->Write($xml->to_string);
+        $f->Close;
 
         my $dataset = Geo::GDAL::Open(Name => $name);
         return $dataset->Band($self->band) unless $projwin;
@@ -310,7 +342,8 @@ sub gdal_object { # Band or Layer
                             -of => 'GTiff',
                             -r => 'nearest',
                             -outsize => @$size,
-                            -projwin => @$projwin ]);
+                            -projwin => @$projwin ])
+            ->Band($self->band);
         
     }
 
