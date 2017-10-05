@@ -22,7 +22,7 @@ body {
 
 .right {
     float: right;
-    width: 230px;
+    width: 240px;
     overflow: auto;
     /*position: relative;*/
 }

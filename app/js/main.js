@@ -31,7 +31,12 @@ DAMAGE.
 /*global $, ol, msp*/
 
 (function () {
-    var config = new msp.Config({
+    var sheet = msp.find(document.styleSheets, 'href', /layout.css/),
+        rules = sheet.rules || sheet.cssRules,
+        right = msp.find(rules, 'selectorText', /^\.right/),
+        config;
+    msp.layoutRightWidth = parseInt(/(\d+)/.exec(right.style.width)[0], 10);
+    config = new msp.Config({
         bootstrap: function () {
             var map = new ol.Map({
                     layers: [],

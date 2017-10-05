@@ -38,6 +38,17 @@ DAMAGE.
  */
 var msp = {};
 
+msp.find = function (list, attr, match) {
+    var retval;
+    $.each(list, function (key, item) {
+        if (item[attr].match(match)) {
+            retval = item;
+            return false;
+        }
+    });
+    return retval;
+};
+
 msp.e = function (tag, attrs, text) {
     var a = '', key;
     if (attrs) {

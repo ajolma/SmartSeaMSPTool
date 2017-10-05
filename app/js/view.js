@@ -115,12 +115,9 @@ msp.View.prototype = {
      * React to the browser window resize event.
      */
     windowResize: function () {
-        var right_width = 230, // from layout.css
-            h = $(window).height() -  $('.header').height() - $('.plot').height(),
-            w = $(window).width() - right_width - 15;
-        this.elements.map
-            .height(h)
-            .width(w);
+        var w = $(window).width() - msp.layoutRightWidth - 15,
+            h = $(window).height() -  $('.header').height() - $('.plot').height();
+        this.elements.map.width(w).height(h);
         $('.right').css('max-height', h);
         if (this.model.map) {
             this.model.map.updateSize();

@@ -29,21 +29,6 @@ DAMAGE.
 'use strict';
 /*global $, ol, msp*/
 
-// these must match what the server uses:
-msp.enum = {
-    INTEGER: 'integer',
-    REAL: 'real',
-    BOOLEAN: 'boolean',
-    BAYESIAN_NETWORK: 'Bayesian network',
-    BOXCAR: 'boxcar',
-    EXCLUSIVE: 'exclusive',
-    INCLUSIVE: 'inclusive',
-    ADDITIVE: 'additive',
-    MULTIPLICATIVE: 'multiplicative',
-    DATA: 'Data',
-    ECOSYSTEM: 'Ecosystem'    
-};
-
 msp.strings = {
     THIS_IS_A_LAYER: function (a, b) {
         return 'This is a layer made by ' + a + ' rules and defined by ' + b + '.';
@@ -207,7 +192,7 @@ msp.Layer.prototype = {
                 if (self.network) {
                     body = msp.e('img', {
                         src: url + '/networks?name=' + self.network.name + '&accept=jpeg',
-                        width: 230 // layout.right.width
+                        width: msp.layoutRightWidth,
                     }, '') +
                         '<br/>' + 'Output is from node ' + self.output_node.name + ', state ' + self.output_state;
                 } else {
@@ -364,104 +349,5 @@ msp.Layer.prototype = {
             return rule.id === id;
         }).active = active;
         self.refresh();
-    }
-};
-
-/**
- * Options for creating a rule.
- * @typedef {Object} MSPRuleOptions
- * @property {number} id - .
- * @property {MSPLayer} layer - .
- * @property {MSPLayer} dataset - .
- * @property {boolean} active - .
- * @property {string} op - .
- * @property {number} value - .
-
- */
-/**
- * A rule in a layer.
- * @constructor
- * @param {MSPRuleOptions} options - Options.
- */
-msp.Rule = function (args) {
-    var self = this;
-    self.id = args.id;
-    self.layer = args.layer;
-    self.dataset = args.dataset;
-    self.active = args.active;
-    self.edit(args);
-};
-
-msp.Rule.prototype = {
-    edit: function (rule) {
-        var self = this;
-        if (self.layer.rule_class === msp.enum.EXCLUSIVE || self.layer.rule_class === msp.enum.INCLUSIVE) {
-            self.op = rule.op;
-            if (self.dataset.data_type !== msp.enum.BOOLEAN) {
-                self.value = rule.value;
-            }
-        } else if (self.layer.rule_class === msp.enum.BOXCAR) {
-            self.boxcar_type = rule.boxcar_type;
-            self.boxcar_x0 = rule.boxcar_x0;
-            self.boxcar_x1 = rule.boxcar_x1;
-            self.boxcar_x2 = rule.boxcar_x2;
-            self.boxcar_x3 = rule.boxcar_x3;
-            self.weight = rule.weight;
-        } else if (self.layer.rule_class === msp.enum.BAYESIAN_NETWORK) {
-            self.state_offset = rule.state_offset;
-            self.node = rule.node;
-        }
-    },
-    getCriteria: function () {
-        var self = this;
-        return self.dataset;
-    },
-    getName: function () {
-        var self = this,
-            name,
-            value;
-        name = self.dataset.name;
-        if (self.layer.rule_class === msp.enum.EXCLUSIVE || self.layer.rule_class === msp.enum.INCLUSIVE) {
-            if (self.dataset.data_type === msp.enum.BOOLEAN) {
-                if (self.op !== '==') {
-                    name = self.op + ' ' + name;
-                }
-            } else {
-                value = self.value;
-                if (self.dataset.semantics) {
-                    value = self.dataset.semantics[value];
-                }
-                name += ' ' + self.op + ' ' + value;
-            }
-        } else if (self.layer.rule_class === msp.enum.BOXCAR) {
-            name += ': Boxcar ' + self.boxcar_type + ' ';
-            name += self.boxcar_x0 + ', ' + self.boxcar_x1 + ', ' + self.boxcar_x2 + ', ' + self.boxcar_x3;
-            name += ' weight ' + self.weight;
-        } else if (self.layer.rule_class === msp.enum.BAYESIAN_NETWORK) {
-            if (self.layer.network) {
-                value = self.layer.network.nodes.find(function (node) {
-                    return node.name === self.node;
-                });
-                name = (value ? value.name : '?') + '=' + name;
-            } else {
-                name = 'Bayesian networks are not available.';
-            }
-        } else {
-            name = 'unknown';
-        }
-        return name;
-    },
-    getMinMax: function () {
-        var self = this;
-        return {
-            min: self.dataset.min_value,
-            max: self.dataset.max_value,
-            data_type: self.dataset.data_type,
-            semantics: self.dataset.semantics
-        };
-    },
-    description: function () {
-        var self = this;
-        return self.dataset.description;
     }
 };
