@@ -168,7 +168,9 @@ msp.Editor.prototype = {
 
     createUses: function () {
         var self = this;
-        self.use = self.model.plan ? self.model.plan.uses[0] : null;
+        self.use = self.model.layer ?
+            self.model.layer.use :
+            (self.model.plan ? self.model.plan.uses[0] : null);
         self.uses = self.use ? new msp.Widget({
             pretext: 'Select a use:',
             container: self.selector,

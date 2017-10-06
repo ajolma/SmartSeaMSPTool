@@ -2,8 +2,21 @@ package SmartSea::Schema::Result::Palette;
 use strict;
 use warnings;
 use 5.010000;
-use base qw/DBIx::Class::Core/;
+use base qw/DBIx::Class::Core Exporter/;
 use Geo::GDAL;
+
+# palette namess are hard coded here
+# we just assume the database is the same as this
+# if creating new db, use these
+use constant PALETTES => (
+    'grayscale','inverse-grayscale',
+    'red-to-green','green-to-red',
+    'water-depth',
+    'red','green','blue','brown'
+    );
+require Exporter;
+our @EXPORT_OK = qw(PALETTES);
+our %EXPORT_TAGS = (all => \@EXPORT_OK);
 
 my @columns = (
     id   => {},

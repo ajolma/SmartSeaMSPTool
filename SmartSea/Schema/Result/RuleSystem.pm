@@ -108,7 +108,7 @@ sub compute {
     my $class = $self->rule_class->id;
     if ($class != BAYESIAN_NETWORK_RULE) {
         for my $rule ($self->active_rules($args)) {
-            if ($args->{debug} && $args->{debug} > 1) {
+            if ($args->{debug} > 1) {
                 my @stats = stats($y); # 3 and 4 are min and max
                 my $sum = $y->nelem*$stats[0];
                 say STDERR "Before ",$rule->name,": min=$stats[3], max=$stats[4], sum=$sum";

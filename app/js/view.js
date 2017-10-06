@@ -149,7 +149,9 @@ msp.View.prototype = {
     },
     buildPlan: function () {
         var self = this;
-        $('#plan-owner').html('Owner: ' + self.model.plan.owner);
+        if (self.model.config.config.auth) {
+            $('#plan-owner').html('Owner: ' + self.model.plan.owner);
+        }
         self.elements.rules.empty();
         self.fillRulesPanel();
     },
@@ -182,8 +184,10 @@ msp.View.prototype = {
     buildLayerTree: function () {
         var self = this;
         $.each(self.model.plan.uses, function (i, use) {
-            var item = self.usesItem(use);
-            self.elements.layers.append(item.element);
+            if (use.layers.length > 0) {
+                var item = self.usesItem(use);
+                self.elements.layers.append(item.element);
+            }
         });
     },
     /**
@@ -373,16 +377,18 @@ msp.View.prototype = {
                 active = this.checked;
             self.model.layer.setRuleActive(rule_id, active);
         });
-        $(self.selectors.rules + ' #rule').click(function () {
-            var id = parseInt($(this).attr('rule'), 10),
-                rule = self.model.getRule(id);
-            self.ruleCommand.notify({
-                cmd: 'edit',
-                plan: self.model.plan,
-                layer: self.model.layer,
-                rule: rule
+        if (self.model.config.config.rule_editing || self.model.config.config.auth) {
+            $(self.selectors.rules + ' #rule').click(function () {
+                var id = parseInt($(this).attr('rule'), 10),
+                    rule = self.model.getRule(id);
+                self.ruleCommand.notify({
+                    cmd: 'edit',
+                    plan: self.model.plan,
+                    layer: self.model.layer,
+                    rule: rule
+                });
             });
-        });
+        }
     },
     siteInteraction: function (source) {
         var self = this,

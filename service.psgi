@@ -203,6 +203,9 @@ for my $set (0..$N) {
                             $response->{'wfs_' . $key} = $conf{'wfs_' . $key};
                         }
                     }
+                    for my $key (qw/rule_editing/) {
+                        $response->{$key} = $conf{$key} eq 'yes' ? JSON::true : JSON::false;
+                    }
                     return [ 200,
                              [
                               'Content-Type' => 'application/json; charset=utf-8',

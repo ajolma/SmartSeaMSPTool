@@ -291,6 +291,8 @@ sub apply {
     # the operand (x)
     $x //= $self->operand($args);
     return unless defined $x;
+
+    say STDERR "rule class $class" if $args->{debug} > 2;
     
     if ($class == EXCLUSIVE_RULE || $class == INCLUSIVE_RULE) {
 
@@ -298,6 +300,9 @@ sub apply {
         my $value = $self->value; # value should be 1 for binary datasets
 
         my $value_if_true = $class == INCLUSIVE_RULE ? 1 : 0;
+
+        say STDERR "data type ",$self->dataset->data_type->id," op ",$op
+            if $self->dataset && $args->{debug} > 2;
 
         if ($self->dataset && $self->dataset->data_type->id == BOOLEAN) {
 
