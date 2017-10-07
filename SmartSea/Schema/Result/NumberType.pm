@@ -10,8 +10,9 @@ use base qw/DBIx::Class::Core Exporter/;
 use constant INTEGER_NUMBER => 1;
 use constant REAL_NUMBER => 2;
 use constant BOOLEAN => 3;
+use constant NUMBER_TYPES => qw/Integer Real Boolean/;
 require Exporter;
-our @EXPORT_OK = qw(INTEGER_NUMBER REAL_NUMBER BOOLEAN);
+our @EXPORT_OK = qw(NUMBER_TYPES INTEGER_NUMBER REAL_NUMBER BOOLEAN);
 our %EXPORT_TAGS = (all => \@EXPORT_OK);
 
 use SmartSea::HTML qw(:all);

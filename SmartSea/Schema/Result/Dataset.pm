@@ -5,6 +5,7 @@ use 5.010000;
 use base qw/DBIx::Class::Core/;
 use Storable qw(dclone);
 use Scalar::Util 'blessed';
+use Class::Hash ALL_METHODS => 1;
 use SmartSea::Schema::Result::DataModel qw(:all);
 use SmartSea::Schema::Result::NumberType qw(:all);
 use SmartSea::Core qw(:all);
@@ -161,6 +162,7 @@ sub get_column_recursive {
 
 sub set_column_from_upstream {
     my ($self, $column, $default) = @_;
+    return unless ref $self;
     unless (defined $self->$column) {
         my $value = $self->get_column_recursive($column);
         if (defined $value) {
@@ -183,8 +185,7 @@ sub set_dataset_name_columns {
 
 sub gdal_object { # Band or Layer
     my ($self, $options) = @_;
-
-    return unless $self->path;
+    return unless ref $self && $self->path;
 
     my $args = $options->{args};
     my $projwin = $options->{projwin};
@@ -364,8 +365,15 @@ sub gdal_object { # Band or Layer
 
 sub compute_cols {
     my ($self, $args) = @_;
-    $self->set_dataset_name_columns;
-    my $gdal = $self->gdal_object({
+    unless (ref $self) {
+        $self = Class::Hash->new;
+        for my $col (qw/driver data_model path subset band epsg/) {
+            $self->{$col} = $args->{parameters}{$col} if $args->{parameters}{$col} ne '';
+        }
+    } else {
+        $self->set_dataset_name_columns;
+    }
+    my $gdal = gdal_object($self, {
         args => $args,
         #size => [],
         #projwin => []
@@ -373,6 +381,7 @@ sub compute_cols {
     return unless $gdal;
     return unless ref $gdal eq 'Geo::GDAL::Band';
     $gdal->ComputeStatistics(0) unless $gdal->Dataset->Driver->Name =~ /^W/;
+    my $msg = [];
     for my $col (qw/min_value max_value data_type epsg/) { # bbox
         #next if defined $self->$col;
         #next if defined $args->{parameters}{$col};
@@ -391,11 +400,20 @@ sub compute_cols {
                 undef $value;
             }
         } elsif ($col eq 'epsg') {
-            $value = $gdal->Dataset->SpatialReference;
-            $value = $value->AutoIdentifyEPSG if $value;
+            my $srs = $gdal->Dataset->SpatialReference;
+            if ($srs) {
+                eval {
+                    $value = $srs->AutoIdentifyEPSG;
+                };
+                push @$msg, 
+                [1 => 'EPSG autoidentification failed. This is the WKT.'],
+                [pre => $srs->As('PrettyWKT')] if $@;
+            }
         }
-        $self->$col($value) if defined $value;
+        #$self->$col($value) if defined $value;
+        $args->{parameters}{$col} = $value if defined $value;
     }
+    return $msg;
 }
 
 sub info {

@@ -2,8 +2,14 @@ package SmartSea::Schema::Result::Op;
 use strict;
 use warnings;
 use 5.010000;
-use base qw/DBIx::Class::Core/;
+use base qw/DBIx::Class::Core Exporter/;
 use SmartSea::HTML qw(:all);
+
+use constant OPS => ('>=', '<=', '>', '<', '==', 'NOT');
+
+require Exporter;
+our @EXPORT_OK = qw(OPS);
+our %EXPORT_TAGS = (all => \@EXPORT_OK);
 
 my @columns = (
     id   => {},

@@ -10,8 +10,9 @@ use SmartSea::HTML qw(:all);
 # if creating new db, use these
 use constant VECTOR_DATA => 1;
 use constant RASTER_DATA => 2;
+use constant DATA_MODEL => qw/Vector Raster/;
 require Exporter;
-our @EXPORT_OK = qw(VECTOR_DATA RASTER_DATA);
+our @EXPORT_OK = qw(DATA_MODEL VECTOR_DATA RASTER_DATA);
 our %EXPORT_TAGS = (all => \@EXPORT_OK);
 
 my @columns = (

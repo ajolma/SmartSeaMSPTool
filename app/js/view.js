@@ -264,7 +264,7 @@ msp.View.prototype = {
     },
     closeUse: function (use) {
         var self = this,
-            button = $(self.selectors.uses + ' #use' + use.id + ' button');
+            button = use ? $(self.selectors.uses + ' #use' + use.id + ' button') : null;
         if (!use || !use.open) {
             return;
         }
@@ -274,7 +274,7 @@ msp.View.prototype = {
     },
     openUse: function (use) {
         var self = this,
-            button = $(self.selectors.uses + ' #use' + use.id + ' button');
+            button = use ? $(self.selectors.uses + ' #use' + use.id + ' button') : null;
         if (!use || use.open) {
             return;
         }

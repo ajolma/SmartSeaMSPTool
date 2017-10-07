@@ -1229,9 +1229,9 @@ sub compute_cols {
     my ($self) = @_;
     return unless $self->{result}->can('compute_cols');
     if ($self->{row}) {
-        $self->{row}->compute_cols($self->{app});
+        return $self->{row}->compute_cols($self->{app});
     } else {
-        $self->{result}->compute_cols($self->{app});
+        return $self->{result}->compute_cols($self->{app});
     }
 }
 

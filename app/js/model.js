@@ -288,9 +288,6 @@ msp.Model.prototype = {
             };
 
         if (self.plan) {
-            if (self.plan.id === id) {
-                return;
-            }
             self.resetPlan();
         }
         // set the requested plan
@@ -465,7 +462,7 @@ msp.Model.prototype = {
     initSite: function () {
         var self = this,
             source;
-        if (!self.map) {
+        if (!(self.map && self.plan)) {
             return;
         }
         source = new ol.source.Vector({});

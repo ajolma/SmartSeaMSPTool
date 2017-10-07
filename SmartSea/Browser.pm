@@ -187,7 +187,8 @@ sub object_editor {
 
     if ($request eq 'compute') {
         # from HTML form, do computation and go back to form with the data
-        $last->compute_cols();
+        my $msg = $last->compute_cols();
+        push @body, [font => {color => 'red'}, $msg] if $msg;
         push @body, [form => {action => $self->{path}, method => 'POST'}, $last->form];
         
     } elsif ($request eq 'create') {

@@ -4,9 +4,11 @@ use 5.010000;
 
 use lib '.';
 use SmartSea::Schema;
+use SmartSea::Schema::Result::Op qw/:all/;
 use SmartSea::Schema::Result::DataModel qw/:all/;
 use SmartSea::Schema::Result::NumberType qw/:all/;
 use SmartSea::Schema::Result::RuleClass qw/:all/;
+use SmartSea::Schema::Result::BoxcarRuleType qw/:all/;
 use SmartSea::Schema::Result::Palette qw/:all/;
 
 my $db_name = 'SmartSea-demo';
@@ -20,56 +22,51 @@ my $schema = SmartSea::Schema->connect(
     $db_passwd,
     { on_connect_do => [$on_connect] });
 
-my @palettes = (PALETTES);
-my $id = 0;
-my %palettes = map {$id++ => $_} @palettes;
-
 sql({
     schema => 'tool',
     source => 'Palette',
-    data => \%palettes
+    data => [PALETTES]
 });
-exit;
 
 sql({
     schema => 'data',
     source => 'DataModel',
-    data => {
-        VECTOR_DATA+0 => 'Vector',
-        RASTER_DATA+0 => 'Raster'},
-    
+    data => [DATA_MODEL]
 });
 
 sql({
     schema => 'tool',
     source => 'NumberType',
-    data => {
-        INTEGER_NUMBER+0 => 'Integer',
-        REAL_NUMBER+0 => 'Real',
-        BOOLEAN+0 => 'Boolean'
-    }
+    data => [NUMBER_TYPES]
 });
 
 sql({
     schema => 'tool',
     source => 'RuleClass',
-    data => {
-        EXCLUSIVE_RULE+0 => 'Exclusive',
-        #MULTIPLICATIVE_RULE+0 => 2,
-        #ADDITIVE_RULE+0 => 2,
-        INCLUSIVE_RULE+0 => 'Inclusive',
-        BOXCAR_RULE+0 => 'Boxcar',
-        BAYESIAN_NETWORK_RULE+0 => 'Bayesian network',
-    }
+    data => [RULE_CLASSES]
+});
+
+sql({
+    schema => 'tool',
+    source => 'BoxcarRuleType',
+    data => [BOXCAR_RULE_TYPES]
+});
+
+sql({
+    schema => 'tool',
+    source => 'Op',
+    data => [OPS]
 });
 
 sub sql {
     my $options = shift;
-    for my $id (sort {$a <=> $b} keys %{$options->{data}}) {
+    my $id = 1;
+    for my $name (@{$options->{data}}) {
         say "insert into ",
         $options->{schema},'.',$schema->source($options->{source})->from(),
         "(id, name) ",
         "values ",
-        "($id,'$options->{data}{$id}');";
+        "($id,'$name');";
+        $id++;
     }
 }

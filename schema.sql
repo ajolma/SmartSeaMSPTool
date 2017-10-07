@@ -350,16 +350,16 @@ CREATE TABLE beliefs (
 ALTER TABLE beliefs OWNER TO ajolma;
 
 --
--- Name: boxcar_rule_type; Type: TABLE; Schema: tool; Owner: ajolma
+-- Name: boxcar_rule_types; Type: TABLE; Schema: tool; Owner: ajolma
 --
 
-CREATE TABLE boxcar_rule_type (
+CREATE TABLE boxcar_rule_types (
     id integer NOT NULL,
     name text NOT NULL
 );
 
 
-ALTER TABLE boxcar_rule_type OWNER TO ajolma;
+ALTER TABLE boxcar_rule_types OWNER TO ajolma;
 
 --
 -- Name: boxcar_rule_type_id_seq; Type: SEQUENCE; Schema: tool; Owner: ajolma
@@ -379,7 +379,7 @@ ALTER TABLE boxcar_rule_type_id_seq OWNER TO ajolma;
 -- Name: boxcar_rule_type_id_seq; Type: SEQUENCE OWNED BY; Schema: tool; Owner: ajolma
 --
 
-ALTER SEQUENCE boxcar_rule_type_id_seq OWNED BY boxcar_rule_type.id;
+ALTER SEQUENCE boxcar_rule_type_id_seq OWNED BY boxcar_rule_types.id;
 
 
 --
@@ -1374,7 +1374,7 @@ ALTER TABLE ONLY activities ALTER COLUMN id SET DEFAULT nextval('activities_id_s
 -- Name: id; Type: DEFAULT; Schema: tool; Owner: ajolma
 --
 
-ALTER TABLE ONLY boxcar_rule_type ALTER COLUMN id SET DEFAULT nextval('boxcar_rule_type_id_seq'::regclass);
+ALTER TABLE ONLY boxcar_rule_types ALTER COLUMN id SET DEFAULT nextval('boxcar_rule_type_id_seq'::regclass);
 
 
 --
@@ -1667,7 +1667,7 @@ ALTER TABLE ONLY beliefs
 -- Name: boxcar_rule_type_pkey; Type: CONSTRAINT; Schema: tool; Owner: ajolma
 --
 
-ALTER TABLE ONLY boxcar_rule_type
+ALTER TABLE ONLY boxcar_rule_types
     ADD CONSTRAINT boxcar_rule_type_pkey PRIMARY KEY (id);
 
 
@@ -2192,7 +2192,7 @@ ALTER TABLE ONLY rule_systems
 --
 
 ALTER TABLE ONLY rules
-    ADD CONSTRAINT rules_boxcar_type_fkey FOREIGN KEY (boxcar_type) REFERENCES boxcar_rule_type(id);
+    ADD CONSTRAINT rules_boxcar_type_fkey FOREIGN KEY (boxcar_type) REFERENCES boxcar_rule_types(id);
 
 
 --
@@ -2468,13 +2468,13 @@ GRANT ALL ON TABLE beliefs TO smartsea;
 
 
 --
--- Name: boxcar_rule_type; Type: ACL; Schema: tool; Owner: ajolma
+-- Name: boxcar_rule_types; Type: ACL; Schema: tool; Owner: ajolma
 --
 
-REVOKE ALL ON TABLE boxcar_rule_type FROM PUBLIC;
-REVOKE ALL ON TABLE boxcar_rule_type FROM ajolma;
-GRANT ALL ON TABLE boxcar_rule_type TO ajolma;
-GRANT ALL ON TABLE boxcar_rule_type TO smartsea;
+REVOKE ALL ON TABLE boxcar_rule_types FROM PUBLIC;
+REVOKE ALL ON TABLE boxcar_rule_types FROM ajolma;
+GRANT ALL ON TABLE boxcar_rule_types TO ajolma;
+GRANT ALL ON TABLE boxcar_rule_types TO smartsea;
 
 
 --

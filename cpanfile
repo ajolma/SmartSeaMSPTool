@@ -1,4 +1,5 @@
 requires 'Modern::Perl';
+requires 'Class::Hash';
 requires 'File::Copy';
 requires 'File::Basename';
 requires 'Data::Dumper';

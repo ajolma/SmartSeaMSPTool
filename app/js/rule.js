@@ -31,15 +31,15 @@ DAMAGE.
 
 // these must match what the server uses:
 msp.enum = {
-    INTEGER: 'integer',
-    REAL: 'real',
-    BOOLEAN: 'boolean',
+    INTEGER: 'Integer',
+    REAL: 'Real',
+    BOOLEAN: 'Boolean',
     BAYESIAN_NETWORK: 'Bayesian network',
-    BOXCAR: 'boxcar',
-    EXCLUSIVE: 'exclusive',
-    INCLUSIVE: 'inclusive',
-    ADDITIVE: 'additive',
-    MULTIPLICATIVE: 'multiplicative',
+    BOXCAR: 'Boxcar',
+    EXCLUSIVE: 'Exclusive',
+    INCLUSIVE: 'Inclusive',
+    ADDITIVE: 'Additive',
+    MULTIPLICATIVE: 'Multiplicative',
     DATA: 'Data',
     ECOSYSTEM: 'Ecosystem'    
 };

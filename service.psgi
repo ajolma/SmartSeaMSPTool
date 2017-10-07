@@ -30,7 +30,7 @@ while (<$fh>) {
     my ($key, $value) = /^(\w+) = (.*)$/;
     $conf{$key} = $value;
 }
-for my $key (qw/https server root src_dir db_name db_user db_passwd data_dir image_dir OGC_Service_conf/) {
+for my $key (qw/https server root src_dir db_name db_user db_passwd data_dir OGC_Service_conf/) {
     die "Missing configuration variable '$key'." unless defined $conf{$key};
 }
 if ($conf{Hugin} eq 'yes') {
@@ -96,7 +96,6 @@ for my $set (0..$N) {
                 sequences => 1,
                 schema => $schema,
                 data_dir => $conf{data_dir},
-                images => $conf{image_dir},
                 home => $conf{root},
                 root => $conf{root},
                 edit => 0,

@@ -13,8 +13,9 @@ use constant ADDITIVE_RULE => 3;
 use constant INCLUSIVE_RULE => 4;
 use constant BOXCAR_RULE => 5;
 use constant BAYESIAN_NETWORK_RULE => 6;
+use constant RULE_CLASSES => ('Exclusive', 'Multiplicative', 'Additive', 'Inclusive', 'Boxcar', 'Bayesian network');
 require Exporter;
-our @EXPORT_OK = qw(EXCLUSIVE_RULE INCLUSIVE_RULE
+our @EXPORT_OK = qw(RULE_CLASSES EXCLUSIVE_RULE INCLUSIVE_RULE
                     MULTIPLICATIVE_RULE ADDITIVE_RULE 
                     BOXCAR_RULE 
                     BAYESIAN_NETWORK_RULE);
