@@ -1327,6 +1327,13 @@ sub widgets {
                 name => $column,
                 checked => $meta->{value} // $meta->{default} // 0
                 );
+        } elsif (ref $meta->{values} && ref $meta->{values} eq 'CODE') {
+            push @input, [1 => "$column: "], drop_down(
+                name => $column,
+                selected => $meta->{value},
+                values => $meta->{values}->($self),
+                not_null => $meta->{not_null}
+                );
         } else {
             # fallback data_type is text, integer, double
             push @input, [1 => "$column: "], text_input(

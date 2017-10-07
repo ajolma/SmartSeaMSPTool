@@ -3,14 +3,32 @@ use strict;
 use warnings;
 use 5.010000;
 use base qw/DBIx::Class::Core/;
+use Encode;
 use Storable qw(dclone);
 use Scalar::Util 'blessed';
 use Class::Hash ALL_METHODS => 1;
 use SmartSea::Schema::Result::DataModel qw(:all);
 use SmartSea::Schema::Result::NumberType qw(:all);
+use SmartSea::Schema::Result::Palette qw(:all);
 use SmartSea::Core qw(:all);
 use SmartSea::HTML qw(:all);
 use PDL;
+
+sub files_in_dir {
+    my ($root, $dir) = @_;
+    my @all;
+    if (opendir(my $dh, "$root/$dir")) {
+        @all = readdir($dh);
+        closedir $dh;
+    }
+    my @files;
+    for my $f (@all) {
+        next if $f =~ /^\./ || $f =~ /\.aux/ || $f =~ /\.tfw/ || $f =~ /\.ovr/ || $f =~ /\.ovr/ || $f =~ /\.vat/;
+        push @files, @{files_in_dir("$root/$dir", $f)} if -d "$root/$dir/$f";
+        push @files, decode utf8 => ($dir ? "$dir/$f" : $f) if -f "$root/$dir/$f";
+    }
+    return \@files;
+}
 
 my @columns = (
     id              => {},
@@ -27,7 +45,11 @@ my @columns = (
                          comment => "PG, NETCDF, WCS, WMS(/AGS), or nothing" },
     data_model      => { is_foreign_key => 1, source => 'DataModel', fieldset => 'For GDAL', 
                          comment => 'To force data model on driver. Not usually needed.' },
-    path            => { data_type => 'text',    html_size => 50, fieldset => 'For GDAL',
+    path            => { data_type => 'text', html_size => 50, fieldset => 'For GDAL', 
+                         values => sub {
+                             my $obj = shift;
+                             return files_in_dir($obj->{app}{data_dir}, '');
+                         },
                          comment => "File path relative to data_dir, schema in main DB, or URL." },
     subset          => { data_type => 'text', html_size => 40, fieldset => 'For GDAL',
                          comment => "NetCDF subset, table in schema, or nothing" },
@@ -403,11 +425,16 @@ sub compute_cols {
             my $srs = $gdal->Dataset->SpatialReference;
             if ($srs) {
                 eval {
-                    $value = $srs->AutoIdentifyEPSG;
+                    $srs->AutoIdentifyEPSG;
                 };
-                push @$msg, 
-                [1 => 'EPSG autoidentification failed. This is the WKT.'],
-                [pre => $srs->As('PrettyWKT')] if $@;
+                if ($@) {
+                    push @$msg, [1 => 'EPSG autoidentification failed. This is the WKT.'],
+                    [pre => $srs->As('PrettyWKT')];
+                } else {
+                    $value = $srs->GetAuthorityCode('PROJCS');
+                }
+            } else {
+                push @$msg, [1 => 'The dataset does not include spatial reference information.'],
             }
         }
         #$self->$col($value) if defined $value;
@@ -451,13 +478,15 @@ sub read {
         max => $max_value,
     }) if $self->style;
 
-    my $default_palette = 'grayscale';
+    my @palettes = (PALETTES);
+    my $default_palette = $palettes[0];
 
     my @minmax;
     my %style;
+    my @data_type = (NUMBER_TYPES);
 
     if ($data_type == BOOLEAN) {
-        @minmax = (data_type => 'boolean');
+        @minmax = (data_type => $data_type[BOOLEAN-1]);
         %style = (
             palette => $self->style ? 
             $self->style->palette->name : 
@@ -470,7 +499,7 @@ sub read {
         my $max = $self->max_value;
         $max += 0 if defined $max;
         @minmax = (
-            data_type => $data_type == INTEGER_NUMBER ? 'integer' : 'real',
+            data_type => $data_type == INTEGER_NUMBER ? $data_type[INTEGER_NUMBER-1] : $data_type[REAL_NUMBER-1],
             min_value => $min,
             max_value => $max
             );

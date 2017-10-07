@@ -100,7 +100,9 @@ sub drop_down {
     for my $value (@$values) {
         my $attr = {value => $value};
         $attr->{selected} = 'selected' if $value eq $selected;
-        push @options, [option => $attr, encode_entities_numeric($visuals->{$value})];
+        my $visual = $visuals->{$value} // $value;
+        push @options, [option => $attr, encode_entities_numeric($visual)];
+        #push @options, [option => $attr, encode_entities($visual)];
     }
     return [select => {name => $name}, \@options];
 }
