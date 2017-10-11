@@ -170,7 +170,7 @@ function run_layer_and_rule_tests(model) {
     $('#dialog #layer-rule-class').val('1');
     press_button(0);
     
-    is(model.plans[0].uses[0].layers[0].rule_class, 'boxcar', 'Add a boxcar layer.');
+    is(model.plans[0].uses[0].layers[0].rule_class, msp.enum.BOXCAR, 'Add a boxcar layer.');
 
     select_tab_cmd('rules', 'add');
     press_button(0);
