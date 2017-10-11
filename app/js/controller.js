@@ -150,7 +150,7 @@ msp.Controller.prototype = {
                             self.klasses[klass] = result;
                         }
                     },
-                    fail: function (xhr, textStatus) {
+                    error: function (xhr, textStatus) {
                         var msg = xhr.responseText || textStatus;
                         self.error('Calling SmartSea MSP server failed: ' + msg);
                     }
@@ -266,7 +266,7 @@ msp.Controller.prototype = {
                     atSuccess(result);
                 }
             },
-            fail: function (xhr, textStatus) {
+            error: function (xhr, textStatus) {
                 self.error(msg + xhr.responseText || textStatus);
             }
         });

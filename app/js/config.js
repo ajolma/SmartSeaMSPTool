@@ -173,7 +173,7 @@ msp.Config = function (options) {
             self.bg = bg_maps(self);
             options.bootstrap();
         },
-        fail: function (xhr, textStatus) {
+        error: function (xhr, textStatus) {
             window.alert(xhr.responseText || textStatus);
         }
     });

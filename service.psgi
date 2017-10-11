@@ -18,6 +18,7 @@ use SmartSea::Bayesian_networks;
 use SmartSea::Explain;
 use SmartSea::Browser;
 use SmartSea::Planner;
+use SmartSea::Feedback;
 
 my $N = 0;
 my @services;
@@ -279,6 +280,13 @@ my $default = sub {
              [encode utf8 => '<!DOCTYPE html>'.$html] ];
 };
 
+my $error = sub {
+    my $env = shift;
+    return [ 404,
+             ['Content-Type' => 'text/plain'],
+             ['Not Found'] ];
+};
+
 builder {
     for my $set (0..$N) {
         for my $service (keys %{$services[$set]}) {
@@ -307,5 +315,7 @@ builder {
         mount $auth."/img" => Plack::App::File->new(root => $conf{src_dir}."img")->to_app;
         mount $auth."/html" => Plack::App::File->new(root => $conf{src_dir}."html")->to_app;
     }
-    mount "/" => $default;
+    mount "$conf{root}/feedback" => SmartSea::Feedback->new(\%conf)->to_app;
+    mount "$conf{root}/menu" => $default;
+    mount "/" => $error;
 };

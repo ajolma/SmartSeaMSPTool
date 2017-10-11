@@ -26,3 +26,5 @@ requires 'Plack::Test';
 requires 'PDL';
 requires 'Geo::GDAL';
 requires 'Geo::OGC::Service';
+requires 'Email::MIME';
+requires 'Email::Sender::Simple';

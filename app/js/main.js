@@ -35,19 +35,21 @@ DAMAGE.
         rules = sheet.rules || sheet.cssRules,
         right = msp.find(rules, 'selectorText', /^\.right/),
         config,
-        about = function (model, controller) {
+        about = function (model, controller, title) {
             var lang = msp.lang === 'fi' ? 'fi' : 'en';
             $.ajax({
-                url: model.serverURL() + '/html/about.' + lang + '.html',
+                url: model.serverURL() + '/html/' + title + '.' + lang + '.html',
                 success: function (result) {
                     controller.setEditor({
                         title: '',
                         html: result,
+                        width: 400,
+                        height: 600,
                         buttons: 'close'
                     });
                     controller.editor.dialog('open');
                 },
-                fail: function (xhr, textStatus) {
+                error: function (xhr, textStatus) {
                     controller.error(xhr.responseText || textStatus);
                 }
             });
@@ -133,9 +135,30 @@ DAMAGE.
                 };
 
             if (model.config.config.about) {
-                about(model, controller);
+                about(model, controller, 'about');
             }
-                        
+
+            msp.feedback = function () {
+                var aihe = $('#palaute-aihe').value,
+                    palaute = $('#palaute').value;
+                $.ajax({
+                    type: 'POST',
+                    url: model.serverURL() + '/feedback',
+                    data: {
+                        aihe: aihe,
+                        palaute: palaute
+                    },
+                    success: function() {
+                        alert('Kiitos palautteestasi!');
+                    },
+                    error: function() {
+                        alert('Jokin meni vikaan palautetta käsiteltäessä.\n' +
+                              'Voit lähettää palautetta myös sähköpostilla ' +
+                              'osoitteeseen ari.jolma@ymparisto.fi.');
+                    }
+                });
+            };
+            
             map.addControl(new ol.control.ScaleLine());
 
             $.each(config.bg, function (i, bg) {
@@ -167,6 +190,7 @@ DAMAGE.
                     var options = [
                             {label: 'Boot', cmd: 'boot'},
                             {label: 'Editor...', cmd: 'editor'},
+                            {label: 'Feedback...', cmd: 'feedback'},
                             {label: 'About...', cmd: 'about'},
                         ],
                         menu = new msp.Menu({
@@ -184,7 +208,9 @@ DAMAGE.
                                         editor.open({active_tab: 'uses'});
                                     }
                                 } else if (cmd === 'about') {
-                                    about(model, controller);
+                                    about(model, controller, 'about');
+                                } else if (cmd === 'feedback') {
+                                    about(model, controller, 'feedback');
                                 }
                             },
                             event: event
