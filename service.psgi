@@ -202,7 +202,7 @@ for my $set (0..$N) {
                             $response->{'wfs_' . $key} = $conf{'wfs_' . $key};
                         }
                     }
-                    for my $key (qw/rule_editing/) {
+                    for my $key (qw/about rule_editing/) {
                         $response->{$key} = $conf{$key} eq 'yes' ? JSON::true : JSON::false;
                     }
                     return [ 200,
@@ -301,9 +301,11 @@ builder {
         mount $conf{root}.$auth."/js" => Plack::App::File->new(root => $conf{src_dir}."js")->to_app;
         mount $conf{root}.$auth."/css" => Plack::App::File->new(root => $conf{src_dir}."css")->to_app;
         mount $conf{root}.$auth."/img" => Plack::App::File->new(root => $conf{src_dir}."img")->to_app;
+        mount $conf{root}.$auth."/html" => Plack::App::File->new(root => $conf{src_dir}."html")->to_app;
         mount $auth."/js" => Plack::App::File->new(root => $conf{src_dir}."js")->to_app;
         mount $auth."/css" => Plack::App::File->new(root => $conf{src_dir}."css")->to_app;
         mount $auth."/img" => Plack::App::File->new(root => $conf{src_dir}."img")->to_app;
+        mount $auth."/html" => Plack::App::File->new(root => $conf{src_dir}."html")->to_app;
     }
     mount "/" => $default;
 };

@@ -34,7 +34,24 @@ DAMAGE.
     var sheet = msp.find(document.styleSheets, 'href', /layout.css/),
         rules = sheet.rules || sheet.cssRules,
         right = msp.find(rules, 'selectorText', /^\.right/),
-        config;
+        config,
+        about = function (model, controller) {
+            var lang = msp.lang === 'fi' ? 'fi' : 'en';
+            $.ajax({
+                url: model.serverURL() + '/html/about.' + lang + '.html',
+                success: function (result) {
+                    controller.setEditor({
+                        title: '',
+                        html: result,
+                        buttons: 'close'
+                    });
+                    controller.editor.dialog('open');
+                },
+                fail: function (xhr, textStatus) {
+                    controller.error(xhr.responseText || textStatus);
+                }
+            });
+        };
     msp.layoutRightWidth = parseInt(/(\d+)/.exec(right.style.width)[0], 10);
     if (navigator.languages) {
         msp.lang = navigator.languages[0];
@@ -114,7 +131,11 @@ DAMAGE.
                     $this.data('hilite-src', $this.attr('src'));
                     $this.attr('src', newSource);
                 };
-            
+
+            if (model.config.config.about) {
+                about(model, controller);
+            }
+                        
             map.addControl(new ol.control.ScaleLine());
 
             $.each(config.bg, function (i, bg) {
@@ -143,8 +164,11 @@ DAMAGE.
             $(function () {
                 $('img.main-menu').hover(sourceSwap, sourceSwap);
                 $('img.main-menu').click(function (event) {
-                    var options = [{label: 'Boot', cmd: 'boot'},
-                            {label: 'Editor...', cmd: 'editor'}],
+                    var options = [
+                            {label: 'Boot', cmd: 'boot'},
+                            {label: 'Editor...', cmd: 'editor'},
+                            {label: 'About...', cmd: 'about'},
+                        ],
                         menu = new msp.Menu({
                             element: $('#main-menu'),
                             menu: $('#main-menu-ul'),
@@ -159,6 +183,8 @@ DAMAGE.
                                     } else {
                                         editor.open({active_tab: 'uses'});
                                     }
+                                } else if (cmd === 'about') {
+                                    about(model, controller);
                                 }
                             },
                             event: event
