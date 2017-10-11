@@ -53,20 +53,22 @@ msp.View = function (options) {
     // elements DOM elements selected with jquery $()
     // ids are jquery selectors
 
-    self.elements.layers.sortable({
-        stop: function () {
-            var newOrder = [],
-                ul = self.elements.layers.children(),
-                i,
-                n;
-            for (i = 0; i < ul.length; i += 1) {
-                n = ul[i].id;
-                n = n.replace(/use/, '');
-                newOrder.push(parseInt(n, 10));
+    if (options.sortable) {
+        self.elements.uses.sortable({
+            stop: function () {
+                var newOrder = [],
+                    ul = self.elements.uses.children(),
+                    i,
+                    n;
+                for (i = 0; i < ul.length; i += 1) {
+                    n = ul[i].id;
+                    n = n.replace(/use/, '');
+                    newOrder.push(parseInt(n, 10));
+                }
+                self.model.setUseOrder(newOrder);
             }
-            self.model.setUseOrder(newOrder);
-        }
-    });
+        });
+    }
 
     // model event listeners
 
@@ -90,11 +92,11 @@ msp.View = function (options) {
     self.model.rulesChanged.attach(function () {
         self.fillRulesPanel();
     });
-    self.model.siteInitialized.attach(function (sender, args) {
-        self.siteInteraction(args.source);
+    self.model.queryInitialized.attach(function (sender, args) {
+        self.queryInteraction(args.source);
     });
-    self.model.siteInformationReceived.attach(function (sender, args) {
-        self.elements.site_info.html(args.report);
+    self.model.queryResultReceived.attach(function (sender, args) {
+        self.elements.query_result.html(args.report);
     });
 
     // events
@@ -128,9 +130,8 @@ msp.View.prototype = {
      */
     cleanUp: function () {
         var self = this;
-        self.elements.rule_header.html('');
-        self.elements.rule_info.html('');
-        self.elements.site.html('');
+        self.elements.layer_info.html('');
+        self.elements.query_result.html('');
         self.elements.legend.html('');
     },
     /**
@@ -184,9 +185,16 @@ msp.View.prototype = {
     buildLayerTree: function () {
         var self = this;
         $.each(self.model.plan.uses, function (i, use) {
+            if (use.name === msp.enum.ECOSYSTEM) {
+                if (msp.lang === 'fi') {
+                    self.elements.uses.append('<h3>Taustatiedot</h3>');
+                } else {
+                    self.elements.uses.append('<h3>Background information</h3>');
+                }
+            }
             if (use.layers.length > 0) {
                 var item = self.usesItem(use);
-                self.elements.layers.append(item.element);
+                self.elements.uses.append(item.element);
             }
         });
     },
@@ -196,7 +204,7 @@ msp.View.prototype = {
     buildLayers: function () {
         // an openable list of use items
         var self = this;
-        self.elements.layers.html('');
+        self.elements.uses.html('');
         self.buildLayerTree();
         self.selectLayer(); // restore selected layer
 
@@ -235,11 +243,6 @@ msp.View.prototype = {
                     if (this.checked) {
                         self.model.unselectLayer();
                         self.model.selectLayer(event.data.layer);
-                    }
-                    if (self.model.layer) {
-                        self.elements.site.html(self.model.layer.name);
-                    } else {
-                        self.elements.site.html('');
                     }
                 });
                 if (layer.visible) {
@@ -324,53 +327,47 @@ msp.View.prototype = {
         self.elements.legend.html(
             msp.e('img', {src: url + '/legend?layer=' + layer.getName() + style + cache_breaker}, '')
         );
-
-        self.elements.rule_header.html(layer_info.header);
-        self.elements.rule_info.html(layer_info.body);
-
-        if (layer.visible) {
-            self.elements.site.html(layer.name);
-        }
+        self.elements.layer_info.html('<b>' + layer_info.header + '</b><br />' + layer_info.body);
     },
     /**
      * Clean up after a layer is deselected.
      */
     unselectLayer: function (layer) {
         $('#use' + layer.use.id + ' #layer' + layer.id).css('background-color', 'white');
-        this.elements.rule_header.html('');
-        this.elements.rule_info.html('');
+        this.elements.layer_info.html('');
         this.elements.legend.html('');
         this.elements.rules.empty();
-        this.elements.site.html('');
     },
     fillRulesPanel: function () {
         var self = this;
         self.elements.rules.empty();
-        if (!self.model.layer) {
+        if (!self.model.layer || !self.model.layer.rules) {
             return;
         }
-        if (self.model.layer.descr) {
-            self.elements.rules.append(self.model.layer.descr);
-        } else if (self.model.layer.rules) {
-            $.each(self.model.layer.rules, function (i, rule) {
-                var name = rule.getName(),
-                    item,
-                    attr = {
-                        type: 'checkbox',
-                        layer:  self.model.layer.id,
-                        rule: rule.id
-                    };
-                if (rule.active) {
-                    attr.checked = 'checked';
-                }
-                item = msp.e('a', {id: 'rule', rule: rule.id}, name);
-                if (msp.useClass(self.model.layer.use) !== msp.enum.ECOSYSTEM) {
-                    item = msp.e('input', attr, item);
-                }
-                self.elements.rules.append(item);
-                self.elements.rules.append(msp.e('br'));
-            });
+        if (msp.lang === 'fi') {
+            self.elements.rules.append(msp.e('b', {}, 'Säännöt:'));
+        } else {
+            self.elements.rules.append(msp.e('b', {}, 'Rules:'));
         }
+        self.elements.rules.append('<br />');
+        $.each(self.model.layer.rules, function (i, rule) {
+            var name = rule.getName(),
+                item,
+                attr = {
+                    type: 'checkbox',
+                    layer:  self.model.layer.id,
+                    rule: rule.id
+                };
+            if (rule.active) {
+                attr.checked = 'checked';
+            }
+            item = msp.e('a', {id: 'rule', rule: rule.id}, name);
+            if (msp.useClass(self.model.layer.use) !== msp.enum.ECOSYSTEM) {
+                item = msp.e('input', attr, item);
+            }
+            self.elements.rules.append(item);
+            self.elements.rules.append(msp.e('br'));
+        });
         $(self.selectors.rules + ' :checkbox').change(function () {
             // send message rule activity changed?
             var rule_id = parseInt($(this).attr('rule'), 10),
@@ -390,30 +387,33 @@ msp.View.prototype = {
             });
         }
     },
-    siteInteraction: function (source) {
+    queryInteraction: function (source) {
         var self = this,
-            typeSelect = self.elements.site_type[0];
-        $(typeSelect).val('');
-        self.elements.site_info.html('');
-        typeSelect.onchange = (function addInteraction() {
-            var value = typeSelect.value;
+            toolSelect = self.elements.query_tool[0];
+        if (!toolSelect) {
+            return;
+        }
+        $(toolSelect).val('');
+        self.elements.query_result.html('');
+        toolSelect.onchange = (function addInteraction() {
+            var tool = toolSelect.value;
             self.model.removeInteraction(self.draw);
             self.draw = {key: null, draw: null, source: null};
-            if (value === 'Polygon') {
+            if (tool === 'Polygon') {
                 self.draw.draw = new ol.interaction.Draw({
                     source: source,
-                    type: value
+                    type: tool
                 });
                 self.model.addInteraction(self.draw);
                 self.draw.draw.on('drawstart', function () {
                     source.clear();
                 });
-            } else if (value === 'Point') {
+            } else if (tool === 'Point') {
                 self.draw.source = source;
                 self.draw.key = self.model.addInteraction(self.draw);
             } else {
                 source.clear();
-                self.elements.site_info.html('');
+                self.elements.query_result.html('');
             }
             return addInteraction;
         }());

@@ -37,17 +37,17 @@ body {
     padding: 0px 0px 0px 0px;
 }
 
-#useslist ul {
+#uses ul {
     list-style: none; /* Remove list bullets */
     padding: 0px 0px 0px 0px;
     margin: 0px;
 }
 
-#useslist div.use {
+#uses div.use {
     margin-left: 10px;
 }
 
-#useslist li > span {
+#uses li > span {
     cursor: pointer;
 }
 

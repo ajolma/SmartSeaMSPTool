@@ -36,6 +36,34 @@ DAMAGE.
         right = msp.find(rules, 'selectorText', /^\.right/),
         config;
     msp.layoutRightWidth = parseInt(/(\d+)/.exec(right.style.width)[0], 10);
+    if (navigator.languages) {
+        msp.lang = navigator.languages[0];
+    } else if (navigator.language || navigator.userLanguage) {
+        msp.lang = navigator.language || navigator.userLanguage;
+    }
+    if (msp.lang) {
+        msp.lang = msp.lang.match(/^(\w+)/);
+        if (msp.lang) {
+            msp.lang = msp.lang[0];
+        } else {
+            msp.lang = '';
+        }
+    }
+    if (msp.lang === 'fi') {
+        $('#plan-title').html('Suunnitelma');
+        $('#use-title').html('Alueiden käyttö');
+        $('#bg-title').html('Taustakartta');
+        $('#layer-title').html('Valittu taso');
+        $('#query-tool-title').html('Kyselytyökalu');
+        $('#legend-title').html('Legenda');
+    } else {
+        $('#plan-title').html('Plan');
+        $('#use-title').html('Uses');
+        $('#bg-title').html('Background map');
+        $('#layer-title').html('Selected layer');
+        $('#query-tool-title').html('Query tool');
+        $('#legend-title').html('Legend');
+    }
     config = new msp.Config({
         bootstrap: function () {
             var map = new ol.Map({
@@ -56,20 +84,16 @@ DAMAGE.
                     elements: {
                         map: $('#map'),
                         user: $('#user'),
-                        plan: $('#plan'),
-                        plan_menu: $('#plan-menu'),
                         plans: $('#plans'),
-                        layers: $('#layers'),
-                        rule_header: $('#rule-header'),
-                        rule_info: $('#rule-info'),
+                        uses: $('#uses-list'),
+                        layer_info: $('#layer-info'),
                         rules: $('#rules'),
-                        site: $('#explain-site'),
-                        site_type: $('#site-type'),
-                        site_info: $('#site-info'),
+                        query_tool: $('#query-tool'),
+                        query_result: $('#query-result'),
                         legend: $('#legend')
                     },
                     selectors: {
-                        uses: '#useslist',
+                        uses: '#uses',
                         rules: '#rules'
                     }
                 }),

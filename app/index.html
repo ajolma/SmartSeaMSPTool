@@ -31,65 +31,65 @@
         </div>
         <div class="right">
           <a href="http://smartsea.fmi.fi"><img src="img/smartsea_logo.png" /></a>
-          
+
           <div id="main-menu">
             <img src="img/open-menu.png" data-hilite-src="img/open-menu-hilite.png" class="main-menu" />
           </div>
           <ul class="menu" id="main-menu-ul"></ul>
-          
-          <br />MSP tool demonstration
+
+          <br>MSP tool demonstration
           <form class="form-inline">
 
             <div id="user"></div>
-            <br/><div id="plan"><b class="context-menu">Plan: </b></div><ul class="menu" id="plan-menu"></ul>
+            
+            <h3><div id="plan-title"></div></h3>
             <select name="plan" id="plans">initial</select>
-            <div id="plan-owner"></div><br />
+            <div id="plan-owner"></div>
+            
+            <h3><div id="use-title"></div></h3>
+            <div id="uses"><ul id="uses-list"></ul></div>
 
-            <div id="useslist">
-              <ul id=layers></ul>
-            </div>
-            <select id="bg-map">
-            </select>
+            <h3><div id="bg-title"></div></h3>
+            <select id="bg-map"></select>
 
-            <br/><b><div id="rule-header" style="display:inline;"></div></b>
-            <br /><div id="rule-info" style="display:inline;"></div><br/>
+            <h3><div id="layer-title"></div></h3>
+            
+            <div id="layer-info"></div>
             <div id="rules" style="overflow-y:scroll; max-height:350px; background-color:#c7ecfe;"></div>
-            
-            <br/>
-            <label><b>Explain site</b> <div id="explain-site" style="display:inline;"></div></label><br/>
-            <select id="site-type">
+
+            <!--
+            <br><b><div id="query-tool-title"></div></b>
+            <select id="query-tool">
               <option value=""></option>
               <option value="Point">Point</option>
               <option value="Polygon">Polygon</option>
             </select>
-          
-            <div id="site-info">
-            </div>
+            <div id="query-result"></div>
+            -->
 
-            <br/>
-            <div id="legend">
-            </div>
+            <br><b><div id="legend-title"></div></b>
+            <div id="legend"></div>
+
+            <!--
+                <br>
+                <label><b>Impacts</b></label><br>
+                <select id="impact_geom_type">
+                  <option value=""></option>
+                  <option value="Point">Point</option>
+                  <option value="Polygon">Polygon</option>
+                </select>
+                <br>
+                <div style="background-color: #55ff55">
+                  Compute here impacts (pros, cons) for selected plan and selected point/area.
+                </div>
+                -->
             
             <!--
-            <br/>
-            <label><b>Impacts</b></label><br/>
-            <select id="impact_geom_type">
-              <option value=""></option>
-              <option value="Point">Point</option>
-              <option value="Polygon">Polygon</option>
-            </select>
-            <br/>
-            <div style="background-color: #55ff55">
-            Compute here impacts (pros, cons) for selected plan and selected point/area.
-            </div>
-            -->
-
-            <br/><br/>
-            <!--
-            <div style="background-color: yellow">
-            <b>Please note! This is work-in-progress and not for the public.</b>
-            -->
-            </div>
+                <br><br>
+                <div style="background-color: yellow">
+                  <b>Please note! This is work-in-progress and not for the public.</b>
+                </div>
+                -->
           </form>
 
         </div>
@@ -103,15 +103,15 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.2.1/proj4.js"></script>
     <script src="https://epsg.io/3067.js"></script>
-    
+
     <link rel="stylesheet" href="css/ol.css" type="text/css">
     <script src="https://openlayers.org/en/v3.11.1/build/ol.js"></script>
 
     <script src="js/polyfill.js" type="text/javascript"></script>
     <!--
     <script src="js/msp.js" type="text/javascript"></script>
-    -->    
-    
+    -->
+
     <script src="js/util.js" type="text/javascript"></script>
     <script src="js/projection.js" type="text/javascript"></script>
     <script src="js/config.js" type="text/javascript"></script>
@@ -123,6 +123,6 @@
     <script src="js/rule_editor.js" type="text/javascript"></script>
     <script src="js/editor.js" type="text/javascript"></script>
     <script src="js/main.js" type="text/javascript"></script>
-    
+
   </body>
 </html>

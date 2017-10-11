@@ -29,12 +29,6 @@ DAMAGE.
 'use strict';
 /*global $, ol, msp*/
 
-msp.strings = {
-    THIS_IS_A_LAYER: function (a, b) {
-        return 'This is a layer made by ' + a + ' rules and defined by ' + b + '.';
-    }
-};
-
 msp.useClass = function (use) {
     if (!use) {
         return undefined;
@@ -172,33 +166,71 @@ msp.Layer.prototype = {
             header,
             body = '';
         if (self.useClass() === msp.enum.DATA) {
-            header = 'Dataset.';
-            body = self.provenance;
+            if (msp.lang === 'fi') {
+                header = 'Tausta-aineisto ';
+            } else {
+                header = 'Dataset ';
+            }
+            header += self.name;
+            body = self.descr || ''; //self.provenance;
         } else if (self.useClass() === msp.enum.ECOSYSTEM) {
             header = 'Ecosystem component.';
         } else {
-            header = msp.strings.THIS_IS_A_LAYER(self.rule_class, self.owner);
+            header = self.use.name + ' -> ' + self.name;
+            if (msp.lang === 'fi') {
+                body = 'Tämä taso on luotu \'' + self.rule_class + '\' säännöillä. ';
+            } else {
+                body = 'This layer is made by \'' + self.rule_class + '\' rules. ';
+            }
             if (self.rule_class === msp.enum.EXCLUSIVE) {
-                body = 'Default is YES, rules subtract.';
+                if (msp.lang === 'fi') {
+                    body += 'Tulos on TOSI, paitsi jos jokin sääntö on TOSI.';
+                } else {
+                    body += 'The result is TRUE, unless a rule is TRUE.';
+                }
             } else if (self.rule_class === msp.enum.INCLUSIVE) {
-                body = 'Default is NO, rules add.';
+                if (msp.lang === 'fi') {
+                    body += 'Tulos on EPÄTOSI, paitsi jos jokin sääntö on TOSI.';
+                } else {
+                    body += 'The result is FALSE, unless a rule is TRUE.';
+                }
             } else if (self.rule_class === msp.enum.MULTIPLICATIVE) {
-                body = 'Value is a product of rules.';
+                if (msp.lang === 'fi') {
+                    body += 'Tulos on sääntöjen tulo.';
+                } else {
+                    body += 'Result is a product of the rules.';
+                }
             } else if (self.rule_class === msp.enum.ADDITIVE) {
-                body = 'Value is a sum of rules.';
+                if (msp.lang === 'fi') {
+                    body += 'Tulos on sääntöjen painotettu summa.';
+                } else {
+                    body += 'Result is a weighted sum of the rules.';
+                }
             } else if (self.rule_class === msp.enum.BOXCAR) {
-                body = 'Value is a product of rules.';
+                if (msp.lang === 'fi') {
+                    body += 'Tulos on sääntöjen painotettu summa.';
+                } else {
+                    body += 'Result is a weighted sum of the rules.';
+                }
             } else if (self.rule_class === msp.enum.BAYESIAN_NETWORK) {
                 if (self.network) {
-                    body = msp.e('img', {
+                    if (msp.lang === 'fi') {
+                        body += 'Tulos on solmun ' + self.output_node.name + ', tile ' + self.output_state;
+                    } else {
+                        body += 'Output is from node ' + self.output_node.name + ', state ' + self.output_state;
+                    }
+                    body += msp.e('img', {
                         src: url + '/networks?name=' + self.network.name + '&accept=jpeg',
                         width: msp.layoutRightWidth,
-                    }, '') +
-                        '<br/>' + 'Output is from node ' + self.output_node.name + ', state ' + self.output_state;
+                    }, '') + '<br/>' + body;
                 } else {
-                    body = 'Bayesian network rules are not available.';
+                    if (msp.lang === 'fi') {
+                        body += 'Bayes-verkot eivät ole käytettävissä';
+                    } else {
+                        body += 'Bayesian network rules are not available.';
+                    }
                 }
-            }
+            }   
         }
         return {
             header: header,

@@ -49,7 +49,7 @@ msp.Model = function (args) {
     self.map = args.map;
     self.firstPlan = args.firstPlan;
 
-    self.site = null; // layer showing selected location or area
+    self.query = null; // layer showing selected location or area
     self.plans = null;
     // pseudo uses
     self.ecosystem = null;
@@ -68,8 +68,8 @@ msp.Model = function (args) {
     self.layerSelected = new msp.Event(self);
     self.layerUnselected = new msp.Event(self);
     self.rulesChanged = new msp.Event(self);
-    self.siteInitialized = new msp.Event(self);
-    self.siteInformationReceived = new msp.Event(self);
+    self.queryInitialized = new msp.Event(self);
+    self.queryResultReceived = new msp.Event(self);
 
 };
 
@@ -91,8 +91,7 @@ msp.Model.prototype = {
             self.firstPlan = self.plan.id;
         }
         self.removeLayers();
-        self.removeSite();
-        self.initSite();
+        self.removeQueryLayer();
    
         plan = data.find(function (plan) {
             return plan.name === msp.enum.DATA;
@@ -156,6 +155,7 @@ msp.Model.prototype = {
         
         self.newPlans.notify();
         self.changePlan(self.firstPlan);
+        self.initQueryLayer();
     },
     planByName: function (name) {
         var self = this;
@@ -177,7 +177,7 @@ msp.Model.prototype = {
         self.plans.unshift(plan);
         self.changePlan(plan.id);
         self.newPlans.notify();
-        self.initSite();
+        self.initQueryLayer();
     },
     editPlan: function (data) {
         var self = this,
@@ -192,7 +192,7 @@ msp.Model.prototype = {
         if (plan) {
             self.newPlans.notify();
             self.changePlan(plan.id);
-            self.initSite();
+            self.initQueryLayer();
         }
     },
     setPlanData: function (data) {
@@ -208,7 +208,7 @@ msp.Model.prototype = {
             plans = [],
             i;
         self.removeLayers();
-        self.removeSite();
+        self.removeQueryLayer();
         for (i = 0; i < self.plans.length; i += 1) {
             if (self.plans[i].id !== id) {
                 plans.push(self.plans[i]);
@@ -223,7 +223,7 @@ msp.Model.prototype = {
             self.changePlan(self.firstPlan);
         }
         self.newPlans.notify();
-        self.initSite();
+        self.initQueryLayer();
     },
     datasetsInRules: function () {
         var self = this,
@@ -358,7 +358,7 @@ msp.Model.prototype = {
     },
     createLayers: function () {
         var self = this;
-        self.removeSite();
+        self.removeQueryLayer();
         // reverse order to show in correct order, slice to not to mutate
         $.each(self.plan.uses.slice().reverse(), function (i, use) {
             $.each(use.layers.slice().reverse(), function (j, layer) {
@@ -368,7 +368,7 @@ msp.Model.prototype = {
             });
         });
         self.newLayerList.notify();
-        self.addSite();
+        self.addQueryLayer();
     },
     addLayer: function (layer) {
         var self = this;
@@ -459,7 +459,7 @@ msp.Model.prototype = {
         self.selectLayer(self.layer);
         self.rulesChanged.notify();
     },
-    initSite: function () {
+    initQueryLayer: function () {
         var self = this,
             source;
         if (!(self.map && self.plan)) {
@@ -487,13 +487,13 @@ msp.Model.prototype = {
             $.ajax({
                 url: self.serverURL() + '/explain?' + query
             }).done(function (data) {
-                self.siteInformationReceived.notify(data);
+                self.queryResultReceived.notify(data);
             });
         });
-        if (self.site) {
-            self.map.removeLayer(self.site);
+        if (self.query) {
+            self.map.removeLayer(self.query);
         }
-        self.site = new ol.layer.Vector({
+        self.query = new ol.layer.Vector({
             source: source,
             style: new ol.style.Style({
                 fill: new ol.style.Fill({
@@ -511,19 +511,19 @@ msp.Model.prototype = {
                 })
             })
         });
-        self.map.addLayer(self.site);
-        self.siteInitialized.notify({source: source});
+        self.map.addLayer(self.query);
+        self.queryInitialized.notify({source: source});
     },
-    removeSite: function () {
+    removeQueryLayer: function () {
         var self = this;
-        if (self.site) {
-            self.map.removeLayer(self.site);
+        if (self.query) {
+            self.map.removeLayer(self.query);
         }
     },
-    addSite: function () {
+    addQueryLayer: function () {
         var self = this;
-        if (self.site) {
-            self.map.addLayer(self.site);
+        if (self.query) {
+            self.map.addLayer(self.query);
         }
     },
     removeInteraction: function (draw) {
